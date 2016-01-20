@@ -70,15 +70,16 @@ private:
 	};
 
 public:
-	void InitTrainer(int nNumofTree, int nMaxDepth);
+	void InitTrainer(int nNumofTree, int nMaxDepth, float fLabda, float fGamma);
 	void TrainGBDT(vector<vector<float> > &v_vInstance, vector<float> &v_fLabel, vector<RegTree> &v_Tree);
+	void SaveModel(string fileName, const vector<RegTree> &v_Tree);
 
 protected:
 	void InitTree(RegTree &tree);
 	void GrowTree(RegTree &tree);
 
 private:
-	void ComputeGD(vector<float> &v_fPredValue, vector<gdpair> &v_gdpair);
+	void ComputeGD(vector<float> &v_fPredValue);
 	void CreateNode();
 	float ComputeGain(float fSplitValue, int featureId, int dataStartId, int dataEndId);
 	void ComputeWeight(TreeNode &node);

@@ -15,17 +15,25 @@
 /*
  * @brief: initialise constants of a trainer
  */
-void Trainer::InitTrainer(int nNumofTree, int nMaxDepth)
+void Trainer::InitTrainer(int nNumofTree, int nMaxDepth, float fLabda, float fGamma)
 {
 	m_nMaxNumofTree = nNumofTree;
 	m_nMaxDepth = nMaxDepth;
+	m_labda = fLabda;
+	m_gamma = fGamma;
+
 	//initialise the prediction buffer
 	for(int i = 0; i < (int)m_vvInstance.size(); i++)
 	{
-		m_vPredBuffer[i] = 0;
+		m_vPredBuffer.push_back(0);
+		gdpair gd;
+		m_vGDPair.push_back(gd);
 	}
 }
 
+/**
+ * @brief: training GBDTs
+ */
 void Trainer::TrainGBDT(vector<vector<float> > &v_vInstance, vector<float> &v_fLabel, vector<RegTree> & vTree)
 {
 	assert(v_vInstance.size() > 0);
@@ -41,12 +49,11 @@ void Trainer::TrainGBDT(vector<vector<float> > &v_vInstance, vector<float> &v_fL
 		InitTree(tree);
 
 		//predict the data by the existing trees
-		vector<vector<float> > v_vInstance;
 		vector<float> v_fPredValue;
-		pred.Predict(v_vInstance, vTree, v_fPredValue, m_vPredBuffer);
+		pred.Predict(m_vvInstance, vTree, v_fPredValue, m_vPredBuffer);
 
 		//compute gradient
-		ComputeGD(v_fPredValue, m_vGDPair);
+		ComputeGD(v_fPredValue);
 
 		//grow the tree
 		GrowTree(tree);
@@ -54,6 +61,14 @@ void Trainer::TrainGBDT(vector<vector<float> > &v_vInstance, vector<float> &v_fL
 		//save the tree
 		vTree.push_back(tree);
 	}
+}
+
+/**
+ * @brief: save the trained model to a file
+ */
+void Trainer::SaveModel(string fileName, const vector<RegTree> &v_Tree)
+{
+
 }
 
 /**
@@ -75,13 +90,13 @@ void Trainer::InitTree(RegTree &tree)
 /**
  * @brief: compute the first order gradient and the second order gradient
  */
-void Trainer::ComputeGD(vector<float> &v_fPredValue, vector<gdpair> &v_gdpair)
+void Trainer::ComputeGD(vector<float> &v_fPredValue)
 {
 	int nTotal = m_vTrueValue.size();
 	for(int i = 0; i < nTotal; i++)
 	{
-		v_gdpair[i].grad = m_vTrueValue[i] - v_fPredValue[i];
-		v_gdpair[i].hess = 1;
+		m_vGDPair[i].grad = m_vTrueValue[i] - v_fPredValue[i];
+		m_vGDPair[i].hess = 1;
 	}
 }
 
@@ -215,13 +230,6 @@ void Trainer::SplitNode(TreeNode &node, vector<TreeNode*> &newSplittableNode, Sp
 {
 	TreeNode *leftChild = new TreeNode, *rightChild = new TreeNode;
 
-	//node IDs
-	node.leftChildId = m_nNumofNode;
-	node.rightChildId = m_nNumofNode + 1;
-	m_nNumofNode += 2;
-
-	leftChild->parentId = node.nodeId;
-	rightChild->parentId = node.nodeId;
 
 	//re-organise gd vector
 	int leftChildEndId = Partition(sp, node.startId, node.endId);
@@ -237,6 +245,14 @@ void Trainer::SplitNode(TreeNode &node, vector<TreeNode*> &newSplittableNode, Sp
 
 	tree.nodes.push_back(*leftChild);
 	tree.nodes.push_back(*rightChild);
+
+	//node IDs. CAUTION: This part must be written here, because "union" is used for variables in nodes.
+	node.leftChildId = m_nNumofNode;
+	node.rightChildId = m_nNumofNode + 1;
+	m_nNumofNode += 2;
+
+	leftChild->parentId = node.nodeId;
+	rightChild->parentId = node.nodeId;
 }
 
 /**

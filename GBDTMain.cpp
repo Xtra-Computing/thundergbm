@@ -14,19 +14,24 @@ int main()
 	/********* read training instances from a file **************/
 	vector<vector<float_point> > v_vInstance;
 	vector<float_point> v_fLabel;
-	string strFileName;
+	string strFileName = "data/abalone.txt";
 	int nNumofFeatures;
 	int nNumofExamples;
 
 	LibSVMDataReader dataReader;
+	dataReader.GetDataInfo(strFileName, nNumofFeatures, nNumofExamples);
 	dataReader.ReadLibSVMDataFormat(v_vInstance, v_fLabel, strFileName, nNumofFeatures, nNumofExamples);
 
 	/********* run the GBDT learning process ******************/
 	vector<RegTree> v_Tree;
 	Trainer trainer;
-	int nNumofTree = 1;
+	trainer.m_vvInstance = v_vInstance;
+	trainer.m_vTrueValue = v_fLabel;
+	int nNumofTree = 2;
 	int nMaxDepth = 2;
-	trainer.InitTrainer(nNumofTree, nMaxDepth);
+	float fLabda = 1;
+	float fGamma = 1;
+	trainer.InitTrainer(nNumofTree, nMaxDepth, 1, 1);
 	trainer.TrainGBDT(v_vInstance, v_fLabel, v_Tree);
 
 	//read testing instances from a file

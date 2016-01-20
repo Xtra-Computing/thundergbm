@@ -22,7 +22,7 @@ void Predictor::Predict(vector<vector<float> > &v_vInstance, vector<RegTree> &vT
 		float fValue = v_predBuffer[i];
 
 		//prediction using the last tree
-		for(int t = nNumofTree - 1; t < nNumofTree; t++)
+		for(int t = nNumofTree - 1; t >= 0 && t < nNumofTree; t++)
 		{
 			int nodeId = vTree[t].GetLeafIndex(v_vInstance[i]);
 			fValue += vTree[t][nodeId].predValue;

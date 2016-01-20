@@ -29,7 +29,9 @@ public:
 	~LibSVMDataReader(){}
 
 	void ReadLibSVMDataFormat(vector<vector<float_point> > &v_vSample, vector<float_point> &v_fValue,
-										  string strFileName, int nNumofFeatures, int nNumofSamples);
+							  string strFileName, int nNumofFeatures, int nNumofInstance);
+
+	void GetDataInfo(string strFileName, int &nNumofFeatures, int &nNumofInstance);
 };
 
 #endif /* TRAININGDATAIO_H_ */
