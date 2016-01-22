@@ -12,8 +12,8 @@
 int main()
 {
 	/********* read training instances from a file **************/
-	vector<vector<float_point> > v_vInstance;
-	vector<float_point> v_fLabel;
+	vector<vector<double> > v_vInstance;
+	vector<double> v_fLabel;
 	string strFileName = "data/abalone.txt";
 	int nNumofFeatures;
 	int nNumofExamples;
@@ -31,8 +31,9 @@ int main()
 	int nMaxDepth = 2;
 	float fLabda = 1;
 	float fGamma = 1;
-	trainer.InitTrainer(nNumofTree, nMaxDepth, 1, 1);
+	trainer.InitTrainer(nNumofTree, nMaxDepth, fLabda, fGamma);
 	trainer.TrainGBDT(v_vInstance, v_fLabel, v_Tree);
+	trainer.SaveModel("tree.txt", v_Tree);
 
 	//read testing instances from a file
 

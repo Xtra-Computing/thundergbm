@@ -20,7 +20,7 @@ using std::cerr;
 using std::endl;
 using std::cout;
 
-typedef float float_point;
+typedef double float_point;
 
 class LibSVMDataReader
 {

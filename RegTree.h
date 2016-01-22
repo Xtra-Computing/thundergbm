@@ -17,8 +17,8 @@ using std::vector;
 class RegTree
 {
 public:
-	vector<TreeNode> nodes;
-	inline TreeNode &operator[](int nid)
+	vector<TreeNode*> nodes;
+	inline TreeNode* &operator[](int nid)
 	{
 	    return nodes[nid];
 	}
@@ -69,7 +69,7 @@ public:
     }
   };
 
-  int GetLeafIndex(vector<float> &ins);
+  int GetLeafIndex(vector<double> &ins);
 
 //  /*!
 //   * \brief get the prediction of regression tree, only accepts dense feature vector

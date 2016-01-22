@@ -22,6 +22,7 @@ public:
 
 	int parentId;
 	int nodeId;
+	int level;
 
 	union{
 		int leftChildId;
@@ -41,12 +42,13 @@ public:
 		fSplitValue = -1;
 		parentId = -1;
 		nodeId = -1;
+		level = -1;
 		leftChildId = -1;
 		rightChildId = -1;
 	}
 
 
-	bool isLeaf();
+	bool isLeaf() const;
 	int GetNext(float feaValue);
 };
 

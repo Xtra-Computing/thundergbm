@@ -11,7 +11,7 @@
 #include "Predictor.h"
 
 
-void Predictor::Predict(vector<vector<float> > &v_vInstance, vector<RegTree> &vTree, vector<float> &v_fPredValue, vector<float> &v_predBuffer)
+void Predictor::Predict(vector<vector<double> > &v_vInstance, vector<RegTree> &vTree, vector<double> &v_fPredValue, vector<double> &v_predBuffer)
 {
 	//for each tree
 	int nNumofTree = vTree.size();
@@ -19,13 +19,13 @@ void Predictor::Predict(vector<vector<float> > &v_vInstance, vector<RegTree> &vT
 
 	for(int i = 0; i < nNumofIns; i++)
 	{
-		float fValue = v_predBuffer[i];
+		double fValue = v_predBuffer[i];
 
 		//prediction using the last tree
 		for(int t = nNumofTree - 1; t >= 0 && t < nNumofTree; t++)
 		{
 			int nodeId = vTree[t].GetLeafIndex(v_vInstance[i]);
-			fValue += vTree[t][nodeId].predValue;
+			fValue += vTree[t][nodeId]->predValue;
 		}
 
 		v_fPredValue.push_back(fValue);

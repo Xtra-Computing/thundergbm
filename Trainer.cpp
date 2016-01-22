@@ -7,15 +7,20 @@
  */
 
 #include <assert.h>
+#include <iostream>
 
 #include "Trainer.h"
 #include "Predictor.h"
 #include "TreeNode.h"
+#include "PrintTree.h"
+
+using std::cout;
+using std::endl;
 
 /*
  * @brief: initialise constants of a trainer
  */
-void Trainer::InitTrainer(int nNumofTree, int nMaxDepth, float fLabda, float fGamma)
+void Trainer::InitTrainer(int nNumofTree, int nMaxDepth, double fLabda, double fGamma)
 {
 	m_nMaxNumofTree = nNumofTree;
 	m_nMaxDepth = nMaxDepth;
@@ -34,7 +39,7 @@ void Trainer::InitTrainer(int nNumofTree, int nMaxDepth, float fLabda, float fGa
 /**
  * @brief: training GBDTs
  */
-void Trainer::TrainGBDT(vector<vector<float> > &v_vInstance, vector<float> &v_fLabel, vector<RegTree> & vTree)
+void Trainer::TrainGBDT(vector<vector<double> > &v_vInstance, vector<double> &v_fLabel, vector<RegTree> & vTree)
 {
 	assert(v_vInstance.size() > 0);
 	assert(v_vInstance[0].size() > 0);
@@ -49,8 +54,10 @@ void Trainer::TrainGBDT(vector<vector<float> > &v_vInstance, vector<float> &v_fL
 		InitTree(tree);
 
 		//predict the data by the existing trees
-		vector<float> v_fPredValue;
+		vector<double> v_fPredValue;
 		pred.Predict(m_vvInstance, vTree, v_fPredValue, m_vPredBuffer);
+
+		//PrintPrediction(v_fPredValue);
 
 		//compute gradient
 		ComputeGD(v_fPredValue);
@@ -60,6 +67,18 @@ void Trainer::TrainGBDT(vector<vector<float> > &v_vInstance, vector<float> &v_fL
 
 		//save the tree
 		vTree.push_back(tree);
+//		PrintTree(tree);
+	}
+
+
+}
+
+void Trainer::PrintTree(const RegTree &tree)
+{
+	int nNumofNode = tree.nodes.size();
+	for(int i = 0; i < nNumofNode; i++)
+	{
+		cout << "node id " << tree.nodes[i]->nodeId << "\n";
 	}
 }
 
@@ -68,6 +87,15 @@ void Trainer::TrainGBDT(vector<vector<float> > &v_vInstance, vector<float> &v_fL
  */
 void Trainer::SaveModel(string fileName, const vector<RegTree> &v_Tree)
 {
+	TreePrinter printer;
+	printer.m_writeOut.open(fileName.c_str());
+
+	int nNumofTree = v_Tree.size();
+	for(int i = 0; i < nNumofTree; i++)
+	{
+		printer.m_writeOut << "booster[" << i << "]:\n";
+		printer.PrintTree(v_Tree[i]);
+	}
 
 }
 
@@ -76,13 +104,14 @@ void Trainer::SaveModel(string fileName, const vector<RegTree> &v_Tree)
  */
 void Trainer::InitTree(RegTree &tree)
 {
-	TreeNode root;
+	TreeNode *root = new TreeNode;
 	m_nNumofNode = 1;
-	root.nodeId = 0;
+	root->nodeId = 0;
+	root->level = 0;
 
 	//initialise the range of instances that are covered by this node
-	root.startId = 0;
-	root.endId = m_vvInstance.size() - 1;
+	root->startId = 0;
+	root->endId = m_vvInstance.size() - 1;
 
 	tree.nodes.push_back(root);
 }
@@ -90,12 +119,12 @@ void Trainer::InitTree(RegTree &tree)
 /**
  * @brief: compute the first order gradient and the second order gradient
  */
-void Trainer::ComputeGD(vector<float> &v_fPredValue)
+void Trainer::ComputeGD(vector<double> &v_fPredValue)
 {
 	int nTotal = m_vTrueValue.size();
 	for(int i = 0; i < nTotal; i++)
 	{
-		m_vGDPair[i].grad = m_vTrueValue[i] - v_fPredValue[i];
+		m_vGDPair[i].grad = v_fPredValue[i] - m_vTrueValue[i];
 		m_vGDPair[i].hess = 1;
 	}
 }
@@ -110,7 +139,7 @@ void Trainer::GrowTree(RegTree &tree)
 	vector<TreeNode*> splittableNode;
 	for(int i = 0; i < int(tree.nodes.size()); i++)
 	{
-		splittableNode.push_back(&tree.nodes[i]);
+		splittableNode.push_back(tree.nodes[i]);
 		m_nNumofSplittableNode++;
 	}
 
@@ -130,8 +159,8 @@ void Trainer::GrowTree(RegTree &tree)
 
 				for(int i = splittableNode[n]->startId; i <= splittableNode[n]->endId; i++)
 				{//for each value in the node
-					float fSplitValue = m_vvInstance[i][f];
-					float fGain = ComputeGain(fSplitValue, f, splittableNode[n]->startId, splittableNode[n]->endId);
+					double fSplitValue = m_vvInstance[i][f];
+					double fGain = ComputeGain(fSplitValue, f, splittableNode[n]->startId, splittableNode[n]->endId);
 
 					//update the split point (only better gain has effect on the update)
 					bestSplit.UpdateSplitPoint(fGain, fSplitValue, f);
@@ -139,7 +168,7 @@ void Trainer::GrowTree(RegTree &tree)
 			}
 
 			//mark the node as a leaf node if (1) the gain is negative or (2) the tree reaches maximum depth.
-			if(bestSplit.m_fGain < 0 || m_nMaxDepth == nCurDepth)
+			if(bestSplit.m_fGain <= 0 || m_nMaxDepth == nCurDepth)
 			{
 				//compute weight of leaf nodes
 				ComputeWeight(*splittableNode[n]);
@@ -147,7 +176,7 @@ void Trainer::GrowTree(RegTree &tree)
 			else
 			{
 				//split the current node
-				SplitNode(*splittableNode[n], newSplittableNode, bestSplit, tree);
+				SplitNode(splittableNode[n], newSplittableNode, bestSplit, tree);
 			}
 		}
 
@@ -164,11 +193,11 @@ void Trainer::GrowTree(RegTree &tree)
 /**
  * @brief: compute the gain of a split
  */
-float Trainer::ComputeGain(float fSplitValue, int featureId, int dataStartId, int dataEndId)
+double Trainer::ComputeGain(double fSplitValue, int featureId, int dataStartId, int dataEndId)
 {
 	//compute total gradient
-	float firstGD_sum = 0;
-	float secondGD_sum = 0;
+	double firstGD_sum = 0;
+	double secondGD_sum = 0;
 	for(int i = dataStartId; i <= dataEndId; i++)
 	{
 		firstGD_sum += m_vGDPair[i].grad;
@@ -176,10 +205,10 @@ float Trainer::ComputeGain(float fSplitValue, int featureId, int dataStartId, in
 	}
 
 	//compute the gradient of children
-	float firstGD_sum_l = 0;
-	float firstGD_sum_r = 0;
-	float secondGD_sum_l = 0;
-	float secondGD_sum_r = 0;
+	double firstGD_sum_l = 0.0;
+	double firstGD_sum_r = 0.0;
+	double secondGD_sum_l = 0;
+	double secondGD_sum_r = 0;
 	for(int i = dataStartId; i <= dataEndId; i++)
 	{
 		if(m_vvInstance[i][featureId] < fSplitValue)
@@ -198,7 +227,7 @@ float Trainer::ComputeGain(float fSplitValue, int featureId, int dataStartId, in
 	assert(secondGD_sum == secondGD_sum_l + secondGD_sum_r);
 
 	//compute the gain
-	float fGain = (firstGD_sum_l * firstGD_sum_l)/(secondGD_sum_l + m_labda) +
+	double fGain = (firstGD_sum_l * firstGD_sum_l)/(secondGD_sum_l + m_labda) +
 				  (firstGD_sum_r * firstGD_sum_r)/(secondGD_sum_r + m_labda) -
 				  (firstGD_sum * firstGD_sum)/(secondGD_sum + m_labda);
 	fGain = fGain * 0.5 - m_gamma;
@@ -212,7 +241,7 @@ float Trainer::ComputeGain(float fSplitValue, int featureId, int dataStartId, in
 void Trainer::ComputeWeight(TreeNode &node)
 {
 	int startId = node.startId, endId = node.endId;
-	float sum_gd = 0, sum_hess = 0;
+	double sum_gd = 0, sum_hess = 0;
 
 	for(int i = startId; i <= endId; i++)
 	{
@@ -226,33 +255,46 @@ void Trainer::ComputeWeight(TreeNode &node)
 /**
  * @brief: split a node
  */
-void Trainer::SplitNode(TreeNode &node, vector<TreeNode*> &newSplittableNode, SplitPoint &sp, RegTree &tree)
+void Trainer::SplitNode(TreeNode *node, vector<TreeNode*> &newSplittableNode, SplitPoint &sp, RegTree &tree)
 {
-	TreeNode *leftChild = new TreeNode, *rightChild = new TreeNode;
+	TreeNode *leftChild = new TreeNode[1];
+	TreeNode *rightChild = new TreeNode[1];
 
 
 	//re-organise gd vector
-	int leftChildEndId = Partition(sp, node.startId, node.endId);
+	int leftChildEndId = Partition(sp, node->startId, node->endId);
 
+	leftChild->startId = node->startId;
 	leftChild->endId = leftChildEndId;
-	leftChild->startId = node.startId;
 
-	rightChild->endId = node.endId;
 	rightChild->startId = leftChildEndId + 1;
+	rightChild->endId = node->endId;
+
+	leftChild->nodeId = m_nNumofNode;
+	leftChild->parentId = node->nodeId;
+	rightChild->nodeId = m_nNumofNode + 1;
+	rightChild->parentId = node->nodeId;
 
 	newSplittableNode.push_back(leftChild);
 	newSplittableNode.push_back(rightChild);
 
-	tree.nodes.push_back(*leftChild);
-	tree.nodes.push_back(*rightChild);
+	tree.nodes.push_back(leftChild);
+	tree.nodes.push_back(rightChild);
 
 	//node IDs. CAUTION: This part must be written here, because "union" is used for variables in nodes.
-	node.leftChildId = m_nNumofNode;
-	node.rightChildId = m_nNumofNode + 1;
+	node->leftChildId = leftChild->nodeId;
+	node->rightChildId = rightChild->nodeId;
+	node->featureId = sp.m_nFeatureId;
+	node->fSplitValue = sp.m_fSplitValue;
+
 	m_nNumofNode += 2;
 
-	leftChild->parentId = node.nodeId;
-	rightChild->parentId = node.nodeId;
+	leftChild->parentId = node->nodeId;
+	rightChild->parentId = node->nodeId;
+	leftChild->level = node->level + 1;
+	rightChild->level = node->level + 1;
+
+	cout << "node " << node->nodeId << " split to " << leftChild->nodeId << " and " << rightChild->nodeId << endl;
 }
 
 /**
@@ -261,32 +303,71 @@ void Trainer::SplitNode(TreeNode &node, vector<TreeNode*> &newSplittableNode, Sp
  */
 int Trainer::Partition(SplitPoint &sp, int startId, int endId)
 {
-	int end = endId;
-	float fPivot = sp.m_fSplitValue;
+	bool bPrint = false;
+	int middle = endId;
+	double fPivot = sp.m_fSplitValue;
 	int fId = sp.m_nFeatureId;
-	for(int i = startId; i < end; i++)
+	for(int i = startId; i < middle; i++)
 	{
-		while(m_vvInstance[end][fId] >= fPivot)
-			end--;
+		while(m_vvInstance[middle][fId] >= fPivot)
+		{
+			if(middle == 0)
+				break;
+			middle--;
+		}
 
-		if(i >= end)
+		if(i > middle)
+		{
+			bPrint = true;
+			//cout << i << " v.s. " << startId << " : " << end << "; " << sp.m_fSplitValue << " v.s. " << m_vvInstance[i][fId] << " : " << m_vvInstance[end][fId] << endl;
+		}
+
+		if(i >= middle)
 			break;
 
 		if(m_vvInstance[i][fId] > fPivot)
 		{
-			vector<float> vSmall = m_vvInstance[end];
-			gdpair small = m_vGDPair[end];
+			Swap(m_vvInstance[middle], m_vvInstance[i]);
+			Swap(m_vGDPair[middle], m_vGDPair[i]);
+			Swap(m_vTrueValue[middle], m_vTrueValue[i]);
+			Swap(m_vPredBuffer[middle], m_vPredBuffer[i]);
 
-			m_vvInstance[end] = m_vvInstance[i];
-			m_vGDPair[end] = m_vGDPair[i];
-
-			m_vvInstance[i] = vSmall;
-			m_vGDPair[i] = small;
-
-			end--;
+			middle--;
 		}
 	}
 
-	return end;
+	if(bPrint == true)
+		CheckPartition(startId, endId, middle, sp);
+
+	return middle;
+}
+
+void Trainer::CheckPartition(int startId, int endId, int middle, SplitPoint &sp)
+{
+	double fPivot = sp.m_fSplitValue;
+	int fId = sp.m_nFeatureId;
+
+	for(int i = startId; i <= endId; i++)
+	{
+		if(i <= middle && m_vvInstance[i][fId] >= fPivot)
+		{
+			cout << "split value is " << fPivot << endl;
+			cout << "shit " << m_vvInstance[i][fId] << "\t";
+			cout << endl;
+		}
+		if(i > middle && m_vvInstance[i][fId] < fPivot)
+			cout << "oh shit " << m_vvInstance[i][fId] << "\t";
+	}
+}
+
+void Trainer::PrintPrediction(const vector<double> &vPred)
+{
+	int n = vPred.size();
+	for(int i = 0; i < n; i++)
+	{
+		if(vPred[i] > 0)
+			cout << vPred[i] << "\t";
+	}
+	cout << endl;
 }
 

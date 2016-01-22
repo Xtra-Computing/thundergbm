@@ -9,7 +9,7 @@
 
 #include "TreeNode.h"
 
-bool TreeNode::isLeaf()
+bool TreeNode::isLeaf() const
 {
 	if(featureId == -1)
 		return true;

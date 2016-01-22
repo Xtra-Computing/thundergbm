@@ -17,8 +17,8 @@ using std::vector;
 class Predictor
 {
 public:
-	void Predict(vector<vector<float> > &v_vInstance, vector<RegTree> &v_Tree,
-				 vector<float> &v_fPredValue, vector<float> &v_predBuffer);
+	void Predict(vector<vector<double> > &v_vInstance, vector<RegTree> &v_Tree,
+				 vector<double> &v_fPredValue, vector<double> &v_predBuffer);
 };
 
 

@@ -14,15 +14,15 @@
    * \param root_gid starting root index of the instance
    * \return the leaf index of the given feature
    */
-int RegTree::GetLeafIndex(vector<float> &ins)
+int RegTree::GetLeafIndex(vector<double> &ins)
 {
 	// tranverse tree
 	int pid = 0;
-	TreeNode &curNode = (*this)[pid];
-	while (!curNode.isLeaf())
+	TreeNode *curNode = (*this)[pid];
+	while (!curNode->isLeaf())
 	{
-		int fid = curNode.featureId;
-		pid = curNode.GetNext(ins[fid]);
+		int fid = curNode->featureId;
+		pid = curNode->GetNext(ins[fid]);
 		curNode = (*this)[pid];
 	}
 	return pid;
