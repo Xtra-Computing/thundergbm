@@ -26,11 +26,11 @@ public:
 
 	union{
 		int leftChildId;
-		int startId;
+		int startId;//data (or gdpair) start id
 	};
 	union{
 		int rightChildId;
-		int endId;
+		int endId;//data (or gdpair) end id
 	};
 
 

@@ -57,7 +57,7 @@ void Trainer::TrainGBDT(vector<vector<double> > &v_vInstance, vector<double> &v_
 		vector<double> v_fPredValue;
 		pred.Predict(m_vvInstance, vTree, v_fPredValue, m_vPredBuffer);
 
-		//PrintPrediction(v_fPredValue);
+//		PrintPrediction(v_fPredValue);
 
 		//compute gradient
 		ComputeGD(v_fPredValue);
@@ -167,6 +167,22 @@ void Trainer::GrowTree(RegTree &tree)
 				}
 			}
 
+			//find the value just smaller than the best split value
+			int bestFeaId = bestSplit.m_nFeatureId;
+			double bestFeaValue = bestSplit.m_fSplitValue;
+			double fCurNextToBest = 0;
+			for(int i = splittableNode[n]->startId; i <= splittableNode[n]->endId; i++)
+			{//for each value in the node
+				double fSplitValue = m_vvInstance[i][bestFeaId];
+				if(fSplitValue < bestFeaValue && fSplitValue > fCurNextToBest)
+				{
+					fCurNextToBest = fSplitValue;
+				}
+			}
+			double dNewSplitValue = (bestSplit.m_fSplitValue + fCurNextToBest) * 0.5;
+			bestSplit.UpdateSplitPoint(bestSplit.m_fGain, dNewSplitValue, bestSplit.m_nFeatureId);
+
+
 			//mark the node as a leaf node if (1) the gain is negative or (2) the tree reaches maximum depth.
 			if(bestSplit.m_fGain <= 0 || m_nMaxDepth == nCurDepth)
 			{
@@ -263,6 +279,12 @@ void Trainer::SplitNode(TreeNode *node, vector<TreeNode*> &newSplittableNode, Sp
 
 	//re-organise gd vector
 	int leftChildEndId = Partition(sp, node->startId, node->endId);
+	if(node->startId == 0 && node->endId == 9 && leftChildEndId == 7)
+	{
+		cout << "partition " << leftChildEndId << endl;
+		for(int i = leftChildEndId; i <= 9; i++)
+			cout << m_vGDPair[i].grad << endl;
+	}
 
 	leftChild->startId = node->startId;
 	leftChild->endId = leftChildEndId;
@@ -294,7 +316,7 @@ void Trainer::SplitNode(TreeNode *node, vector<TreeNode*> &newSplittableNode, Sp
 	leftChild->level = node->level + 1;
 	rightChild->level = node->level + 1;
 
-	cout << "node " << node->nodeId << " split to " << leftChild->nodeId << " and " << rightChild->nodeId << endl;
+//	cout << "node " << node->nodeId << " split to " << leftChild->nodeId << " and " << rightChild->nodeId << endl;
 }
 
 /**
@@ -307,25 +329,26 @@ int Trainer::Partition(SplitPoint &sp, int startId, int endId)
 	int middle = endId;
 	double fPivot = sp.m_fSplitValue;
 	int fId = sp.m_nFeatureId;
-	for(int i = startId; i < middle; i++)
+	for(int i = startId; i <= middle; i++)
 	{
 		while(m_vvInstance[middle][fId] >= fPivot)
 		{
 			if(middle == 0)
+			{
 				break;
+			}
 			middle--;
 		}
 
 		if(i > middle)
 		{
 			bPrint = true;
-			//cout << i << " v.s. " << startId << " : " << end << "; " << sp.m_fSplitValue << " v.s. " << m_vvInstance[i][fId] << " : " << m_vvInstance[end][fId] << endl;
+//			cout << i << " v.s. " << startId << " : " << endId << "; " << sp.m_fSplitValue << " v.s. " << m_vvInstance[i][fId] << " : " << m_vvInstance[endId][fId] << endl;
+			break;
 		}
 
-		if(i >= middle)
-			break;
 
-		if(m_vvInstance[i][fId] > fPivot)
+		if(m_vvInstance[i][fId] >= fPivot)
 		{
 			Swap(m_vvInstance[middle], m_vvInstance[i]);
 			Swap(m_vGDPair[middle], m_vGDPair[i]);
@@ -351,12 +374,18 @@ void Trainer::CheckPartition(int startId, int endId, int middle, SplitPoint &sp)
 	{
 		if(i <= middle && m_vvInstance[i][fId] >= fPivot)
 		{
+			cout << i << " v.s. " << middle << endl;
 			cout << "split value is " << fPivot << endl;
 			cout << "shit " << m_vvInstance[i][fId] << "\t";
 			cout << endl;
 		}
 		if(i > middle && m_vvInstance[i][fId] < fPivot)
+		{
+			cout << i << " v.s. " << middle << endl;
+			cout << "split value is " << fPivot << endl;
 			cout << "oh shit " << m_vvInstance[i][fId] << "\t";
+			cout << endl;
+		}
 	}
 }
 

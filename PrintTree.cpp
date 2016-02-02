@@ -50,7 +50,15 @@ void TreePrinter::PrintTree(const RegTree &tree)
 			if(tree.nodes[node->leftChildId]->isLeaf() == true)
 			{
 				WriteLeaf(tree.nodes[node->leftChildId]);
-				WriteLeaf(tree.nodes[node->rightChildId]);
+				if(tree.nodes[node->rightChildId]->isLeaf() == true)
+				{
+					WriteLeaf(tree.nodes[node->rightChildId]);
+				}
+				else
+				{
+					m_nodeStack.push_back(tree.nodes[node->rightChildId]);
+				}
+
 				if(m_nodeStack.empty())
 					break;
 				node = m_nodeStack.back();
@@ -67,6 +75,8 @@ void TreePrinter::PrintTree(const RegTree &tree)
 			WriteLeaf(node);
 			if(m_nodeStack.empty())
 				break;
+			node = m_nodeStack.back();
+			m_nodeStack.pop_back();
 		}
 
 	}while(true);

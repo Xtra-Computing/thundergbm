@@ -19,6 +19,8 @@
 using std::string;
 using std::vector;
 using std::ofstream;
+using std::cout;
+using std::endl;
 
 class Trainer
 {
@@ -62,7 +64,7 @@ private:
 
 		void UpdateSplitPoint(double fGain, double fSplitValue, int nFeatureId)
 		{
-			if(fGain > m_fGain)
+			if(fGain > m_fGain || (fGain == m_fGain && nFeatureId == m_nFeatureId))//second condition is for updating to a new split value
 			{
 				m_fGain = fGain;
 				m_fSplitValue = fSplitValue;

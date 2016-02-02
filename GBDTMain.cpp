@@ -27,12 +27,13 @@ int main()
 	Trainer trainer;
 	trainer.m_vvInstance = v_vInstance;
 	trainer.m_vTrueValue = v_fLabel;
-	int nNumofTree = 2;
-	int nMaxDepth = 2;
+	int nNumofTree = 4;
+	int nMaxDepth = 4;
 	float fLabda = 1;
 	float fGamma = 1;
 	trainer.InitTrainer(nNumofTree, nMaxDepth, fLabda, fGamma);
 	trainer.TrainGBDT(v_vInstance, v_fLabel, v_Tree);
+	cout << "saved to file" << endl;
 	trainer.SaveModel("tree.txt", v_Tree);
 
 	//read testing instances from a file
