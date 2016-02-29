@@ -8,6 +8,7 @@
 
 #include <assert.h>
 #include <iostream>
+#include <ctime>
 
 #include "Trainer.h"
 #include "Predictor.h"
@@ -46,6 +47,10 @@ void Trainer::TrainGBDT(vector<vector<double> > &v_vInstance, vector<double> &v_
 	data.nNumofInstance = v_vInstance.size();
 	data.nNumofFeature = v_vInstance[0].size();
 
+	clock_t begin_pred, begin_gd, begin_grow;
+	clock_t end_pred, end_gd, end_grow;
+	double total_pred = 0, total_gd = 0, total_grow = 0;
+
 	Predictor pred;
 	for(int i = 0; i < m_nMaxNumofTree; i++)
 	{
@@ -55,21 +60,31 @@ void Trainer::TrainGBDT(vector<vector<double> > &v_vInstance, vector<double> &v_
 
 		//predict the data by the existing trees
 		vector<double> v_fPredValue;
+		begin_pred = clock();
 		pred.Predict(m_vvInstance, vTree, v_fPredValue, m_vPredBuffer);
+		end_pred = clock();
+		total_pred += (double(end_pred - begin_pred) / CLOCKS_PER_SEC);
 
 //		PrintPrediction(v_fPredValue);
 
 		//compute gradient
+		begin_gd = clock();
 		ComputeGD(v_fPredValue);
+		end_gd = clock();
+		total_gd += (double(end_gd - begin_gd) / CLOCKS_PER_SEC);
 
 		//grow the tree
+		begin_grow = clock();
 		GrowTree(tree);
+		end_grow = clock();
+		total_grow += (double(end_grow - begin_grow) / CLOCKS_PER_SEC);
 
 		//save the tree
 		vTree.push_back(tree);
 //		PrintTree(tree);
 	}
 
+	cout << "pred sec = " << total_pred << "; gd sec = " << total_gd << "; grow sec = " << total_grow << endl;
 
 }
 
@@ -246,7 +261,11 @@ double Trainer::ComputeGain(double fSplitValue, int featureId, int dataStartId, 
 	double fGain = (firstGD_sum_l * firstGD_sum_l)/(secondGD_sum_l + m_labda) +
 				  (firstGD_sum_r * firstGD_sum_r)/(secondGD_sum_r + m_labda) -
 				  (firstGD_sum * firstGD_sum)/(secondGD_sum + m_labda);
-	fGain = fGain * 0.5 - m_gamma;
+
+	//This is different from the documentation of xgboost on readthedocs.com (i.e. fGain = 0.5 * fGain - m_gamma)
+	//This is also different from the xgboost source code (i.e. fGain = fGain), since xgboost first splits all nodes and
+	//then prune nodes with gain less than m_gamma.
+	fGain = fGain - m_gamma;
 
 	return fGain;
 }

@@ -22,12 +22,13 @@ int main()
 	dataReader.GetDataInfo(strFileName, nNumofFeatures, nNumofExamples);
 	dataReader.ReadLibSVMDataFormat(v_vInstance, v_fLabel, strFileName, nNumofFeatures, nNumofExamples);
 
+	cout << "start training..." << endl;
 	/********* run the GBDT learning process ******************/
 	vector<RegTree> v_Tree;
 	Trainer trainer;
 	trainer.m_vvInstance = v_vInstance;
 	trainer.m_vTrueValue = v_fLabel;
-	int nNumofTree = 4;
+	int nNumofTree = 8;
 	int nMaxDepth = 4;
 	float fLabda = 1;
 	float fGamma = 1;
