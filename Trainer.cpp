@@ -54,6 +54,7 @@ void Trainer::TrainGBDT(vector<vector<double> > &v_vInstance, vector<double> &v_
 	Predictor pred;
 	for(int i = 0; i < m_nMaxNumofTree; i++)
 	{
+		cout << "start round " << i << endl;
 		//initialise a tree
 		RegTree tree;
 		InitTree(tree);
