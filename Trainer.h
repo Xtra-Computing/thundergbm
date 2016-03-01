@@ -73,6 +73,23 @@ private:
 		}
 	};
 
+	struct nodeStat{
+		double sum_gd;
+		double sum_hess;
+
+		void Subtract(const nodeStat &parent, const nodeStat &r_child)
+		{
+			sum_gd = parent.sum_gd - r_child.sum_gd;
+			sum_hess = parent.sum_hess - r_child.sum_hess;
+		}
+		double CalGain()
+		{
+
+		}
+	};
+
+
+
 public:
 	void InitTrainer(int nNumofTree, int nMaxDepth, double fLabda, double fGamma);
 	void TrainGBDT(vector<vector<double> > &v_vInstance, vector<double> &v_fLabel, vector<RegTree> &v_Tree);
@@ -86,10 +103,13 @@ private:
 	void ComputeGD(vector<double> &v_fPredValue);
 	void CreateNode();
 	double ComputeGain(double fSplitValue, int featureId, int dataStartId, int dataEndId);
+	double CalGain(const nodeStat &parent, const nodeStat &r_child, const nodeStat &l_child);
 	void ComputeWeight(TreeNode &node);
 	void SplitNode(TreeNode *node, vector<TreeNode*> &newSplittableNode, SplitPoint &sp, RegTree &tree);
 	int Partition(SplitPoint &sp, int startId, int endId);
 
+	//for sorting on each feature
+	void BestSplitValue(double fBestSplitValue, double fGain, int nFeatureId);
 
 //for debugging
 	void PrintTree(const RegTree &tree);

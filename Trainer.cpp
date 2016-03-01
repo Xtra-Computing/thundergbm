@@ -9,6 +9,7 @@
 #include <assert.h>
 #include <iostream>
 #include <ctime>
+#include <stdlib.h>
 
 #include "Trainer.h"
 #include "Predictor.h"
@@ -171,6 +172,11 @@ void Trainer::GrowTree(RegTree &tree)
 			SplitPoint bestSplit;
 			for(int f = 0; f < data.nNumofFeature; f++)
 			{
+
+//				double fBestSplitValue;
+//				double fGain;
+//				BestSplitValue(fBestSplitValue, fGain, f);
+
 				//find the best split point of each feature
 
 				for(int i = splittableNode[n]->startId; i <= splittableNode[n]->endId; i++)
@@ -223,6 +229,60 @@ void Trainer::GrowTree(RegTree &tree)
 }
 
 /**
+ * @brief: compute the best split value for a feature
+ */
+void Trainer::BestSplitValue(double fBestSplitValue, double fGain, int nFeatureId)
+{
+	nodeStat parent;
+	nodeStat r_child, l_child;
+	double last_fvalue;
+	SplitPoint bestSplit;
+
+	vector<vector<double> > v_vTransAllIns;
+	vector<vector<int> > v_vInsIds;
+	vector<int> position;
+	vector<double> &featureValues = v_vTransAllIns[nFeatureId];
+	vector<int> &InsIds = v_vInsIds[nFeatureId];
+
+
+	int nNumofDim = featureValues.size();
+    for (int i = 0; i < nNumofDim; i++)
+    {
+    	int ridx = InsIds[i];
+		int nid = position[ridx];
+		// start working
+		double fvalue = featureValues[i];
+		// get the statistics of nid node
+		// test if first hit, this is fine, because we set 0 during init
+		if(i == 0)
+		{
+			r_child.sum_gd = m_vGDPair[ridx].grad;
+			r_child.sum_hess = m_vGDPair[ridx].hess;
+			last_fvalue = fvalue;
+		}
+		else
+		{
+			// try to find a split
+			double min_child_weight = 1;//follow xgboost
+			if(abs(fvalue - last_fvalue) > 1e-5f * 2.0 &&
+			   r_child.sum_hess >= min_child_weight)
+			{
+				l_child.Subtract(parent, r_child);
+				if (l_child.sum_hess >= min_child_weight)
+				{
+					double loss_chg = CalGain(parent, r_child, l_child);
+					bestSplit.UpdateSplitPoint(loss_chg, (fvalue + last_fvalue) * 0.5f, nFeatureId);
+				}
+			}
+			// update the statistics
+			r_child.sum_gd += m_vGDPair[ridx].grad;
+			r_child.sum_hess += m_vGDPair[ridx].hess;
+			last_fvalue = fvalue;
+		}
+	}
+}
+
+/**
  * @brief: compute the gain of a split
  */
 double Trainer::ComputeGain(double fSplitValue, int featureId, int dataStartId, int dataEndId)
@@ -262,6 +322,24 @@ double Trainer::ComputeGain(double fSplitValue, int featureId, int dataStartId, 
 	double fGain = (firstGD_sum_l * firstGD_sum_l)/(secondGD_sum_l + m_labda) +
 				  (firstGD_sum_r * firstGD_sum_r)/(secondGD_sum_r + m_labda) -
 				  (firstGD_sum * firstGD_sum)/(secondGD_sum + m_labda);
+
+	//This is different from the documentation of xgboost on readthedocs.com (i.e. fGain = 0.5 * fGain - m_gamma)
+	//This is also different from the xgboost source code (i.e. fGain = fGain), since xgboost first splits all nodes and
+	//then prune nodes with gain less than m_gamma.
+	fGain = fGain - m_gamma;
+
+	return fGain;
+}
+
+/**
+ * @brief: compute gain for a split
+ */
+double Trainer::CalGain(const nodeStat &parent, const nodeStat &r_child, const nodeStat &l_child)
+{
+	//compute the gain
+	double fGain = (l_child.sum_gd * l_child.sum_gd)/(l_child.sum_hess + m_labda) +
+				  (r_child.sum_gd * r_child.sum_gd)/(r_child.sum_hess + m_labda) -
+				  (parent.sum_gd * parent.sum_gd)/(parent.sum_hess + m_labda);
 
 	//This is different from the documentation of xgboost on readthedocs.com (i.e. fGain = 0.5 * fGain - m_gamma)
 	//This is also different from the xgboost source code (i.e. fGain = fGain), since xgboost first splits all nodes and
