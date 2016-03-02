@@ -22,6 +22,32 @@ using std::ofstream;
 using std::cout;
 using std::endl;
 
+/**
+ * @brief: a structure to store split points
+ */
+struct SplitPoint{
+	double m_fGain;
+	double m_fSplitValue;
+	int m_nFeatureId;
+
+	SplitPoint()
+	{
+		m_fGain = 0;
+		m_fSplitValue = 0;
+		m_nFeatureId = -1;
+	}
+
+	void UpdateSplitPoint(double fGain, double fSplitValue, int nFeatureId)
+	{
+		if(fGain > m_fGain || (fGain == m_fGain && nFeatureId == m_nFeatureId))//second condition is for updating to a new split value
+		{
+			m_fGain = fGain;
+			m_fSplitValue = fSplitValue;
+			m_nFeatureId = nFeatureId;
+		}
+	}
+};
+
 class Trainer
 {
 private:
@@ -32,6 +58,17 @@ private:
 	  double hess;
 	  gdpair(void) {grad = 0; hess = 0;}
 	  gdpair(double grad, double hess) : grad(grad), hess(hess) {}
+	};
+
+	struct nodeStat{
+		double sum_gd;
+		double sum_hess;
+
+		void Subtract(const nodeStat &parent, const nodeStat &r_child)
+		{
+			sum_gd = parent.sum_gd - r_child.sum_gd;
+			sum_hess = parent.sum_hess - r_child.sum_hess;
+		}
 	};
 
 public:
@@ -46,48 +83,14 @@ public:
 	double m_labda;//the weight of the cost of complexity of a tree
 	double m_gamma;//the weight of the cost of the number of trees
 
+	/*** for more efficient on finding the best split value of a feature ***/
+	vector<vector<double> > m_vvTransIns;
+	vector<vector<int> > m_vvInsId; //feature value position (ordered) to instance id
+	vector<int> m_nodePos; //instance id to node id
+	vector<nodeStat> m_nodeStat; //all the constructed tree nodes
+
 private:
 	int m_nNumofNode;
-
-private:
-	struct SplitPoint{
-		double m_fGain;
-		double m_fSplitValue;
-		int m_nFeatureId;
-
-		SplitPoint()
-		{
-			m_fGain = 0;
-			m_fSplitValue = 0;
-			m_nFeatureId = -1;
-		}
-
-		void UpdateSplitPoint(double fGain, double fSplitValue, int nFeatureId)
-		{
-			if(fGain > m_fGain || (fGain == m_fGain && nFeatureId == m_nFeatureId))//second condition is for updating to a new split value
-			{
-				m_fGain = fGain;
-				m_fSplitValue = fSplitValue;
-				m_nFeatureId = nFeatureId;
-			}
-		}
-	};
-
-	struct nodeStat{
-		double sum_gd;
-		double sum_hess;
-
-		void Subtract(const nodeStat &parent, const nodeStat &r_child)
-		{
-			sum_gd = parent.sum_gd - r_child.sum_gd;
-			sum_hess = parent.sum_hess - r_child.sum_hess;
-		}
-		double CalGain()
-		{
-
-		}
-	};
-
 
 
 public:
@@ -109,7 +112,7 @@ private:
 	int Partition(SplitPoint &sp, int startId, int endId);
 
 	//for sorting on each feature
-	void BestSplitValue(double fBestSplitValue, double fGain, int nFeatureId);
+	void BestSplitValue(double &fBestSplitValue, double &fGain, int nFeatureId, const nodeStat &parent);
 
 //for debugging
 	void PrintTree(const RegTree &tree);

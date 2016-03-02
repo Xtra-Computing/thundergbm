@@ -173,12 +173,15 @@ void Trainer::GrowTree(RegTree &tree)
 			for(int f = 0; f < data.nNumofFeature; f++)
 			{
 
-//				double fBestSplitValue;
-//				double fGain;
-//				BestSplitValue(fBestSplitValue, fGain, f);
+				int nodeId = -1;//#####
+
+				double fBestSplitValue;
+				double fGain;
+				BestSplitValue(fBestSplitValue, fGain, f, m_nodeStat[nodeId]);
+
+				bestSplit.UpdateSplitPoint(fGain, fBestSplitValue, f);
 
 				//find the best split point of each feature
-
 				for(int i = splittableNode[n]->startId; i <= splittableNode[n]->endId; i++)
 				{//for each value in the node
 					double fSplitValue = m_vvInstance[i][f];
@@ -203,7 +206,6 @@ void Trainer::GrowTree(RegTree &tree)
 			}
 			double dNewSplitValue = (bestSplit.m_fSplitValue + fCurNextToBest) * 0.5;
 			bestSplit.UpdateSplitPoint(bestSplit.m_fGain, dNewSplitValue, bestSplit.m_nFeatureId);
-
 
 			//mark the node as a leaf node if (1) the gain is negative or (2) the tree reaches maximum depth.
 			if(bestSplit.m_fGain <= 0 || m_nMaxDepth == nCurDepth)
@@ -231,25 +233,21 @@ void Trainer::GrowTree(RegTree &tree)
 /**
  * @brief: compute the best split value for a feature
  */
-void Trainer::BestSplitValue(double fBestSplitValue, double fGain, int nFeatureId)
+void Trainer::BestSplitValue(double &fBestSplitValue, double &fGain, int nFeatureId, const nodeStat &parent)
 {
-	nodeStat parent;
-	nodeStat r_child, l_child;
+
+	vector<double> &featureValues = m_vvTransIns[nFeatureId];
+	vector<int> &InsIds = m_vvInsId[nFeatureId];
+
 	double last_fvalue;
 	SplitPoint bestSplit;
-
-	vector<vector<double> > v_vTransAllIns;
-	vector<vector<int> > v_vInsIds;
-	vector<int> position;
-	vector<double> &featureValues = v_vTransAllIns[nFeatureId];
-	vector<int> &InsIds = v_vInsIds[nFeatureId];
-
+	nodeStat r_child, l_child;
 
 	int nNumofDim = featureValues.size();
-    for (int i = 0; i < nNumofDim; i++)
+    for(int i = 0; i < nNumofDim; i++)
     {
     	int ridx = InsIds[i];
-		int nid = position[ridx];
+		int nid = m_nodePos[ridx];
 		// start working
 		double fvalue = featureValues[i];
 		// get the statistics of nid node
@@ -280,6 +278,7 @@ void Trainer::BestSplitValue(double fBestSplitValue, double fGain, int nFeatureI
 			last_fvalue = fvalue;
 		}
 	}
+
 }
 
 /**
