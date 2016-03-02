@@ -36,6 +36,8 @@ void Trainer::InitTrainer(int nNumofTree, int nMaxDepth, double fLabda, double f
 		gdpair gd;
 		m_vGDPair.push_back(gd);
 	}
+
+	//sort the feature values for each feature
 }
 
 /**
@@ -131,6 +133,12 @@ void Trainer::InitTree(RegTree &tree)
 	root->endId = m_vvInstance.size() - 1;
 
 	tree.nodes.push_back(root);
+
+	for(int i = 0; i < m_vvInstance.size(); i++)
+	{
+		m_InsIdTracker.push_back(i);
+		m_nodeIds.push_back(0);
+	}
 }
 
 /**
@@ -173,11 +181,10 @@ void Trainer::GrowTree(RegTree &tree)
 			for(int f = 0; f < data.nNumofFeature; f++)
 			{
 
-				int nodeId = -1;//#####
-
 				double fBestSplitValue;
 				double fGain;
-				BestSplitValue(fBestSplitValue, fGain, f, m_nodeStat[nodeId]);
+				int nodeId = splittableNode[n]->nodeId;
+				BestSplitValue(fBestSplitValue, fGain, f, m_nodeStat[nodeId], nodeId);
 
 				bestSplit.UpdateSplitPoint(fGain, fBestSplitValue, f);
 
@@ -233,7 +240,7 @@ void Trainer::GrowTree(RegTree &tree)
 /**
  * @brief: compute the best split value for a feature
  */
-void Trainer::BestSplitValue(double &fBestSplitValue, double &fGain, int nFeatureId, const nodeStat &parent)
+void Trainer::BestSplitValue(double &fBestSplitValue, double &fGain, int nFeatureId, const nodeStat &parent, int nodeId)
 {
 
 	vector<double> &featureValues = m_vvTransIns[nFeatureId];
@@ -247,7 +254,10 @@ void Trainer::BestSplitValue(double &fBestSplitValue, double &fGain, int nFeatur
     for(int i = 0; i < nNumofDim; i++)
     {
     	int ridx = InsIds[i];
-		int nid = m_nodePos[ridx];
+		int nid = m_nodeIds[ridx];
+		if(nid != nodeId)
+			continue;
+
 		// start working
 		double fvalue = featureValues[i];
 		// get the statistics of nid node
@@ -452,8 +462,21 @@ int Trainer::Partition(SplitPoint &sp, int startId, int endId)
 			Swap(m_vTrueValue[middle], m_vTrueValue[i]);
 			Swap(m_vPredBuffer[middle], m_vPredBuffer[i]);
 
+			Swap(m_InsIdTracker[middle], m_InsIdTracker[i]);
+
 			middle--;
 		}
+	}
+
+	//instance ids that are stored in left node
+	for(int i = startId; i <= middle; i++)
+	{
+		m_nodeIds[m_InsIdTracker[i]] = m_nNumofNode;
+	}
+	//instance ids that are stored in the right node
+	for(int i = middle + 1; i <= endId; i++)
+	{
+		m_nodeIds[m_InsIdTracker[i]] = m_nNumofNode + 1;
 	}
 
 	if(bPrint == true)

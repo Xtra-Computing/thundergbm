@@ -86,7 +86,8 @@ public:
 	/*** for more efficient on finding the best split value of a feature ***/
 	vector<vector<double> > m_vvTransIns;
 	vector<vector<int> > m_vvInsId; //feature value position (ordered) to instance id
-	vector<int> m_nodePos; //instance id to node id
+	vector<int> m_nodeIds; //instance id to node id
+	vector<int> m_InsIdTracker;
 	vector<nodeStat> m_nodeStat; //all the constructed tree nodes
 
 private:
@@ -112,7 +113,7 @@ private:
 	int Partition(SplitPoint &sp, int startId, int endId);
 
 	//for sorting on each feature
-	void BestSplitValue(double &fBestSplitValue, double &fGain, int nFeatureId, const nodeStat &parent);
+	void BestSplitValue(double &fBestSplitValue, double &fGain, int nFeatureId, const nodeStat &parent, int nodeId);
 
 //for debugging
 	void PrintTree(const RegTree &tree);
