@@ -28,6 +28,10 @@ int main()
 	Trainer trainer;
 	trainer.m_vvInstance = v_vInstance;
 	trainer.m_vTrueValue = v_fLabel;
+
+	trainer.m_vvInstance_fixedPos = v_vInstance;
+	trainer.m_vTrueValue_fixedPos = v_fLabel;
+
 	int nNumofTree = 8;
 	int nMaxDepth = 4;
 	float fLabda = 1;

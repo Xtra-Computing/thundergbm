@@ -22,6 +22,11 @@ using std::ofstream;
 using std::cout;
 using std::endl;
 
+struct key_value{
+	double featureValue;
+	int insId;
+};
+
 /**
  * @brief: a structure to store split points
  */
@@ -48,6 +53,29 @@ struct SplitPoint{
 	}
 };
 
+class nodeStat{
+public:
+	double sum_gd;
+	double sum_hess;
+
+	nodeStat()
+	{
+		sum_gd = 0.0;
+		sum_hess = 0.0;
+	}
+
+	void Subtract(const nodeStat &parent, const nodeStat &r_child)
+	{
+		sum_gd = parent.sum_gd - r_child.sum_gd;
+		sum_hess = parent.sum_hess - r_child.sum_hess;
+	}
+	void Add(double gd, double hess)
+	{
+		sum_gd += gd;
+		sum_hess += hess;
+	}
+};
+
 class Trainer
 {
 private:
@@ -60,17 +88,6 @@ private:
 	  gdpair(double grad, double hess) : grad(grad), hess(hess) {}
 	};
 
-	struct nodeStat{
-		double sum_gd;
-		double sum_hess;
-
-		void Subtract(const nodeStat &parent, const nodeStat &r_child)
-		{
-			sum_gd = parent.sum_gd - r_child.sum_gd;
-			sum_hess = parent.sum_hess - r_child.sum_hess;
-		}
-	};
-
 public:
 	int m_nMaxNumofTree;
 	int m_nMaxDepth;
@@ -79,15 +96,19 @@ public:
 	vector<double> m_vTrueValue;
 	vector<double> m_vPredBuffer;
 	vector<gdpair> m_vGDPair;
+
+	vector<vector<double> > m_vvInstance_fixedPos;
+	vector<double> m_vTrueValue_fixedPos;
+	vector<double> m_vPredBuffer_fixedPos;
+	vector<gdpair> m_vGDPair_fixedPos;
+
 	DataInfo data;
 	double m_labda;//the weight of the cost of complexity of a tree
 	double m_gamma;//the weight of the cost of the number of trees
 
 	/*** for more efficient on finding the best split value of a feature ***/
-	vector<vector<double> > m_vvTransIns;
-	vector<vector<int> > m_vvInsId; //feature value position (ordered) to instance id
+	vector<vector<key_value> > m_vvFeaInxPair; //value is feature value position (ordered) to instance id
 	vector<int> m_nodeIds; //instance id to node id
-	vector<int> m_InsIdTracker;
 	vector<nodeStat> m_nodeStat; //all the constructed tree nodes
 
 private:
@@ -105,12 +126,14 @@ protected:
 
 private:
 	void ComputeGD(vector<double> &v_fPredValue);
+	void ComputeGD2(vector<double> &v_fPredValue);
 	void CreateNode();
 	double ComputeGain(double fSplitValue, int featureId, int dataStartId, int dataEndId);
 	double CalGain(const nodeStat &parent, const nodeStat &r_child, const nodeStat &l_child);
 	void ComputeWeight(TreeNode &node);
-	void SplitNode(TreeNode *node, vector<TreeNode*> &newSplittableNode, SplitPoint &sp, RegTree &tree);
-	int Partition(SplitPoint &sp, int startId, int endId);
+	void SplitNode(TreeNode *node, vector<TreeNode*> &newSplittableNode, SplitPoint &sp, RegTree &tree, vector<nodeStat> &v_nodeStat);
+	int Partition(const SplitPoint &sp, int startId, int endId);
+	void UpdateNodeId(const SplitPoint &sp, int parentNodeId, int leftNodeId, int rightNodeId);
 
 	//for sorting on each feature
 	void BestSplitValue(double &fBestSplitValue, double &fGain, int nFeatureId, const nodeStat &parent, int nodeId);
@@ -118,7 +141,7 @@ private:
 //for debugging
 	void PrintTree(const RegTree &tree);
 	void PrintPrediction(const vector<double> &vPred);
-	void CheckPartition(int startId, int endId, int middle, SplitPoint &sp);
+	void CheckPartition(int startId, int endId, int middle, const SplitPoint &sp);
 
 	template <class T> void Swap(T& x, T& y) { T t=x; x=y; y=t; }
 };
