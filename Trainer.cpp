@@ -174,6 +174,7 @@ void Trainer::InitTree(RegTree &tree)
 	tree.nodes.push_back(root);
 
 	//all instances are under node 0
+	m_nodeIds.clear();
 	for(int i = 0; i < m_vvInstance.size(); i++)
 	{
 		m_nodeIds.push_back(0);
@@ -364,11 +365,6 @@ void Trainer::BestSplitValue(double &fBestSplitValue, double &fGain, int nFeatur
 
     assert(parent2.sum_gd == parent.sum_gd);
 */
-	if(nodeId == 2)
-		cout << "hi" << endl;
-
-
-	bool hasDiff = false;
 
     for(int i = 0; i < nNumofIns; i++)
     {
