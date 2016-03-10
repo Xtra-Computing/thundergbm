@@ -15,17 +15,13 @@
 #include "RegTree.h"
 #include "DatasetInfo.h"
 #include "TreeNode.h"
+#include "keyValue.h"
 
 using std::string;
 using std::vector;
 using std::ofstream;
 using std::cout;
 using std::endl;
-
-struct key_value{
-	double featureValue;
-	int insId;
-};
 
 /**
  * @brief: a structure to store split points
@@ -107,6 +103,7 @@ public:
 	double m_gamma;//the weight of the cost of the number of trees
 
 	/*** for more efficient on finding the best split value of a feature ***/
+	vector<vector<key_value> > m_vvInsSparse;
 	vector<vector<key_value> > m_vvFeaInxPair; //value is feature value position (ordered) to instance id
 	vector<int> m_nodeIds; //instance id to node id
 	vector<nodeStat> m_nodeStat; //all the constructed tree nodes
@@ -116,6 +113,7 @@ private:
 
 
 public:
+	void SortFeaValue(int nNumofDim);
 	void InitTrainer(int nNumofTree, int nMaxDepth, double fLabda, double fGamma);
 	void TrainGBDT(vector<vector<double> > &v_vInstance, vector<double> &v_fLabel, vector<RegTree> &v_Tree);
 	void SaveModel(string fileName, const vector<RegTree> &v_Tree);
@@ -134,6 +132,10 @@ private:
 	void SplitNode(TreeNode *node, vector<TreeNode*> &newSplittableNode, SplitPoint &sp, RegTree &tree, vector<nodeStat> &v_nodeStat);
 	int Partition(const SplitPoint &sp, int startId, int endId);
 	void UpdateNodeId(const SplitPoint &sp, int parentNodeId, int leftNodeId, int rightNodeId);
+
+	//two different functions for computing the gain of a feature
+	void EfficientFeaFinder(SplitPoint &bestSplit, const nodeStat &parent, int nodeId);
+	void NaiveFeaFinder(SplitPoint &bestSplit, int startId, int endId);
 
 	//for sorting on each feature
 	void BestSplitValue(double &fBestSplitValue, double &fGain, int nFeatureId, const nodeStat &parent, int nodeId);

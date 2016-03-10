@@ -15,13 +15,46 @@ using std::istringstream;
 using std::cout;
 using std::endl;
 
+/**
+ * @brief: represent the data in a sparse form
+ */
+void LibSVMDataReader::ReadLibSVMFormatSparse(vector<vector<key_value> > &v_vInstance, vector<float_point> &v_fValue,
+											  string strFileName, int nNumofFeatures, int nNumofInstance)
+{
+	ReaderHelper(v_vInstance, v_fValue, strFileName, nNumofFeatures, nNumofInstance, false);
+}
+
+/**
+ * @brief: store the instances in a dense form
+ */
 void LibSVMDataReader::ReadLibSVMDataFormat(vector<vector<float_point> > &v_vInstance, vector<float_point> &v_fValue,
 									  	    string strFileName, int nNumofFeatures, int nNumofExamples)
+{
+	vector<vector<key_value> > v_vInstanceKeyValue;
+	ReaderHelper(v_vInstanceKeyValue, v_fValue, strFileName, nNumofFeatures, nNumofExamples, true);
+
+	//convert key values to values only.
+	for(int i = 0; i < nNumofExamples; i++)
+	{
+		vector<float_point> vIns;
+		for(int j = 0; j < nNumofFeatures; j++)
+		{
+			vIns.push_back(v_vInstanceKeyValue[i][j].featureValue);
+		}
+		v_vInstance.push_back(vIns);
+	}
+}
+
+/**
+ * @brief: a function to read instances from libsvm format as either sparse or dense instances.
+ */
+void LibSVMDataReader::ReaderHelper(vector<vector<key_value> > &v_vInstance, vector<float_point> &v_fValue,
+									string strFileName, int nNumofFeatures, int nNumofInstance, bool bUseDense)
 {
 	ifstream readIn;
 	readIn.open(strFileName.c_str());
 	assert(readIn.is_open());
-	vector<float_point> vSample;
+	vector<key_value> vSample;
 
 	//for storing character from file
 	int j = 0;
@@ -46,38 +79,61 @@ void LibSVMDataReader::ReadLibSVMDataFormat(vector<vector<float_point> > &v_vIns
 		float_point x;
 		while (in >> nFeature >> cColon >> x)
 		{
-			i++;
 			//assert(x > 0 && x <= 1);
 			//cout << nFeature << " " << cColon << endl;
 			assert(cColon == ':');
-			while(int(vSample.size()) < nFeature - 1 && int(vSample.size()) < nNumofFeatures)
+			if(bUseDense == true)
 			{
-				vSample.push_back(0);
+				while(int(vSample.size()) < nFeature - 1 && int(vSample.size()) < nNumofFeatures)
+				{
+					Push(i, 0, vSample);
+					i++;
+				}
 			}
+
 			if(nNumofFeatures == int(vSample.size()))
 			{
 				break;
 			}
 			assert(int(vSample.size()) <= nNumofFeatures);
-			vSample.push_back(x);
+			if(bUseDense == true)
+				assert(i == nFeature - 1);
+
+			Push(nFeature - 1, x, vSample);
+			i++;
 		}
 		//fill the value of the rest of the features as 0
-		while(int(vSample.size()) < nNumofFeatures)
+		if(bUseDense == true)
 		{
-			vSample.push_back(0);
+			while(int(vSample.size()) < nNumofFeatures)
+			{
+				Push(i, 0, vSample);
+				i++;
+			}
 		}
+
 		v_vInstance.push_back(vSample);
 
 		//clear vector
 		vSample.clear();
-	} while (readIn.eof() != true && j < nNumofExamples);///72309 is the number of samples
+	} while (readIn.eof() != true && j < nNumofInstance);
 
 	//clean eof bit, when pointer reaches end of file
 	if(readIn.eof())
 	{
-		//cout << "end of file" << endl;
 		readIn.clear();
 	}
+}
+
+/**
+ * @brief:
+ */
+void LibSVMDataReader::Push(int feaId, float_point value, vector<key_value> &vIns)
+{
+	key_value pair;
+	pair.id = feaId;
+	pair.featureValue = value;
+	vIns.push_back(pair);
 }
 
 

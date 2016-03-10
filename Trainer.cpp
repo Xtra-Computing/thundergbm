@@ -18,13 +18,18 @@
 #include "TreeNode.h"
 #include "PrintTree.h"
 
+
+
 using std::cout;
 using std::endl;
 using std::sort;
 using std::ofstream;
 
+/**
+ * @brief: sort a vector in a descendant order
+ */
 bool CmpValue(const key_value &a, const key_value &b) {
-  return a.featureValue < b.featureValue;
+  return a.featureValue > b.featureValue;
 }
 
 /*
@@ -54,19 +59,42 @@ void Trainer::InitTrainer(int nNumofTree, int nMaxDepth, double fLabda, double f
 		m_vGDPair_fixedPos.push_back(gd);
 	}
 
-
-	//sort the feature values for each feature
 	int nNumofDim = m_vvInstance[0].size();
-	int nNumofIns = m_vvInstance.size();
+	SortFeaValue(nNumofDim);
+}
+
+/**
+ * @brief:
+ */
+void Trainer::SortFeaValue(int nNumofDim)
+{
+	//sort the feature values for each feature
+	vector<int> vCurParsePos;
+	int nNumofIns = m_vvInsSparse.size();
+	assert(m_vvInsSparse.size() == m_vvInstance.size());
+	for(int i = 0; i < nNumofIns; i++)
+	{
+		vCurParsePos.push_back(0);
+	}
+
 	for(int j = 0; j < nNumofDim; j++)
 	{
 		vector<key_value> featurePair;
 		for(int i = 0; i < nNumofIns; i++)
 		{
-			key_value kv;
-			kv.insId = i;
-			kv.featureValue = m_vvInstance[i][j];
-			featurePair.push_back(kv);
+			int curTop = vCurParsePos[i];
+			if(m_vvInsSparse[i].size() == curTop)
+				continue;
+
+			int curFeaId = m_vvInsSparse[i][curTop].id;
+			if(curFeaId == j)
+			{
+				key_value kv;
+				kv.id = i;
+				kv.featureValue = m_vvInsSparse[i][curTop].featureValue;
+				featurePair.push_back(kv);
+				vCurParsePos[i] = vCurParsePos[i] + 1;
+			}
 		}
 
 		sort(featurePair.begin(), featurePair.end(), CmpValue);
@@ -242,59 +270,13 @@ void Trainer::GrowTree(RegTree &tree)
 
 			//find the best feature to split the node
 			SplitPoint bestSplit;
-			for(int f = 0; f < data.nNumofFeature; f++)
-			{
-				double fBestSplitValue = -1;
-				double fGain = 0.0;
-				BestSplitValue(fBestSplitValue, fGain, f, m_nodeStat[n], nodeId);
 
-				cout << "fid=" << f << "; gain=" << fGain << "; split=" << fBestSplitValue << endl;
+			/**** two approaches to find the best feature ****/
+			//efficient way to find the best split
+			EfficientFeaFinder(bestSplit, m_nodeStat[n], nodeId);
+			//naive way to find the best split
+			//NaiveFeaFinder(bestSplit, splittableNode[n]->startId, splittableNode[n]->endId);
 
-				bestSplit.UpdateSplitPoint(fGain, fBestSplitValue, f);
-			}
-
-/*			for(int f = 0; f < data.nNumofFeature; f++)
-			{
-
-				//find the best split point of each feature
-				for(int i = splittableNode[n]->startId; i <= splittableNode[n]->endId; i++)
-				{//for each value in the node
-					double fSplitValue = m_vvInstance[i][f];
-					double fGain = ComputeGain(fSplitValue, f, splittableNode[n]->startId, splittableNode[n]->endId);
-
-					//update the split point (only better gain has effect on the update)
-					bestSplit.UpdateSplitPoint(fGain, fSplitValue, f);
-				}
-			}
-
-			//find the value just smaller than the best split value
-			int bestFeaId = bestSplit.m_nFeatureId;
-			double bestFeaValue = bestSplit.m_fSplitValue;
-			double fCurNextToBest = 0;
-			for(int i = splittableNode[n]->startId; i <= splittableNode[n]->endId; i++)
-			{//for each value in the node
-				double fSplitValue = m_vvInstance[i][bestFeaId];
-				if(fSplitValue < bestFeaValue && fSplitValue > fCurNextToBest)
-				{
-					fCurNextToBest = fSplitValue;
-				}
-			}
-			double dNewSplitValue = (bestSplit.m_fSplitValue + fCurNextToBest) * 0.5;
-			bestSplit.UpdateSplitPoint(bestSplit.m_fGain, dNewSplitValue, bestSplit.m_nFeatureId);
-
-		    if(nodeId == 1 && bestSplit.m_nFeatureId == 7)
-		    {
-		    	double gd_sum = 0, hess_sum = 0;
-		    	for(int i = splittableNode[n]->startId; i <= splittableNode[n]->endId; i++)
-		    	{
-		    		gd_sum += m_vGDPair[i].grad;
-		    		hess_sum += m_vGDPair[i].hess;
-		    	}
-		    	cout << "gain = " << bestSplit.m_fGain << "; split = " << dNewSplitValue << endl;
-		    	cout << "gd sum=" << gd_sum << " v.s. " << " hess sum=" << hess_sum << endl;
-		    	exit(0);
-		    }
-*/
 			//mark the node as a leaf node if (1) the gain is negative or (2) the tree reaches maximum depth.
 			if(bestSplit.m_fGain <= 0 || m_nMaxDepth == nCurDepth)
 			{
@@ -304,9 +286,10 @@ void Trainer::GrowTree(RegTree &tree)
 			else
 			{
 				//split the current node
-				cout << "start splitting..." << endl;
+//				cout << "start splitting..." << endl;
 				SplitNode(splittableNode[n], newSplittableNode, bestSplit, tree, newNodeStat);
-				cout << "end splitting." << endl;
+				assert(abs(m_nodeStat[n].sum_gd - newNodeStat[newNodeStat.size() - 1].sum_gd - newNodeStat[newNodeStat.size() - 2].sum_gd) < 0.0001);
+//				cout << "end splitting." << endl;
 			}
 		}
 
@@ -324,6 +307,58 @@ void Trainer::GrowTree(RegTree &tree)
 }
 
 /**
+ * @brief: efficient best feature finder
+ */
+void Trainer::EfficientFeaFinder(SplitPoint &bestSplit, const nodeStat &parent, int nodeId)
+{
+	for(int f = 0; f < data.nNumofFeature; f++)
+	{
+		double fBestSplitValue = -1;
+		double fGain = 0.0;
+		BestSplitValue(fBestSplitValue, fGain, f, parent, nodeId);
+
+//		cout << "fid=" << f << "; gain=" << fGain << "; split=" << fBestSplitValue << endl;
+
+		bestSplit.UpdateSplitPoint(fGain, fBestSplitValue, f);
+	}
+}
+
+/**
+ * @brief: naive best feature finder
+ */
+void Trainer::NaiveFeaFinder(SplitPoint &bestSplit, int startId, int endId)
+{
+	for (int f = 0; f < data.nNumofFeature; f++)
+	{
+
+		//find the best split point of each feature
+		for (int i = startId; i <= endId; i++)
+		{	//for each value in the node
+			double fSplitValue = m_vvInstance[i][f];
+			double fGain = ComputeGain(fSplitValue, f, startId, endId);
+
+			//update the split point (only better gain has effect on the update)
+			bestSplit.UpdateSplitPoint(fGain, fSplitValue, f);
+		}
+	}
+
+	//find the value just smaller than the best split value
+	int bestFeaId = bestSplit.m_nFeatureId;
+	double bestFeaValue = bestSplit.m_fSplitValue;
+	double fCurNextToBest = 0;
+	for(int i = startId; i <= endId; i++)
+	{	//for each value in the node
+		double fSplitValue = m_vvInstance[i][bestFeaId];
+		if(fSplitValue < bestFeaValue && fSplitValue > fCurNextToBest)
+		{
+			fCurNextToBest = fSplitValue;
+		}
+	}
+	double dNewSplitValue = (bestSplit.m_fSplitValue + fCurNextToBest) * 0.5;
+	bestSplit.UpdateSplitPoint(bestSplit.m_fGain, dNewSplitValue, bestSplit.m_nFeatureId);
+}
+
+/**
  * @brief: compute the best split value for a feature
  */
 void Trainer::BestSplitValue(double &fBestSplitValue, double &fGain, int nFeatureId, const nodeStat &parent, int nodeId)
@@ -337,40 +372,12 @@ void Trainer::BestSplitValue(double &fBestSplitValue, double &fGain, int nFeatur
 
 	int nCounter = 0;
 
-	int nNumofIns = featureKeyValues.size();
+	int nNumofKeyValues = featureKeyValues.size();
 
-	/*
-	nodeStat parent2, sibling;
-	int couter2 = 0;
-
-    for(int i = 0; i < nNumofIns; i++)
+    for(int i = 0; i < nNumofKeyValues; i++)
     {
-    	int originalInsId = featureKeyValues[i].insId;
-    	int ridx = m_InsIdTracker[originalInsId];
-    	assert(ridx >= 0 && ridx < m_InsIdTracker.size());
-		int nid = m_nodeIds[ridx];
-		if(nid != nodeId)
-		{
-			sibling.sum_gd += m_vGDPair_fixedPos[originalInsId].grad;
-			continue;
-		}
-
-		couter2++;
-		parent2.sum_gd += m_vGDPair_fixedPos[originalInsId].grad;
-    }
-
-    cout << parent2.sum_gd << " v.s. " << parent.sum_gd << endl;
-    cout << "sibling gd= " << sibling.sum_gd << endl;
-    cout << "counter = " << couter2 << endl;
-
-    assert(parent2.sum_gd == parent.sum_gd);
-*/
-
-    for(int i = 0; i < nNumofIns; i++)
-    {
-    	int originalInsId = featureKeyValues[i].insId;
+    	int originalInsId = featureKeyValues[i].id;
 		int nid = m_nodeIds[originalInsId];
-//		assert(nid >= nodeId);
 		if(nid != nodeId)
 			continue;
 
@@ -378,13 +385,6 @@ void Trainer::BestSplitValue(double &fBestSplitValue, double &fGain, int nFeatur
 
 		// start working
 		double fvalue = featureKeyValues[i].featureValue;
-/*		if(nodeId == 1 && nCounter == 10 && nFeatureId == 7)
-		{
-			cout << parent.sum_gd << " v.s. " << parent.sum_hess << endl;
-			cout << fvalue << "\t";
-			if(i != 0 && i % 16 == 0)
-				cout << endl;
-		}*/
 
 		// get the statistics of nid node
 		// test if first hit, this is fine, because we set 0 during init
@@ -406,20 +406,6 @@ void Trainer::BestSplitValue(double &fBestSplitValue, double &fGain, int nFeatur
 				{
 					double loss_chg = CalGain(parent, r_child, l_child);
 					bestSplit.UpdateSplitPoint(loss_chg, (fvalue + last_fvalue) * 0.5f, nFeatureId);
-					/*if(nodeId == 1 && nFeatureId == 7 && loss_chg > 500 && fvalue > 0.046)
-					{
-						cout << l_child.sum_gd << " v.s. " << r_child.sum_gd << endl;
-						cout << l_child.sum_hess << " v.s. " << r_child.sum_hess << endl;
-						cout << loss_chg << "; value=" << fvalue << " v.s. " << "last_fvalue=" << last_fvalue << " v.s. " << (fvalue + last_fvalue) * 0.5f << endl;
-					}
-					if(loss_chg > 5000000 && nFeatureId == 3)
-					{
-						cout << "l gd=" << l_child.sum_gd << " v.s. r gd=" << r_child.sum_gd << endl;
-						cout << l_child.sum_hess << " v.s. " << r_child.sum_hess << endl;
-						cout << "gd = " << m_vGDPair_fixedPos[originalInsId].grad << endl;
-						cout << loss_chg << "; value=" << fvalue << " v.s. " << "last_fvalue=" << last_fvalue << " v.s. " << (fvalue + last_fvalue) * 0.5f << endl;
-						exit(0);
-					}*/
 				}
 			}
 			//update the statistics
@@ -430,13 +416,6 @@ void Trainer::BestSplitValue(double &fBestSplitValue, double &fGain, int nFeatur
 
     fBestSplitValue = bestSplit.m_fSplitValue;
     fGain = bestSplit.m_fGain;
-
-    if(nodeId == 1 && nFeatureId == 7)
-    {
-    	cout << "numof ins of node1 is " << nCounter << endl;
-    	cout << "gain = " << fGain << "; split = " << fBestSplitValue << endl;
-  //  	exit(0);
-    }
 }
 
 /**
@@ -493,7 +472,7 @@ double Trainer::ComputeGain(double fSplitValue, int featureId, int dataStartId, 
  */
 double Trainer::CalGain(const nodeStat &parent, const nodeStat &r_child, const nodeStat &l_child)
 {
-	assert(parent.sum_gd == l_child.sum_gd + r_child.sum_gd);
+	assert(abs(parent.sum_gd - l_child.sum_gd - r_child.sum_gd) < 0.0001);
 	assert(parent.sum_hess == l_child.sum_hess + r_child.sum_hess);
 
 	//compute the gain
@@ -581,9 +560,9 @@ void Trainer::SplitNode(TreeNode *node, vector<TreeNode*> &newSplittableNode, Sp
 	for(int i = leftChildEndId + 1; i <= nNodeEnd; i++)
 		rightNodeStat.Add(m_vGDPair[i].grad, m_vGDPair[i].hess);
 
-	cout << "after split l: " << leftNodeStat.sum_gd << " v.s. " << leftNodeStat.sum_hess << endl;
+/*	cout << "after split l: " << leftNodeStat.sum_gd << " v.s. " << leftNodeStat.sum_hess << endl;
 	cout << "after split r: " << rightNodeStat.sum_gd << " v.s. " << rightNodeStat.sum_hess << endl;
-/*	exit(0);
+	exit(0);
 */
 
 	v_nodeStat.push_back(leftNodeStat);
@@ -617,7 +596,7 @@ void Trainer::UpdateNodeId(const SplitPoint &sp, int parentNodeId, int leftNodeI
  */
 int Trainer::Partition(const SplitPoint &sp, int startId, int endId)
 {
-	cout << "stardId=" << startId << "; endId=" << endId << endl;
+//	cout << "stardId=" << startId << "; endId=" << endId << endl;
 	bool bPrint = false;
 	int middle = endId;
 	double fPivot = sp.m_fSplitValue;
@@ -636,7 +615,6 @@ int Trainer::Partition(const SplitPoint &sp, int startId, int endId)
 		if(i > middle)
 		{
 			bPrint = true;
-//			cout << i << " v.s. " << startId << " : " << endId << "; " << sp.m_fSplitValue << " v.s. " << m_vvInstance[i][fId] << " : " << m_vvInstance[endId][fId] << endl;
 			break;
 		}
 
@@ -651,28 +629,6 @@ int Trainer::Partition(const SplitPoint &sp, int startId, int endId)
 			middle--;
 		}
 	}
-
-	//instance ids that are stored in left node
-/*	for(int i = startId; i <= middle; i++)
-	{
-		m_nodeIds[i] = m_nNumofNode;
-	}
-	//instance ids that are stored in the right node
-	for(int i = middle + 1; i <= endId; i++)
-	{
-		m_nodeIds[i] = m_nNumofNode + 1;
-	}
-*/
-/*
-	for(int i = startId; i <= endId; i++)
-	{
-		cout << m_nodeIds[m_InsIdTracker[i]] << " v.s. " << m_InsIdTracker[i] << "\t";
-		if(i != 0 && i % 20 == 0)
-			cout << endl;
-	}
-	cout << endl;
-	exit(0);
-*/
 
 	if(bPrint == true)
 		CheckPartition(startId, endId, middle, sp);
