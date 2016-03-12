@@ -128,14 +128,14 @@ void Trainer::TrainGBDT(vector<vector<double> > &v_vInstance, vector<double> &v_
 		//predict the data by the existing trees
 		vector<double> v_fPredValue;
 		begin_pred = clock();
-		pred.Predict(m_vvInstance, vTree, v_fPredValue, m_vPredBuffer);
+		pred.PredictDenseIns(m_vvInstance, vTree, v_fPredValue, m_vPredBuffer);
 		end_pred = clock();
 		total_pred += (double(end_pred - begin_pred) / CLOCKS_PER_SEC);
 
 //		PrintPrediction(v_fPredValue);
 
 		vector<double> v_fPredValue_fixed;
-		pred.Predict(m_vvInstance_fixedPos, vTree, v_fPredValue_fixed, m_vPredBuffer_fixedPos);
+		pred.PredictDenseIns(m_vvInstance_fixedPos, vTree, v_fPredValue_fixed, m_vPredBuffer_fixedPos);
 		ComputeGD2(v_fPredValue_fixed);
 
 		//compute gradient

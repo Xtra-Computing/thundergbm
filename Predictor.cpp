@@ -9,9 +9,12 @@
 #include <assert.h>
 
 #include "Predictor.h"
+#include "SparsePred/DenseInstance.h"
 
-
-void Predictor::Predict(vector<vector<double> > &v_vInstance, vector<RegTree> &vTree, vector<double> &v_fPredValue, vector<double> &v_predBuffer)
+/**
+ * @brief: prediction function for dense instances
+ */
+void Predictor::PredictDenseIns(vector<vector<double> > &v_vInstance, vector<RegTree> &vTree, vector<double> &v_fPredValue, vector<double> &v_predBuffer)
 {
 	//for each tree
 	int nNumofTree = vTree.size();
@@ -35,3 +38,33 @@ void Predictor::Predict(vector<vector<double> > &v_vInstance, vector<RegTree> &v
 	assert(v_fPredValue.size() == v_vInstance.size());
 }
 
+/**
+ * @brief: prediction function for sparse instances
+ */
+void Predictor::PredictSparseIns(vector<vector<double> > &v_vInstance, vector<RegTree> &vTree, vector<double> &v_fPredValue, vector<double> &v_predBuffer)
+{
+	DenseInsConverter denseInsConverter(vTree);
+	//for each tree
+	int nNumofIns = v_vInstance.size();
+
+	for(int i = 0; i < nNumofIns; i++)
+	{
+		double fValue = v_predBuffer[i];
+
+		//start prediction ###############
+		int nNumofTree = vTree.size();
+		//prediction using the last tree
+		for(int t = nNumofTree - 1; t >= 0 && t < nNumofTree; t++)
+		{
+			int nodeId = vTree[t].GetLeafIndex(v_vInstance[i]);
+			fValue += vTree[t][nodeId]->predValue;
+		}
+
+		//end prediction #################
+
+		v_fPredValue.push_back(fValue);
+		v_predBuffer[i] = fValue;
+	}
+
+	assert(v_fPredValue.size() == v_vInstance.size());
+}
