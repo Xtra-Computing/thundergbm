@@ -22,7 +22,7 @@ int main()
 
 	LibSVMDataReader dataReader;
 	dataReader.GetDataInfo(strFileName, nNumofFeatures, nNumofExamples);
-	dataReader.ReadLibSVMDataFormat(v_vInstance, v_fLabel, strFileName, nNumofFeatures, nNumofExamples);
+//	dataReader.ReadLibSVMDataFormat(v_vInstance, v_fLabel, strFileName, nNumofFeatures, nNumofExamples);
 
 	vector<double> v_fLabel_non;
 	vector<vector<key_value> > v_vInsSparse;
@@ -32,19 +32,19 @@ int main()
 	/********* run the GBDT learning process ******************/
 	vector<RegTree> v_Tree;
 	Trainer trainer;
-	trainer.m_vvInstance = v_vInstance;
+//	trainer.m_vvInstance = v_vInstance;
 	trainer.m_vTrueValue = v_fLabel;
 
 	trainer.m_vvInsSparse = v_vInsSparse;
 //	trainer.m_vvInstance_fixedPos = v_vInstance;
-	trainer.m_vTrueValue_fixedPos = v_fLabel;
+	trainer.m_vTrueValue_fixedPos = v_fLabel_non;
 
 	int nNumofTree = 8;
 	int nMaxDepth = 4;
 	float fLabda = 1;
 	float fGamma = 1;
 	trainer.InitTrainer(nNumofTree, nMaxDepth, fLabda, fGamma);
-	trainer.TrainGBDT(v_vInstance, v_fLabel, v_Tree);
+	trainer.TrainGBDT(v_Tree);
 	cout << "saved to file" << endl;
 	trainer.SaveModel("tree.txt", v_Tree);
 

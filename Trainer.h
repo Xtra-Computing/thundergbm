@@ -115,7 +115,7 @@ private:
 public:
 	void SortFeaValue(int nNumofDim);
 	void InitTrainer(int nNumofTree, int nMaxDepth, double fLabda, double fGamma);
-	void TrainGBDT(vector<vector<double> > &v_vInstance, vector<double> &v_fLabel, vector<RegTree> &v_Tree);
+	void TrainGBDT(vector<RegTree> &v_Tree);
 	void SaveModel(string fileName, const vector<RegTree> &v_Tree);
 
 protected:
@@ -129,9 +129,14 @@ private:
 	double ComputeGain(double fSplitValue, int featureId, int dataStartId, int dataEndId);
 	double CalGain(const nodeStat &parent, const nodeStat &r_child, const nodeStat &l_child);
 	void ComputeWeight(TreeNode &node);
+	double ComputeWeightSparseData(nodeStat & nStat);
+
 	void SplitNode(TreeNode *node, vector<TreeNode*> &newSplittableNode, SplitPoint &sp, RegTree &tree, vector<nodeStat> &v_nodeStat);
+	void SplitNodeSparseData(TreeNode *node, vector<TreeNode*> &newSplittableNode, SplitPoint &sp, RegTree &tree, vector<nodeStat> &v_nodeStat);
+
 	int Partition(const SplitPoint &sp, int startId, int endId);
 
+	void ComputeNodeStat(int nId, nodeStat &nodeStat);
 	void UpdateNodeIdForSparseData(const SplitPoint &sp, int parentNodeId, int leftNodeId, int rightNodeId);
 	void UpdateNodeId(const SplitPoint &sp, int parentNodeId, int leftNodeId, int rightNodeId);
 
