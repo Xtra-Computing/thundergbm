@@ -92,6 +92,9 @@ void DenseInsConverter::GetFeatures(const vector<RegTree>& vTree)
 		int numofNode = vTree[i].nodes.size();
 		for(int j = 0; j < numofNode; j++)
 		{
+			//skip all the leaves
+			if(vTree[i].nodes[j]->isLeaf() == true)
+				continue;
 			int fid = vTree[i].nodes[j]->featureId;
 			fidSet.insert(fid);
 		}
@@ -102,11 +105,8 @@ void DenseInsConverter::GetFeatures(const vector<RegTree>& vTree)
 		usedFeaSet.push_back(*it);
 	}
 
+	//sort the vector ascendantly
 	sort(usedFeaSet.begin(), usedFeaSet.end());
-	for(int i = 0; i < usedFeaSet.size(); i++)
-	{
-		cout << usedFeaSet[i] << endl;
-	}
 }
 
 /**

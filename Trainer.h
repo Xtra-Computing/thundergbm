@@ -104,7 +104,7 @@ public:
 
 	/*** for more efficient on finding the best split value of a feature ***/
 	vector<vector<key_value> > m_vvInsSparse;
-	vector<vector<key_value> > m_vvFeaInxPair; //value is feature value position (ordered) to instance id
+	vector<vector<key_value> > m_vvFeaInxPair; //value is feature value (sorted in a descendant order); id is instance id
 	vector<int> m_nodeIds; //instance id to node id
 	vector<nodeStat> m_nodeStat; //all the constructed tree nodes
 
@@ -131,6 +131,8 @@ private:
 	void ComputeWeight(TreeNode &node);
 	void SplitNode(TreeNode *node, vector<TreeNode*> &newSplittableNode, SplitPoint &sp, RegTree &tree, vector<nodeStat> &v_nodeStat);
 	int Partition(const SplitPoint &sp, int startId, int endId);
+
+	void UpdateNodeIdForSparseData(const SplitPoint &sp, int parentNodeId, int leftNodeId, int rightNodeId);
 	void UpdateNodeId(const SplitPoint &sp, int parentNodeId, int leftNodeId, int rightNodeId);
 
 	//two different functions for computing the gain of a feature

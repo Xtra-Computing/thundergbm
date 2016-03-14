@@ -27,6 +27,8 @@ public:
 public:
 	DenseInsConverter(const vector<RegTree>& vTree)
 	{
+		usedFeaSet.clear();
+		fidToDensePos.clear();
 		InitDenseInsConverter(vTree);
 	}
 	void SparseToDense(const vector<key_value> &sparseIns, vector<double> &denseIns);

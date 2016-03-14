@@ -43,7 +43,7 @@ void Trainer::InitTrainer(int nNumofTree, int nMaxDepth, double fLabda, double f
 	m_gamma = fGamma;
 
 	//initialise the prediction buffer
-	for(int i = 0; i < (int)m_vvInstance.size(); i++)
+	for(int i = 0; i < (int)m_vvInsSparse.size(); i++)
 	{
 		m_vPredBuffer.push_back(0);
 		gdpair gd;
@@ -52,14 +52,14 @@ void Trainer::InitTrainer(int nNumofTree, int nMaxDepth, double fLabda, double f
 
 	//for debugging
 	//initialise the prediction buffer
-	for(int i = 0; i < (int)m_vvInstance.size(); i++)
+	for(int i = 0; i < (int)m_vvInsSparse.size(); i++)
 	{
 		m_vPredBuffer_fixedPos.push_back(0);
 		gdpair gd;
 		m_vGDPair_fixedPos.push_back(gd);
 	}
 
-	int nNumofDim = m_vvInstance[0].size();
+	int nNumofDim = m_vvInsSparse[0].size();
 	SortFeaValue(nNumofDim);
 }
 
@@ -71,7 +71,6 @@ void Trainer::SortFeaValue(int nNumofDim)
 	//sort the feature values for each feature
 	vector<int> vCurParsePos;
 	int nNumofIns = m_vvInsSparse.size();
-	assert(m_vvInsSparse.size() == m_vvInstance.size());
 	for(int i = 0; i < nNumofIns; i++)
 	{
 		vCurParsePos.push_back(0);
@@ -135,7 +134,8 @@ void Trainer::TrainGBDT(vector<vector<double> > &v_vInstance, vector<double> &v_
 //		PrintPrediction(v_fPredValue);
 
 		vector<double> v_fPredValue_fixed;
-		pred.PredictDenseIns(m_vvInstance_fixedPos, vTree, v_fPredValue_fixed, m_vPredBuffer_fixedPos);
+//		pred.PredictDenseIns(m_vvInstance_fixedPos, vTree, v_fPredValue_fixed, m_vPredBuffer_fixedPos);
+		pred.PredictSparseIns(m_vvInsSparse, vTree, v_fPredValue_fixed, m_vPredBuffer_fixedPos);
 		ComputeGD2(v_fPredValue_fixed);
 
 		//compute gradient
@@ -197,13 +197,13 @@ void Trainer::InitTree(RegTree &tree)
 
 	//initialise the range of instances that are covered by this node
 	root->startId = 0;
-	root->endId = m_vvInstance.size() - 1;
+	root->endId = m_vvInsSparse.size() - 1;
 
 	tree.nodes.push_back(root);
 
 	//all instances are under node 0
 	m_nodeIds.clear();
-	for(int i = 0; i < m_vvInstance.size(); i++)
+	for(int i = 0; i < m_vvInsSparse.size(); i++)
 	{
 		m_nodeIds.push_back(0);
 	}
@@ -543,7 +543,8 @@ void Trainer::SplitNode(TreeNode *node, vector<TreeNode*> &newSplittableNode, Sp
 	node->featureId = sp.m_nFeatureId;
 	node->fSplitValue = sp.m_fSplitValue;
 
-	UpdateNodeId(sp, node->nodeId, m_nNumofNode, m_nNumofNode + 1);
+//	UpdateNodeId(sp, node->nodeId, m_nNumofNode, m_nNumofNode + 1);
+	UpdateNodeIdForSparseData(sp, node->nodeId, m_nNumofNode, m_nNumofNode + 1);
 
 	m_nNumofNode += 2;
 
@@ -574,7 +575,7 @@ void Trainer::SplitNode(TreeNode *node, vector<TreeNode*> &newSplittableNode, Sp
  */
 void Trainer::UpdateNodeId(const SplitPoint &sp, int parentNodeId, int leftNodeId, int rightNodeId)
 {
-	int nNumofIns = m_vvInstance_fixedPos.size();
+	int nNumofIns = m_vvInsSparse.size();
 	int fid = sp.m_nFeatureId;
 	double fPivot = sp.m_fSplitValue;
 	for(int i = 0; i < nNumofIns; i++)
@@ -587,6 +588,51 @@ void Trainer::UpdateNodeId(const SplitPoint &sp, int parentNodeId, int leftNodeI
 		}
 		else
 			m_nodeIds[i] = leftNodeId;
+	}
+}
+
+/**
+ * @brief: update the node ids for the newly constructed nodes
+ */
+void Trainer::UpdateNodeIdForSparseData(const SplitPoint &sp, int parentNodeId, int leftNodeId, int rightNodeId)
+{
+	int nNumofIns = m_vvInsSparse.size();
+	int fid = sp.m_nFeatureId;
+	double fPivot = sp.m_fSplitValue;
+
+	//create a mark
+	vector<int> vMark;
+	for(int i = 0; i < nNumofIns; i++)
+		vMark.push_back(0);
+
+	//for each instance that has value on the feature
+	int nNumofPair = m_vvFeaInxPair[fid].size();
+	for(int j = 0; j < nNumofPair; j++)
+	{
+		int insId = m_vvFeaInxPair[fid][j].id;
+		double fvalue = m_vvFeaInxPair[fid][j].featureValue;
+		if(m_nodeIds[insId] != parentNodeId)
+		{
+			vMark[insId] = -1;//this instance can be skipped.
+			continue;
+		}
+		else
+		{
+			vMark[insId] = 1;//this instance has been considered.
+			if(fvalue >= fPivot)
+			{
+				m_nodeIds[insId] = rightNodeId;
+			}
+			else
+				m_nodeIds[insId] = leftNodeId;
+		}
+	}
+
+	for(int i = 0; i < nNumofIns; i++)
+	{
+		if(vMark[i] != 0)
+			continue;
+		m_nodeIds[i] = leftNodeId;
 	}
 }
 

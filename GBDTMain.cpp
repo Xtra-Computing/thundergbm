@@ -36,7 +36,7 @@ int main()
 	trainer.m_vTrueValue = v_fLabel;
 
 	trainer.m_vvInsSparse = v_vInsSparse;
-	trainer.m_vvInstance_fixedPos = v_vInstance;
+//	trainer.m_vvInstance_fixedPos = v_vInstance;
 	trainer.m_vTrueValue_fixedPos = v_fLabel;
 
 	int nNumofTree = 8;

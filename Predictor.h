@@ -11,6 +11,7 @@
 
 #include <vector>
 #include "RegTree.h"
+#include "keyValue.h"
 
 using std::vector;
 
@@ -19,7 +20,7 @@ class Predictor
 public:
 	void PredictDenseIns(vector<vector<double> > &v_vInstance, vector<RegTree> &v_Tree,
 				 	 	 vector<double> &v_fPredValue, vector<double> &v_predBuffer);
-	void PredictSparseIns(vector<vector<double> > &v_vInstance, vector<RegTree> &v_Tree,
+	void PredictSparseIns(vector<vector<key_value> > &v_vInstance, vector<RegTree> &v_Tree,
 					   	  vector<double> &v_fPredValue, vector<double> &v_predBuffer);
 };
 

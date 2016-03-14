@@ -10,14 +10,20 @@
 #define REGTREE_H_
 
 #include <vector>
+#include <map>
 #include "TreeNode.h"
 
 using std::vector;
+using std::map;
 
 class RegTree
 {
 public:
 	vector<TreeNode*> nodes;
+
+public:
+	RegTree(){nodes.clear();}
+
 	inline TreeNode* &operator[](int nid)
 	{
 	    return nodes[nid];
@@ -25,6 +31,8 @@ public:
 
  public:
   int GetLeafIndex(vector<double> &ins);
+
+  int GetLeafIdSparseInstance(vector<double> &ins, map<int, int> &fidToDensePos);
 
 //  /*!
 //   * \brief get the prediction of regression tree, only accepts dense feature vector

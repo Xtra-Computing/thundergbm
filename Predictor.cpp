@@ -41,7 +41,8 @@ void Predictor::PredictDenseIns(vector<vector<double> > &v_vInstance, vector<Reg
 /**
  * @brief: prediction function for sparse instances
  */
-void Predictor::PredictSparseIns(vector<vector<double> > &v_vInstance, vector<RegTree> &vTree, vector<double> &v_fPredValue, vector<double> &v_predBuffer)
+void Predictor::PredictSparseIns(vector<vector<key_value> > &v_vInstance, vector<RegTree> &vTree,
+								 vector<double> &v_fPredValue, vector<double> &v_predBuffer)
 {
 	DenseInsConverter denseInsConverter(vTree);
 	//for each tree
@@ -53,10 +54,14 @@ void Predictor::PredictSparseIns(vector<vector<double> > &v_vInstance, vector<Re
 
 		//start prediction ###############
 		int nNumofTree = vTree.size();
+
+		vector<double> vDense;
+		if(nNumofTree > 0)
+			denseInsConverter.SparseToDense(v_vInstance[i], vDense);
 		//prediction using the last tree
 		for(int t = nNumofTree - 1; t >= 0 && t < nNumofTree; t++)
 		{
-			int nodeId = vTree[t].GetLeafIndex(v_vInstance[i]);
+			int nodeId = vTree[t].GetLeafIdSparseInstance(vDense, denseInsConverter.fidToDensePos);
 			fValue += vTree[t][nodeId]->predValue;
 		}
 
