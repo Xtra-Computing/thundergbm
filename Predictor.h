@@ -22,6 +22,7 @@ public:
 				 	 	 vector<double> &v_fPredValue, vector<double> &v_predBuffer);
 	void PredictSparseIns(vector<vector<key_value> > &v_vInstance, vector<RegTree> &v_Tree,
 					   	  vector<double> &v_fPredValue, vector<double> &v_predBuffer);
+	void PredictSparseIns(vector<vector<key_value> > &v_vInstance, vector<RegTree> &vTree, vector<double> &v_fPredValue);
 };
 
 

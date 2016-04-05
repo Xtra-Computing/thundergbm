@@ -114,7 +114,7 @@ private:
 
 public:
 	void SortFeaValue(int nNumofDim);
-	void InitTrainer(int nNumofTree, int nMaxDepth, double fLabda, double fGamma);
+	void InitTrainer(int nNumofTree, int nMaxDepth, double fLabda, double fGamma, int nNumofFea);
 	void TrainGBDT(vector<RegTree> &v_Tree);
 	void SaveModel(string fileName, const vector<RegTree> &v_Tree);
 
@@ -124,7 +124,7 @@ protected:
 
 private:
 	void ComputeGD(vector<double> &v_fPredValue);
-	void ComputeGD2(vector<double> &v_fPredValue);
+	void ComputeGDSparse(vector<double> &v_fPredValue);
 	void CreateNode();
 	double ComputeGain(double fSplitValue, int featureId, int dataStartId, int dataEndId);
 	double CalGain(const nodeStat &parent, const nodeStat &r_child, const nodeStat &l_child);

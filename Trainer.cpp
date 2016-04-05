@@ -35,7 +35,7 @@ bool CmpValue(const key_value &a, const key_value &b) {
 /*
  * @brief: initialise constants of a trainer
  */
-void Trainer::InitTrainer(int nNumofTree, int nMaxDepth, double fLabda, double fGamma)
+void Trainer::InitTrainer(int nNumofTree, int nMaxDepth, double fLabda, double fGamma, int nNumofFea)
 {
 	m_nMaxNumofTree = nNumofTree;
 	m_nMaxDepth = nMaxDepth;
@@ -59,8 +59,7 @@ void Trainer::InitTrainer(int nNumofTree, int nMaxDepth, double fLabda, double f
 		m_vGDPair_fixedPos.push_back(gd);
 	}
 
-	int nNumofDim = m_vvInsSparse[0].size();
-	SortFeaValue(nNumofDim);
+	SortFeaValue(nNumofFea);
 }
 
 /**
@@ -136,7 +135,7 @@ void Trainer::TrainGBDT(vector<RegTree> & vTree)
 		vector<double> v_fPredValue_fixed;
 //		pred.PredictDenseIns(m_vvInstance_fixedPos, vTree, v_fPredValue_fixed, m_vPredBuffer_fixedPos);
 		pred.PredictSparseIns(m_vvInsSparse, vTree, v_fPredValue_fixed, m_vPredBuffer_fixedPos);
-		ComputeGD2(v_fPredValue_fixed);
+		ComputeGDSparse(v_fPredValue_fixed);
 
 
 
@@ -222,7 +221,7 @@ void Trainer::ComputeGD(vector<double> &v_fPredValue)
 /**
  * @brief: compute the first order gradient and the second order gradient
  */
-void Trainer::ComputeGD2(vector<double> &v_fPredValue)
+void Trainer::ComputeGDSparse(vector<double> &v_fPredValue)
 {
 	nodeStat rootStat;
 	int nTotal = m_vTrueValue_fixedPos.size();
@@ -261,7 +260,12 @@ void Trainer::GrowTree(RegTree &tree)
 		for(int n = 0; n < m_nNumofSplittableNode; n++)
 		{
 			int nodeId = splittableNode[n]->nodeId;
-			cout << "node=" << nodeId << "\t" << "numof ins=" << splittableNode[n]->endId - splittableNode[n]->startId + 1 << endl;;
+
+			int insCount = 0;
+			for(int i = 0; i < m_nodeIds.size(); i++)
+				if(m_nodeIds[i] == nodeId)
+					insCount++;
+//			cout << "node=" << nodeId << "\t" << "numof ins=" << insCount << endl;;
 
 			//find the best feature to split the node
 			SplitPoint bestSplit;
@@ -285,6 +289,8 @@ void Trainer::GrowTree(RegTree &tree)
 //				cout << "start splitting..." << endl;
 //				SplitNode(splittableNode[n], newSplittableNode, bestSplit, tree, newNodeStat);
 				SplitNodeSparseData(splittableNode[n], newSplittableNode, bestSplit, tree, newNodeStat);
+//				cout << "n=" << n << "; newNodeStat size=" << newNodeStat.size() << "; ";
+//				cout << m_nodeStat[n].sum_gd << "=" << newNodeStat[newNodeStat.size() - 1].sum_gd << "+" << newNodeStat[newNodeStat.size() - 2].sum_gd << endl;
 				assert(abs(m_nodeStat[n].sum_gd - newNodeStat[newNodeStat.size() - 1].sum_gd - newNodeStat[newNodeStat.size() - 2].sum_gd) < 0.0001);
 //				cout << "end splitting." << endl;
 			}
@@ -628,6 +634,7 @@ void Trainer::SplitNodeSparseData(TreeNode *node, vector<TreeNode*> &newSplittab
 void Trainer::ComputeNodeStat(int nId, nodeStat &nodeStat)
 {
 	int nNumofIns = m_nodeIds.size();
+	assert(m_nodeIds.size() == m_vvInsSparse.size());
 	for(int i = 0; i < nNumofIns; i++)
 	{
 		if(m_nodeIds[i] != nId)
@@ -698,7 +705,8 @@ void Trainer::UpdateNodeIdForSparseData(const SplitPoint &sp, int parentNodeId, 
 	{
 		if(vMark[i] != 0)
 			continue;
-		m_nodeIds[i] = leftNodeId;
+		if(parentNodeId == m_nodeIds[i])
+			m_nodeIds[i] = leftNodeId;
 	}
 }
 

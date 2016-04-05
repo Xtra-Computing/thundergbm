@@ -100,6 +100,7 @@ void DenseInsConverter::GetFeatures(const vector<RegTree>& vTree)
 		}
 	}
 
+//	cout << "number of trees is " << numofTree << "; size of fea set " << fidSet.size() << endl;
 	for(set<int>::iterator it = fidSet.begin(); it != fidSet.end(); it++)
 	{
 		usedFeaSet.push_back(*it);

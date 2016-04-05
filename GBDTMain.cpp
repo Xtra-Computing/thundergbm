@@ -8,18 +8,20 @@
 
 #include "DataReader/LibSVMDataReader.h"
 #include "Trainer.h"
+#include "Predictor.h"
+#include "Evaluation/RMSE.h"
 
 int main()
 {
 	clock_t begin_whole, end_whole;
-	begin_whole = clock();
 	/********* read training instances from a file **************/
 	vector<vector<double> > v_vInstance;
 	vector<double> v_fLabel;
-	string strFileName = "data/abalone.txt";
+	string strFileName = "data/kdd98.txt";
 	int nNumofFeatures;
 	int nNumofExamples;
 
+	cout << "reading data..." << endl;
 	LibSVMDataReader dataReader;
 	dataReader.GetDataInfo(strFileName, nNumofFeatures, nNumofExamples);
 //	dataReader.ReadLibSVMDataFormat(v_vInstance, v_fLabel, strFileName, nNumofFeatures, nNumofExamples);
@@ -28,6 +30,7 @@ int main()
 	vector<vector<key_value> > v_vInsSparse;
 	dataReader.ReadLibSVMFormatSparse(v_vInsSparse, v_fLabel_non, strFileName, nNumofFeatures, nNumofExamples);
 
+	begin_whole = clock();
 	cout << "start training..." << endl;
 	/********* run the GBDT learning process ******************/
 	vector<RegTree> v_Tree;
@@ -43,12 +46,12 @@ int main()
 	int nMaxDepth = 4;
 	float fLabda = 1;
 	float fGamma = 1;
-	trainer.InitTrainer(nNumofTree, nMaxDepth, fLabda, fGamma);
+	trainer.InitTrainer(nNumofTree, nMaxDepth, fLabda, fGamma, nNumofFeatures);
 	trainer.TrainGBDT(v_Tree);
+	end_whole = clock();
 	cout << "saved to file" << endl;
 	trainer.SaveModel("tree.txt", v_Tree);
 
-	end_whole = clock();
 
 	double total_all = (double(end_whole - begin_whole) / CLOCKS_PER_SEC);
 	cout << "all sec = " << total_all << endl;
@@ -57,7 +60,16 @@ int main()
 
 
 	//run the GBDT prediction process
+	Predictor pred;
+	vector<double> v_fPredValue_fixed;
+	vector<double> v_fPreValue_buffer;
+	for(int i = 0; i < v_vInsSparse.size(); i++)
+		v_fPreValue_buffer.push_back(0);
+	pred.PredictSparseIns(v_vInsSparse, v_Tree, v_fPredValue_fixed);
 
+	EvalRMSE rmse;
+	float fRMSE = rmse.Eval(v_fPredValue_fixed, v_fLabel_non);
+	cout << "rmse=" << fRMSE << endl;
 
 	return 0;
 }
