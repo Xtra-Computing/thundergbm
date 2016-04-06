@@ -17,7 +17,7 @@ int main()
 	/********* read training instances from a file **************/
 	vector<vector<double> > v_vInstance;
 	vector<double> v_fLabel;
-	string strFileName = "data/kdd98.txt";
+	string strFileName = "data/slice_loc.txt";
 	int nNumofFeatures;
 	int nNumofExamples;
 
@@ -42,17 +42,27 @@ int main()
 //	trainer.m_vvInstance_fixedPos = v_vInstance;
 	trainer.m_vTrueValue_fixedPos = v_fLabel_non;
 
-	int nNumofTree = 8;
-	int nMaxDepth = 4;
+	int nNumofTree = 3;
+	int nMaxDepth = 12;
 	float fLabda = 1;
 	float fGamma = 1;
+
+	clock_t start_init = clock();
 	trainer.InitTrainer(nNumofTree, nMaxDepth, fLabda, fGamma, nNumofFeatures);
+	clock_t end_init = clock();
+
+	clock_t start_train_time = clock();
 	trainer.TrainGBDT(v_Tree);
+	clock_t end_train_time = clock();
+
 	end_whole = clock();
 	cout << "saved to file" << endl;
 	trainer.SaveModel("tree.txt", v_Tree);
 
-
+	double total_init = (double(end_init - start_init) / CLOCKS_PER_SEC);
+	cout << "total init time = " << total_init << endl;
+	double total_train = (double(end_train_time - start_train_time) / CLOCKS_PER_SEC);
+	cout << "total training time = " << total_train << endl;
 	double total_all = (double(end_whole - begin_whole) / CLOCKS_PER_SEC);
 	cout << "all sec = " << total_all << endl;
 

@@ -28,7 +28,8 @@ using std::ofstream;
 /**
  * @brief: sort a vector in a descendant order
  */
-bool CmpValue(const key_value &a, const key_value &b) {
+bool CmpValue(const key_value &a, const key_value &b)
+{
   return a.featureValue > b.featureValue;
 }
 
@@ -42,15 +43,6 @@ void Trainer::InitTrainer(int nNumofTree, int nMaxDepth, double fLabda, double f
 	m_labda = fLabda;
 	m_gamma = fGamma;
 
-	//initialise the prediction buffer
-	for(int i = 0; i < (int)m_vvInsSparse.size(); i++)
-	{
-		m_vPredBuffer.push_back(0);
-		gdpair gd;
-		m_vGDPair.push_back(gd);
-	}
-
-	//for debugging
 	//initialise the prediction buffer
 	for(int i = 0; i < (int)m_vvInsSparse.size(); i++)
 	{
@@ -114,30 +106,29 @@ void Trainer::TrainGBDT(vector<RegTree> & vTree)
 	for(int i = 0; i < m_nMaxNumofTree; i++)
 	{
 		cout << "start round " << i << endl;
+		clock_t start_round = clock();
 		//initialise a tree
 		RegTree tree;
 		InitTree(tree);
 
 		//predict the data by the existing trees
 /*		vector<double> v_fPredValue;
-		begin_pred = clock();
 		pred.PredictDenseIns(m_vvInstance, vTree, v_fPredValue, m_vPredBuffer);
-		end_pred = clock();
-		total_pred += (double(end_pred - begin_pred) / CLOCKS_PER_SEC);
 		//compute gradient
-		begin_gd = clock();
 		ComputeGD(v_fPredValue);
-		end_gd = clock();
-		total_gd += (double(end_gd - begin_gd) / CLOCKS_PER_SEC);
 */
 //		PrintPrediction(v_fPredValue);
 
 		vector<double> v_fPredValue_fixed;
-//		pred.PredictDenseIns(m_vvInstance_fixedPos, vTree, v_fPredValue_fixed, m_vPredBuffer_fixedPos);
+		begin_pred = clock();
 		pred.PredictSparseIns(m_vvInsSparse, vTree, v_fPredValue_fixed, m_vPredBuffer_fixedPos);
+		end_pred = clock();
+		total_pred += (double(end_pred - begin_pred) / CLOCKS_PER_SEC);
+
+		begin_gd = clock();
 		ComputeGDSparse(v_fPredValue_fixed);
-
-
+		end_gd = clock();
+		total_gd += (double(end_gd - begin_gd) / CLOCKS_PER_SEC);
 
 		//grow the tree
 		begin_grow = clock();
@@ -148,6 +139,10 @@ void Trainer::TrainGBDT(vector<RegTree> & vTree)
 		//save the tree
 		vTree.push_back(tree);
 //		PrintTree(tree);
+
+		clock_t end_round = clock();
+		cout << "elapsed time of round " << i << " is " << (double(end_round - start_round) / CLOCKS_PER_SEC) << endl;
+		cout << "split time = " << total_split_t << "; total find fea time = " << total_find_fea_t << endl;
 	}
 
 	cout << "pred sec = " << total_pred << "; gd sec = " << total_gd << "; grow sec = " << total_grow << endl;
@@ -202,6 +197,9 @@ void Trainer::InitTree(RegTree &tree)
 	{
 		m_nodeIds.push_back(0);
 	}
+
+	total_find_fea_t = 0;
+	total_split_t = 0;
 }
 
 /**
@@ -261,18 +259,15 @@ void Trainer::GrowTree(RegTree &tree)
 		{
 			int nodeId = splittableNode[n]->nodeId;
 
-			int insCount = 0;
-			for(int i = 0; i < m_nodeIds.size(); i++)
-				if(m_nodeIds[i] == nodeId)
-					insCount++;
-//			cout << "node=" << nodeId << "\t" << "numof ins=" << insCount << endl;;
-
 			//find the best feature to split the node
 			SplitPoint bestSplit;
 
 			/**** two approaches to find the best feature ****/
 			//efficient way to find the best split
+			clock_t begin_find_fea = clock();
 			EfficientFeaFinder(bestSplit, m_nodeStat[n], nodeId);
+			clock_t end_find_fea = clock();
+			total_find_fea_t += (double(end_find_fea - begin_find_fea) / CLOCKS_PER_SEC);
 			//naive way to find the best split
 			//NaiveFeaFinder(bestSplit, splittableNode[n]->startId, splittableNode[n]->endId);
 
@@ -285,14 +280,15 @@ void Trainer::GrowTree(RegTree &tree)
 			}
 			else
 			{
+				clock_t start_split_t = clock();
 				//split the current node
-//				cout << "start splitting..." << endl;
-//				SplitNode(splittableNode[n], newSplittableNode, bestSplit, tree, newNodeStat);
 				SplitNodeSparseData(splittableNode[n], newSplittableNode, bestSplit, tree, newNodeStat);
+				clock_t end_split_t = clock();
+				total_split_t += (double(end_split_t - start_split_t) / CLOCKS_PER_SEC);
+
 //				cout << "n=" << n << "; newNodeStat size=" << newNodeStat.size() << "; ";
 //				cout << m_nodeStat[n].sum_gd << "=" << newNodeStat[newNodeStat.size() - 1].sum_gd << "+" << newNodeStat[newNodeStat.size() - 2].sum_gd << endl;
-				assert(abs(m_nodeStat[n].sum_gd - newNodeStat[newNodeStat.size() - 1].sum_gd - newNodeStat[newNodeStat.size() - 2].sum_gd) < 0.0001);
-//				cout << "end splitting." << endl;
+//				assert(abs(m_nodeStat[n].sum_gd - newNodeStat[newNodeStat.size() - 1].sum_gd - newNodeStat[newNodeStat.size() - 2].sum_gd) < 0.0001);
 			}
 		}
 

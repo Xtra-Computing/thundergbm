@@ -12,6 +12,7 @@
 #include <iostream>
 #include <fstream>
 #include <vector>
+#include <ctime>
 #include "RegTree.h"
 #include "DatasetInfo.h"
 #include "TreeNode.h"
@@ -153,6 +154,9 @@ private:
 	void CheckPartition(int startId, int endId, int middle, const SplitPoint &sp);
 
 	template <class T> void Swap(T& x, T& y) { T t=x; x=y; y=t; }
+
+	double total_find_fea_t;
+	double total_split_t;
 };
 
 
