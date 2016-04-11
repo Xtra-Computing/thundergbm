@@ -132,7 +132,7 @@ void Trainer::TrainGBDT(vector<RegTree> & vTree)
 
 		//grow the tree
 		begin_grow = clock();
-		GrowTree(tree);
+		GrowTree2(tree);
 		end_grow = clock();
 		total_grow += (double(end_grow - begin_grow) / CLOCKS_PER_SEC);
 
@@ -231,7 +231,9 @@ void Trainer::ComputeGDSparse(vector<double> &v_fPredValue)
 		rootStat.sum_hess += m_vGDPair_fixedPos[i].hess;
 	}
 //	cout << rootStat.sum_gd << " v.s. " << rootStat.sum_hess << endl;
+	m_nodeStat.clear();
 	m_nodeStat.push_back(rootStat);
+	m_nodeStat.resize(MAX_VALUE);
 }
 
 /**
@@ -306,6 +308,80 @@ void Trainer::GrowTree(RegTree &tree)
 }
 
 /**
+ * @brief: grow the tree by splitting nodes to the full extend
+ */
+void Trainer::GrowTree2(RegTree &tree)
+{
+	int nNumofSplittableNode = 0;
+	//start splitting this tree from the root node
+	vector<TreeNode*> splittableNode;
+	for(int i = 0; i < int(tree.nodes.size()); i++)
+	{
+		splittableNode.push_back(tree.nodes[i]);
+		nNumofSplittableNode++;
+	}
+
+
+	int nCurDepth = 0;
+	while(nNumofSplittableNode > 0)
+	{
+		//for each splittable node
+		vector<SplitPoint> vBest;
+		vector<nodeStat> tempStat, lchildStat;
+		vector<double> vLastValue;
+		vBest.resize(MAX_VALUE);
+		tempStat.resize(MAX_VALUE);
+		lchildStat.resize(MAX_VALUE);
+		vLastValue.resize(MAX_VALUE);
+
+
+		//efficient way to find the best split
+		clock_t begin_find_fea = clock();
+		FeaFinderAllNode(vBest, tempStat, lchildStat, vLastValue);
+		clock_t end_find_fea = clock();
+		total_find_fea_t += (double(end_find_fea - begin_find_fea) / CLOCKS_PER_SEC);
+
+	vector<TreeNode*> newSplittableNode;
+		//for each splittable node
+		for(int n = 0; n < nNumofSplittableNode; n++)
+		{
+			//mark the node as a leaf node if (1) the gain is negative or (2) the tree reaches maximum depth.
+			if(vBest[splittableNode[n]->nodeId].m_fGain <= 0 || m_nMaxDepth == nCurDepth)
+			{
+				//compute weight of leaf nodes
+				//ComputeWeight(*splittableNode[n]);
+				splittableNode[n]->predValue = ComputeWeightSparseData(m_nodeStat[splittableNode[n]->nodeId]);
+			}
+			else
+			{
+	vector<nodeStat> newNodeStat;
+				clock_t start_split_t = clock();
+				//split the current node
+				SplitNodeSparseData(splittableNode[n], newSplittableNode, vBest[splittableNode[n]->nodeId], tree, newNodeStat);
+				clock_t end_split_t = clock();
+				total_split_t += (double(end_split_t - start_split_t) / CLOCKS_PER_SEC);
+			}
+
+			for(int i = 0; i < m_nodeIds.size(); i++)
+			{
+				if(m_nodeIds[i] == splittableNode[n]->nodeId)
+				{
+					m_nodeIds[i] = -1;
+				}
+			}
+//			m_nodeIds[splittableNode[n]->nodeId] = -1;
+		}
+
+		nCurDepth++;
+
+		//assign new splittable nodes to the container
+		splittableNode.clear();
+		splittableNode = newSplittableNode;
+		nNumofSplittableNode = splittableNode.size();
+	}
+}
+
+/**
  * @brief: efficient best feature finder
  */
 void Trainer::EfficientFeaFinder(SplitPoint &bestSplit, const nodeStat &parent, int nodeId)
@@ -320,6 +396,64 @@ void Trainer::EfficientFeaFinder(SplitPoint &bestSplit, const nodeStat &parent, 
 //		cout << "fid=" << f << "; gain=" << fGain << "; split=" << fBestSplitValue << endl;
 
 		bestSplit.UpdateSplitPoint(fGain, fBestSplitValue, f);
+	}
+}
+
+/**
+ * @brief: efficient best feature finder
+ */
+void Trainer::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat> &tempStat, vector<nodeStat> &lchildStat, vector<double> &vLastValue)
+{
+	int nNumofFeature = m_vvFeaInxPair.size();
+	for(int f = 0; f < nNumofFeature; f++)
+	{
+		vector<key_value> &featureKeyValues = m_vvFeaInxPair[f];
+
+		int nNumofKeyValues = featureKeyValues.size();
+		tempStat.clear();
+		lchildStat.clear();
+		vLastValue.clear();
+
+		tempStat.resize(MAX_VALUE);
+		lchildStat.resize(MAX_VALUE);
+		vLastValue.resize(MAX_VALUE);
+
+	    for(int i = 0; i < nNumofKeyValues; i++)
+	    {
+	    	int insId = featureKeyValues[i].id;
+			int nid = m_nodeIds[insId];
+			if(nid == -1)
+				continue;
+
+			// start working
+			double fvalue = featureKeyValues[i].featureValue;
+
+			// get the statistics of nid node
+			// test if first hit, this is fine, because we set 0 during init
+			if(abs(tempStat[nid].sum_hess) < 0.0001)
+			{
+				tempStat[nid].Add(m_vGDPair_fixedPos[insId].grad, m_vGDPair_fixedPos[insId].hess);
+				vLastValue[nid] = fvalue;
+			}
+			else
+			{
+				// try to find a split
+				double min_child_weight = 1.0;//follow xgboost
+				if(fabs(fvalue - vLastValue[nid]) > 0.000002 &&
+				   tempStat[nid].sum_hess >= min_child_weight)
+				{
+					lchildStat[nid].Subtract(m_nodeStat[nid], tempStat[nid]);
+					if(lchildStat[nid].sum_hess >= min_child_weight)
+					{
+						double loss_chg = CalGain(m_nodeStat[nid], tempStat[nid], lchildStat[nid]);
+						vBest[nid].UpdateSplitPoint(loss_chg, (fvalue + vLastValue[nid]) * 0.5f, f);
+					}
+				}
+				//update the statistics
+				tempStat[nid].Add(m_vGDPair_fixedPos[insId].grad, m_vGDPair_fixedPos[insId].hess);
+				vLastValue[nid] = fvalue;
+			}
+		}
 	}
 }
 
@@ -615,6 +749,9 @@ void Trainer::SplitNodeSparseData(TreeNode *node, vector<TreeNode*> &newSplittab
 
 	v_nodeStat.push_back(leftNodeStat);
 	v_nodeStat.push_back(rightNodeStat);
+
+	m_nodeStat[leftChild->nodeId] = leftNodeStat;
+	m_nodeStat[rightChild->nodeId] = rightNodeStat;
 
 	m_nNumofNode += 2;
 

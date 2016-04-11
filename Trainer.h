@@ -13,6 +13,7 @@
 #include <fstream>
 #include <vector>
 #include <ctime>
+#include <assert.h>
 #include "RegTree.h"
 #include "DatasetInfo.h"
 #include "TreeNode.h"
@@ -65,6 +66,7 @@ public:
 	{
 		sum_gd = parent.sum_gd - r_child.sum_gd;
 		sum_hess = parent.sum_hess - r_child.sum_hess;
+		assert(sum_hess > 0);
 	}
 	void Add(double gd, double hess)
 	{
@@ -122,6 +124,7 @@ public:
 protected:
 	void InitTree(RegTree &tree);
 	void GrowTree(RegTree &tree);
+	void GrowTree2(RegTree &tree);
 
 private:
 	void ComputeGD(vector<double> &v_fPredValue);
@@ -142,6 +145,7 @@ private:
 	void UpdateNodeId(const SplitPoint &sp, int parentNodeId, int leftNodeId, int rightNodeId);
 
 	//two different functions for computing the gain of a feature
+	void FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat> &tempStat, vector<nodeStat> &lchildStat, vector<double> &vLastValue);
 	void EfficientFeaFinder(SplitPoint &bestSplit, const nodeStat &parent, int nodeId);
 	void NaiveFeaFinder(SplitPoint &bestSplit, int startId, int endId);
 
@@ -157,6 +161,7 @@ private:
 
 	double total_find_fea_t;
 	double total_split_t;
+	static const int MAX_VALUE = 100;
 };
 
 
