@@ -6,8 +6,9 @@
  *		@brief: split a node of a tree
  */
 
-#include <math.h>
 #include <algorithm>
+#include <assert.h>
+#include <math.h>
 #include <map>
 
 #include "Splitter.h"
@@ -30,6 +31,37 @@ void Splitter::EfficientFeaFinder(SplitPoint &bestSplit, const nodeStat &parent,
 //		cout << "fid=" << f << "; gain=" << fGain << "; split=" << fBestSplitValue << endl;
 
 		bestSplit.UpdateSplitPoint(fGain, fBestSplitValue, f);
+	}
+}
+
+/**
+ * @brief: mark as process for a node id
+ */
+void Splitter::MarkProcessed(int nodeId)
+{
+	//erase the split node or leaf node
+	mapNodeIdToBufferPos.erase(nodeId);
+
+	for(int i = 0; i < m_nodeIds.size(); i++)
+	{
+		if(m_nodeIds[i] == nodeId)
+		{
+			m_nodeIds[i] = -1;
+		}
+	}
+}
+
+/**
+ * @brief: update the node statistics and buffer positions.
+ */
+void Splitter::UpdateNodeStat(vector<TreeNode*> &newSplittableNode, vector<nodeStat> &v_nodeStat)
+{
+	assert(mapNodeIdToBufferPos.empty());
+	m_nodeStat.clear();
+	for(int i = 0; i < newSplittableNode.size(); i++)
+	{
+		mapNodeIdToBufferPos.insert(make_pair(newSplittableNode[i]->nodeId, i));
+		m_nodeStat.push_back(v_nodeStat[i]);
 	}
 }
 
@@ -367,4 +399,13 @@ void Splitter::UpdateNodeIdForSparseData(const SplitPoint &sp, int parentNodeId,
 		if(parentNodeId == m_nodeIds[i])
 			m_nodeIds[i] = leftNodeId;
 	}
+}
+
+/**
+ * @brief: compute the weight of a leaf node
+ */
+double Splitter::ComputeWeightSparseData(int bufferPos)
+{
+	double predValue = -m_nodeStat[bufferPos].sum_gd / (m_nodeStat[bufferPos].sum_hess + m_labda);
+	return predValue;
 }

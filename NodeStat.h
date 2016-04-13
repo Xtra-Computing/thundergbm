@@ -9,6 +9,8 @@
 #ifndef NODESTAT_H_
 #define NODESTAT_H_
 
+#include <assert.h>
+
 class nodeStat{
 public:
 	double sum_gd;

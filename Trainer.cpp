@@ -18,8 +18,6 @@
 #include "TreeNode.h"
 #include "PrintTree.h"
 
-
-
 using std::cout;
 using std::endl;
 using std::sort;
@@ -276,7 +274,7 @@ void Trainer::GrowTree(RegTree &tree)
 			{
 				//compute weight of leaf nodes
 				//ComputeWeight(*splittableNode[n]);
-				splittableNode[n]->predValue = ComputeWeightSparseData(splitter.m_nodeStat[n]);
+				splittableNode[n]->predValue = splitter.ComputeWeightSparseData(n);
 			}
 			else
 			{
@@ -352,7 +350,7 @@ void Trainer::GrowTree2(RegTree &tree)
 			{
 				//compute weight of leaf nodes
 				//ComputeWeight(*splittableNode[n]);
-				splittableNode[n]->predValue = ComputeWeightSparseData(splitter.m_nodeStat[bufferPos]);
+				splittableNode[n]->predValue = splitter.ComputeWeightSparseData(bufferPos);
 			}
 			else
 			{
@@ -363,28 +361,12 @@ void Trainer::GrowTree2(RegTree &tree)
 				total_split_t += (double(end_split_t - start_split_t) / CLOCKS_PER_SEC);
 			}
 
-			//erase the split node or leaf node
-			splitter.mapNodeIdToBufferPos.erase(splittableNode[n]->nodeId);
-
-			for(int i = 0; i < splitter.m_nodeIds.size(); i++)
-			{
-				if(splitter.m_nodeIds[i] == splittableNode[n]->nodeId)
-				{
-					splitter.m_nodeIds[i] = -1;
-				}
-			}
-//			m_nodeIds[splittableNode[n]->nodeId] = -1;
+			splitter.MarkProcessed(splittableNode[n]->nodeId);
 		}
 
 		nCurDepth++;
 
-		assert(splitter.mapNodeIdToBufferPos.empty());
-		splitter.m_nodeStat.clear();
-		for(int i = 0; i < newSplittableNode.size(); i++)
-		{
-			splitter.mapNodeIdToBufferPos.insert(make_pair(newSplittableNode[i]->nodeId, i));
-			splitter.m_nodeStat.push_back(newNodeStat[i]);
-		}
+		splitter.UpdateNodeStat(newSplittableNode, newNodeStat);
 
 		//assign new splittable nodes to the container
 		splittableNode.clear();
@@ -393,106 +375,6 @@ void Trainer::GrowTree2(RegTree &tree)
 	}
 }
 
-
-
-
-
-
-/**
- * @brief: compute the weight of a leaf node
- */
-void Trainer::ComputeWeight(TreeNode &node)
-{
-	int startId = node.startId, endId = node.endId;
-	double sum_gd = 0, sum_hess = 0;
-
-	for(int i = startId; i <= endId; i++)
-	{
-		sum_gd += m_vGDPair[i].grad;
-		sum_hess += m_vGDPair[i].hess;
-	}
-
-	node.predValue = -sum_gd / (sum_hess + splitter.m_labda);
-}
-
-/**
- * @brief: compute the weight of a leaf node
- */
-double Trainer::ComputeWeightSparseData(nodeStat & nStat)
-{
-	double predValue = -nStat.sum_gd / (nStat.sum_hess + splitter.m_labda);
-	return predValue;
-}
-
-/**
- * @brief: partition the data under the split node
- * @return: index of the last element of left child
- */
-int Trainer::Partition(const SplitPoint &sp, int startId, int endId)
-{
-//	cout << "stardId=" << startId << "; endId=" << endId << endl;
-	bool bPrint = false;
-	int middle = endId;
-	double fPivot = sp.m_fSplitValue;
-	int fId = sp.m_nFeatureId;
-	for(int i = startId; i <= middle; i++)
-	{
-		while(m_vvInstance[middle][fId] >= fPivot)
-		{
-			if(middle == 0)
-			{
-				break;
-			}
-			middle--;
-		}
-
-		if(i > middle)
-		{
-			bPrint = true;
-			break;
-		}
-
-
-		if(m_vvInstance[i][fId] >= fPivot)
-		{
-			Swap(m_vvInstance[middle], m_vvInstance[i]);
-			Swap(m_vGDPair[middle], m_vGDPair[i]);
-			Swap(m_vTrueValue[middle], m_vTrueValue[i]);
-			Swap(m_vPredBuffer[middle], m_vPredBuffer[i]);
-
-			middle--;
-		}
-	}
-
-	if(bPrint == true)
-		CheckPartition(startId, endId, middle, sp);
-
-	return middle;
-}
-
-void Trainer::CheckPartition(int startId, int endId, int middle, const SplitPoint &sp)
-{
-	double fPivot = sp.m_fSplitValue;
-	int fId = sp.m_nFeatureId;
-
-	for(int i = startId; i <= endId; i++)
-	{
-		if(i <= middle && m_vvInstance[i][fId] >= fPivot)
-		{
-			cout << i << " v.s. " << middle << endl;
-			cout << "split value is " << fPivot << endl;
-			cout << "shit " << m_vvInstance[i][fId] << "\t";
-			cout << endl;
-		}
-		if(i > middle && m_vvInstance[i][fId] < fPivot)
-		{
-			cout << i << " v.s. " << middle << endl;
-			cout << "split value is " << fPivot << endl;
-			cout << "oh shit " << m_vvInstance[i][fId] << "\t";
-			cout << endl;
-		}
-	}
-}
 
 void Trainer::PrintPrediction(const vector<double> &vPred)
 {
