@@ -24,6 +24,7 @@ using std::cout;
 using std::endl;
 using std::sort;
 using std::ofstream;
+using std::make_pair;
 
 /**
  * @brief: sort a vector in a descendant order
@@ -40,15 +41,15 @@ void Trainer::InitTrainer(int nNumofTree, int nMaxDepth, double fLabda, double f
 {
 	m_nMaxNumofTree = nNumofTree;
 	m_nMaxDepth = nMaxDepth;
-	m_labda = fLabda;
-	m_gamma = fGamma;
+	splitter.m_labda = fLabda;
+	splitter.m_gamma = fGamma;
 
 	//initialise the prediction buffer
 	for(int i = 0; i < (int)m_vvInsSparse.size(); i++)
 	{
 		m_vPredBuffer_fixedPos.push_back(0);
 		gdpair gd;
-		m_vGDPair_fixedPos.push_back(gd);
+		splitter.m_vGDPair_fixedPos.push_back(gd);
 	}
 
 	SortFeaValue(nNumofFea);
@@ -89,7 +90,7 @@ void Trainer::SortFeaValue(int nNumofDim)
 
 		sort(featurePair.begin(), featurePair.end(), CmpValue);
 
-		m_vvFeaInxPair.push_back(featurePair);
+		splitter.m_vvFeaInxPair.push_back(featurePair);
 	}
 }
 
@@ -126,7 +127,7 @@ void Trainer::TrainGBDT(vector<RegTree> & vTree)
 		total_pred += (double(end_pred - begin_pred) / CLOCKS_PER_SEC);
 
 		begin_gd = clock();
-		ComputeGDSparse(v_fPredValue_fixed);
+		splitter.ComputeGDSparse(v_fPredValue_fixed, m_vTrueValue_fixedPos);
 		end_gd = clock();
 		total_gd += (double(end_gd - begin_gd) / CLOCKS_PER_SEC);
 
@@ -176,11 +177,27 @@ void Trainer::SaveModel(string fileName, const vector<RegTree> &v_Tree)
 }
 
 /**
+ * @brief: release memory used by trees
+ */
+void Trainer::ReleaseTree(vector<RegTree> &v_Tree)
+{
+	int nNumofTree = v_Tree.size();
+	for(int i = 0; i < nNumofTree; i++)
+	{
+		int nNumofNodes = v_Tree[i].nodes.size();
+		for(int j = 0; j < nNumofNodes; j++)
+		{
+			delete[] v_Tree[i].nodes[j];
+		}
+	}
+}
+
+/**
  * @brief: initialise tree
  */
 void Trainer::InitTree(RegTree &tree)
 {
-	TreeNode *root = new TreeNode;
+	TreeNode *root = new TreeNode[1];
 	m_nNumofNode = 1;
 	root->nodeId = 0;
 	root->level = 0;
@@ -192,10 +209,10 @@ void Trainer::InitTree(RegTree &tree)
 	tree.nodes.push_back(root);
 
 	//all instances are under node 0
-	m_nodeIds.clear();
+	splitter.m_nodeIds.clear();
 	for(int i = 0; i < m_vvInsSparse.size(); i++)
 	{
-		m_nodeIds.push_back(0);
+		splitter.m_nodeIds.push_back(0);
 	}
 
 	total_find_fea_t = 0;
@@ -216,25 +233,6 @@ void Trainer::ComputeGD(vector<double> &v_fPredValue)
 	}
 }
 
-/**
- * @brief: compute the first order gradient and the second order gradient
- */
-void Trainer::ComputeGDSparse(vector<double> &v_fPredValue)
-{
-	nodeStat rootStat;
-	int nTotal = m_vTrueValue_fixedPos.size();
-	for(int i = 0; i < nTotal; i++)
-	{
-		m_vGDPair_fixedPos[i].grad = v_fPredValue[i] - m_vTrueValue_fixedPos[i];
-		m_vGDPair_fixedPos[i].hess = 1;
-		rootStat.sum_gd += m_vGDPair_fixedPos[i].grad;
-		rootStat.sum_hess += m_vGDPair_fixedPos[i].hess;
-	}
-//	cout << rootStat.sum_gd << " v.s. " << rootStat.sum_hess << endl;
-	m_nodeStat.clear();
-	m_nodeStat.push_back(rootStat);
-	m_nodeStat.resize(MAX_VALUE);
-}
 
 /**
  * @brief: grow the tree by splitting nodes to the full extend
@@ -267,7 +265,7 @@ void Trainer::GrowTree(RegTree &tree)
 			/**** two approaches to find the best feature ****/
 			//efficient way to find the best split
 			clock_t begin_find_fea = clock();
-			EfficientFeaFinder(bestSplit, m_nodeStat[n], nodeId);
+			splitter.EfficientFeaFinder(bestSplit, splitter.m_nodeStat[n], nodeId);
 			clock_t end_find_fea = clock();
 			total_find_fea_t += (double(end_find_fea - begin_find_fea) / CLOCKS_PER_SEC);
 			//naive way to find the best split
@@ -278,13 +276,13 @@ void Trainer::GrowTree(RegTree &tree)
 			{
 				//compute weight of leaf nodes
 				//ComputeWeight(*splittableNode[n]);
-				splittableNode[n]->predValue = ComputeWeightSparseData(m_nodeStat[n]);
+				splittableNode[n]->predValue = ComputeWeightSparseData(splitter.m_nodeStat[n]);
 			}
 			else
 			{
 				clock_t start_split_t = clock();
 				//split the current node
-				SplitNodeSparseData(splittableNode[n], newSplittableNode, bestSplit, tree, newNodeStat);
+				splitter.SplitNodeSparseData(splittableNode[n], newSplittableNode, bestSplit, tree, newNodeStat, m_nNumofNode);
 				clock_t end_split_t = clock();
 				total_split_t += (double(end_split_t - start_split_t) / CLOCKS_PER_SEC);
 
@@ -298,9 +296,9 @@ void Trainer::GrowTree(RegTree &tree)
 
 		//assign new splittable nodes to the container
 		splittableNode.clear();
-		m_nodeStat.clear();
+		splitter.m_nodeStat.clear();
 		splittableNode = newSplittableNode;
-		m_nodeStat = newNodeStat;
+		splitter.m_nodeStat = newNodeStat;
 		newSplittableNode.clear();
 		newNodeStat.clear();
 		m_nNumofSplittableNode = splittableNode.size();
@@ -329,50 +327,64 @@ void Trainer::GrowTree2(RegTree &tree)
 		vector<SplitPoint> vBest;
 		vector<nodeStat> tempStat, lchildStat;
 		vector<double> vLastValue;
-		vBest.resize(MAX_VALUE);
-		tempStat.resize(MAX_VALUE);
-		lchildStat.resize(MAX_VALUE);
-		vLastValue.resize(MAX_VALUE);
+		int bufferSize = splitter.mapNodeIdToBufferPos.size();
+		vBest.resize(bufferSize);
+		tempStat.resize(bufferSize);
+		lchildStat.resize(bufferSize);
+		vLastValue.resize(bufferSize);
 
 
 		//efficient way to find the best split
 		clock_t begin_find_fea = clock();
-		FeaFinderAllNode(vBest, tempStat, lchildStat, vLastValue);
+		splitter.FeaFinderAllNode(vBest, tempStat, lchildStat, vLastValue);
 		clock_t end_find_fea = clock();
 		total_find_fea_t += (double(end_find_fea - begin_find_fea) / CLOCKS_PER_SEC);
 
 	vector<TreeNode*> newSplittableNode;
+	vector<nodeStat> newNodeStat;
+
 		//for each splittable node
 		for(int n = 0; n < nNumofSplittableNode; n++)
 		{
+			int bufferPos = splitter.mapNodeIdToBufferPos[splittableNode[n]->nodeId];
 			//mark the node as a leaf node if (1) the gain is negative or (2) the tree reaches maximum depth.
-			if(vBest[splittableNode[n]->nodeId].m_fGain <= 0 || m_nMaxDepth == nCurDepth)
+			if(vBest[bufferPos].m_fGain <= 0 || m_nMaxDepth == nCurDepth)
 			{
 				//compute weight of leaf nodes
 				//ComputeWeight(*splittableNode[n]);
-				splittableNode[n]->predValue = ComputeWeightSparseData(m_nodeStat[splittableNode[n]->nodeId]);
+				splittableNode[n]->predValue = ComputeWeightSparseData(splitter.m_nodeStat[bufferPos]);
 			}
 			else
 			{
-	vector<nodeStat> newNodeStat;
 				clock_t start_split_t = clock();
 				//split the current node
-				SplitNodeSparseData(splittableNode[n], newSplittableNode, vBest[splittableNode[n]->nodeId], tree, newNodeStat);
+				splitter.SplitNodeSparseData(splittableNode[n], newSplittableNode, vBest[bufferPos], tree, newNodeStat, m_nNumofNode);
 				clock_t end_split_t = clock();
 				total_split_t += (double(end_split_t - start_split_t) / CLOCKS_PER_SEC);
 			}
 
-			for(int i = 0; i < m_nodeIds.size(); i++)
+			//erase the split node or leaf node
+			splitter.mapNodeIdToBufferPos.erase(splittableNode[n]->nodeId);
+
+			for(int i = 0; i < splitter.m_nodeIds.size(); i++)
 			{
-				if(m_nodeIds[i] == splittableNode[n]->nodeId)
+				if(splitter.m_nodeIds[i] == splittableNode[n]->nodeId)
 				{
-					m_nodeIds[i] = -1;
+					splitter.m_nodeIds[i] = -1;
 				}
 			}
 //			m_nodeIds[splittableNode[n]->nodeId] = -1;
 		}
 
 		nCurDepth++;
+
+		assert(splitter.mapNodeIdToBufferPos.empty());
+		splitter.m_nodeStat.clear();
+		for(int i = 0; i < newSplittableNode.size(); i++)
+		{
+			splitter.mapNodeIdToBufferPos.insert(make_pair(newSplittableNode[i]->nodeId, i));
+			splitter.m_nodeStat.push_back(newNodeStat[i]);
+		}
 
 		//assign new splittable nodes to the container
 		splittableNode.clear();
@@ -381,247 +393,10 @@ void Trainer::GrowTree2(RegTree &tree)
 	}
 }
 
-/**
- * @brief: efficient best feature finder
- */
-void Trainer::EfficientFeaFinder(SplitPoint &bestSplit, const nodeStat &parent, int nodeId)
-{
-	int nNumofFeature = m_vvFeaInxPair.size();
-	for(int f = 0; f < nNumofFeature; f++)
-	{
-		double fBestSplitValue = -1;
-		double fGain = 0.0;
-		BestSplitValue(fBestSplitValue, fGain, f, parent, nodeId);
 
-//		cout << "fid=" << f << "; gain=" << fGain << "; split=" << fBestSplitValue << endl;
 
-		bestSplit.UpdateSplitPoint(fGain, fBestSplitValue, f);
-	}
-}
 
-/**
- * @brief: efficient best feature finder
- */
-void Trainer::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat> &tempStat, vector<nodeStat> &lchildStat, vector<double> &vLastValue)
-{
-	int nNumofFeature = m_vvFeaInxPair.size();
-	for(int f = 0; f < nNumofFeature; f++)
-	{
-		vector<key_value> &featureKeyValues = m_vvFeaInxPair[f];
 
-		int nNumofKeyValues = featureKeyValues.size();
-		tempStat.clear();
-		lchildStat.clear();
-		vLastValue.clear();
-
-		tempStat.resize(MAX_VALUE);
-		lchildStat.resize(MAX_VALUE);
-		vLastValue.resize(MAX_VALUE);
-
-	    for(int i = 0; i < nNumofKeyValues; i++)
-	    {
-	    	int insId = featureKeyValues[i].id;
-			int nid = m_nodeIds[insId];
-			if(nid == -1)
-				continue;
-
-			// start working
-			double fvalue = featureKeyValues[i].featureValue;
-
-			// get the statistics of nid node
-			// test if first hit, this is fine, because we set 0 during init
-			if(abs(tempStat[nid].sum_hess) < 0.0001)
-			{
-				tempStat[nid].Add(m_vGDPair_fixedPos[insId].grad, m_vGDPair_fixedPos[insId].hess);
-				vLastValue[nid] = fvalue;
-			}
-			else
-			{
-				// try to find a split
-				double min_child_weight = 1.0;//follow xgboost
-				if(fabs(fvalue - vLastValue[nid]) > 0.000002 &&
-				   tempStat[nid].sum_hess >= min_child_weight)
-				{
-					lchildStat[nid].Subtract(m_nodeStat[nid], tempStat[nid]);
-					if(lchildStat[nid].sum_hess >= min_child_weight)
-					{
-						double loss_chg = CalGain(m_nodeStat[nid], tempStat[nid], lchildStat[nid]);
-						vBest[nid].UpdateSplitPoint(loss_chg, (fvalue + vLastValue[nid]) * 0.5f, f);
-					}
-				}
-				//update the statistics
-				tempStat[nid].Add(m_vGDPair_fixedPos[insId].grad, m_vGDPair_fixedPos[insId].hess);
-				vLastValue[nid] = fvalue;
-			}
-		}
-	}
-}
-
-/**
- * @brief: naive best feature finder
- */
-void Trainer::NaiveFeaFinder(SplitPoint &bestSplit, int startId, int endId)
-{
-	int nNumofFeature = m_vvFeaInxPair.size();
-	for (int f = 0; f < nNumofFeature; f++)
-	{
-
-		//find the best split point of each feature
-		for (int i = startId; i <= endId; i++)
-		{	//for each value in the node
-			double fSplitValue = m_vvInstance[i][f];
-			double fGain = ComputeGain(fSplitValue, f, startId, endId);
-
-			//update the split point (only better gain has effect on the update)
-			bestSplit.UpdateSplitPoint(fGain, fSplitValue, f);
-		}
-	}
-
-	//find the value just smaller than the best split value
-	int bestFeaId = bestSplit.m_nFeatureId;
-	double bestFeaValue = bestSplit.m_fSplitValue;
-	double fCurNextToBest = 0;
-	for(int i = startId; i <= endId; i++)
-	{	//for each value in the node
-		double fSplitValue = m_vvInstance[i][bestFeaId];
-		if(fSplitValue < bestFeaValue && fSplitValue > fCurNextToBest)
-		{
-			fCurNextToBest = fSplitValue;
-		}
-	}
-	double dNewSplitValue = (bestSplit.m_fSplitValue + fCurNextToBest) * 0.5;
-	bestSplit.UpdateSplitPoint(bestSplit.m_fGain, dNewSplitValue, bestSplit.m_nFeatureId);
-}
-
-/**
- * @brief: compute the best split value for a feature
- */
-void Trainer::BestSplitValue(double &fBestSplitValue, double &fGain, int nFeatureId, const nodeStat &parent, int nodeId)
-{
-	vector<key_value> &featureKeyValues = m_vvFeaInxPair[nFeatureId];
-
-	double last_fvalue;
-	SplitPoint bestSplit;
-	nodeStat r_child, l_child;
-	bool bFirst = true;
-
-	int nCounter = 0;
-
-	int nNumofKeyValues = featureKeyValues.size();
-
-    for(int i = 0; i < nNumofKeyValues; i++)
-    {
-    	int originalInsId = featureKeyValues[i].id;
-		int nid = m_nodeIds[originalInsId];
-		if(nid != nodeId)
-			continue;
-
-		nCounter++;
-
-		// start working
-		double fvalue = featureKeyValues[i].featureValue;
-
-		// get the statistics of nid node
-		// test if first hit, this is fine, because we set 0 during init
-		if(bFirst == true)
-		{
-			bFirst = false;
-			r_child.Add(m_vGDPair_fixedPos[originalInsId].grad, m_vGDPair_fixedPos[originalInsId].hess);
-			last_fvalue = fvalue;
-		}
-		else
-		{
-			// try to find a split
-			double min_child_weight = 1.0;//follow xgboost
-			if(fabs(fvalue - last_fvalue) > 0.000002 &&
-			   r_child.sum_hess >= min_child_weight)
-			{
-				l_child.Subtract(parent, r_child);
-				if(l_child.sum_hess >= min_child_weight)
-				{
-					double loss_chg = CalGain(parent, r_child, l_child);
-					bestSplit.UpdateSplitPoint(loss_chg, (fvalue + last_fvalue) * 0.5f, nFeatureId);
-				}
-			}
-			//update the statistics
-			r_child.Add(m_vGDPair_fixedPos[originalInsId].grad, m_vGDPair_fixedPos[originalInsId].hess);
-			last_fvalue = fvalue;
-		}
-	}
-
-    fBestSplitValue = bestSplit.m_fSplitValue;
-    fGain = bestSplit.m_fGain;
-}
-
-/**
- * @brief: compute the gain of a split
- */
-double Trainer::ComputeGain(double fSplitValue, int featureId, int dataStartId, int dataEndId)
-{
-	//compute total gradient
-	double firstGD_sum = 0;
-	double secondGD_sum = 0;
-	for(int i = dataStartId; i <= dataEndId; i++)
-	{
-		firstGD_sum += m_vGDPair[i].grad;
-		secondGD_sum += m_vGDPair[i].hess;
-	}
-
-	//compute the gradient of children
-	double firstGD_sum_l = 0.0;
-	double firstGD_sum_r = 0.0;
-	double secondGD_sum_l = 0;
-	double secondGD_sum_r = 0;
-	for(int i = dataStartId; i <= dataEndId; i++)
-	{
-		if(m_vvInstance[i][featureId] < fSplitValue)
-		{//go to left
-			firstGD_sum_l += m_vGDPair[i].grad;
-			secondGD_sum_l += m_vGDPair[i].hess;
-		}
-		else
-		{
-			firstGD_sum_r += m_vGDPair[i].grad;
-			secondGD_sum_r += m_vGDPair[i].hess;
-		}
-	}
-
-	assert(firstGD_sum == firstGD_sum_l + firstGD_sum_r);
-	assert(secondGD_sum == secondGD_sum_l + secondGD_sum_r);
-
-	//compute the gain
-	double fGain = (firstGD_sum_l * firstGD_sum_l)/(secondGD_sum_l + m_labda) +
-				   (firstGD_sum_r * firstGD_sum_r)/(secondGD_sum_r + m_labda) -
-				   (firstGD_sum * firstGD_sum)/(secondGD_sum + m_labda);
-
-	//This is different from the documentation of xgboost on readthedocs.com (i.e. fGain = 0.5 * fGain - m_gamma)
-	//This is also different from the xgboost source code (i.e. fGain = fGain), since xgboost first splits all nodes and
-	//then prune nodes with gain less than m_gamma.
-	fGain = fGain - m_gamma;
-
-	return fGain;
-}
-
-/**
- * @brief: compute gain for a split
- */
-double Trainer::CalGain(const nodeStat &parent, const nodeStat &r_child, const nodeStat &l_child)
-{
-	assert(abs(parent.sum_gd - l_child.sum_gd - r_child.sum_gd) < 0.0001);
-	assert(parent.sum_hess == l_child.sum_hess + r_child.sum_hess);
-
-	//compute the gain
-	double fGain = (l_child.sum_gd * l_child.sum_gd)/(l_child.sum_hess + m_labda) +
-				   (r_child.sum_gd * r_child.sum_gd)/(r_child.sum_hess + m_labda) -
-				   (parent.sum_gd * parent.sum_gd)/(parent.sum_hess + m_labda);
-
-	//This is different from the documentation of xgboost on readthedocs.com (i.e. fGain = 0.5 * fGain - m_gamma)
-	//This is also different from the xgboost source code (i.e. fGain = fGain), since xgboost first splits all nodes and
-	//then prune nodes with gain less than m_gamma.
-	fGain = fGain - m_gamma;
-
-	return fGain;
-}
 
 /**
  * @brief: compute the weight of a leaf node
@@ -637,7 +412,7 @@ void Trainer::ComputeWeight(TreeNode &node)
 		sum_hess += m_vGDPair[i].hess;
 	}
 
-	node.predValue = -sum_gd / (sum_hess + m_labda);
+	node.predValue = -sum_gd / (sum_hess + splitter.m_labda);
 }
 
 /**
@@ -645,202 +420,8 @@ void Trainer::ComputeWeight(TreeNode &node)
  */
 double Trainer::ComputeWeightSparseData(nodeStat & nStat)
 {
-	double predValue = -nStat.sum_gd / (nStat.sum_hess + m_labda);
+	double predValue = -nStat.sum_gd / (nStat.sum_hess + splitter.m_labda);
 	return predValue;
-}
-
-/**
- * @brief: split a node
- */
-void Trainer::SplitNode(TreeNode *node, vector<TreeNode*> &newSplittableNode, SplitPoint &sp, RegTree &tree, vector<nodeStat> &v_nodeStat)
-{
-	TreeNode *leftChild = new TreeNode[1];
-	TreeNode *rightChild = new TreeNode[1];
-
-	//startId and endId in the node will be changed later in this function
-	int nNodeStart = node->startId;
-	int nNodeEnd = node->endId;
-
-	//re-organise gd vector
-	int leftChildEndId = Partition(sp, nNodeStart, nNodeEnd);
-
-	leftChild->startId = node->startId;
-	leftChild->endId = leftChildEndId;
-
-	rightChild->startId = leftChildEndId + 1;
-	rightChild->endId = node->endId;
-
-	leftChild->nodeId = m_nNumofNode;
-	leftChild->parentId = node->nodeId;
-	rightChild->nodeId = m_nNumofNode + 1;
-	rightChild->parentId = node->nodeId;
-
-	newSplittableNode.push_back(leftChild);
-	newSplittableNode.push_back(rightChild);
-
-	tree.nodes.push_back(leftChild);
-	tree.nodes.push_back(rightChild);
-
-	//node IDs. CAUTION: This part must be written here, because "union" is used for variables in nodes.
-	node->leftChildId = leftChild->nodeId;
-	node->rightChildId = rightChild->nodeId;
-	node->featureId = sp.m_nFeatureId;
-	node->fSplitValue = sp.m_fSplitValue;
-
-//	UpdateNodeId(sp, node->nodeId, m_nNumofNode, m_nNumofNode + 1);
-	UpdateNodeIdForSparseData(sp, node->nodeId, m_nNumofNode, m_nNumofNode + 1);
-
-	nodeStat leftNodeStat;
-	nodeStat rightNodeStat;
-
-	ComputeNodeStat(m_nNumofNode, leftNodeStat);
-	ComputeNodeStat(m_nNumofNode + 1, rightNodeStat);
-
-	v_nodeStat.push_back(leftNodeStat);
-	v_nodeStat.push_back(rightNodeStat);
-
-	m_nNumofNode += 2;
-
-	leftChild->parentId = node->nodeId;
-	rightChild->parentId = node->nodeId;
-	leftChild->level = node->level + 1;
-	rightChild->level = node->level + 1;
-}
-
-/**
- * @brief: split a node
- */
-void Trainer::SplitNodeSparseData(TreeNode *node, vector<TreeNode*> &newSplittableNode, SplitPoint &sp, RegTree &tree, vector<nodeStat> &v_nodeStat)
-{
-	TreeNode *leftChild = new TreeNode[1];
-	TreeNode *rightChild = new TreeNode[1];
-
-	//startId and endId in the node will be changed later in this function
-	int nNodeStart = node->startId;
-	int nNodeEnd = node->endId;
-
-	//re-organise gd vector
-
-	leftChild->nodeId = m_nNumofNode;
-	leftChild->parentId = node->nodeId;
-	rightChild->nodeId = m_nNumofNode + 1;
-	rightChild->parentId = node->nodeId;
-
-	newSplittableNode.push_back(leftChild);
-	newSplittableNode.push_back(rightChild);
-
-	tree.nodes.push_back(leftChild);
-	tree.nodes.push_back(rightChild);
-
-	//node IDs. CAUTION: This part must be written here, because "union" is used for variables in nodes.
-	node->leftChildId = leftChild->nodeId;
-	node->rightChildId = rightChild->nodeId;
-	node->featureId = sp.m_nFeatureId;
-	node->fSplitValue = sp.m_fSplitValue;
-
-//	UpdateNodeId(sp, node->nodeId, m_nNumofNode, m_nNumofNode + 1);
-	UpdateNodeIdForSparseData(sp, node->nodeId, m_nNumofNode, m_nNumofNode + 1);
-
-	nodeStat leftNodeStat;
-	nodeStat rightNodeStat;
-
-	ComputeNodeStat(m_nNumofNode, leftNodeStat);
-	ComputeNodeStat(m_nNumofNode + 1, rightNodeStat);
-
-	v_nodeStat.push_back(leftNodeStat);
-	v_nodeStat.push_back(rightNodeStat);
-
-	m_nodeStat[leftChild->nodeId] = leftNodeStat;
-	m_nodeStat[rightChild->nodeId] = rightNodeStat;
-
-	m_nNumofNode += 2;
-
-	leftChild->parentId = node->nodeId;
-	rightChild->parentId = node->nodeId;
-	leftChild->level = node->level + 1;
-	rightChild->level = node->level + 1;
-}
-
-/**
- * @brief: compute the node statistics
- */
-void Trainer::ComputeNodeStat(int nId, nodeStat &nodeStat)
-{
-	int nNumofIns = m_nodeIds.size();
-	assert(m_nodeIds.size() == m_vvInsSparse.size());
-	for(int i = 0; i < nNumofIns; i++)
-	{
-		if(m_nodeIds[i] != nId)
-			continue;
-		nodeStat.Add(m_vGDPair_fixedPos[i].grad, m_vGDPair_fixedPos[i].hess);
-	}
-}
-
-/**
- * @brief: update the node ids for the newly constructed nodes
- */
-void Trainer::UpdateNodeId(const SplitPoint &sp, int parentNodeId, int leftNodeId, int rightNodeId)
-{
-	int nNumofIns = m_vvInsSparse.size();
-	int fid = sp.m_nFeatureId;
-	double fPivot = sp.m_fSplitValue;
-	for(int i = 0; i < nNumofIns; i++)
-	{
-		if(m_nodeIds[i] != parentNodeId)
-			continue;
-		if(m_vvInstance_fixedPos[i][fid] >= fPivot)
-		{
-			m_nodeIds[i] = rightNodeId;
-		}
-		else
-			m_nodeIds[i] = leftNodeId;
-	}
-}
-
-/**
- * @brief: update the node ids for the newly constructed nodes
- */
-void Trainer::UpdateNodeIdForSparseData(const SplitPoint &sp, int parentNodeId, int leftNodeId, int rightNodeId)
-{
-	int nNumofIns = m_vvInsSparse.size();
-	int fid = sp.m_nFeatureId;
-	double fPivot = sp.m_fSplitValue;
-
-	//create a mark
-	vector<int> vMark;
-	for(int i = 0; i < nNumofIns; i++)
-		vMark.push_back(0);
-
-	//for each instance that has value on the feature
-	int nNumofPair = m_vvFeaInxPair[fid].size();
-	for(int j = 0; j < nNumofPair; j++)
-	{
-		int insId = m_vvFeaInxPair[fid][j].id;
-		double fvalue = m_vvFeaInxPair[fid][j].featureValue;
-		if(m_nodeIds[insId] != parentNodeId)
-		{
-			vMark[insId] = -1;//this instance can be skipped.
-			continue;
-		}
-		else
-		{
-			vMark[insId] = 1;//this instance has been considered.
-			if(fvalue >= fPivot)
-			{
-				m_nodeIds[insId] = rightNodeId;
-			}
-			else
-				m_nodeIds[insId] = leftNodeId;
-		}
-	}
-
-	for(int i = 0; i < nNumofIns; i++)
-	{
-		if(vMark[i] != 0)
-			continue;
-		if(parentNodeId == m_nodeIds[i])
-			m_nodeIds[i] = leftNodeId;
-	}
 }
 
 /**

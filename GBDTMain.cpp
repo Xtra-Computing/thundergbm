@@ -6,6 +6,7 @@
  *		@brief: project main function
  */
 
+#include <math.h>
 #include "DataReader/LibSVMDataReader.h"
 #include "Trainer.h"
 #include "Predictor.h"
@@ -42,8 +43,8 @@ int main()
 //	trainer.m_vvInstance_fixedPos = v_vInstance;
 	trainer.m_vTrueValue_fixedPos = v_fLabel_non;
 
-	int nNumofTree = 3;
-	int nMaxDepth = 4;
+	int nNumofTree = 23;
+	int nMaxDepth = 10;
 	float fLabda = 1;
 	float fGamma = 1;
 
@@ -80,6 +81,8 @@ int main()
 	EvalRMSE rmse;
 	float fRMSE = rmse.Eval(v_fPredValue_fixed, v_fLabel_non);
 	cout << "rmse=" << fRMSE << endl;
+
+	trainer.ReleaseTree(v_Tree);
 
 	return 0;
 }
