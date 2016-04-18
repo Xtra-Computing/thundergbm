@@ -6,6 +6,7 @@
  *		@brief: 
  */
 
+#include <assert.h>
 #include "RegTree.h"
 
 /**
@@ -34,13 +35,17 @@ int RegTree::GetLeafIndex(vector<double> &ins)
  */
 int RegTree::GetLeafIdSparseInstance(vector<double> &ins, map<int, int> &fidToDensePos)
 {
-	int pid = 0; //leaf id
+	int pid = 0; //node id
 	TreeNode *curNode = (*this)[pid];
 	while (!curNode->isLeaf())
 	{
 		int fid = curNode->featureId;
 		int pos = fidToDensePos[fid];
-		pid = curNode->GetNext(ins[pos]);
+
+		if(pos < ins.size())//feature value is available in the dense vector
+			pid = curNode->GetNext(ins[pos]);
+		else//feature value is stored in the dense vector (due to truncating)
+			pid = curNode->GetNext(0);
 		curNode = (*this)[pid];
 	}
 

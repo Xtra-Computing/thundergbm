@@ -30,9 +30,12 @@ void DenseInsConverter::InitDenseInsConverter(const vector<RegTree>& vTree)
 
 /**
  * @brief: construct a dense instance from a sparse instance
+ *
  */
 void DenseInsConverter::SparseToDense(const vector<key_value> &sparseIns, vector<double> &denseIns)
 {
+	//Caution! @denseIns: can be empty when sparseIns has no features in usedFeaSet
+
 	int denseInsSize = usedFeaSet.size();
 	int sparseInsSize = sparseIns.size();
 
@@ -74,6 +77,7 @@ void DenseInsConverter::PushDenseIns(vector<double> &denseIns, int &curDenseTop,
  */
 int DenseInsConverter::GetPosofDenseIns(int fid)
 {
+	assert(fidToDensePos.find(fid) != fidToDensePos.end());
 	return fidToDensePos[fid];
 }
 
@@ -82,6 +86,8 @@ int DenseInsConverter::GetPosofDenseIns(int fid)
  */
 void DenseInsConverter::GetFeatures(const vector<RegTree>& vTree)
 {
+	//This function has been tested using PrintFeatureVector() @18 Apr 2016
+
 	int numofTree = vTree.size();
 	set<int> fidSet;
 
@@ -108,6 +114,7 @@ void DenseInsConverter::GetFeatures(const vector<RegTree>& vTree)
 
 	//sort the vector ascendantly
 	sort(usedFeaSet.begin(), usedFeaSet.end());
+
 }
 
 /**
@@ -121,4 +128,25 @@ void DenseInsConverter::GetFidToDensePos()
 	}
 }
 
+/**
+ * @brief: print feature set
+ */
+void DenseInsConverter::PrintFeatureVector()
+{
+	for(int i = 0; i < usedFeaSet.size(); i++)
+	{
+		cout << usedFeaSet[i] << "\t";
+	}
+	cout << endl;
+}
+
+void DenseInsConverter::PrintDenseVec(const vector<double> &vDense)
+{
+	cout << "dense vector: ";
+	for(int i = 0; i < vDense.size(); i++)
+	{
+		cout << vDense[i] << "\t";
+	}
+	cout << endl;
+}
 

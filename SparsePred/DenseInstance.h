@@ -39,6 +39,11 @@ private:
 	void GetFeatures(const vector<RegTree>& vTree);
 	void GetFidToDensePos();
 	void PushDenseIns(vector<double> &denseIns, int &curDenseTop, double value);
+
+	//for debugging
+public:
+	void PrintFeatureVector();
+	void PrintDenseVec(const vector<double> &vDense);
 };
 
 

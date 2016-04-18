@@ -57,7 +57,10 @@ void Predictor::PredictSparseIns(vector<vector<key_value> > &v_vInstance, vector
 
 		vector<double> vDense;
 		if(nNumofTree > 0)
+		{
 			denseInsConverter.SparseToDense(v_vInstance[i], vDense);
+			//denseInsConverter.PrintDenseVec(vDense);
+		}
 		//prediction using the last tree
 		for(int t = nNumofTree - 1; t >= 0 && t < nNumofTree; t++)
 		{

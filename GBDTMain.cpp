@@ -18,7 +18,7 @@ int main()
 	/********* read training instances from a file **************/
 	vector<vector<double> > v_vInstance;
 	vector<double> v_fLabel;
-	string strFileName = "data/abalone.txt";
+	string strFileName = "data/E2006.train";
 	int nNumofFeatures;
 	int nNumofExamples;
 
@@ -43,8 +43,8 @@ int main()
 //	trainer.m_vvInstance_fixedPos = v_vInstance;
 	trainer.m_vTrueValue_fixedPos = v_fLabel_non;
 
-	int nNumofTree = 23;
-	int nMaxDepth = 10;
+	int nNumofTree = 4;
+	int nMaxDepth = 80;
 	float fLabda = 1;
 	float fGamma = 1;
 

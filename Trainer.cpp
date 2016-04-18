@@ -23,6 +23,7 @@ using std::endl;
 using std::sort;
 using std::ofstream;
 using std::make_pair;
+using std::cerr;
 
 /**
  * @brief: sort a vector in a descendant order
@@ -124,6 +125,9 @@ void Trainer::TrainGBDT(vector<RegTree> & vTree)
 		end_pred = clock();
 		total_pred += (double(end_pred - begin_pred) / CLOCKS_PER_SEC);
 
+//		if(i == 1)
+//			PrintPrediction(v_fPredValue_fixed);
+
 		begin_gd = clock();
 		splitter.ComputeGDSparse(v_fPredValue_fixed, m_vTrueValue_fixedPos);
 		end_gd = clock();
@@ -146,48 +150,6 @@ void Trainer::TrainGBDT(vector<RegTree> & vTree)
 
 	cout << "pred sec = " << total_pred << "; gd sec = " << total_gd << "; grow sec = " << total_grow << endl;
 
-}
-
-void Trainer::PrintTree(const RegTree &tree)
-{
-	int nNumofNode = tree.nodes.size();
-	for(int i = 0; i < nNumofNode; i++)
-	{
-		cout << "node id " << tree.nodes[i]->nodeId << "\n";
-	}
-}
-
-/**
- * @brief: save the trained model to a file
- */
-void Trainer::SaveModel(string fileName, const vector<RegTree> &v_Tree)
-{
-	TreePrinter printer;
-	printer.m_writeOut.open(fileName.c_str());
-
-	int nNumofTree = v_Tree.size();
-	for(int i = 0; i < nNumofTree; i++)
-	{
-		printer.m_writeOut << "booster[" << i << "]:\n";
-		printer.PrintTree(v_Tree[i]);
-	}
-
-}
-
-/**
- * @brief: release memory used by trees
- */
-void Trainer::ReleaseTree(vector<RegTree> &v_Tree)
-{
-	int nNumofTree = v_Tree.size();
-	for(int i = 0; i < nNumofTree; i++)
-	{
-		int nNumofNodes = v_Tree[i].nodes.size();
-		for(int j = 0; j < nNumofNodes; j++)
-		{
-			delete[] v_Tree[i].nodes[j];
-		}
-	}
 }
 
 /**
@@ -309,6 +271,7 @@ void Trainer::GrowTree(RegTree &tree)
 void Trainer::GrowTree2(RegTree &tree)
 {
 	int nNumofSplittableNode = 0;
+
 	//start splitting this tree from the root node
 	vector<TreeNode*> splittableNode;
 	for(int i = 0; i < int(tree.nodes.size()); i++)
@@ -317,20 +280,19 @@ void Trainer::GrowTree2(RegTree &tree)
 		nNumofSplittableNode++;
 	}
 
-
+	//split node(s)
 	int nCurDepth = 0;
 	while(nNumofSplittableNode > 0)
 	{
 		//for each splittable node
 		vector<SplitPoint> vBest;
+
+		//these variables may be reused for optimisation
 		vector<nodeStat> tempStat, lchildStat;
 		vector<double> vLastValue;
-		int bufferSize = splitter.mapNodeIdToBufferPos.size();
-		vBest.resize(bufferSize);
-		tempStat.resize(bufferSize);
-		lchildStat.resize(bufferSize);
-		vLastValue.resize(bufferSize);
 
+		int bufferSize = splitter.mapNodeIdToBufferPos.size();//maps node id to buffer position
+		vBest.resize(bufferSize);
 
 		//efficient way to find the best split
 		clock_t begin_find_fea = clock();
@@ -350,6 +312,7 @@ void Trainer::GrowTree2(RegTree &tree)
 			{
 				//compute weight of leaf nodes
 				//ComputeWeight(*splittableNode[n]);
+
 				splittableNode[n]->predValue = splitter.ComputeWeightSparseData(bufferPos);
 			}
 			else
@@ -361,6 +324,7 @@ void Trainer::GrowTree2(RegTree &tree)
 				total_split_t += (double(end_split_t - start_split_t) / CLOCKS_PER_SEC);
 			}
 
+			//marked the split node or the leaf node as "processed"
 			splitter.MarkProcessed(splittableNode[n]->nodeId);
 		}
 
@@ -375,15 +339,65 @@ void Trainer::GrowTree2(RegTree &tree)
 	}
 }
 
+/**
+ * @brief: print out a learned tree
+ */
+void Trainer::PrintTree(const RegTree &tree)
+{
+	int nNumofNode = tree.nodes.size();
+	for(int i = 0; i < nNumofNode; i++)
+	{
+		cout << "node id " << tree.nodes[i]->nodeId << "\n";
+	}
+}
 
+/**
+ * @brief: save the trained model to a file
+ */
+void Trainer::SaveModel(string fileName, const vector<RegTree> &v_Tree)
+{
+	TreePrinter printer;
+	printer.m_writeOut.open(fileName.c_str());
+
+	int nNumofTree = v_Tree.size();
+	for(int i = 0; i < nNumofTree; i++)
+	{
+		printer.m_writeOut << "booster[" << i << "]:\n";
+		printer.PrintTree(v_Tree[i]);
+	}
+
+}
+
+/**
+ * @brief: release memory used by trees
+ */
+void Trainer::ReleaseTree(vector<RegTree> &v_Tree)
+{
+	int nNumofTree = v_Tree.size();
+	for(int i = 0; i < nNumofTree; i++)
+	{
+		int nNumofNodes = v_Tree[i].nodes.size();
+		for(int j = 0; j < nNumofNodes; j++)
+		{
+			delete[] v_Tree[i].nodes[j];
+		}
+	}
+}
+
+/**
+ * @brief: print the predicted values
+ */
 void Trainer::PrintPrediction(const vector<double> &vPred)
 {
 	int n = vPred.size();
+	ofstream out("prediction.txt");
+	out << "number of values is " << n << endl;
 	for(int i = 0; i < n; i++)
 	{
-		if(vPred[i] > 0)
-			cout << vPred[i] << "\t";
+		out << vPred[i] << "\t";
+		if(i != 0 && i % 50 == 0)
+			out << endl;
 	}
-	cout << endl;
+	out << endl;
 }
 
