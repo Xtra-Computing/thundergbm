@@ -135,7 +135,7 @@ void Trainer::TrainGBDT(vector<RegTree> & vTree)
 
 		//grow the tree
 		begin_grow = clock();
-		GrowTree2(tree);
+		GrowTree(tree);
 		end_grow = clock();
 		total_grow += (double(end_grow - begin_grow) / CLOCKS_PER_SEC);
 
@@ -193,82 +193,10 @@ void Trainer::ComputeGD(vector<double> &v_fPredValue)
 	}
 }
 
-
 /**
  * @brief: grow the tree by splitting nodes to the full extend
  */
 void Trainer::GrowTree(RegTree &tree)
-{
-	m_nNumofSplittableNode = 0;
-	//start splitting this tree from the root node
-	vector<TreeNode*> splittableNode;
-	for(int i = 0; i < int(tree.nodes.size()); i++)
-	{
-		splittableNode.push_back(tree.nodes[i]);
-		m_nNumofSplittableNode++;
-	}
-
-	vector<TreeNode*> newSplittableNode;
-	vector<nodeStat> newNodeStat;
-
-	int nCurDepth = 0;
-	while(m_nNumofSplittableNode > 0)
-	{
-		//for each splittable node
-		for(int n = 0; n < m_nNumofSplittableNode; n++)
-		{
-			int nodeId = splittableNode[n]->nodeId;
-
-			//find the best feature to split the node
-			SplitPoint bestSplit;
-
-			/**** two approaches to find the best feature ****/
-			//efficient way to find the best split
-			clock_t begin_find_fea = clock();
-			splitter.EfficientFeaFinder(bestSplit, splitter.m_nodeStat[n], nodeId);
-			clock_t end_find_fea = clock();
-			total_find_fea_t += (double(end_find_fea - begin_find_fea) / CLOCKS_PER_SEC);
-			//naive way to find the best split
-			//NaiveFeaFinder(bestSplit, splittableNode[n]->startId, splittableNode[n]->endId);
-
-			//mark the node as a leaf node if (1) the gain is negative or (2) the tree reaches maximum depth.
-			if(bestSplit.m_fGain <= 0 || m_nMaxDepth == nCurDepth)
-			{
-				//compute weight of leaf nodes
-				//ComputeWeight(*splittableNode[n]);
-				splittableNode[n]->predValue = splitter.ComputeWeightSparseData(n);
-			}
-			else
-			{
-				clock_t start_split_t = clock();
-				//split the current node
-				splitter.SplitNodeSparseData(splittableNode[n], newSplittableNode, bestSplit, tree, newNodeStat, m_nNumofNode);
-				clock_t end_split_t = clock();
-				total_split_t += (double(end_split_t - start_split_t) / CLOCKS_PER_SEC);
-
-//				cout << "n=" << n << "; newNodeStat size=" << newNodeStat.size() << "; ";
-//				cout << m_nodeStat[n].sum_gd << "=" << newNodeStat[newNodeStat.size() - 1].sum_gd << "+" << newNodeStat[newNodeStat.size() - 2].sum_gd << endl;
-//				assert(abs(m_nodeStat[n].sum_gd - newNodeStat[newNodeStat.size() - 1].sum_gd - newNodeStat[newNodeStat.size() - 2].sum_gd) < 0.0001);
-			}
-		}
-
-		nCurDepth++;
-
-		//assign new splittable nodes to the container
-		splittableNode.clear();
-		splitter.m_nodeStat.clear();
-		splittableNode = newSplittableNode;
-		splitter.m_nodeStat = newNodeStat;
-		newSplittableNode.clear();
-		newNodeStat.clear();
-		m_nNumofSplittableNode = splittableNode.size();
-	}
-}
-
-/**
- * @brief: grow the tree by splitting nodes to the full extend
- */
-void Trainer::GrowTree2(RegTree &tree)
 {
 	int nNumofSplittableNode = 0;
 
@@ -288,15 +216,16 @@ void Trainer::GrowTree2(RegTree &tree)
 		vector<SplitPoint> vBest;
 
 		//these variables may be reused for optimisation
-		vector<nodeStat> tempStat, lchildStat;
-		vector<double> vLastValue;
+		vector<nodeStat> rchildStat, lchildStat;
 
 		int bufferSize = splitter.mapNodeIdToBufferPos.size();//maps node id to buffer position
 		vBest.resize(bufferSize);
+		rchildStat.resize(bufferSize);
+		lchildStat.resize(bufferSize);
 
 		//efficient way to find the best split
 		clock_t begin_find_fea = clock();
-		splitter.FeaFinderAllNode(vBest, tempStat, lchildStat, vLastValue);
+		splitter.FeaFinderAllNode(vBest, rchildStat, lchildStat);
 		clock_t end_find_fea = clock();
 		total_find_fea_t += (double(end_find_fea - begin_find_fea) / CLOCKS_PER_SEC);
 
@@ -311,15 +240,17 @@ void Trainer::GrowTree2(RegTree &tree)
 			if(vBest[bufferPos].m_fGain <= 0 || m_nMaxDepth == nCurDepth)
 			{
 				//compute weight of leaf nodes
-				//ComputeWeight(*splittableNode[n]);
-
 				splittableNode[n]->predValue = splitter.ComputeWeightSparseData(bufferPos);
 			}
 			else
 			{
 				clock_t start_split_t = clock();
 				//split the current node
-				splitter.SplitNodeSparseData(splittableNode[n], newSplittableNode, vBest[bufferPos], tree, newNodeStat, m_nNumofNode);
+				splitter.SplitNodeSparseData(splittableNode[n], newSplittableNode, vBest[bufferPos], tree, m_nNumofNode);
+
+				//push left and right child statistics into a vector
+				newNodeStat.push_back(lchildStat[bufferPos]);
+				newNodeStat.push_back(rchildStat[bufferPos]);
 				clock_t end_split_t = clock();
 				total_split_t += (double(end_split_t - start_split_t) / CLOCKS_PER_SEC);
 			}

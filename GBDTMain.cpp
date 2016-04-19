@@ -18,7 +18,7 @@ int main()
 	/********* read training instances from a file **************/
 	vector<vector<double> > v_vInstance;
 	vector<double> v_fLabel;
-	string strFileName = "data/E2006.train";
+	string strFileName = "data/YearPredictionMSD";
 	int nNumofFeatures;
 	int nNumofExamples;
 
@@ -43,8 +43,8 @@ int main()
 //	trainer.m_vvInstance_fixedPos = v_vInstance;
 	trainer.m_vTrueValue_fixedPos = v_fLabel_non;
 
-	int nNumofTree = 4;
-	int nMaxDepth = 80;
+	int nNumofTree = 2;
+	int nMaxDepth = 208;
 	float fLabda = 1;
 	float fGamma = 1;
 
@@ -71,12 +71,18 @@ int main()
 
 
 	//run the GBDT prediction process
+	clock_t begin_pre, end_pre;
 	Predictor pred;
 	vector<double> v_fPredValue_fixed;
 	vector<double> v_fPreValue_buffer;
 	for(int i = 0; i < v_vInsSparse.size(); i++)
 		v_fPreValue_buffer.push_back(0);
+
+	begin_pre = clock();
 	pred.PredictSparseIns(v_vInsSparse, v_Tree, v_fPredValue_fixed);
+	end_pre = clock();
+	double prediction_time = (double(end_pre - begin_pre) / CLOCKS_PER_SEC);
+	cout << "prediction sec = " << prediction_time << endl;
 
 	EvalRMSE rmse;
 	float fRMSE = rmse.Eval(v_fPredValue_fixed, v_fLabel_non);

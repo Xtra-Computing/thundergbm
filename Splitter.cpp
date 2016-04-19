@@ -57,6 +57,7 @@ void Splitter::MarkProcessed(int nodeId)
 void Splitter::UpdateNodeStat(vector<TreeNode*> &newSplittableNode, vector<nodeStat> &v_nodeStat)
 {
 	assert(mapNodeIdToBufferPos.empty());
+	assert(newSplittableNode.size() == v_nodeStat.size());
 	m_nodeStat.clear();
 	for(int i = 0; i < newSplittableNode.size(); i++)
 	{
@@ -68,7 +69,7 @@ void Splitter::UpdateNodeStat(vector<TreeNode*> &newSplittableNode, vector<nodeS
 /**
  * @brief: efficient best feature finder
  */
-void Splitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat> &tempStat, vector<nodeStat> &lchildStat, vector<double> &vLastValue)
+void Splitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat> &rchildStat, vector<nodeStat> &lchildStat)
 {
 	int nNumofFeature = m_vvFeaInxPair.size();
 	for(int f = 0; f < nNumofFeature; f++)
@@ -76,14 +77,12 @@ void Splitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat> &tem
 		vector<key_value> &featureKeyValues = m_vvFeaInxPair[f];
 
 		int nNumofKeyValues = featureKeyValues.size();
-		tempStat.clear();
-		lchildStat.clear();
-		vLastValue.clear();
+		vector<nodeStat> tempStat;
+		vector<double> vLastValue;
 
 		int bufferSize = mapNodeIdToBufferPos.size();
 
 		tempStat.resize(bufferSize);
-		lchildStat.resize(bufferSize);
 		vLastValue.resize(bufferSize);
 
 	    for(int i = 0; i < nNumofKeyValues; i++)
@@ -111,11 +110,17 @@ void Splitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat> &tem
 				if(fabs(fvalue - vLastValue[bufferPos]) > 0.000002 &&
 				   tempStat[bufferPos].sum_hess >= min_child_weight)
 				{
-					lchildStat[bufferPos].Subtract(m_nodeStat[bufferPos], tempStat[bufferPos]);
-					if(lchildStat[bufferPos].sum_hess >= min_child_weight)
+					nodeStat lTempStat;
+					lTempStat.Subtract(m_nodeStat[bufferPos], tempStat[bufferPos]);
+					if(lTempStat.sum_hess >= min_child_weight)
 					{
-						double loss_chg = CalGain(m_nodeStat[bufferPos], tempStat[bufferPos], lchildStat[bufferPos]);
-						vBest[bufferPos].UpdateSplitPoint(loss_chg, (fvalue + vLastValue[bufferPos]) * 0.5f, f);
+						double loss_chg = CalGain(m_nodeStat[bufferPos], tempStat[bufferPos], lTempStat);
+						bool bUpdated = vBest[bufferPos].UpdateSplitPoint(loss_chg, (fvalue + vLastValue[bufferPos]) * 0.5f, f);
+						if(bUpdated == true)
+						{
+							lchildStat[bufferPos] = lTempStat;
+							rchildStat[bufferPos] = tempStat[bufferPos];
+						}
 					}
 				}
 				//update the statistics
@@ -231,22 +236,10 @@ double Splitter::CalGain(const nodeStat &parent, const nodeStat &r_child, const 
 /**
  * @brief: split a node
  */
-void Splitter::SplitNode(TreeNode *node, vector<TreeNode*> &newSplittableNode, SplitPoint &sp,
-						 RegTree &tree, vector<nodeStat> &v_nodeStat, int &m_nNumofNode)
+void Splitter::SplitNodeSparseData(TreeNode *node, vector<TreeNode*> &newSplittableNode, SplitPoint &sp, RegTree &tree, int &m_nNumofNode)
 {
 	TreeNode *leftChild = new TreeNode[1];
 	TreeNode *rightChild = new TreeNode[1];
-
-	//startId and endId in the node will be changed later in this function
-	int nNodeStart = node->startId;
-	int nNodeEnd = node->endId;
-
-	//re-organise gd vector
-
-	leftChild->startId = node->startId;
-
-
-	rightChild->endId = node->endId;
 
 	leftChild->nodeId = m_nNumofNode;
 	leftChild->parentId = node->nodeId;
@@ -265,72 +258,7 @@ void Splitter::SplitNode(TreeNode *node, vector<TreeNode*> &newSplittableNode, S
 	node->featureId = sp.m_nFeatureId;
 	node->fSplitValue = sp.m_fSplitValue;
 
-//	UpdateNodeId(sp, node->nodeId, m_nNumofNode, m_nNumofNode + 1);
 	UpdateNodeIdForSparseData(sp, node->nodeId, m_nNumofNode, m_nNumofNode + 1);
-
-	nodeStat leftNodeStat;
-	nodeStat rightNodeStat;
-
-	ComputeNodeStat(m_nNumofNode, leftNodeStat);
-	ComputeNodeStat(m_nNumofNode + 1, rightNodeStat);
-
-	v_nodeStat.push_back(leftNodeStat);
-	v_nodeStat.push_back(rightNodeStat);
-
-	m_nNumofNode += 2;
-
-	leftChild->parentId = node->nodeId;
-	rightChild->parentId = node->nodeId;
-	leftChild->level = node->level + 1;
-	rightChild->level = node->level + 1;
-}
-
-/**
- * @brief: split a node
- */
-void Splitter::SplitNodeSparseData(TreeNode *node, vector<TreeNode*> &newSplittableNode, SplitPoint &sp,
-								   RegTree &tree, vector<nodeStat> &v_nodeStat, int &m_nNumofNode)
-{
-	TreeNode *leftChild = new TreeNode[1];
-	TreeNode *rightChild = new TreeNode[1];
-
-	//startId and endId in the node will be changed later in this function
-	int nNodeStart = node->startId;
-	int nNodeEnd = node->endId;
-
-	//re-organise gd vector
-
-	leftChild->nodeId = m_nNumofNode;
-	leftChild->parentId = node->nodeId;
-	rightChild->nodeId = m_nNumofNode + 1;
-	rightChild->parentId = node->nodeId;
-
-	newSplittableNode.push_back(leftChild);
-	newSplittableNode.push_back(rightChild);
-
-	tree.nodes.push_back(leftChild);
-	tree.nodes.push_back(rightChild);
-
-	//node IDs. CAUTION: This part must be written here, because "union" is used for variables in nodes.
-	node->leftChildId = leftChild->nodeId;
-	node->rightChildId = rightChild->nodeId;
-	node->featureId = sp.m_nFeatureId;
-	node->fSplitValue = sp.m_fSplitValue;
-
-//	UpdateNodeId(sp, node->nodeId, m_nNumofNode, m_nNumofNode + 1);
-	UpdateNodeIdForSparseData(sp, node->nodeId, m_nNumofNode, m_nNumofNode + 1);
-
-	nodeStat leftNodeStat;
-	nodeStat rightNodeStat;
-
-	ComputeNodeStat(m_nNumofNode, leftNodeStat);
-	ComputeNodeStat(m_nNumofNode + 1, rightNodeStat);
-
-	v_nodeStat.push_back(leftNodeStat);
-	v_nodeStat.push_back(rightNodeStat);
-
-//	m_nodeStat[leftChild->nodeId] = leftNodeStat;
-//	m_nodeStat[rightChild->nodeId] = rightNodeStat;
 
 	m_nNumofNode += 2;
 

@@ -37,6 +37,10 @@ void DenseInsConverter::SparseToDense(const vector<key_value> &sparseIns, vector
 	//Caution! @denseIns: can be empty when sparseIns has no features in usedFeaSet
 
 	int denseInsSize = usedFeaSet.size();
+	//the tree only has one node.
+	if(denseInsSize == 0)
+		return;
+
 	int sparseInsSize = sparseIns.size();
 
 	//for each value in the sparse instance
@@ -44,6 +48,8 @@ void DenseInsConverter::SparseToDense(const vector<key_value> &sparseIns, vector
 	for(int i = 0; i < sparseInsSize; i++)
 	{
 		int feaId = sparseIns[i].id;
+
+		assert(denseInsSize > 0);
 
 		while(feaId > usedFeaSet[curDenseTop])
 		{

@@ -59,7 +59,6 @@ protected:
 	void SortFeaValue(int nNumofDim);
 	void InitTree(RegTree &tree);
 	void GrowTree(RegTree &tree);
-	void GrowTree2(RegTree &tree);
 
 private:
 
