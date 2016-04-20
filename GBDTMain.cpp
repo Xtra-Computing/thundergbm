@@ -44,7 +44,7 @@ int main()
 	trainer.m_vTrueValue_fixedPos = v_fLabel_non;
 
 	int nNumofTree = 2;
-	int nMaxDepth = 208;
+	int nMaxDepth = 4;
 	float fLabda = 1;
 	float fGamma = 1;
 

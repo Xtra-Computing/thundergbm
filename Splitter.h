@@ -33,6 +33,8 @@ public:
 	double m_gamma;//the weight of the cost of the number of trees
 
 public:
+	void SplitAll(vector<TreeNode*> &splittableNode, vector<SplitPoint> &vBest, RegTree &tree, int &m_nNumofNode,
+				  vector<nodeStat> &rchildStat, vector<nodeStat> &lchildStat, bool bLastLevel);
 	void SplitNodeSparseData(TreeNode *node, vector<TreeNode*> &newSplittableNode, SplitPoint &sp,
 							 RegTree &tree, int &m_nNumofNode);
 	double ComputeWeightSparseData(int bufferPos);
@@ -47,10 +49,8 @@ public:
 	void UpdateNodeStat(vector<TreeNode*> &newSplittableNode, vector<nodeStat> &v_nodeStat);
 
 private:
-	void ComputeNodeStat(int nId, nodeStat &nodeStat);
 	void UpdateNodeIdForSparseData(const SplitPoint &sp, int parentNodeId, int leftNodeId, int rightNodeId);
 	void UpdateNodeId(const SplitPoint &sp, int parentNodeId, int leftNodeId, int rightNodeId);
-
 
 	void NaiveFeaFinder(SplitPoint &bestSplit, int startId, int endId);
 

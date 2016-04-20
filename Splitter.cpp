@@ -234,6 +234,49 @@ double Splitter::CalGain(const nodeStat &parent, const nodeStat &r_child, const 
 }
 
 /**
+ * @brief: split all splittable nodes
+ */
+void Splitter::SplitAll(vector<TreeNode*> &splittableNode, vector<SplitPoint> &vBest, RegTree &tree, int &m_nNumofNode,
+		 	 	 	    vector<nodeStat> &rchildStat, vector<nodeStat> &lchildStat, bool bLastLevel)
+{
+	int nNumofSplittableNode = splittableNode.size();
+	assert(nNumofSplittableNode > 0);
+
+	vector<TreeNode*> newSplittableNode;
+	vector<nodeStat> newNodeStat;
+
+	//for each splittable node
+	for(int n = 0; n < nNumofSplittableNode; n++)
+	{
+		int bufferPos = mapNodeIdToBufferPos[splittableNode[n]->nodeId];
+		//mark the node as a leaf node if (1) the gain is negative or (2) the tree reaches maximum depth.
+		if(vBest[bufferPos].m_fGain <= 0 || bLastLevel == true)
+		{
+			//compute weight of leaf nodes
+			splittableNode[n]->predValue = ComputeWeightSparseData(bufferPos);
+		}
+		else
+		{
+			//split the current node
+			SplitNodeSparseData(splittableNode[n], newSplittableNode, vBest[bufferPos], tree, m_nNumofNode);
+
+			//push left and right child statistics into a vector
+			newNodeStat.push_back(lchildStat[bufferPos]);
+			newNodeStat.push_back(rchildStat[bufferPos]);
+		}
+
+		//marked the split node or the leaf node as "processed"
+		MarkProcessed(splittableNode[n]->nodeId);
+	}
+
+	UpdateNodeStat(newSplittableNode, newNodeStat);
+
+	splittableNode.clear();
+	splittableNode = newSplittableNode;
+	nNumofSplittableNode = splittableNode.size();
+}
+
+/**
  * @brief: split a node
  */
 void Splitter::SplitNodeSparseData(TreeNode *node, vector<TreeNode*> &newSplittableNode, SplitPoint &sp, RegTree &tree, int &m_nNumofNode)
@@ -269,19 +312,6 @@ void Splitter::SplitNodeSparseData(TreeNode *node, vector<TreeNode*> &newSplitta
 }
 
 
-/**
- * @brief: compute the node statistics
- */
-void Splitter::ComputeNodeStat(int nId, nodeStat &nodeStat)
-{
-	int nNumofIns = m_nodeIds.size();
-	for(int i = 0; i < nNumofIns; i++)
-	{
-		if(m_nodeIds[i] != nId)
-			continue;
-		nodeStat.Add(m_vGDPair_fixedPos[i].grad, m_vGDPair_fixedPos[i].hess);
-	}
-}
 
 /**
  * @brief: update the node ids for the newly constructed nodes
