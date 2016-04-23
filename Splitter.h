@@ -33,8 +33,8 @@ public:
 	double m_gamma;//the weight of the cost of the number of trees
 
 public:
-	void SplitAll(vector<TreeNode*> &splittableNode, vector<SplitPoint> &vBest, RegTree &tree, int &m_nNumofNode,
-				  vector<nodeStat> &rchildStat, vector<nodeStat> &lchildStat, bool bLastLevel);
+	void SplitAll(vector<TreeNode*> &splittableNode, const vector<SplitPoint> &vBest, RegTree &tree, int &m_nNumofNode,
+				  const vector<nodeStat> &rchildStat, const vector<nodeStat> &lchildStat, bool bLastLevel);
 	void SplitNodeSparseData(TreeNode *node, vector<TreeNode*> &newSplittableNode, SplitPoint &sp,
 							 RegTree &tree, int &m_nNumofNode);
 	double ComputeWeightSparseData(int bufferPos);
@@ -59,6 +59,8 @@ private:
 
 	double CalGain(const nodeStat &parent, const nodeStat &r_child, const nodeStat &l_child);
 	double ComputeGain(double fSplitValue, int featureId, int dataStartId, int dataEndId);
+
+	const static int LEAFNODE = -2;
 };
 
 

@@ -24,14 +24,8 @@ public:
 	int nodeId;
 	int level;
 
-	union{
-		int leftChildId;
-		int startId;//data (or gdpair) start id
-	};
-	union{
-		int rightChildId;
-		int endId;//data (or gdpair) end id
-	};
+	int leftChildId;
+	int rightChildId;
 
 
 public:

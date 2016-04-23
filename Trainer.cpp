@@ -135,7 +135,7 @@ void Trainer::TrainGBDT(vector<RegTree> & vTree)
 
 		//grow the tree
 		begin_grow = clock();
-		GrowTreeGoodSplit(tree);
+		GrowTree(tree);
 		end_grow = clock();
 		total_grow += (double(end_grow - begin_grow) / CLOCKS_PER_SEC);
 
@@ -161,10 +161,6 @@ void Trainer::InitTree(RegTree &tree)
 	m_nNumofNode = 1;
 	root->nodeId = 0;
 	root->level = 0;
-
-	//initialise the range of instances that are covered by this node
-	root->startId = 0;
-	root->endId = m_vvInsSparse.size() - 1;
 
 	tree.nodes.push_back(root);
 
@@ -289,6 +285,7 @@ void Trainer::GrowTreeGoodSplit(RegTree &tree)
 	int nCurDepth = 0;
 	while(splittableNode.size() > 0 && nCurDepth <= m_nMaxDepth)
 	{
+		cout << "splitting " << nCurDepth << " level..." << endl;
 		//for each splittable node
 		vector<SplitPoint> vBest;
 
@@ -308,7 +305,9 @@ void Trainer::GrowTreeGoodSplit(RegTree &tree)
 
 		//split all the splittable nodes
 		clock_t start_split_t = clock();
-		bool bLastLevel = (nCurDepth == m_nMaxDepth);
+		bool bLastLevel = false;
+		if(nCurDepth == m_nMaxDepth)
+			bLastLevel = true;
 		splitter.SplitAll(splittableNode, vBest, tree, m_nNumofNode, rchildStat, lchildStat, bLastLevel);
 		clock_t end_split_t = clock();
 		total_split_t += (double(end_split_t - start_split_t) / CLOCKS_PER_SEC);
