@@ -285,7 +285,7 @@ void Trainer::GrowTreeGoodSplit(RegTree &tree)
 	int nCurDepth = 0;
 	while(splittableNode.size() > 0 && nCurDepth <= m_nMaxDepth)
 	{
-		cout << "splitting " << nCurDepth << " level..." << endl;
+//		cout << "splitting " << nCurDepth << " level..." << endl;
 		//for each splittable node
 		vector<SplitPoint> vBest;
 

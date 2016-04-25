@@ -106,7 +106,6 @@ void Splitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat> &rch
 		int nNumofKeyValues = featureKeyValues.size();
 		vector<nodeStat> tempStat;
 		vector<double> vLastValue;
-		vector<int> vCounter;
 
 		int bufferSize = mapNodeIdToBufferPos.size();
 
@@ -114,7 +113,6 @@ void Splitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat> &rch
 		vLastValue.clear();
 		tempStat.resize(bufferSize);
 		vLastValue.resize(bufferSize);
-		vCounter.resize(bufferSize);
 
 	    for(int i = 0; i < nNumofKeyValues; i++)
 	    {
@@ -136,11 +134,9 @@ void Splitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat> &rch
 			{
 				tempStat[bufferPos].Add(m_vGDPair_fixedPos[insId].grad, m_vGDPair_fixedPos[insId].hess);
 				vLastValue[bufferPos] = fvalue;
-				vCounter[bufferPos] = 1;
 			}
 			else
 			{
-				vCounter[bufferPos]++;
 				// try to find a split
 				double min_child_weight = 1.0;//follow xgboost
 				if(fabs(fvalue - vLastValue[bufferPos]) > 0.000002 &&
@@ -148,12 +144,6 @@ void Splitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat> &rch
 				{
 					nodeStat lTempStat;
 					assert(m_nodeStat.size() > bufferPos);
-					/*if(m_nodeStat[bufferPos].sum_hess <= tempStat[bufferPos].sum_hess)
-					{
-						cout << "node id " << nid << "; buffer id " << bufferPos << endl;
-						cout << "nodeStat[" << nid << "].sum_hess=" << m_nodeStat[bufferPos].sum_hess << endl;
-						cout << "counter[" << nid <<"]=" << vCounter[bufferPos] << endl;
-					}*/
 					lTempStat.Subtract(m_nodeStat[bufferPos], tempStat[bufferPos]);
 					if(lTempStat.sum_hess >= min_child_weight)
 					{
@@ -380,6 +370,13 @@ void Splitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<SplitPoi
 			int insId = featureKeyValues[i].id;
 			assert(insId < m_nodeIds.size());
 			int nid = m_nodeIds[insId];
+
+			int bufferPos = mapNodeIdToBufferPos[nid];
+
+			int fid = vBest[bufferPos].m_nFeatureId;
+			if(fid != ufid)//this feature is not the splitting feature for the instance.
+				continue;
+
 			double fvalue = featureKeyValues[i].featureValue;
 			assert(nid >= 0);
 			map<int, pair<int, int> >::iterator it = mapPidCid.find(nid);
@@ -397,12 +394,6 @@ void Splitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<SplitPoi
 
 			if(it != mapPidCid.end())
 			{//internal node (needs to split)
-				int bufferPos = mapNodeIdToBufferPos[nid];
-
-				int fid = vBest[bufferPos].m_nFeatureId;
-				if(fid != ufid)//this feature is not the splitting feature for the instance.
-					continue;
-
 				double fPivot = vBest[bufferPos].m_fSplitValue;
 
 				assert(it->second.second == it->second.first + 1);//right child id > than left child id
@@ -438,12 +429,7 @@ void Splitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<SplitPoi
 		}
 	}
 
-	//for each splittable node
-	for(int n = 0; n < nNumofSplittableNode; n++)
-	{
-		//marked the split node or the leaf node as "processed"
-		MarkProcessed(splittableNode[n]->nodeId);
-	}
+	mapNodeIdToBufferPos.clear();
 
 	UpdateNodeStat(newSplittableNode, newNodeStat);
 

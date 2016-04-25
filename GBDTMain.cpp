@@ -14,6 +14,7 @@
 
 int main()
 {
+	assert(false);
 	clock_t begin_whole, end_whole;
 	/********* read training instances from a file **************/
 	vector<vector<double> > v_vInstance;
