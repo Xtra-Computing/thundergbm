@@ -61,6 +61,10 @@ private:
 	double ComputeGain(double fSplitValue, int featureId, int dataStartId, int dataEndId);
 
 	const static int LEAFNODE = -2;
+
+	//for debugging
+	template<class T>
+	void PrintVec(vector<T> &vec);
 };
 
 
