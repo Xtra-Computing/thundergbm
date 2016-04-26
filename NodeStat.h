@@ -9,8 +9,9 @@
 #ifndef NODESTAT_H_
 #define NODESTAT_H_
 
-#include <assert.h>
+
 #include <iostream>
+#include "MyAssert.h"
 
 using std::cout;
 using std::endl;
@@ -26,13 +27,15 @@ public:
 		sum_hess = 0.0;
 	}
 
+	bool IsEmpty() const{
+		return sum_hess == 0.0;
+	}
+
 	void Subtract(const nodeStat &parent, const nodeStat &r_child)
 	{
 		sum_gd = parent.sum_gd - r_child.sum_gd;
 		sum_hess = parent.sum_hess - r_child.sum_hess;
-		if(sum_hess < 0)
-			cout << parent.sum_hess << " v.s. " << r_child.sum_hess << endl;
-		assert(sum_hess >= 0);
+		PROCESS_ERROR(sum_hess >= 0);
 	}
 	void Add(double gd, double hess)
 	{

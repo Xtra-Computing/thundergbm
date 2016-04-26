@@ -30,7 +30,7 @@ struct SplitPoint{
 	 */
 	bool UpdateSplitPoint(double fGain, double fSplitValue, int nFeatureId)
 	{
-		if(fGain > m_fGain || (fGain == m_fGain && nFeatureId == m_nFeatureId))//second condition is for updating to a new split value
+		if(fGain > m_fGain )//|| (fGain == m_fGain && nFeatureId == m_nFeatureId) NOT USE (second condition is for updating to a new split value)
 		{
 			m_fGain = fGain;
 			m_fSplitValue = fSplitValue;

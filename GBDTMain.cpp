@@ -11,10 +11,10 @@
 #include "Trainer.h"
 #include "Predictor.h"
 #include "Evaluation/RMSE.h"
+#include "MyAssert.h"
 
 int main()
 {
-	assert(false);
 	clock_t begin_whole, end_whole;
 	/********* read training instances from a file **************/
 	vector<vector<double> > v_vInstance;
@@ -45,7 +45,7 @@ int main()
 	trainer.m_vTrueValue_fixedPos = v_fLabel_non;
 
 	int nNumofTree = 2;
-	int nMaxDepth = 4;
+	int nMaxDepth = 208;
 	float fLabda = 1;
 	float fGamma = 1;
 
