@@ -17,6 +17,7 @@
 #include "Predictor.h"
 #include "TreeNode.h"
 #include "PrintTree.h"
+#include "Evaluation/RMSE.h"
 
 using std::cout;
 using std::endl;
@@ -125,8 +126,23 @@ void Trainer::TrainGBDT(vector<RegTree> & vTree)
 		end_pred = clock();
 		total_pred += (double(end_pred - begin_pred) / CLOCKS_PER_SEC);
 
-//		if(i == 1)
-//			PrintPrediction(v_fPredValue_fixed);
+		if(i > 0)
+		{
+			//run the GBDT prediction process
+			clock_t begin_pre, end_pre;
+			Predictor pred;
+			vector<double> v_fPredValue_fixed;
+
+			begin_pre = clock();
+			pred.PredictSparseIns(m_vvInsSparse, vTree, v_fPredValue_fixed);
+			end_pre = clock();
+			double prediction_time = (double(end_pre - begin_pre) / CLOCKS_PER_SEC);
+			cout << "prediction sec = " << prediction_time << endl;
+
+			EvalRMSE rmse;
+			float fRMSE = rmse.Eval(v_fPredValue_fixed, m_vTrueValue_fixedPos);
+			cout << "rmse=" << fRMSE << endl;
+		}
 
 		begin_gd = clock();
 		splitter.ComputeGDSparse(v_fPredValue_fixed, m_vTrueValue_fixedPos);

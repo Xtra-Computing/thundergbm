@@ -79,6 +79,8 @@ void Splitter::UpdateNodeStat(vector<TreeNode*> &newSplittableNode, vector<nodeS
  */
 void Splitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat> &rchildStat, vector<nodeStat> &lchildStat)
 {
+	const float rt_2eps = 2.0 * 1e-5;
+
 	int nNumofFeature = m_vvFeaInxPair.size();
 	vector<nodeStat> tempStat;
 	vector<double> vLastValue;
@@ -120,7 +122,7 @@ void Splitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat> &rch
 			{
 				// try to find a split
 				double min_child_weight = 1.0;//follow xgboost
-				if(fabs(fvalue - vLastValue[bufferPos]) > 0.000002 &&
+				if(fabs(fvalue - vLastValue[bufferPos]) > rt_2eps &&
 				   tempStat[bufferPos].sum_hess >= min_child_weight)
 				{
 					nodeStat lTempStat;

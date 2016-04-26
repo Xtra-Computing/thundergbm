@@ -44,10 +44,10 @@ int main()
 //	trainer.m_vvInstance_fixedPos = v_vInstance;
 	trainer.m_vTrueValue_fixedPos = v_fLabel_non;
 
-	int nNumofTree = 5;
-	int nMaxDepth = 208;
-	float fLabda = 1;
-	float fGamma = 1;
+	int nNumofTree = 2;
+	int nMaxDepth = 4;
+	float fLabda = 1;//this one is not used
+	float fGamma = 0.0001;//minimum loss
 
 	clock_t start_init = clock();
 	trainer.InitTrainer(nNumofTree, nMaxDepth, fLabda, fGamma, nNumofFeatures);
@@ -75,9 +75,6 @@ int main()
 	clock_t begin_pre, end_pre;
 	Predictor pred;
 	vector<double> v_fPredValue_fixed;
-	vector<double> v_fPreValue_buffer;
-	for(int i = 0; i < v_vInsSparse.size(); i++)
-		v_fPreValue_buffer.push_back(0);
 
 	begin_pre = clock();
 	pred.PredictSparseIns(v_vInsSparse, v_Tree, v_fPredValue_fixed);
