@@ -8,13 +8,13 @@
 
 #include <algorithm>
 #include <math.h>
-#include <map>
+#include <unordered_map>
 #include <iostream>
 
 #include "Splitter.h"
 #include "MyAssert.h"
 
-using std::map;
+using std::unordered_map;
 using std::pair;
 using std::make_pair;
 using std::cout;
@@ -108,7 +108,7 @@ void Splitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat> &rch
 
 			// get the statistics of nid node
 			// test if first hit, this is fine, because we set 0 during init
-			map<int, int>::iterator it = mapNodeIdToBufferPos.find(nid);
+			unordered_map<int, int>::iterator it = mapNodeIdToBufferPos.find(nid);
 			PROCESS_ERROR(it != mapNodeIdToBufferPos.end());
 			int bufferPos = it->second;
 			if(tempStat[bufferPos].IsEmpty())
@@ -262,7 +262,7 @@ void Splitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<SplitPoi
 	PROCESS_ERROR(vBest.size() == lchildStat.size());
 
 	//for each splittable node, assign lchild and rchild ids
-	map<int, pair<int, int> > mapPidCid;//(parent id, (lchildId, rchildId)).
+	unordered_map<int, pair<int, int> > mapPidCid;//(parent id, (lchildId, rchildId)).
 	vector<TreeNode*> newSplittableNode;
 	vector<nodeStat> newNodeStat;
 	for(int n = 0; n < nNumofSplittableNode; n++)
@@ -350,17 +350,15 @@ void Splitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<SplitPoi
 		{
 			int insId = featureKeyValues[i].id;
 			PROCESS_ERROR(insId < m_nodeIds.size());
+
 			int nid = m_nodeIds[insId];
-
 			int bufferPos = mapNodeIdToBufferPos[nid];
-
 			int fid = vBest[bufferPos].m_nFeatureId;
 			if(fid != ufid)//this feature is not the splitting feature for the instance.
 				continue;
 
-			double fvalue = featureKeyValues[i].featureValue;
 			PROCESS_ERROR(nid >= 0);
-			map<int, pair<int, int> >::iterator it = mapPidCid.find(nid);
+			unordered_map<int, pair<int, int> >::iterator it = mapPidCid.find(nid);
 
 			if(it == mapPidCid.end())//node doesn't need to split (leaf node or new node)
 			{
@@ -375,9 +373,10 @@ void Splitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<SplitPoi
 
 			if(it != mapPidCid.end())
 			{//internal node (needs to split)
-				double fPivot = vBest[bufferPos].m_fSplitValue;
-
 				PROCESS_ERROR(it->second.second == it->second.first + 1);//right child id > than left child id
+
+				double fPivot = vBest[bufferPos].m_fSplitValue;
+				double fvalue = featureKeyValues[i].featureValue;
 				if(fvalue >= fPivot)
 				{
 					m_nodeIds[insId] = it->second.second;//right child id
@@ -401,11 +400,9 @@ void Splitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<SplitPoi
 		}
 		else
 		{
-			map<int, pair<int, int> >::iterator it = mapPidCid.find(nid);
-			if(it != mapPidCid.end())//node id is in the set of splittable nodes
-				m_nodeIds[i] = it->second.first;//by default the instance with unknown feature value going to left child
-			else
-				cout << nid << endl;
+			unordered_map<int, pair<int, int> >::iterator it = mapPidCid.find(nid);
+			m_nodeIds[i] = it->second.first;//by default the instance with unknown feature value going to left child
+
 			PROCESS_ERROR(it != mapPidCid.end());
 		}
 	}
