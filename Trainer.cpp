@@ -145,7 +145,7 @@ void Trainer::TrainGBDT(vector<RegTree> & vTree)
 
 		//grow the tree
 		begin_grow = clock();
-		GrowTreeGoodSplit(tree);
+		GrowTree(tree);
 		end_grow = clock();
 		total_grow += (double(end_grow - begin_grow) / CLOCKS_PER_SEC);
 
@@ -187,88 +187,10 @@ void Trainer::InitTree(RegTree &tree)
 	total_split_t = 0;
 }
 
-
 /**
  * @brief: grow the tree by splitting nodes to the full extend
  */
 void Trainer::GrowTree(RegTree &tree)
-{
-	int nNumofSplittableNode = 0;
-
-	//start splitting this tree from the root node
-	vector<TreeNode*> splittableNode;
-	for(int i = 0; i < int(tree.nodes.size()); i++)
-	{
-		splittableNode.push_back(tree.nodes[i]);
-		nNumofSplittableNode++;
-	}
-
-	//split node(s)
-	int nCurDepth = 0;
-	while(nNumofSplittableNode > 0)
-	{
-		//for each splittable node
-		vector<SplitPoint> vBest;
-
-		//these variables may be reused for optimisation
-		vector<nodeStat> rchildStat, lchildStat;
-
-		int bufferSize = splitter.mapNodeIdToBufferPos.size();//maps node id to buffer position
-		vBest.resize(bufferSize);
-		rchildStat.resize(bufferSize);
-		lchildStat.resize(bufferSize);
-
-		//efficient way to find the best split
-		clock_t begin_find_fea = clock();
-		splitter.FeaFinderAllNode(vBest, rchildStat, lchildStat);
-		clock_t end_find_fea = clock();
-		total_find_fea_t += (double(end_find_fea - begin_find_fea) / CLOCKS_PER_SEC);
-
-	vector<TreeNode*> newSplittableNode;
-	vector<nodeStat> newNodeStat;
-
-		//for each splittable node
-		for(int n = 0; n < nNumofSplittableNode; n++)
-		{
-			int bufferPos = splitter.mapNodeIdToBufferPos[splittableNode[n]->nodeId];
-			//mark the node as a leaf node if (1) the gain is negative or (2) the tree reaches maximum depth.
-			if(vBest[bufferPos].m_fGain <= 0 || m_nMaxDepth == nCurDepth)
-			{
-				//compute weight of leaf nodes
-				splittableNode[n]->predValue = splitter.ComputeWeightSparseData(bufferPos);
-			}
-			else
-			{
-				clock_t start_split_t = clock();
-				//split the current node
-				splitter.SplitNodeSparseData(splittableNode[n], newSplittableNode, vBest[bufferPos], tree, m_nNumofNode);
-
-				//push left and right child statistics into a vector
-				newNodeStat.push_back(lchildStat[bufferPos]);
-				newNodeStat.push_back(rchildStat[bufferPos]);
-				clock_t end_split_t = clock();
-				total_split_t += (double(end_split_t - start_split_t) / CLOCKS_PER_SEC);
-			}
-
-			//marked the split node or the leaf node as "processed"
-			splitter.MarkProcessed(splittableNode[n]->nodeId);
-		}
-
-		nCurDepth++;
-
-		splitter.UpdateNodeStat(newSplittableNode, newNodeStat);
-
-		//assign new splittable nodes to the container
-		splittableNode.clear();
-		splittableNode = newSplittableNode;
-		nNumofSplittableNode = splittableNode.size();
-	}
-}
-
-/**
- * @brief: grow the tree by splitting nodes to the full extend
- */
-void Trainer::GrowTreeGoodSplit(RegTree &tree)
 {
 	int nNumofSplittableNode = 0;
 

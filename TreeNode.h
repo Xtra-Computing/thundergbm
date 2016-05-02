@@ -27,6 +27,7 @@ public:
 	int leftChildId;
 	int rightChildId;
 
+	double loss;
 
 public:
 
@@ -39,6 +40,8 @@ public:
 		level = -1;
 		leftChildId = -1;
 		rightChildId = -1;
+
+		loss = -1.0;
 	}
 
 

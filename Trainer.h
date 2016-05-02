@@ -59,11 +59,8 @@ protected:
 	void SortFeaValue(int nNumofDim);
 	void InitTree(RegTree &tree);
 	void GrowTree(RegTree &tree);
-	void GrowTreeGoodSplit(RegTree &tree);
 
 private:
-
-	void ComputeGD(vector<double> &v_fPredValue);
 
 //for debugging
 	void PrintTree(const RegTree &tree);

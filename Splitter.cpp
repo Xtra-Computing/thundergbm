@@ -22,43 +22,6 @@ using std::cout;
 using std::endl;
 
 /**
- * @brief: efficient best feature finder
- */
-void Splitter::EfficientFeaFinder(SplitPoint &bestSplit, const nodeStat &parent, int nodeId)
-{
-	int nNumofFeature = m_vvFeaInxPair.size();
-	for(int f = 0; f < nNumofFeature; f++)
-	{
-		double fBestSplitValue = -1;
-		double fGain = 0.0;
-		BestSplitValue(fBestSplitValue, fGain, f, parent, nodeId);
-
-//		cout << "fid=" << f << "; gain=" << fGain << "; split=" << fBestSplitValue << endl;
-
-		bestSplit.UpdateSplitPoint(fGain, fBestSplitValue, f);
-	}
-}
-
-/**
- * @brief: mark as process for a node id
- */
-void Splitter::MarkProcessed(int nodeId)
-{
-	//erase the split node or leaf node
-	mapNodeIdToBufferPos.erase(nodeId);
-	//mapNodeIdToBufferPos.clear(); can used this
-
-	for(int i = 0; i < m_nodeIds.size(); i++)
-	{
-		if(m_nodeIds[i] == nodeId)
-		{
-//			assert(false);
-			m_nodeIds[i] = -1;
-		}
-	}
-}
-
-/**
  * @brief: update the node statistics and buffer positions.
  */
 void Splitter::UpdateNodeStat(vector<TreeNode*> &newSplittableNode, vector<nodeStat> &v_nodeStat)
@@ -182,67 +145,6 @@ void Splitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat> &rch
 			PrintVec(vBest16);
 		}
 	}
-}
-
-
-/**
- * @brief: compute the best split value for a feature
- */
-void Splitter::BestSplitValue(double &fBestSplitValue, double &fGain, int nFeatureId, const nodeStat &parent, int nodeId)
-{
-	vector<key_value> &featureKeyValues = m_vvFeaInxPair[nFeatureId];
-
-	double last_fvalue;
-	SplitPoint bestSplit;
-	nodeStat r_child, l_child;
-	bool bFirst = true;
-
-	int nCounter = 0;
-
-	int nNumofKeyValues = featureKeyValues.size();
-
-    for(int i = 0; i < nNumofKeyValues; i++)
-    {
-    	int originalInsId = featureKeyValues[i].id;
-		int nid = m_nodeIds[originalInsId];
-		if(nid != nodeId)
-			continue;
-
-		nCounter++;
-
-		// start working
-		double fvalue = featureKeyValues[i].featureValue;
-
-		// get the statistics of nid node
-		// test if first hit, this is fine, because we set 0 during init
-		if(bFirst == true)
-		{
-			bFirst = false;
-			r_child.Add(m_vGDPair_fixedPos[originalInsId].grad, m_vGDPair_fixedPos[originalInsId].hess);
-			last_fvalue = fvalue;
-		}
-		else
-		{
-			// try to find a split
-			double min_child_weight = 1.0;//follow xgboost
-			if(fabs(fvalue - last_fvalue) > 0.000002 &&
-			   r_child.sum_hess >= min_child_weight)
-			{
-				l_child.Subtract(parent, r_child);
-				if(l_child.sum_hess >= min_child_weight)
-				{
-					double loss_chg = CalGain(parent, r_child, l_child);
-					bestSplit.UpdateSplitPoint(loss_chg, (fvalue + last_fvalue) * 0.5f, nFeatureId);
-				}
-			}
-			//update the statistics
-			r_child.Add(m_vGDPair_fixedPos[originalInsId].grad, m_vGDPair_fixedPos[originalInsId].hess);
-			last_fvalue = fvalue;
-		}
-	}
-
-    fBestSplitValue = bestSplit.m_fSplitValue;
-    fGain = bestSplit.m_fGain;
 }
 
 /**
@@ -458,89 +360,6 @@ void Splitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<SplitPoi
 
 	splittableNode.clear();
 	splittableNode = newSplittableNode;
-}
-
-/**
- * @brief: split a node
- */
-void Splitter::SplitNodeSparseData(TreeNode *node, vector<TreeNode*> &newSplittableNode, SplitPoint &sp, RegTree &tree, int &m_nNumofNode)
-{
-	TreeNode *leftChild = new TreeNode[1];
-	TreeNode *rightChild = new TreeNode[1];
-
-	leftChild->nodeId = m_nNumofNode;
-	leftChild->parentId = node->nodeId;
-	rightChild->nodeId = m_nNumofNode + 1;
-	rightChild->parentId = node->nodeId;
-
-	newSplittableNode.push_back(leftChild);
-	newSplittableNode.push_back(rightChild);
-
-	tree.nodes.push_back(leftChild);
-	tree.nodes.push_back(rightChild);
-
-	//node IDs. CAUTION: This part must be written here, because "union" is used for variables in nodes.
-	node->leftChildId = leftChild->nodeId;
-	node->rightChildId = rightChild->nodeId;
-	node->featureId = sp.m_nFeatureId;
-	node->fSplitValue = sp.m_fSplitValue;
-
-	UpdateNodeIdForSparseData(sp, node->nodeId, m_nNumofNode, m_nNumofNode + 1);
-
-	m_nNumofNode += 2;
-
-	leftChild->parentId = node->nodeId;
-	rightChild->parentId = node->nodeId;
-	leftChild->level = node->level + 1;
-	rightChild->level = node->level + 1;
-}
-
-
-
-/**
- * @brief: update the node ids for the newly constructed nodes
- */
-void Splitter::UpdateNodeIdForSparseData(const SplitPoint &sp, int parentNodeId, int leftNodeId, int rightNodeId)
-{
-	int nNumofIns = m_nodeIds.size();
-	int fid = sp.m_nFeatureId;
-	double fPivot = sp.m_fSplitValue;
-
-	//create a mark
-	vector<int> vMark;
-	for(int i = 0; i < nNumofIns; i++)
-		vMark.push_back(0);
-
-	//for each instance that has value on the feature
-	int nNumofPair = m_vvFeaInxPair[fid].size();
-	for(int j = 0; j < nNumofPair; j++)
-	{
-		int insId = m_vvFeaInxPair[fid][j].id;
-		double fvalue = m_vvFeaInxPair[fid][j].featureValue;
-		if(m_nodeIds[insId] != parentNodeId)
-		{
-			vMark[insId] = -1;//this instance can be skipped.
-			continue;
-		}
-		else
-		{
-			vMark[insId] = 1;//this instance has been considered.
-			if(fvalue >= fPivot)
-			{
-				m_nodeIds[insId] = rightNodeId;
-			}
-			else
-				m_nodeIds[insId] = leftNodeId;
-		}
-	}
-
-	for(int i = 0; i < nNumofIns; i++)
-	{
-		if(vMark[i] != 0)
-			continue;
-		if(parentNodeId == m_nodeIds[i])
-			m_nodeIds[i] = leftNodeId;
-	}
 }
 
 /**

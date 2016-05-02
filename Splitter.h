@@ -38,30 +38,18 @@ public:
 public:
 	void SplitAll(vector<TreeNode*> &splittableNode, const vector<SplitPoint> &vBest, RegTree &tree, int &m_nNumofNode,
 				  const vector<nodeStat> &rchildStat, const vector<nodeStat> &lchildStat, bool bLastLevel);
-	void SplitNodeSparseData(TreeNode *node, vector<TreeNode*> &newSplittableNode, SplitPoint &sp,
-							 RegTree &tree, int &m_nNumofNode);
+
 	double ComputeWeightSparseData(int bufferPos);
 	void ComputeGDSparse(vector<double> &v_fPredValue, vector<double> &m_vTrueValue_fixedPos);
 
-	//two different functions for computing the gain of a feature
-	void EfficientFeaFinder(SplitPoint &bestSplit, const nodeStat &parent, int nodeId);
+	//a function for computing the gain of a feature
 	void FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat> &tempStat, vector<nodeStat> &lchildStat);
 
-	//mark as processed
-	void MarkProcessed(int nodeId);
 	void UpdateNodeStat(vector<TreeNode*> &newSplittableNode, vector<nodeStat> &v_nodeStat);
 
 private:
-	void UpdateNodeIdForSparseData(const SplitPoint &sp, int parentNodeId, int leftNodeId, int rightNodeId);
-	void UpdateNodeId(const SplitPoint &sp, int parentNodeId, int leftNodeId, int rightNodeId);
-
-	void NaiveFeaFinder(SplitPoint &bestSplit, int startId, int endId);
-
 	//for sorting on each feature
-	void BestSplitValue(double &fBestSplitValue, double &fGain, int nFeatureId, const nodeStat &parent, int nodeId);
-
 	double CalGain(const nodeStat &parent, const nodeStat &r_child, const nodeStat &l_child);
-	double ComputeGain(double fSplitValue, int featureId, int dataStartId, int dataEndId);
 
 	const static int LEAFNODE = -2;
 
