@@ -24,7 +24,7 @@ void TreePrinter::WriteInternalNode(const TreeNode *node)
 {
 	Spacing(node->level);
 	m_writeOut << node->nodeId << ":[f" << node->featureId + 1 << "<";
-	m_writeOut.precision(5);
+	m_writeOut.precision(6);
 	m_writeOut << node->fSplitValue << "]";
 	m_writeOut << " yes=" << node->leftChildId << ",no=" << node->rightChildId << ",missing=" << node->leftChildId << "\n";
 }
@@ -33,7 +33,7 @@ void TreePrinter::WriteLeaf(const TreeNode *node)
 {
 	Spacing(node->level);
 	m_writeOut << node->nodeId << ":leaf=";
-	m_writeOut.precision(5);
+	m_writeOut.precision(6);
 	m_writeOut << node->predValue << "\n";
 }
 

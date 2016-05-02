@@ -70,7 +70,7 @@ void LibSVMDataReader::ReaderHelper(vector<vector<key_value> > &v_vInstance, vec
 		istringstream in(str);
 		int i = 0;
 //		bool bMiss = false;
-		float fValue = 0;
+		float_point fValue = 0;
 		in >> fValue;
 		v_fValue.push_back(fValue);
 
@@ -159,7 +159,7 @@ void LibSVMDataReader::GetDataInfo(string strFileName, int &nNumofFeatures, int 
 
 		istringstream in(str);
 
-		float fValue = 0;//label
+		float_point fValue = 0;//label
 		in >> fValue;
 
 		//get features of a sample

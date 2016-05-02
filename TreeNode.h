@@ -16,8 +16,8 @@ public:
 	int featureId;
 
 	union{
-		float fSplitValue;
-		float predValue;
+		double fSplitValue;
+		double predValue;
 	};
 
 	int parentId;
@@ -43,7 +43,7 @@ public:
 
 
 	bool isLeaf() const;
-	int GetNext(float feaValue);
+	int GetNext(double feaValue);
 };
 
 

@@ -18,7 +18,7 @@ bool TreeNode::isLeaf() const
 }
 
 /*! \brief get next position of the tree given current pid */
-int TreeNode::GetNext(float feaValue)
+int TreeNode::GetNext(double feaValue)
 {
     if (feaValue < fSplitValue)
     {

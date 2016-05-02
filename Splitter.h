@@ -18,6 +18,7 @@
 #include "SplitPoint.h"
 #include "NodeStat.h"
 #include "GDPair.h"
+#include "SplitPoint.h"
 
 using std::vector;
 using std::unordered_map;
@@ -64,9 +65,21 @@ private:
 
 	const static int LEAFNODE = -2;
 
+public:
 	//for debugging
 	template<class T>
-	void PrintVec(vector<T> &vec);
+	void PrintVec(vector<T> &vec)
+	{
+		int nNumofEle = vec.size();
+		for(int i = 0; i < nNumofEle; i++)
+		{
+			cout << vec[i] << "\t";
+		}
+		cout << endl;
+	}
+
+	int m_nRound;
+	int m_nCurDept;
 };
 
 

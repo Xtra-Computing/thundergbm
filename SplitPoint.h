@@ -9,11 +9,15 @@
 #ifndef SPLITPOINT_H_
 #define SPLITPOINT_H_
 
+#include <ostream>
+
+using std::ostream;
 
 /**
  * @brief: a structure to store split points
  */
-struct SplitPoint{
+class SplitPoint{
+public:
 	double m_fGain;
 	double m_fSplitValue;
 	int m_nFeatureId;
@@ -39,6 +43,8 @@ struct SplitPoint{
 		}
 		return false;
 	}
+
+	friend ostream& operator << (ostream &os, const SplitPoint &p);
 };
 
 

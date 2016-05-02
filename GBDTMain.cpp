@@ -18,7 +18,6 @@ int main()
 	clock_t begin_whole, end_whole;
 	/********* read training instances from a file **************/
 	vector<vector<double> > v_vInstance;
-	vector<double> v_fLabel;
 	string strFileName = "data/YearPredictionMSD";
 	int nNumofFeatures;
 	int nNumofExamples;
@@ -28,26 +27,24 @@ int main()
 	dataReader.GetDataInfo(strFileName, nNumofFeatures, nNumofExamples);
 //	dataReader.ReadLibSVMDataFormat(v_vInstance, v_fLabel, strFileName, nNumofFeatures, nNumofExamples);
 
-	vector<double> v_fLabel_non;
+	vector<double> v_fLabel;
 	vector<vector<key_value> > v_vInsSparse;
-	dataReader.ReadLibSVMFormatSparse(v_vInsSparse, v_fLabel_non, strFileName, nNumofFeatures, nNumofExamples);
+	dataReader.ReadLibSVMFormatSparse(v_vInsSparse, v_fLabel, strFileName, nNumofFeatures, nNumofExamples);
 
 	begin_whole = clock();
 	cout << "start training..." << endl;
 	/********* run the GBDT learning process ******************/
 	vector<RegTree> v_Tree;
 	Trainer trainer;
-//	trainer.m_vvInstance = v_vInstance;
-	trainer.m_vTrueValue = v_fLabel;
 
 	trainer.m_vvInsSparse = v_vInsSparse;
 //	trainer.m_vvInstance_fixedPos = v_vInstance;
-	trainer.m_vTrueValue_fixedPos = v_fLabel_non;
+	trainer.m_vTrueValue_fixedPos = v_fLabel;
 
 	int nNumofTree = 2;
-	int nMaxDepth = 4;
-	float fLabda = 1;//this one is not used
-	float fGamma = 0.0001;//minimum loss
+	int nMaxDepth = 20;
+	double fLabda = 1;//this one is constant in xgboost
+	double fGamma = 1;//minimum loss
 
 	clock_t start_init = clock();
 	trainer.InitTrainer(nNumofTree, nMaxDepth, fLabda, fGamma, nNumofFeatures);
@@ -83,7 +80,7 @@ int main()
 	cout << "prediction sec = " << prediction_time << endl;
 
 	EvalRMSE rmse;
-	float fRMSE = rmse.Eval(v_fPredValue_fixed, v_fLabel_non);
+	float fRMSE = rmse.Eval(v_fPredValue_fixed, v_fLabel);
 	cout << "rmse=" << fRMSE << endl;
 
 	trainer.ReleaseTree(v_Tree);

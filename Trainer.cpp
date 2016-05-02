@@ -47,7 +47,7 @@ void Trainer::InitTrainer(int nNumofTree, int nMaxDepth, double fLabda, double f
 	//initialise the prediction buffer
 	for(int i = 0; i < (int)m_vvInsSparse.size(); i++)
 	{
-		m_vPredBuffer_fixedPos.push_back(0);
+		m_vPredBuffer_fixedPos.push_back(0.0);
 		gdpair gd;
 		splitter.m_vGDPair_fixedPos.push_back(gd);
 	}
@@ -106,6 +106,7 @@ void Trainer::TrainGBDT(vector<RegTree> & vTree)
 	Predictor pred;
 	for(int i = 0; i < m_nMaxNumofTree; i++)
 	{
+		splitter.m_nRound = i;
 		cout << "start round " << i << endl;
 		clock_t start_round = clock();
 		//initialise a tree
@@ -113,16 +114,9 @@ void Trainer::TrainGBDT(vector<RegTree> & vTree)
 		InitTree(tree);
 
 		//predict the data by the existing trees
-/*		vector<double> v_fPredValue;
-		pred.PredictDenseIns(m_vvInstance, vTree, v_fPredValue, m_vPredBuffer);
-		//compute gradient
-		ComputeGD(v_fPredValue);
-*/
-//		PrintPrediction(v_fPredValue);
-
-		vector<double> v_fPredValue_fixed;
+		vector<double> v_fPredValue;
 		begin_pred = clock();
-		pred.PredictSparseIns(m_vvInsSparse, vTree, v_fPredValue_fixed, m_vPredBuffer_fixedPos);
+		pred.PredictSparseIns(m_vvInsSparse, vTree, v_fPredValue, m_vPredBuffer_fixedPos);
 		end_pred = clock();
 		total_pred += (double(end_pred - begin_pred) / CLOCKS_PER_SEC);
 
@@ -140,12 +134,12 @@ void Trainer::TrainGBDT(vector<RegTree> & vTree)
 			cout << "prediction sec = " << prediction_time << endl;
 
 			EvalRMSE rmse;
-			float fRMSE = rmse.Eval(v_fPredValue_fixed, m_vTrueValue_fixedPos);
+			double fRMSE = rmse.Eval(v_fPredValue_fixed, m_vTrueValue_fixedPos);
 			cout << "rmse=" << fRMSE << endl;
 		}
 
 		begin_gd = clock();
-		splitter.ComputeGDSparse(v_fPredValue_fixed, m_vTrueValue_fixedPos);
+		splitter.ComputeGDSparse(v_fPredValue, m_vTrueValue_fixedPos);
 		end_gd = clock();
 		total_gd += (double(end_gd - begin_gd) / CLOCKS_PER_SEC);
 
@@ -154,6 +148,8 @@ void Trainer::TrainGBDT(vector<RegTree> & vTree)
 		GrowTreeGoodSplit(tree);
 		end_grow = clock();
 		total_grow += (double(end_grow - begin_grow) / CLOCKS_PER_SEC);
+
+		cout << "tree " << i << " has " << tree.nodes.size() << " node(s)" << endl;
 
 		//save the tree
 		vTree.push_back(tree);
@@ -191,19 +187,6 @@ void Trainer::InitTree(RegTree &tree)
 	total_split_t = 0;
 }
 
-/**
- * @brief: compute the first order gradient and the second order gradient
- */
-void Trainer::ComputeGD(vector<double> &v_fPredValue)
-{
-	nodeStat rootStat;
-	int nTotal = m_vTrueValue.size();
-	for(int i = 0; i < nTotal; i++)
-	{
-		m_vGDPair[i].grad = v_fPredValue[i] - m_vTrueValue[i];
-		m_vGDPair[i].hess = 1;
-	}
-}
 
 /**
  * @brief: grow the tree by splitting nodes to the full extend
@@ -301,6 +284,7 @@ void Trainer::GrowTreeGoodSplit(RegTree &tree)
 	int nCurDepth = 0;
 	while(splittableNode.size() > 0 && nCurDepth <= m_nMaxDepth)
 	{
+		splitter.m_nCurDept = nCurDepth;
 //		cout << "splitting " << nCurDepth << " level..." << endl;
 		//for each splittable node
 		vector<SplitPoint> vBest;
@@ -316,6 +300,10 @@ void Trainer::GrowTreeGoodSplit(RegTree &tree)
 		//efficient way to find the best split
 		clock_t begin_find_fea = clock();
 		splitter.FeaFinderAllNode(vBest, rchildStat, lchildStat);
+		/*if(m_nRound == 28)
+		{
+			splitter.PrintVec(vBest);
+		}*/
 		clock_t end_find_fea = clock();
 		total_find_fea_t += (double(end_find_fea - begin_find_fea) / CLOCKS_PER_SEC);
 

@@ -13,6 +13,7 @@
 
 #include "Splitter.h"
 #include "MyAssert.h"
+#include "SplitPoint.h"
 
 using std::unordered_map;
 using std::pair;
@@ -79,16 +80,24 @@ void Splitter::UpdateNodeStat(vector<TreeNode*> &newSplittableNode, vector<nodeS
  */
 void Splitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat> &rchildStat, vector<nodeStat> &lchildStat)
 {
-	const float rt_2eps = 2.0 * 1e-5;
+	const float rt_eps = 1e-5;
+	const float rt_2eps = 2.0 * rt_eps;
+	double min_child_weight = 1.0;//follow xgboost
 
 	int nNumofFeature = m_vvFeaInxPair.size();
 	vector<nodeStat> tempStat;
 	vector<double> vLastValue;
+	vector<SplitPoint> vBest16;
 	int bufferSize = mapNodeIdToBufferPos.size();
 
 	for(int f = 0; f < nNumofFeature; f++)
 	{
 		vector<key_value> &featureKeyValues = m_vvFeaInxPair[f];
+		if(m_nCurDept == 4 && m_nRound == 28 && (f == 15 || f == 46))
+		{
+			vBest16.clear();
+			vBest16.resize(bufferSize);
+		}
 
 		int nNumofKeyValues = featureKeyValues.size();
 
@@ -121,7 +130,6 @@ void Splitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat> &rch
 			else
 			{
 				// try to find a split
-				double min_child_weight = 1.0;//follow xgboost
 				if(fabs(fvalue - vLastValue[bufferPos]) > rt_2eps &&
 				   tempStat[bufferPos].sum_hess >= min_child_weight)
 				{
@@ -131,11 +139,18 @@ void Splitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat> &rch
 					if(lTempStat.sum_hess >= min_child_weight)
 					{
 						double loss_chg = CalGain(m_nodeStat[bufferPos], tempStat[bufferPos], lTempStat);
-						bool bUpdated = vBest[bufferPos].UpdateSplitPoint(loss_chg, (fvalue + vLastValue[bufferPos]) * 0.5f, f);
+						double sv = static_cast<float>((fvalue + vLastValue[bufferPos]) * 0.5f);
+						bool bUpdated = vBest[bufferPos].UpdateSplitPoint(loss_chg, sv, f);
+						if(m_nCurDept == 4 && m_nRound == 28 && (f == 15 || f == 46))
+						{
+							vBest16[bufferPos].UpdateSplitPoint(loss_chg, sv, f);
+						}
 						if(bUpdated == true)
 						{
 							lchildStat[bufferPos] = lTempStat;
 							rchildStat[bufferPos] = tempStat[bufferPos];
+							//if(f == 12 && nid == 262)
+							//	printf("fid=%d; node id=%d; fvalue=%f; last_fvalue=%f; sv=%f\n", f, nid, fvalue, vLastValue[bufferPos], sv);
 						}
 					}
 				}
@@ -143,6 +158,28 @@ void Splitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat> &rch
 				tempStat[bufferPos].Add(m_vGDPair_fixedPos[insId].grad, m_vGDPair_fixedPos[insId].hess);
 				vLastValue[bufferPos] = fvalue;
 			}
+		}
+
+	    // finish updating all statistics, check if it is possible to include all sum statistics
+	    for(auto it = mapNodeIdToBufferPos.begin(); it != mapNodeIdToBufferPos.end(); it++)
+	    {
+	    	const int nid = it->first;
+            nodeStat lTempStat;
+	        lTempStat.Subtract(m_nodeStat[it->second], tempStat[it->second]);
+	        if(lTempStat.sum_hess >= min_child_weight && tempStat[it->second].sum_hess >= min_child_weight)
+	        {
+	        	cout << "good" << endl;
+	        	double loss_chg = CalGain(m_nodeStat[it->second], tempStat[it->second], lTempStat);
+	            const float gap = fabs(vLastValue[it->second]) + rt_eps;
+	            const float delta = gap;
+	            vBest[it->second].UpdateSplitPoint(loss_chg, vLastValue[it->second] + delta, f);
+	        }
+	    }
+
+
+		if(m_nCurDept == 4 && m_nRound == 28 && (f == 15 || f == 46))
+		{
+			PrintVec(vBest16);
 		}
 	}
 }
@@ -221,8 +258,13 @@ void Splitter::ComputeGDSparse(vector<double> &v_fPredValue, vector<double> &m_v
 		m_vGDPair_fixedPos[i].hess = 1;
 		rootStat.sum_gd += m_vGDPair_fixedPos[i].grad;
 		rootStat.sum_hess += m_vGDPair_fixedPos[i].hess;
+//		if(i < 20)
+//		{
+//			cout.precision(6);
+//			printf("pred and gd of %d is %f and %f\n", i, v_fPredValue[i], m_vGDPair_fixedPos[i].grad);
+//		}
 	}
-//	cout << rootStat.sum_gd << " v.s. " << rootStat.sum_hess << endl;
+
 	m_nodeStat.clear();
 	m_nodeStat.push_back(rootStat);
 	mapNodeIdToBufferPos.insert(make_pair(0,0));//node0 in pos0 of buffer
@@ -237,7 +279,7 @@ double Splitter::CalGain(const nodeStat &parent, const nodeStat &r_child, const 
 	PROCESS_ERROR(parent.sum_hess == l_child.sum_hess + r_child.sum_hess);
 
 	//compute the gain
-	double fGain = (l_child.sum_gd * l_child.sum_gd)/(l_child.sum_hess + m_labda) +
+	double fGain = static_cast<float>(l_child.sum_gd * l_child.sum_gd)/(l_child.sum_hess + m_labda) +
 				   (r_child.sum_gd * r_child.sum_gd)/(r_child.sum_hess + m_labda) -
 				   (parent.sum_gd * parent.sum_gd)/(parent.sum_hess + m_labda);
 
@@ -277,6 +319,7 @@ void Splitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<SplitPoi
 		if(vBest[bufferPos].m_fGain <= 0 || bLastLevel == true)
 		{
 			//compute weight of leaf nodes
+			//cout << "nid=" << splittableNode[n]->nodeId << "\t";
 			splittableNode[n]->predValue = ComputeWeightSparseData(bufferPos);
 			tree.nodes[nid]->rightChildId = LEAFNODE;
 		}
@@ -505,18 +548,8 @@ void Splitter::UpdateNodeIdForSparseData(const SplitPoint &sp, int parentNodeId,
  */
 double Splitter::ComputeWeightSparseData(int bufferPos)
 {
-	double predValue = -m_nodeStat[bufferPos].sum_gd / (m_nodeStat[bufferPos].sum_hess + m_labda);
+	double predValue = static_cast<float>(-m_nodeStat[bufferPos].sum_gd / (m_nodeStat[bufferPos].sum_hess + m_labda));
+//	printf("sum gd=%f, sum hess=%f, pv=%f\n", m_nodeStat[bufferPos].sum_gd, m_nodeStat[bufferPos].sum_hess, predValue);
 	return predValue;
-}
-
-template<class T>
-void Splitter::PrintVec(vector<T> &vec)
-{
-	int nNumofEle = vec.size();
-	for(int i = 0; i < nNumofEle; i++)
-	{
-		cout << vec[i] << "\t";
-	}
-	cout << endl;
 }
 

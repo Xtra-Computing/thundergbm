@@ -34,8 +34,9 @@ public:
 	void Subtract(const nodeStat &parent, const nodeStat &r_child)
 	{
 		sum_gd = parent.sum_gd - r_child.sum_gd;
+		PROCESS_ERROR(parent.sum_gd == sum_gd + r_child.sum_gd);
 		sum_hess = parent.sum_hess - r_child.sum_hess;
-		PROCESS_ERROR(sum_hess >= 0);
+		PROCESS_ERROR(sum_hess > 0);
 	}
 	void Add(double gd, double hess)
 	{
