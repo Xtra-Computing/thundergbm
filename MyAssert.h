@@ -11,7 +11,7 @@
 
 #include <assert.h>
 
-#define _DEBUG
+//#define _DEBUG
 
 #ifndef _DEBUG
 	#define PROCESS_ERROR(x)	((void)0)

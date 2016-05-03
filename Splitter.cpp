@@ -130,7 +130,7 @@ void Splitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat> &rch
 	        lTempStat.Subtract(m_nodeStat[it->second], tempStat[it->second]);
 	        if(lTempStat.sum_hess >= min_child_weight && tempStat[it->second].sum_hess >= min_child_weight)
 	        {
-	        	cout << "good" << endl;
+//	        	cout << "good" << endl;
 	        	double loss_chg = CalGain(m_nodeStat[it->second], tempStat[it->second], lTempStat);
 	            const float gap = fabs(vLastValue[it->second]) + rt_eps;
 	            const float delta = gap;

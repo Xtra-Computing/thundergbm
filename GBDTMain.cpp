@@ -42,8 +42,8 @@ int main()
 //	trainer.m_vvInstance_fixedPos = v_vInstance;
 	trainer.m_vTrueValue_fixedPos = v_fLabel;
 
-	int nNumofTree = 2;
-	int nMaxDepth = 20;
+	int nNumofTree = 50;
+	int nMaxDepth = 208;
 	double fLabda = 1;//this one is constant in xgboost
 	double fGamma = 1;//minimum loss
 	Pruner::min_loss = fGamma;
