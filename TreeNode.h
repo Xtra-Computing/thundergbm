@@ -28,6 +28,7 @@ public:
 	int rightChildId;
 
 	double loss;
+	double base_weight;
 
 public:
 
@@ -46,6 +47,7 @@ public:
 
 
 	bool isLeaf() const;
+	bool isRoot() const;
 	int GetNext(double feaValue);
 };
 

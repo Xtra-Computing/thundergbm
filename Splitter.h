@@ -52,6 +52,7 @@ private:
 	double CalGain(const nodeStat &parent, const nodeStat &r_child, const nodeStat &l_child);
 
 	const static int LEAFNODE = -2;
+	const static float rt_eps = 1e-5;
 
 public:
 	//for debugging

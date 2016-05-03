@@ -12,6 +12,7 @@
 #include "Predictor.h"
 #include "Evaluation/RMSE.h"
 #include "MyAssert.h"
+#include "Pruner.h"
 
 int main()
 {
@@ -45,6 +46,7 @@ int main()
 	int nMaxDepth = 20;
 	double fLabda = 1;//this one is constant in xgboost
 	double fGamma = 1;//minimum loss
+	Pruner::min_loss = fGamma;
 
 	clock_t start_init = clock();
 	trainer.InitTrainer(nNumofTree, nMaxDepth, fLabda, fGamma, nNumofFeatures);
@@ -71,16 +73,16 @@ int main()
 	//run the GBDT prediction process
 	clock_t begin_pre, end_pre;
 	Predictor pred;
-	vector<double> v_fPredValue_fixed;
+	vector<double> v_fPredValue;
 
 	begin_pre = clock();
-	pred.PredictSparseIns(v_vInsSparse, v_Tree, v_fPredValue_fixed);
+	pred.PredictSparseIns(v_vInsSparse, v_Tree, v_fPredValue);
 	end_pre = clock();
 	double prediction_time = (double(end_pre - begin_pre) / CLOCKS_PER_SEC);
 	cout << "prediction sec = " << prediction_time << endl;
 
 	EvalRMSE rmse;
-	float fRMSE = rmse.Eval(v_fPredValue_fixed, v_fLabel);
+	float fRMSE = rmse.Eval(v_fPredValue, v_fLabel);
 	cout << "rmse=" << fRMSE << endl;
 
 	trainer.ReleaseTree(v_Tree);

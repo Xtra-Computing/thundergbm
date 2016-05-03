@@ -43,7 +43,6 @@ void Splitter::UpdateNodeStat(vector<TreeNode*> &newSplittableNode, vector<nodeS
  */
 void Splitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat> &rchildStat, vector<nodeStat> &lchildStat)
 {
-	const float rt_eps = 1e-5;
 	const float rt_2eps = 2.0 * rt_eps;
 	double min_child_weight = 1.0;//follow xgboost
 
@@ -148,52 +147,6 @@ void Splitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat> &rch
 }
 
 /**
- * @brief: compute the first order gradient and the second order gradient
- */
-void Splitter::ComputeGDSparse(vector<double> &v_fPredValue, vector<double> &m_vTrueValue_fixedPos)
-{
-	nodeStat rootStat;
-	int nTotal = m_vTrueValue_fixedPos.size();
-	for(int i = 0; i < nTotal; i++)
-	{
-		m_vGDPair_fixedPos[i].grad = v_fPredValue[i] - m_vTrueValue_fixedPos[i];
-		m_vGDPair_fixedPos[i].hess = 1;
-		rootStat.sum_gd += m_vGDPair_fixedPos[i].grad;
-		rootStat.sum_hess += m_vGDPair_fixedPos[i].hess;
-//		if(i < 20)
-//		{
-//			cout.precision(6);
-//			printf("pred and gd of %d is %f and %f\n", i, v_fPredValue[i], m_vGDPair_fixedPos[i].grad);
-//		}
-	}
-
-	m_nodeStat.clear();
-	m_nodeStat.push_back(rootStat);
-	mapNodeIdToBufferPos.insert(make_pair(0,0));//node0 in pos0 of buffer
-}
-
-/**
- * @brief: compute gain for a split
- */
-double Splitter::CalGain(const nodeStat &parent, const nodeStat &r_child, const nodeStat &l_child)
-{
-	PROCESS_ERROR(abs(parent.sum_gd - l_child.sum_gd - r_child.sum_gd) < 0.0001);
-	PROCESS_ERROR(parent.sum_hess == l_child.sum_hess + r_child.sum_hess);
-
-	//compute the gain
-	double fGain = static_cast<float>(l_child.sum_gd * l_child.sum_gd)/(l_child.sum_hess + m_labda) +
-				   (r_child.sum_gd * r_child.sum_gd)/(r_child.sum_hess + m_labda) -
-				   (parent.sum_gd * parent.sum_gd)/(parent.sum_hess + m_labda);
-
-	//This is different from the documentation of xgboost on readthedocs.com (i.e. fGain = 0.5 * fGain - m_gamma)
-	//This is also different from the xgboost source code (i.e. fGain = fGain), since xgboost first splits all nodes and
-	//then prune nodes with gain less than m_gamma.
-	fGain = fGain - m_gamma;
-
-	return fGain;
-}
-
-/**
  * @brief: split all splittable nodes of the current level
  */
 void Splitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<SplitPoint> &vBest, RegTree &tree, int &m_nNumofNode,
@@ -218,11 +171,13 @@ void Splitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<SplitPoi
 		int bufferPos = mapNodeIdToBufferPos[nid];
 		PROCESS_ERROR(bufferPos < vBest.size());
 		//mark the node as a leaf node if (1) the gain is negative or (2) the tree reaches maximum depth.
-		if(vBest[bufferPos].m_fGain <= 0 || bLastLevel == true)
+		tree.nodes[nid]->loss = vBest[bufferPos].m_fGain;
+		tree.nodes[nid]->base_weight = ComputeWeightSparseData(bufferPos);
+
+		if(vBest[bufferPos].m_fGain <= rt_eps || bLastLevel == true)
 		{
-			//compute weight of leaf nodes
-			//cout << "nid=" << splittableNode[n]->nodeId << "\t";
-			splittableNode[n]->predValue = ComputeWeightSparseData(bufferPos);
+			//weight of a leaf node
+			tree.nodes[nid]->predValue = tree.nodes[nid]->base_weight;
 			tree.nodes[nid]->rightChildId = LEAFNODE;
 		}
 		else
@@ -257,8 +212,10 @@ void Splitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<SplitPoi
 
 			tree.nodes[nid]->leftChildId = leftChild->nodeId;
 			tree.nodes[nid]->rightChildId = rightChild->nodeId;
+			PROCESS_ERROR(vBest[bufferPos].m_nFeatureId >= 0);
 			tree.nodes[nid]->featureId = vBest[bufferPos].m_nFeatureId;
 			tree.nodes[nid]->fSplitValue = vBest[bufferPos].m_fSplitValue;
+
 
 			m_nNumofNode += 2;
 		}
@@ -278,7 +235,9 @@ void Splitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<SplitPoi
 		vFid.push_back(fid);
 	}
 //	PrintVec(vFid);
-	PROCESS_ERROR((vFid.size() == 0 && (nNumofSplittableNode == 1 || bLastLevel == true)) || vFid.size() == nNumofSplittableNode);
+	if(vFid.size() == 0)
+	PROCESS_ERROR(nNumofSplittableNode == 1 || bLastLevel == true);
+	PROCESS_ERROR(vFid.size() <= nNumofSplittableNode);
 	sort(vFid.begin(), vFid.end());
 	vFid.resize(std::unique(vFid.begin(), vFid.end()) - vFid.begin());
 	PROCESS_ERROR(vFid.size() <= nNumofSplittableNode);
@@ -297,14 +256,17 @@ void Splitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<SplitPoi
 		{
 			int insId = featureKeyValues[i].id;
 			PROCESS_ERROR(insId < m_nodeIds.size());
-
 			int nid = m_nodeIds[insId];
+
+			if(nid < 0)//leaf node
+				continue;
+
+			PROCESS_ERROR(nid >= 0);
 			int bufferPos = mapNodeIdToBufferPos[nid];
 			int fid = vBest[bufferPos].m_nFeatureId;
 			if(fid != ufid)//this feature is not the splitting feature for the instance.
 				continue;
 
-			PROCESS_ERROR(nid >= 0);
 			unordered_map<int, pair<int, int> >::iterator it = mapPidCid.find(nid);
 
 			if(it == mapPidCid.end())//node doesn't need to split (leaf node or new node)
@@ -367,8 +329,55 @@ void Splitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<SplitPoi
  */
 double Splitter::ComputeWeightSparseData(int bufferPos)
 {
-	double predValue = static_cast<float>(-m_nodeStat[bufferPos].sum_gd / (m_nodeStat[bufferPos].sum_hess + m_labda));
+	double nodeWeight = (-m_nodeStat[bufferPos].sum_gd / (m_nodeStat[bufferPos].sum_hess + m_labda));
 //	printf("sum gd=%f, sum hess=%f, pv=%f\n", m_nodeStat[bufferPos].sum_gd, m_nodeStat[bufferPos].sum_hess, predValue);
-	return predValue;
+	return nodeWeight;
 }
+
+/**
+ * @brief: compute the first order gradient and the second order gradient
+ */
+void Splitter::ComputeGDSparse(vector<double> &v_fPredValue, vector<double> &m_vTrueValue_fixedPos)
+{
+	nodeStat rootStat;
+	int nTotal = m_vTrueValue_fixedPos.size();
+	for(int i = 0; i < nTotal; i++)
+	{
+		m_vGDPair_fixedPos[i].grad = v_fPredValue[i] - m_vTrueValue_fixedPos[i];
+		m_vGDPair_fixedPos[i].hess = 1;
+		rootStat.sum_gd += m_vGDPair_fixedPos[i].grad;
+		rootStat.sum_hess += m_vGDPair_fixedPos[i].hess;
+//		if(i < 20)
+//		{
+//			cout.precision(6);
+//			printf("pred and gd of %d is %f and %f\n", i, v_fPredValue[i], m_vGDPair_fixedPos[i].grad);
+//		}
+	}
+
+	m_nodeStat.clear();
+	m_nodeStat.push_back(rootStat);
+	mapNodeIdToBufferPos.insert(make_pair(0,0));//node0 in pos0 of buffer
+}
+
+/**
+ * @brief: compute gain for a split
+ */
+double Splitter::CalGain(const nodeStat &parent, const nodeStat &r_child, const nodeStat &l_child)
+{
+	PROCESS_ERROR(abs(parent.sum_gd - l_child.sum_gd - r_child.sum_gd) < 0.0001);
+	PROCESS_ERROR(parent.sum_hess == l_child.sum_hess + r_child.sum_hess);
+
+	//compute the gain
+	double fGain = (l_child.sum_gd * l_child.sum_gd)/(l_child.sum_hess + m_labda) +
+				   (r_child.sum_gd * r_child.sum_gd)/(r_child.sum_hess + m_labda) -
+				   (parent.sum_gd * parent.sum_gd)/(parent.sum_hess + m_labda);
+
+	//This is different from the documentation of xgboost on readthedocs.com (i.e. fGain = 0.5 * fGain - m_gamma)
+	//This is also different from the xgboost source code (i.e. fGain = fGain), since xgboost first splits all nodes and
+	//then prune nodes with gain less than m_gamma.
+	//fGain = fGain - m_gamma;
+
+	return fGain;
+}
+
 

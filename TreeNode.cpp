@@ -17,6 +17,14 @@ bool TreeNode::isLeaf() const
 		return false;
 }
 
+bool TreeNode::isRoot() const
+{
+	if(level == 0)
+		return true;
+	else
+		return false;
+}
+
 /*! \brief get next position of the tree given current pid */
 int TreeNode::GetNext(double feaValue)
 {

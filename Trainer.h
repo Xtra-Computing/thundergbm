@@ -18,6 +18,7 @@
 #include "SplitPoint.h"
 #include "GDPair.h"
 #include "Splitter.h"
+#include "Pruner.h"
 
 using std::string;
 using std::vector;
@@ -44,6 +45,7 @@ public:
 	/*** for more efficient on finding the best split value of a feature ***/
 	vector<vector<key_value> > m_vvInsSparse;
 	Splitter splitter;
+	Pruner pruner;
 
 private:
 	int m_nNumofNode;

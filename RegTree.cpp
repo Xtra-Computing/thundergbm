@@ -6,29 +6,8 @@
  *		@brief: 
  */
 
-#include <assert.h>
 #include "RegTree.h"
-
-/**
- * \brief get the leaf index
- * \param feats dense feature vector, if the feature is missing the field is set to NaN
- * \param root_gid starting root index of the instance
- * \return the leaf index of the given feature
-*/
-int RegTree::GetLeafIndex(vector<double> &ins)
-{
-	// traverse tree
-	int pid = 0;
-	TreeNode *curNode = (*this)[pid];
-	while (!curNode->isLeaf())
-	{
-		int fid = curNode->featureId;
-		pid = curNode->GetNext(ins[fid]);
-		curNode = (*this)[pid];
-	}
-	return pid;
-
-}
+#include "MyAssert.h"
 
 /**
  * @brief: get the leaf index given a sparse instance
@@ -40,6 +19,7 @@ int RegTree::GetLeafIdSparseInstance(vector<double> &ins, unordered_map<int, int
 	while (!curNode->isLeaf())
 	{
 		int fid = curNode->featureId;
+		PROCESS_ERROR(fid >= 0);
 		int pos = fidToDensePos[fid];
 
 		if(pos < ins.size())//feature value is available in the dense vector

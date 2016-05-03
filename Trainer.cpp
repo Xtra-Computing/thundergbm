@@ -240,6 +240,8 @@ void Trainer::GrowTree(RegTree &tree)
 
 		nCurDepth++;
 	}
+
+	pruner.pruneLeaf(tree);
 }
 
 /**
