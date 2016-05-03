@@ -70,7 +70,7 @@ private:
 
 	double total_find_fea_t;
 	double total_split_t;
-
+	double total_prune_t;
 
 };
 

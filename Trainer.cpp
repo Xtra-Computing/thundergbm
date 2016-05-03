@@ -123,18 +123,8 @@ void Trainer::TrainGBDT(vector<RegTree> & vTree)
 		if(i > 0)
 		{
 			//run the GBDT prediction process
-			clock_t begin_pre, end_pre;
-			Predictor pred;
-			vector<double> v_fPredValue_fixed;
-
-			begin_pre = clock();
-			pred.PredictSparseIns(m_vvInsSparse, vTree, v_fPredValue_fixed);
-			end_pre = clock();
-			double prediction_time = (double(end_pre - begin_pre) / CLOCKS_PER_SEC);
-			cout << "prediction sec = " << prediction_time << endl;
-
 			EvalRMSE rmse;
-			double fRMSE = rmse.Eval(v_fPredValue_fixed, m_vTrueValue_fixedPos);
+			double fRMSE = rmse.Eval(v_fPredValue, m_vTrueValue_fixedPos);
 			cout << "rmse=" << fRMSE << endl;
 		}
 
@@ -157,7 +147,7 @@ void Trainer::TrainGBDT(vector<RegTree> & vTree)
 
 		clock_t end_round = clock();
 		cout << "elapsed time of round " << i << " is " << (double(end_round - start_round) / CLOCKS_PER_SEC) << endl;
-		cout << "split time = " << total_split_t << "; total find fea time = " << total_find_fea_t << endl;
+		cout << "split time=" << total_split_t << "; total find fea time=" << total_find_fea_t << "; prune time=" << total_prune_t << endl;
 	}
 
 	cout << "pred sec = " << total_pred << "; gd sec = " << total_gd << "; grow sec = " << total_grow << endl;
@@ -185,6 +175,7 @@ void Trainer::InitTree(RegTree &tree)
 
 	total_find_fea_t = 0;
 	total_split_t = 0;
+	total_prune_t = 0;
 }
 
 /**
@@ -208,12 +199,9 @@ void Trainer::GrowTree(RegTree &tree)
 	{
 		splitter.m_nCurDept = nCurDepth;
 //		cout << "splitting " << nCurDepth << " level..." << endl;
-		//for each splittable node
 		vector<SplitPoint> vBest;
 
-		//these variables may be reused for optimisation
 		vector<nodeStat> rchildStat, lchildStat;
-
 		int bufferSize = splitter.mapNodeIdToBufferPos.size();//maps node id to buffer position
 		vBest.resize(bufferSize);
 		rchildStat.resize(bufferSize);
@@ -222,10 +210,7 @@ void Trainer::GrowTree(RegTree &tree)
 		//efficient way to find the best split
 		clock_t begin_find_fea = clock();
 		splitter.FeaFinderAllNode(vBest, rchildStat, lchildStat);
-		/*if(m_nRound == 28)
-		{
-			splitter.PrintVec(vBest);
-		}*/
+
 		clock_t end_find_fea = clock();
 		total_find_fea_t += (double(end_find_fea - begin_find_fea) / CLOCKS_PER_SEC);
 
@@ -241,7 +226,10 @@ void Trainer::GrowTree(RegTree &tree)
 		nCurDepth++;
 	}
 
+	clock_t begin_prune = clock();
 	pruner.pruneLeaf(tree);
+	clock_t end_prune = clock();
+	total_prune_t += (double(end_prune - begin_prune) / CLOCKS_PER_SEC);
 }
 
 /**
