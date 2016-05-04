@@ -10,25 +10,25 @@
 #define SPLITTER_H_
 
 #include <vector>
-#include <unordered_map>
+#include <map>
 
-#include "RegTree.h"
-#include "TreeNode.h"
-#include "keyValue.h"
+#include "../Tree/RegTree.h"
+#include "../Tree/TreeNode.h"
+#include "../KeyValue.h"
 #include "SplitPoint.h"
 #include "NodeStat.h"
-#include "GDPair.h"
+#include "../GDPair.h"
 #include "SplitPoint.h"
 
 using std::vector;
-using std::unordered_map;
+using std::map;
 
 
 class Splitter
 {
 public:
-	vector<vector<key_value> > m_vvFeaInxPair; //value is feature value (sorted in a descendant order); id is instance id
-	unordered_map<int, int> mapNodeIdToBufferPos;
+	vector<vector<KeyValue> > m_vvFeaInxPair; //value is feature value (sorted in a descendant order); id is instance id
+	map<int, int> mapNodeIdToBufferPos;
 	vector<int> m_nodeIds; //instance id to node id
 	vector<gdpair> m_vGDPair_fixedPos;
 	vector<nodeStat> m_nodeStat; //all the constructed tree nodes

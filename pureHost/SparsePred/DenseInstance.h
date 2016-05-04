@@ -10,19 +10,19 @@
 #define DENSEINSTANCE_H_
 
 #include <vector>
-#include <unordered_map>
+#include <map>
 
-#include "../keyValue.h"
-#include "../RegTree.h"
+#include "../KeyValue.h"
+#include "../Tree/RegTree.h"
 
 using std::vector;
-using std::unordered_map;
+using std::map;
 
 class DenseInsConverter
 {
 public:
 	vector<int> usedFeaSet;//This vector must be sorted
-	unordered_map<int, int> fidToDensePos;//(fid, pid): feature id to position id
+	map<int, int> fidToDensePos;//(fid, pid): feature id to position id
 
 public:
 	DenseInsConverter(const vector<RegTree>& vTree)
@@ -31,7 +31,7 @@ public:
 		fidToDensePos.clear();
 		InitDenseInsConverter(vTree);
 	}
-	void SparseToDense(const vector<key_value> &sparseIns, vector<double> &denseIns);
+	void SparseToDense(const vector<KeyValue> &sparseIns, vector<double> &denseIns);
 	int GetPosofDenseIns(int fid);
 
 private:

@@ -12,7 +12,7 @@
 #include <stdlib.h>
 #include <fstream>
 #include <vector>
-#include "../keyValue.h"
+#include "../KeyValue.h"
 
 using std::string;
 using std::vector;
@@ -32,15 +32,15 @@ public:
 	void ReadLibSVMDataFormat(vector<vector<float_point> > &v_vSample, vector<float_point> &v_fValue,
 							  string strFileName, int nNumofFeatures, int nNumofInstance);
 
-	void GetDataInfo(string strFileName, int &nNumofFeatures, int &nNumofInstance);
+	void GetDataInfo(string strFileName, int &nNumofFeatures, int &nNumofInstance, long long &nNumofValue);
 
-	void ReadLibSVMFormatSparse(vector<vector<key_value> > &v_vSample, vector<float_point> &v_fValue,
+	void ReadLibSVMFormatSparse(vector<vector<KeyValue> > &v_vSample, vector<float_point> &v_fValue,
 			  	  	  	  	  	string strFileName, int nNumofFeatures, int nNumofInstance);
 
 private:
-	void ReaderHelper(vector<vector<key_value> > &v_vSample, vector<float_point> &v_fValue,
+	void ReaderHelper(vector<vector<KeyValue> > &v_vSample, vector<float_point> &v_fValue,
 	  	  	  		  string strFileName, int nNumofFeatures, int nNumofInstance, bool bUseDense);
-	void Push(int feaId, float_point value, vector<key_value> &vIns);
+	void Push(int feaId, float_point value, vector<KeyValue> &vIns);
 };
 
 #endif /* TRAININGDATAIO_H_ */

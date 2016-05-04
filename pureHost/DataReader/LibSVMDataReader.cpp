@@ -18,7 +18,7 @@ using std::endl;
 /**
  * @brief: represent the data in a sparse form
  */
-void LibSVMDataReader::ReadLibSVMFormatSparse(vector<vector<key_value> > &v_vInstance, vector<float_point> &v_fValue,
+void LibSVMDataReader::ReadLibSVMFormatSparse(vector<vector<KeyValue> > &v_vInstance, vector<float_point> &v_fValue,
 											  string strFileName, int nNumofFeatures, int nNumofInstance)
 {
 	ReaderHelper(v_vInstance, v_fValue, strFileName, nNumofFeatures, nNumofInstance, false);
@@ -30,7 +30,7 @@ void LibSVMDataReader::ReadLibSVMFormatSparse(vector<vector<key_value> > &v_vIns
 void LibSVMDataReader::ReadLibSVMDataFormat(vector<vector<float_point> > &v_vInstance, vector<float_point> &v_fValue,
 									  	    string strFileName, int nNumofFeatures, int nNumofExamples)
 {
-	vector<vector<key_value> > v_vInstanceKeyValue;
+	vector<vector<KeyValue> > v_vInstanceKeyValue;
 	ReaderHelper(v_vInstanceKeyValue, v_fValue, strFileName, nNumofFeatures, nNumofExamples, true);
 
 	//convert key values to values only.
@@ -48,13 +48,13 @@ void LibSVMDataReader::ReadLibSVMDataFormat(vector<vector<float_point> > &v_vIns
 /**
  * @brief: a function to read instances from libsvm format as either sparse or dense instances.
  */
-void LibSVMDataReader::ReaderHelper(vector<vector<key_value> > &v_vInstance, vector<float_point> &v_fValue,
+void LibSVMDataReader::ReaderHelper(vector<vector<KeyValue> > &v_vInstance, vector<float_point> &v_fValue,
 									string strFileName, int nNumofFeatures, int nNumofInstance, bool bUseDense)
 {
 	ifstream readIn;
 	readIn.open(strFileName.c_str());
 	assert(readIn.is_open());
-	vector<key_value> vSample;
+	vector<KeyValue> vSample;
 
 	//for storing character from file
 	int j = 0;
@@ -128,9 +128,9 @@ void LibSVMDataReader::ReaderHelper(vector<vector<key_value> > &v_vInstance, vec
 /**
  * @brief:
  */
-void LibSVMDataReader::Push(int feaId, float_point value, vector<key_value> &vIns)
+void LibSVMDataReader::Push(int feaId, float_point value, vector<KeyValue> &vIns)
 {
-	key_value pair;
+	KeyValue pair;
 	pair.id = feaId;
 	pair.featureValue = value;
 	vIns.push_back(pair);
@@ -140,10 +140,11 @@ void LibSVMDataReader::Push(int feaId, float_point value, vector<key_value> &vIn
 /**
  * @brief: get the number of features and the number of instances of a dataset
  */
-void LibSVMDataReader::GetDataInfo(string strFileName, int &nNumofFeatures, int &nNumofInstance)
+void LibSVMDataReader::GetDataInfo(string strFileName, int &nNumofFeatures, int &nNumofInstance, long long &nNumofValue)
 {
 	nNumofInstance = 0;
 	nNumofFeatures = 0;
+	nNumofValue = 0;
 
 	ifstream readIn;
 	readIn.open(strFileName.c_str());
@@ -170,6 +171,7 @@ void LibSVMDataReader::GetDataInfo(string strFileName, int &nNumofFeatures, int 
 			assert(cColon == ':');
 			if(nFeature > nNumofFeatures)
 				nNumofFeatures = nFeature;
+			nNumofValue++;
 		}
 
 		//skip an empty line (usually this case happens in the last line)

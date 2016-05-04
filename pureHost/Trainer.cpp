@@ -6,33 +6,13 @@
  *		@brief: GBDT trainer implementation
  */
 
-#include <assert.h>
-#include <iostream>
 #include <ctime>
-#include <stdlib.h>
-#include <algorithm>
-#include <math.h>
 
 #include "Trainer.h"
 #include "Predictor.h"
-#include "TreeNode.h"
-#include "PrintTree.h"
+#include "Tree/TreeNode.h"
+#include "Tree/PrintTree.h"
 #include "Evaluation/RMSE.h"
-
-using std::cout;
-using std::endl;
-using std::sort;
-using std::ofstream;
-using std::make_pair;
-using std::cerr;
-
-/**
- * @brief: sort a vector in a descendant order
- */
-bool CmpValue(const key_value &a, const key_value &b)
-{
-  return a.featureValue > b.featureValue;
-}
 
 /*
  * @brief: initialise constants of a trainer
@@ -47,51 +27,12 @@ void Trainer::InitTrainer(int nNumofTree, int nMaxDepth, double fLabda, double f
 	//initialise the prediction buffer
 	for(int i = 0; i < (int)m_vvInsSparse.size(); i++)
 	{
-		m_vPredBuffer_fixedPos.push_back(0.0);
+		m_vPredBuffer.push_back(0.0);
 		gdpair gd;
 		splitter.m_vGDPair_fixedPos.push_back(gd);
 	}
 
-	SortFeaValue(nNumofFea);
-}
-
-/**
- * @brief:
- */
-void Trainer::SortFeaValue(int nNumofDim)
-{
-	//sort the feature values for each feature
-	vector<int> vCurParsePos;
-	int nNumofIns = m_vvInsSparse.size();
-	for(int i = 0; i < nNumofIns; i++)
-	{
-		vCurParsePos.push_back(0);
-	}
-
-	for(int j = 0; j < nNumofDim; j++)
-	{
-		vector<key_value> featurePair;
-		for(int i = 0; i < nNumofIns; i++)
-		{
-			int curTop = vCurParsePos[i];
-			if(m_vvInsSparse[i].size() == curTop)
-				continue;
-
-			int curFeaId = m_vvInsSparse[i][curTop].id;
-			if(curFeaId == j)
-			{
-				key_value kv;
-				kv.id = i;
-				kv.featureValue = m_vvInsSparse[i][curTop].featureValue;
-				featurePair.push_back(kv);
-				vCurParsePos[i] = vCurParsePos[i] + 1;
-			}
-		}
-
-		sort(featurePair.begin(), featurePair.end(), CmpValue);
-
-		splitter.m_vvFeaInxPair.push_back(featurePair);
-	}
+	KeyValue::SortFeaValue(nNumofFea, m_vvInsSparse, splitter.m_vvFeaInxPair);
 }
 
 /**
@@ -116,7 +57,7 @@ void Trainer::TrainGBDT(vector<RegTree> & vTree)
 		//predict the data by the existing trees
 		vector<double> v_fPredValue;
 		begin_pred = clock();
-		pred.PredictSparseIns(m_vvInsSparse, vTree, v_fPredValue, m_vPredBuffer_fixedPos);
+		pred.PredictSparseIns(m_vvInsSparse, vTree, v_fPredValue, m_vPredBuffer);
 		end_pred = clock();
 		total_pred += (double(end_pred - begin_pred) / CLOCKS_PER_SEC);
 
@@ -124,12 +65,12 @@ void Trainer::TrainGBDT(vector<RegTree> & vTree)
 		{
 			//run the GBDT prediction process
 			EvalRMSE rmse;
-			double fRMSE = rmse.Eval(v_fPredValue, m_vTrueValue_fixedPos);
+			double fRMSE = rmse.Eval(v_fPredValue, m_vTrueValue);
 			cout << "rmse=" << fRMSE << endl;
 		}
 
 		begin_gd = clock();
-		splitter.ComputeGDSparse(v_fPredValue, m_vTrueValue_fixedPos);
+		splitter.ComputeGDSparse(v_fPredValue, m_vTrueValue);
 		end_gd = clock();
 		total_gd += (double(end_gd - begin_gd) / CLOCKS_PER_SEC);
 

@@ -9,7 +9,7 @@
 #ifndef PRUNER_H_
 #define PRUNER_H_
 
-#include "RegTree.h"
+#include "../Tree/RegTree.h"
 
 class Pruner
 {

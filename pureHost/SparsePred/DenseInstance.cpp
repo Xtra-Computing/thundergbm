@@ -32,7 +32,7 @@ void DenseInsConverter::InitDenseInsConverter(const vector<RegTree>& vTree)
  * @brief: construct a dense instance from a sparse instance
  *
  */
-void DenseInsConverter::SparseToDense(const vector<key_value> &sparseIns, vector<double> &denseIns)
+void DenseInsConverter::SparseToDense(const vector<KeyValue> &sparseIns, vector<double> &denseIns)
 {
 	//Caution! @denseIns: can be empty when sparseIns has no features in usedFeaSet
 

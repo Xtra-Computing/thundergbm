@@ -9,7 +9,7 @@
 #include <iostream>
 
 #include "Pruner.h"
-#include "MyAssert.h"
+#include "../MyAssert.h"
 
 using std::cout;
 using std::endl;

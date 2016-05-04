@@ -12,43 +12,32 @@
 #include <iostream>
 #include <vector>
 
-#include "RegTree.h"
-#include "DatasetInfo.h"
-#include "keyValue.h"
-#include "SplitPoint.h"
+#include "Tree/RegTree.h"
+#include "KeyValue.h"
 #include "GDPair.h"
-#include "Splitter.h"
-#include "Pruner.h"
+#include "UpdateOps/Splitter.h"
+#include "UpdateOps/Pruner.h"
 
 using std::string;
 using std::vector;
-
-
 
 class Trainer
 {
 public:
 	int m_nMaxNumofTree;
 	int m_nMaxDepth;
-	int m_nNumofSplittableNode;//can be removed
+
 	vector<vector<double> > m_vvInstance;
 	vector<double> m_vTrueValue;
-	vector<double> m_vPredBuffer;
-	vector<gdpair> m_vGDPair;
-
-	vector<vector<double> > m_vvInstance_fixedPos;
-	vector<double> m_vTrueValue_fixedPos;
-	vector<double> m_vPredBuffer_fixedPos;
-
-	DataInfo data;
 
 	/*** for more efficient on finding the best split value of a feature ***/
-	vector<vector<key_value> > m_vvInsSparse;
+	vector<vector<KeyValue> > m_vvInsSparse;
 	Splitter splitter;
-	Pruner pruner;
 
 private:
 	int m_nNumofNode;
+	Pruner pruner;
+	vector<double> m_vPredBuffer;
 
 public:
 	void InitTrainer(int nNumofTree, int nMaxDepth, double fLabda, double fGamma, int nNumofFea);
@@ -58,12 +47,10 @@ public:
 	void ReleaseTree(vector<RegTree> &v_Tree);
 
 protected:
-	void SortFeaValue(int nNumofDim);
 	void InitTree(RegTree &tree);
 	void GrowTree(RegTree &tree);
 
 private:
-
 //for debugging
 	void PrintTree(const RegTree &tree);
 	void PrintPrediction(const vector<double> &vPred);
@@ -71,7 +58,6 @@ private:
 	double total_find_fea_t;
 	double total_split_t;
 	double total_prune_t;
-
 };
 
 

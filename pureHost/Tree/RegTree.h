@@ -9,12 +9,12 @@
 #ifndef REGTREE_H_
 #define REGTREE_H_
 
-#include <unordered_map>
+#include <map>
 #include <vector>
 #include "TreeNode.h"
 
 using std::vector;
-using std::unordered_map;
+using std::map;
 
 class RegTree
 {
@@ -32,7 +32,7 @@ public:
  public:
   int GetLeafIndex(vector<double> &ins);
 
-  int GetLeafIdSparseInstance(vector<double> &ins, unordered_map<int, int> &fidToDensePos);
+  int GetLeafIdSparseInstance(vector<double> &ins, map<int, int> &fidToDensePos);
 
 //  /*!
 //   * \brief get the prediction of regression tree, only accepts dense feature vector

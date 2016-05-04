@@ -8,14 +8,14 @@
 
 #include <algorithm>
 #include <math.h>
-#include <unordered_map>
+#include <map>
 #include <iostream>
 
 #include "Splitter.h"
-#include "MyAssert.h"
 #include "SplitPoint.h"
+#include "../MyAssert.h"
 
-using std::unordered_map;
+using std::map;
 using std::pair;
 using std::make_pair;
 using std::cout;
@@ -54,7 +54,7 @@ void Splitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat> &rch
 
 	for(int f = 0; f < nNumofFeature; f++)
 	{
-		vector<key_value> &featureKeyValues = m_vvFeaInxPair[f];
+		vector<KeyValue> &featureKeyValues = m_vvFeaInxPair[f];
 		if(m_nCurDept == 4 && m_nRound == 28 && (f == 15 || f == 46))
 		{
 			vBest16.clear();
@@ -81,7 +81,7 @@ void Splitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat> &rch
 
 			// get the statistics of nid node
 			// test if first hit, this is fine, because we set 0 during init
-			unordered_map<int, int>::iterator it = mapNodeIdToBufferPos.find(nid);
+			map<int, int>::iterator it = mapNodeIdToBufferPos.find(nid);
 			PROCESS_ERROR(it != mapNodeIdToBufferPos.end());
 			int bufferPos = it->second;
 			if(tempStat[bufferPos].IsEmpty())
@@ -123,7 +123,7 @@ void Splitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat> &rch
 		}
 
 	    // finish updating all statistics, check if it is possible to include all sum statistics
-	    for(auto it = mapNodeIdToBufferPos.begin(); it != mapNodeIdToBufferPos.end(); it++)
+	    for(map<int, int>::iterator it = mapNodeIdToBufferPos.begin(); it != mapNodeIdToBufferPos.end(); it++)
 	    {
 	    	const int nid = it->first;
             nodeStat lTempStat;
@@ -161,7 +161,7 @@ void Splitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<SplitPoi
 	PROCESS_ERROR(vBest.size() == lchildStat.size());
 
 	//for each splittable node, assign lchild and rchild ids
-	unordered_map<int, pair<int, int> > mapPidCid;//(parent id, (lchildId, rchildId)).
+	map<int, pair<int, int> > mapPidCid;//(parent id, (lchildId, rchildId)).
 	vector<TreeNode*> newSplittableNode;
 	vector<nodeStat> newNodeStat;
 	for(int n = 0; n < nNumofSplittableNode; n++)
@@ -250,7 +250,7 @@ void Splitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<SplitPoi
 		PROCESS_ERROR(ufid < m_vvFeaInxPair.size() && ufid >= 0);
 
 		//for each instance that has value on the feature
-		vector<key_value> &featureKeyValues = m_vvFeaInxPair[ufid];
+		vector<KeyValue> &featureKeyValues = m_vvFeaInxPair[ufid];
 		int nNumofPair = featureKeyValues.size();
 		for(int i = 0; i < nNumofPair; i++)
 		{
@@ -267,7 +267,7 @@ void Splitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<SplitPoi
 			if(fid != ufid)//this feature is not the splitting feature for the instance.
 				continue;
 
-			unordered_map<int, pair<int, int> >::iterator it = mapPidCid.find(nid);
+			map<int, pair<int, int> >::iterator it = mapPidCid.find(nid);
 
 			if(it == mapPidCid.end())//node doesn't need to split (leaf node or new node)
 			{
@@ -309,7 +309,7 @@ void Splitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<SplitPoi
 		}
 		else
 		{
-			unordered_map<int, pair<int, int> >::iterator it = mapPidCid.find(nid);
+			map<int, pair<int, int> >::iterator it = mapPidCid.find(nid);
 			m_nodeIds[i] = it->second.first;//by default the instance with unknown feature value going to left child
 
 			PROCESS_ERROR(it != mapPidCid.end());

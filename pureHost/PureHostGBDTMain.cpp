@@ -12,9 +12,9 @@
 #include "Predictor.h"
 #include "Evaluation/RMSE.h"
 #include "MyAssert.h"
-#include "Pruner.h"
+#include "UpdateOps/Pruner.h"
 
-int main()
+int mainPureHost()
 {
 	clock_t begin_whole, end_whole;
 	/********* read training instances from a file **************/
@@ -22,14 +22,15 @@ int main()
 	string strFileName = "data/YearPredictionMSD";
 	int nNumofFeatures;
 	int nNumofExamples;
+	long long nNumofValue;
 
 	cout << "reading data..." << endl;
 	LibSVMDataReader dataReader;
-	dataReader.GetDataInfo(strFileName, nNumofFeatures, nNumofExamples);
+	dataReader.GetDataInfo(strFileName, nNumofFeatures, nNumofExamples, nNumofValue);
 //	dataReader.ReadLibSVMDataFormat(v_vInstance, v_fLabel, strFileName, nNumofFeatures, nNumofExamples);
 
 	vector<double> v_fLabel;
-	vector<vector<key_value> > v_vInsSparse;
+	vector<vector<KeyValue> > v_vInsSparse;
 	dataReader.ReadLibSVMFormatSparse(v_vInsSparse, v_fLabel, strFileName, nNumofFeatures, nNumofExamples);
 
 	begin_whole = clock();
@@ -40,7 +41,7 @@ int main()
 
 	trainer.m_vvInsSparse = v_vInsSparse;
 //	trainer.m_vvInstance_fixedPos = v_vInstance;
-	trainer.m_vTrueValue_fixedPos = v_fLabel;
+	trainer.m_vTrueValue = v_fLabel;
 
 	int nNumofTree = 50;
 	int nMaxDepth = 208;

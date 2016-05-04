@@ -13,7 +13,7 @@
 /**
  * @brief: prediction function for sparse instances
  */
-void Predictor::PredictSparseIns(vector<vector<key_value> > &v_vInstance, vector<RegTree> &vTree,
+void Predictor::PredictSparseIns(vector<vector<KeyValue> > &v_vInstance, vector<RegTree> &vTree,
 								 vector<double> &v_fPredValue, vector<double> &v_predBuffer)
 {
 	DenseInsConverter denseInsConverter(vTree);
@@ -53,7 +53,7 @@ void Predictor::PredictSparseIns(vector<vector<key_value> > &v_vInstance, vector
 /**
  * @brief: prediction function for sparse instances
  */
-void Predictor::PredictSparseIns(vector<vector<key_value> > &v_vInstance, vector<RegTree> &vTree, vector<double> &v_fPredValue)
+void Predictor::PredictSparseIns(vector<vector<KeyValue> > &v_vInstance, vector<RegTree> &vTree, vector<double> &v_fPredValue)
 {
 	DenseInsConverter denseInsConverter(vTree);
 	//for each tree
