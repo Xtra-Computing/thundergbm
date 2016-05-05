@@ -18,13 +18,12 @@
 #include "SplitPoint.h"
 #include "NodeStat.h"
 #include "../GDPair.h"
-#include "SplitPoint.h"
 
 using std::vector;
 using std::map;
 
 
-class Splitter
+class HostSplitter
 {
 public:
 	vector<vector<KeyValue> > m_vvFeaInxPair; //value is feature value (sorted in a descendant order); id is instance id

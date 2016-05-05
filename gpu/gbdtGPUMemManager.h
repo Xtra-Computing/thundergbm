@@ -14,14 +14,14 @@
 class GBDTGPUMemManager: public GPUMemManager
 {
 public:
-	int *pDInsId;
-	double *pdDFeaValue;
-	int *pDNumofKeyValue;
+	static int *pDInsId;
+	static double *pdDFeaValue;
+	static int *pDNumofKeyValue;
 
-	long long totalNumofValues;
+	static long long totalNumofValues;
+	static int m_numofFea;
 
 public:
-	GBDTGPUMemManager();
 	void allocMemForIns(int nTotalNumofValue, int numofFeature);
 };
 

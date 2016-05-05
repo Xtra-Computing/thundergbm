@@ -1,14 +1,16 @@
 /*
- * Trainer.cpp
+ * BaseTrainer.cpp
  *
- *  Created on: 6 Jan 2016
+ *  Created on: 5 May 2016
  *      Author: Zeyi Wen
- *		@brief: GBDT trainer implementation
+ *		@brief: definition of the base trainer
  */
+
+#include "BaseTrainer.h"
 
 #include <ctime>
 
-#include "Trainer.h"
+#include "HostTrainer.h"
 #include "Predictor.h"
 #include "Tree/TreeNode.h"
 #include "Tree/PrintTree.h"
@@ -17,7 +19,7 @@
 /*
  * @brief: initialise constants of a trainer
  */
-void Trainer::InitTrainer(int nNumofTree, int nMaxDepth, double fLabda, double fGamma, int nNumofFea)
+void BaseTrainer::InitTrainer(int nNumofTree, int nMaxDepth, double fLabda, double fGamma, int nNumofFea)
 {
 	m_nMaxNumofTree = nNumofTree;
 	m_nMaxDepth = nMaxDepth;
@@ -38,7 +40,7 @@ void Trainer::InitTrainer(int nNumofTree, int nMaxDepth, double fLabda, double f
 /**
  * @brief: training GBDTs
  */
-void Trainer::TrainGBDT(vector<RegTree> & vTree)
+void BaseTrainer::TrainGBDT(vector<RegTree> & vTree)
 {
 	clock_t begin_pred, begin_gd, begin_grow;
 	clock_t end_pred, end_gd, end_grow;
@@ -98,7 +100,7 @@ void Trainer::TrainGBDT(vector<RegTree> & vTree)
 /**
  * @brief: initialise tree
  */
-void Trainer::InitTree(RegTree &tree)
+void BaseTrainer::InitTree(RegTree &tree)
 {
 	TreeNode *root = new TreeNode[1];
 	m_nNumofNode = 1;
@@ -120,63 +122,9 @@ void Trainer::InitTree(RegTree &tree)
 }
 
 /**
- * @brief: grow the tree by splitting nodes to the full extend
- */
-void Trainer::GrowTree(RegTree &tree)
-{
-	int nNumofSplittableNode = 0;
-
-	//start splitting this tree from the root node
-	vector<TreeNode*> splittableNode;
-	for(int i = 0; i < int(tree.nodes.size()); i++)
-	{
-		splittableNode.push_back(tree.nodes[i]);
-		nNumofSplittableNode++;
-	}
-
-	//split node(s)
-	int nCurDepth = 0;
-	while(splittableNode.size() > 0 && nCurDepth <= m_nMaxDepth)
-	{
-		splitter.m_nCurDept = nCurDepth;
-//		cout << "splitting " << nCurDepth << " level..." << endl;
-		vector<SplitPoint> vBest;
-
-		vector<nodeStat> rchildStat, lchildStat;
-		int bufferSize = splitter.mapNodeIdToBufferPos.size();//maps node id to buffer position
-		vBest.resize(bufferSize);
-		rchildStat.resize(bufferSize);
-		lchildStat.resize(bufferSize);
-
-		//efficient way to find the best split
-		clock_t begin_find_fea = clock();
-		splitter.FeaFinderAllNode(vBest, rchildStat, lchildStat);
-
-		clock_t end_find_fea = clock();
-		total_find_fea_t += (double(end_find_fea - begin_find_fea) / CLOCKS_PER_SEC);
-
-		//split all the splittable nodes
-		clock_t start_split_t = clock();
-		bool bLastLevel = false;
-		if(nCurDepth == m_nMaxDepth)
-			bLastLevel = true;
-		splitter.SplitAll(splittableNode, vBest, tree, m_nNumofNode, rchildStat, lchildStat, bLastLevel);
-		clock_t end_split_t = clock();
-		total_split_t += (double(end_split_t - start_split_t) / CLOCKS_PER_SEC);
-
-		nCurDepth++;
-	}
-
-	clock_t begin_prune = clock();
-	pruner.pruneLeaf(tree);
-	clock_t end_prune = clock();
-	total_prune_t += (double(end_prune - begin_prune) / CLOCKS_PER_SEC);
-}
-
-/**
  * @brief: print out a learned tree
  */
-void Trainer::PrintTree(const RegTree &tree)
+void BaseTrainer::PrintTree(const RegTree &tree)
 {
 	int nNumofNode = tree.nodes.size();
 	for(int i = 0; i < nNumofNode; i++)
@@ -188,7 +136,7 @@ void Trainer::PrintTree(const RegTree &tree)
 /**
  * @brief: save the trained model to a file
  */
-void Trainer::SaveModel(string fileName, const vector<RegTree> &v_Tree)
+void BaseTrainer::SaveModel(string fileName, const vector<RegTree> &v_Tree)
 {
 	TreePrinter printer;
 	printer.m_writeOut.open(fileName.c_str());
@@ -205,7 +153,7 @@ void Trainer::SaveModel(string fileName, const vector<RegTree> &v_Tree)
 /**
  * @brief: release memory used by trees
  */
-void Trainer::ReleaseTree(vector<RegTree> &v_Tree)
+void BaseTrainer::ReleaseTree(vector<RegTree> &v_Tree)
 {
 	int nNumofTree = v_Tree.size();
 	for(int i = 0; i < nNumofTree; i++)
@@ -221,7 +169,7 @@ void Trainer::ReleaseTree(vector<RegTree> &v_Tree)
 /**
  * @brief: print the predicted values
  */
-void Trainer::PrintPrediction(const vector<double> &vPred)
+void BaseTrainer::PrintPrediction(const vector<double> &vPred)
 {
 	int n = vPred.size();
 	ofstream out("prediction.txt");
@@ -234,4 +182,5 @@ void Trainer::PrintPrediction(const vector<double> &vPred)
 	}
 	out << endl;
 }
+
 

@@ -8,7 +8,7 @@
 
 #include <math.h>
 #include "DataReader/LibSVMDataReader.h"
-#include "Trainer.h"
+#include "HostTrainer.h"
 #include "Predictor.h"
 #include "Evaluation/RMSE.h"
 #include "MyAssert.h"
@@ -37,7 +37,7 @@ int mainPureHost()
 	cout << "start training..." << endl;
 	/********* run the GBDT learning process ******************/
 	vector<RegTree> v_Tree;
-	Trainer trainer;
+	HostTrainer trainer;
 
 	trainer.m_vvInsSparse = v_vInsSparse;
 //	trainer.m_vvInstance_fixedPos = v_vInstance;

@@ -11,7 +11,7 @@
 #include <map>
 #include <iostream>
 
-#include "Splitter.h"
+#include "HostSplitter.h"
 #include "SplitPoint.h"
 #include "../MyAssert.h"
 
@@ -24,7 +24,7 @@ using std::endl;
 /**
  * @brief: update the node statistics and buffer positions.
  */
-void Splitter::UpdateNodeStat(vector<TreeNode*> &newSplittableNode, vector<nodeStat> &v_nodeStat)
+void HostSplitter::UpdateNodeStat(vector<TreeNode*> &newSplittableNode, vector<nodeStat> &v_nodeStat)
 {
 	PROCESS_ERROR(mapNodeIdToBufferPos.empty() == true);
 	PROCESS_ERROR(newSplittableNode.size() == v_nodeStat.size());
@@ -41,7 +41,7 @@ void Splitter::UpdateNodeStat(vector<TreeNode*> &newSplittableNode, vector<nodeS
 /**
  * @brief: efficient best feature finder
  */
-void Splitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat> &rchildStat, vector<nodeStat> &lchildStat)
+void HostSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat> &rchildStat, vector<nodeStat> &lchildStat)
 {
 	const float rt_2eps = 2.0 * rt_eps;
 	double min_child_weight = 1.0;//follow xgboost
@@ -149,7 +149,7 @@ void Splitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat> &rch
 /**
  * @brief: split all splittable nodes of the current level
  */
-void Splitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<SplitPoint> &vBest, RegTree &tree, int &m_nNumofNode,
+void HostSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<SplitPoint> &vBest, RegTree &tree, int &m_nNumofNode,
 		 	 	 	    const vector<nodeStat> &rchildStat, const vector<nodeStat> &lchildStat, bool bLastLevel)
 {
 	int preMaxNodeId = m_nNumofNode - 1;
@@ -327,7 +327,7 @@ void Splitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<SplitPoi
 /**
  * @brief: compute the weight of a leaf node
  */
-double Splitter::ComputeWeightSparseData(int bufferPos)
+double HostSplitter::ComputeWeightSparseData(int bufferPos)
 {
 	double nodeWeight = (-m_nodeStat[bufferPos].sum_gd / (m_nodeStat[bufferPos].sum_hess + m_labda));
 //	printf("sum gd=%f, sum hess=%f, pv=%f\n", m_nodeStat[bufferPos].sum_gd, m_nodeStat[bufferPos].sum_hess, predValue);
@@ -337,7 +337,7 @@ double Splitter::ComputeWeightSparseData(int bufferPos)
 /**
  * @brief: compute the first order gradient and the second order gradient
  */
-void Splitter::ComputeGDSparse(vector<double> &v_fPredValue, vector<double> &m_vTrueValue_fixedPos)
+void HostSplitter::ComputeGDSparse(vector<double> &v_fPredValue, vector<double> &m_vTrueValue_fixedPos)
 {
 	nodeStat rootStat;
 	int nTotal = m_vTrueValue_fixedPos.size();
@@ -362,7 +362,7 @@ void Splitter::ComputeGDSparse(vector<double> &v_fPredValue, vector<double> &m_v
 /**
  * @brief: compute gain for a split
  */
-double Splitter::CalGain(const nodeStat &parent, const nodeStat &r_child, const nodeStat &l_child)
+double HostSplitter::CalGain(const nodeStat &parent, const nodeStat &r_child, const nodeStat &l_child)
 {
 	PROCESS_ERROR(abs(parent.sum_gd - l_child.sum_gd - r_child.sum_gd) < 0.0001);
 	PROCESS_ERROR(parent.sum_hess == l_child.sum_hess + r_child.sum_hess);

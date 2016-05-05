@@ -8,7 +8,7 @@
 
 #include <math.h>
 #include "pureHost/DataReader/LibSVMDataReader.h"
-#include "pureHost/Trainer.h"
+#include "pureHost/HostTrainer.h"
 #include "pureHost/Predictor.h"
 #include "pureHost/Evaluation/RMSE.h"
 #include "pureHost/MyAssert.h"
@@ -42,7 +42,7 @@ int main()
 	begin_whole = clock();
 	cout << "start training..." << endl;
 	/********* run the GBDT learning process ******************/
-	Trainer trainer;
+	HostTrainer trainer;
 
 	trainer.m_vvInsSparse = v_vInsSparse;
 	trainer.m_vTrueValue = v_fLabel;
@@ -69,6 +69,7 @@ int main()
 	memAllocator.MemcpyHostToDevice(pdValue, memAllocator.pdDFeaValue, nNumofValue * sizeof(double));
 	memAllocator.MemcpyHostToDevice(pNumofKeyValue, memAllocator.pDNumofKeyValue, nNumofFeatures * sizeof(int));
 
+	memAllocator.TestMemcpyDeviceToHost();
 	memAllocator.TestMemcpyHostToDevice(pInsId, memAllocator.pDInsId, nNumofValue * sizeof(int));
 	memAllocator.TestMemcpyHostToDevice(pdValue, memAllocator.pdDFeaValue, nNumofValue * sizeof(double));
 	memAllocator.TestMemcpyHostToDevice(pNumofKeyValue, memAllocator.pDNumofKeyValue, nNumofFeatures * sizeof(int));

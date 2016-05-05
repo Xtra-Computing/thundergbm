@@ -1,13 +1,13 @@
 /*
- * Trainer.h
+ * BaseTrainer.h
  *
- *  Created on: 6 Jan 2016
+ *  Created on: 5 May 2016
  *      Author: Zeyi Wen
- *      @brief: GBDT trainer
+ *		@brief: A general class of trainer
  */
 
-#ifndef TRAINER_H_
-#define TRAINER_H_
+#ifndef BASETRAINER_H_
+#define BASETRAINER_H_
 
 #include <iostream>
 #include <vector>
@@ -15,13 +15,13 @@
 #include "Tree/RegTree.h"
 #include "KeyValue.h"
 #include "GDPair.h"
-#include "UpdateOps/Splitter.h"
+#include "UpdateOps/HostSplitter.h"
 #include "UpdateOps/Pruner.h"
 
 using std::string;
 using std::vector;
 
-class Trainer
+class BaseTrainer
 {
 public:
 	int m_nMaxNumofTree;
@@ -32,14 +32,16 @@ public:
 
 	/*** for more efficient on finding the best split value of a feature ***/
 	vector<vector<KeyValue> > m_vvInsSparse;
-	Splitter splitter;
+	HostSplitter splitter;
 
 private:
+public:
 	int m_nNumofNode;
 	Pruner pruner;
 	vector<double> m_vPredBuffer;
 
 public:
+	virtual ~BaseTrainer(){}
 	void InitTrainer(int nNumofTree, int nMaxDepth, double fLabda, double fGamma, int nNumofFea);
 	void TrainGBDT(vector<RegTree> &v_Tree);
 	void SaveModel(string fileName, const vector<RegTree> &v_Tree);
@@ -48,13 +50,14 @@ public:
 
 protected:
 	void InitTree(RegTree &tree);
-	void GrowTree(RegTree &tree);
+	virtual void GrowTree(RegTree &tree) = 0;
 
 private:
 //for debugging
 	void PrintTree(const RegTree &tree);
 	void PrintPrediction(const vector<double> &vPred);
 
+public:
 	double total_find_fea_t;
 	double total_split_t;
 	double total_prune_t;
@@ -62,4 +65,4 @@ private:
 
 
 
-#endif /* TRAINER_H_ */
+#endif /* BASETRAINER_H_ */
