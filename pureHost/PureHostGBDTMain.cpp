@@ -7,7 +7,7 @@
  */
 
 #include <math.h>
-#include "DataReader/LibSVMDataReader.h"
+#include "DataReader/LibsvmReaderSparse.h"
 #include "HostTrainer.h"
 #include "Predictor.h"
 #include "Evaluation/RMSE.h"

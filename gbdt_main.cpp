@@ -7,7 +7,7 @@
  */
 
 #include <math.h>
-#include "pureHost/DataReader/LibSVMDataReader.h"
+#include "pureHost/DataReader/LibsvmReaderSparse.h"
 #include "pureHost/HostTrainer.h"
 #include "pureHost/Predictor.h"
 #include "pureHost/Evaluation/RMSE.h"
