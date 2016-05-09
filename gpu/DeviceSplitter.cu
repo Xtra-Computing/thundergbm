@@ -17,116 +17,233 @@
 
 
 using std::map;
-using std::pair;
 using std::make_pair;
 using std::cout;
 using std::endl;
+
+const float rt_2eps = 2.0 * DeviceSplitter::rt_eps;
+__global__ void FindFeaSplitValue(int nNumofKeyValues, int *idStartAddress, float_point *pValueStartAddress, int *pInsIdToNodeId,
+								  nodeStat *pTempRChildStat, float_point *pGD, float_point *pHess, float_point *pLastValue,
+								  nodeStat *pSNodeState, SplitPoint *pBestSplitPoin, nodeStat *pRChildStat, nodeStat *pLChildStat,
+								  int *pSNIdToBuffId, int maxNumofSplittable, int featureId, int numofSNode, float_point lambda);
 
 /**
  * @brief: efficient best feature finder
  */
 void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat> &rchildStat, vector<nodeStat> &lchildStat)
 {
-	const float rt_2eps = 2.0 * rt_eps;
-	double min_child_weight = 1.0;//follow xgboost
+
+	int numofSNode = vBest.size();
 
 	GBDTGPUMemManager manager;
+
 
 	int nNumofFeature = manager.m_numofFea;
 	PROCESS_ERROR(nNumofFeature > 0);
 
-	vector<nodeStat> tempStat;
-	vector<double> vLastValue;
-	vector<SplitPoint> vBest16;
-	int bufferSize = mapNodeIdToBufferPos.size();
-
 	for(int f = 0; f < nNumofFeature; f++)
 	{
-		//vector<KeyValue> &featureKeyValues = m_vvFeaInxPair[f];
+
 		int *pInsId = manager.pDInsId;
 		float_point *pFeaValue = manager.pdDFeaValue;
 		int *pNumofKeyValue = manager.pDNumofKeyValue;
 
-		int nNumofKeyValues = -1;
-		int *pValueAddress = pNumofKeyValue + f;
-		manager.MemcpyDeviceToHost(&nNumofKeyValues, pValueAddress, sizeof(int));
+		int numofCurFeaKeyValues = -1;
+		//the number of key values of the f{th} feature
+		manager.MemcpyDeviceToHost(&numofCurFeaKeyValues, pNumofKeyValue + f, sizeof(int));
+		PROCESS_ERROR(numofCurFeaKeyValues > 0);
 
-		tempStat.clear();
-		vLastValue.clear();
-		tempStat.resize(bufferSize);
-		vLastValue.resize(bufferSize);
-
-	    for(int i = 0; i < nNumofKeyValues; i++)
-	    {
-long long shift = i * pNumofKeyValue[i];
-int *idStartAddress = pInsId + shift;
-int insId = idStartAddress[i];
-			int nid = m_nodeIds[insId];
-			PROCESS_ERROR(nid >= -1);
-			if(nid == -1)
-				continue;
-
-			// start working
-float_point *pValueStartAddress = pFeaValue + shift;
-double fvalue = pValueStartAddress[i];
-
-			// get the statistics of nid node
-			// test if first hit, this is fine, because we set 0 during init
-			map<int, int>::iterator it = mapNodeIdToBufferPos.find(nid);
-			PROCESS_ERROR(it != mapNodeIdToBufferPos.end());
-			int bufferPos = it->second;
-			if(tempStat[bufferPos].IsEmpty())
-			{
-				tempStat[bufferPos].Add(m_vGDPair_fixedPos[insId].grad, m_vGDPair_fixedPos[insId].hess);
-				vLastValue[bufferPos] = fvalue;
-			}
-			else
-			{
-				// try to find a split
-				if(fabs(fvalue - vLastValue[bufferPos]) > rt_2eps &&
-				   tempStat[bufferPos].sum_hess >= min_child_weight)
-				{
-					nodeStat lTempStat;
-					PROCESS_ERROR(m_nodeStat.size() > bufferPos);
-					lTempStat.Subtract(m_nodeStat[bufferPos], tempStat[bufferPos]);
-					if(lTempStat.sum_hess >= min_child_weight)
-					{
-						double loss_chg = CalGain(m_nodeStat[bufferPos], tempStat[bufferPos], lTempStat);
-						double sv = static_cast<float>((fvalue + vLastValue[bufferPos]) * 0.5f);
-						bool bUpdated = vBest[bufferPos].UpdateSplitPoint(loss_chg, sv, f);
-						if(m_nCurDept == 4 && m_nRound == 28 && (f == 15 || f == 46))
-						{
-							vBest16[bufferPos].UpdateSplitPoint(loss_chg, sv, f);
-						}
-						if(bUpdated == true)
-						{
-							lchildStat[bufferPos] = lTempStat;
-							rchildStat[bufferPos] = tempStat[bufferPos];
-							//if(f == 12 && nid == 262)
-							//	printf("fid=%d; node id=%d; fvalue=%f; last_fvalue=%f; sv=%f\n", f, nid, fvalue, vLastValue[bufferPos], sv);
-						}
-					}
-				}
-				//update the statistics
-				tempStat[bufferPos].Add(m_vGDPair_fixedPos[insId].grad, m_vGDPair_fixedPos[insId].hess);
-				vLastValue[bufferPos] = fvalue;
-			}
+		long long startPosOfPrevFea = 0;
+		if(f > 0)
+		{
+			//copy value of the start position of the previous feature
+			manager.MemcpyDeviceToHost(&startPosOfPrevFea, manager.pFeaStartPos + (f - 1), sizeof(long long));
 		}
+		PROCESS_ERROR(startPosOfPrevFea >= 0);
+		long long startPosOfCurFea = startPosOfPrevFea + numofCurFeaKeyValues;
+		//copy the value of the start position of the current feature
+		manager.MemcpyHostToDevice(manager.pFeaStartPos + f, &startPosOfCurFea, sizeof(long long));
 
-	    // finish updating all statistics, check if it is possible to include all sum statistics
-	    for(map<int, int>::iterator it = mapNodeIdToBufferPos.begin(); it != mapNodeIdToBufferPos.end(); it++)
-	    {
-	    	const int nid = it->first;
-            nodeStat lTempStat;
-	        lTempStat.Subtract(m_nodeStat[it->second], tempStat[it->second]);
-	        if(lTempStat.sum_hess >= min_child_weight && tempStat[it->second].sum_hess >= min_child_weight)
-	        {
-//	        	cout << "good" << endl;
-	        	double loss_chg = CalGain(m_nodeStat[it->second], tempStat[it->second], lTempStat);
-	            const float gap = fabs(vLastValue[it->second]) + rt_eps;
-	            const float delta = gap;
-	            vBest[it->second].UpdateSplitPoint(loss_chg, vLastValue[it->second] + delta, f);
-	        }
-	    }
+		int *pInsToNodeId = new int[manager.m_numofIns];
+		PROCESS_ERROR(manager.m_numofIns == m_nodeIds.size());
+		manager.VecToArray(m_nodeIds, pInsToNodeId);
+		manager.MemcpyHostToDevice(manager.pInsIdToNodeId, pInsToNodeId, sizeof(int) * manager.m_numofIns);
+		nodeStat *pHostNodeStat = new nodeStat[manager.m_numofIns];
+		manager.VecToArray(m_nodeStat, pHostNodeStat);
+		manager.MemcpyHostToDevice(manager.pSNodeStat, pHostNodeStat, sizeof(int) * manager.m_numofIns);
+
+		float_point *pHostGD = new float_point[manager.m_numofIns];
+		float_point *pHostHess = new float_point[manager.m_numofIns];
+		for(int i = 0; i < manager.m_numofIns; i++)
+		{
+			pHostGD[i] = m_vGDPair_fixedPos[i].grad;
+			pHostHess[i] = m_vGDPair_fixedPos[i].hess;
+		}
+		manager.MemcpyHostToDevice(manager.pGrad, pHostGD, manager.m_numofIns);
+		manager.MemcpyHostToDevice(manager.pHess, pHostHess, manager.m_numofIns);
+
+		delete[] pHostGD;
+		delete[] pHostHess;
+		delete[] pInsToNodeId;
+		delete[] pHostNodeStat;
+
+nodeStat *pSNodeState = manager.pSNodeStat;
+nodeStat *pTempRChildStat = manager.pTempRChildStat;
+float_point *pLastValue = manager.pLastValue;
+
+float_point *pGD = manager.pGrad;
+float_point *pHess = manager.pHess;
+
+		//find the split value for this feature
+	int *idStartAddress = pInsId + startPosOfCurFea;
+	float_point *pValueStartAddress = pFeaValue + startPosOfCurFea;
+
+		FindFeaSplitValue<<<1, 1>>>(numofCurFeaKeyValues, idStartAddress, pValueStartAddress, manager.pInsIdToNodeId,
+									pTempRChildStat, pGD, pHess, pLastValue, pSNodeState, manager.pBestSplitPoint,
+									manager.pRChildStat, manager.pLChildStat, manager.pSNIdToBuffId,
+									manager.m_maxNumofSplittable, f, numofSNode, DeviceSplitter::m_labda);
+	}
+}
+
+__global__ void FindFeaSplitValue(int nNumofKeyValues, int *idStartAddress, float_point *pValueStartAddress, int *pInsIdToNodeId,
+								  nodeStat *pTempRChildStat, float_point *pGD, float_point *pHess, float_point *pLastValue,
+								  nodeStat *pSNodeState, SplitPoint *pBestSplitPoint, nodeStat *pRChildStat, nodeStat *pLChildStat,
+								  int *pSNIdToBuffId, int maxNumofSplittable, int featureId, int numofSNode, float_point lambda)
+{
+    for(int i = 0; i < nNumofKeyValues; i++)
+    {
+    	int insId = idStartAddress[i];
+    	int nid = pInsIdToNodeId[insId];
+		if(nid < -1)
+		{
+			printf("Error: nid=%d\n", nid);
+			return;
+		}
+		if(nid == -1)
+			continue;
+
+		// start working
+		double fvalue = pValueStartAddress[i];
+
+		// get the buffer id of node nid
+		int bufferPos = DeviceSplitter::GetBufferId(pSNIdToBuffId, nid, maxNumofSplittable);
+
+		if(pTempRChildStat[bufferPos].sum_hess == 0.0)//equivalent to IsEmpty()
+		{
+			pTempRChildStat[bufferPos].sum_gd += pGD[insId];
+			pTempRChildStat[bufferPos].sum_hess += pHess[insId];
+			pLastValue[bufferPos] = fvalue;
+		}
+		else
+		{
+			// try to find a split
+			if(fabs(fvalue - pLastValue[bufferPos]) > rt_2eps)
+			{
+				float_point tempGD = pSNodeState[bufferPos].sum_gd - pTempRChildStat[bufferPos].sum_gd;
+				float_point tempHess = pSNodeState[bufferPos].sum_hess - pTempRChildStat[bufferPos].sum_hess;
+				bool needUpdate = DeviceSplitter::NeedUpdate(pTempRChildStat[bufferPos].sum_hess, tempHess);
+				if(needUpdate == true)
+				{
+					double sv = (fvalue + pLastValue[bufferPos]) * 0.5f;
+
+		            DeviceSplitter::UpdateSplitInfo(pSNodeState[bufferPos], pBestSplitPoint[bufferPos], pRChildStat[bufferPos],
+		            							  pLChildStat[bufferPos], pTempRChildStat[bufferPos], tempGD, tempHess,
+		            							  lambda, sv, featureId);
+				}
+			}
+			//update the statistics
+			pTempRChildStat[bufferPos].sum_gd += pGD[insId];
+			pTempRChildStat[bufferPos].sum_hess += pHess[insId];
+			pLastValue[bufferPos] = fvalue;
+		}
+	}
+
+    // finish updating all statistics, check if it is possible to include all sum statistics
+    for(int i = 0; i < numofSNode; i++)
+    {
+    	float_point tempGD = pSNodeState[i].sum_gd - pTempRChildStat[i].sum_gd;
+    	float_point tempHess = pSNodeState[i].sum_hess - pTempRChildStat[i].sum_hess;
+    	bool needUpdate = DeviceSplitter::NeedUpdate(pTempRChildStat[i].sum_hess, tempHess);
+        if(needUpdate == true)
+        {
+            const float delta = fabs(pLastValue[i]) + DeviceSplitter::rt_eps;
+            float_point sv = pLastValue[i] + delta;
+
+            DeviceSplitter::UpdateSplitInfo(pSNodeState[i], pBestSplitPoint[i], pRChildStat[i], pLChildStat[i],
+            							  pTempRChildStat[i], tempGD, tempHess, lambda, sv, featureId);
+        }
+    }
+}
+
+__device__ double DeviceSplitter::CalGain(const nodeStat &parent, const nodeStat &r_child, float_point &l_child_GD,
+										  float_point &l_child_Hess, float_point &lambda)
+{
+	PROCESS_ERROR(abs(parent.sum_gd - l_child_GD - r_child.sum_gd) < 0.0001);
+	PROCESS_ERROR(parent.sum_hess == l_child_Hess + r_child.sum_hess);
+
+	//compute the gain
+	double fGain = (l_child_GD * l_child_GD)/(l_child_Hess + lambda) +
+				   (r_child.sum_gd * r_child.sum_gd)/(r_child.sum_hess + lambda) -
+				   (parent.sum_gd * parent.sum_gd)/(parent.sum_hess + lambda);
+
+	return fGain;
+}
+
+__device__ int DeviceSplitter::GetBufferId(int *pSNIdToBuffId, int snid, int m_maxNumofSplittable)
+{
+	int buffId = -1;
+
+	int remain = snid % m_maxNumofSplittable;//use mode operation as Hash function to find the buffer position
+	if(pSNIdToBuffId[remain] == -1)
+		buffId = remain;
+	else
+	{
+		//Hash conflict
+		for(int i = m_maxNumofSplittable - 1; i > 0; i--)
+		{
+			if(pSNIdToBuffId[i] == -1)
+				buffId = i;
+		}
+	}
+
+	return buffId;
+}
+
+ __device__ bool DeviceSplitter::UpdateSplitPoint(SplitPoint &curBest, double fGain, double fSplitValue, int nFeatureId)
+{
+	if(fGain > curBest.m_fGain )//|| (fGain == m_fGain && nFeatureId == m_nFeatureId) NOT USE (second condition is for updating to a new split value)
+	{
+		curBest.m_fGain = fGain;
+		curBest.m_fSplitValue = fSplitValue;
+		curBest.m_nFeatureId = nFeatureId;
+		return true;
+	}
+	return false;
+}
+
+__device__ void DeviceSplitter::UpdateLRStat(nodeStat &RChildStat, nodeStat &LChildStat, nodeStat &TempRChildStat,
+											 float_point &grad, float_point &hess)
+{
+	LChildStat.sum_gd = grad;
+	LChildStat.sum_hess = hess;
+	RChildStat = TempRChildStat;
+}
+
+__device__ bool DeviceSplitter::NeedUpdate(float_point &RChildHess, float_point &LChildHess)
+{
+	if(LChildHess >= DeviceSplitter::min_child_weight && RChildHess >= DeviceSplitter::min_child_weight)
+		return true;
+	return false;
+}
+
+__device__ void DeviceSplitter::UpdateSplitInfo(nodeStat &snStat, SplitPoint &bestSP, nodeStat &RChildStat, nodeStat &LChildStat,
+											  nodeStat &TempRChildStat, float_point &tempGD, float_point &tempHess,
+											  float_point &lambda, float_point &sv, int &featureId)
+{
+	double loss_chg = CalGain(snStat, TempRChildStat, tempGD, tempHess, lambda);
+    bool bUpdated = DeviceSplitter::UpdateSplitPoint(bestSP, loss_chg, sv, featureId);
+	if(bUpdated == true)
+	{
+		DeviceSplitter::UpdateLRStat(RChildStat, LChildStat, TempRChildStat, tempGD, tempHess);
 	}
 }

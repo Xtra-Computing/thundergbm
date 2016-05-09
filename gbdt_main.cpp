@@ -20,6 +20,7 @@ int main()
 	clock_t begin_whole, end_whole;
 	/********* read training instances from a file **************/
 	string strFileName = "data/YearPredictionMSD";
+	int maxNumofSplittableNode = 100;
 
 	cout << "reading data..." << endl;
 	LibSVMDataReader dataReader;
@@ -37,7 +38,8 @@ int main()
 	PROCESS_ERROR(nNumofValue > 0);
 	memAllocator.totalNumofValues = nNumofValue;
 	//allocate memory for instances
-	memAllocator.allocMemForIns(nNumofValue, nNumofFeatures);
+	memAllocator.allocMemForIns(nNumofValue, nNumofExamples, nNumofFeatures);
+	memAllocator.allocMemForSplittableNode(maxNumofSplittableNode);
 
 	begin_whole = clock();
 	cout << "start training..." << endl;

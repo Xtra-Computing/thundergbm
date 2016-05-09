@@ -53,6 +53,7 @@ public:
 	const static int LEAFNODE = -2;
 
 	const static float rt_eps = 1e-5;
+	const static double min_child_weight = 1.0;//follow xgboost
 
 public:
 	int m_nRound;

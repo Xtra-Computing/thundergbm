@@ -7,6 +7,7 @@
  */
 
 #include "DeviceTrainer.h"
+#include "gbdtGPUMemManager.h"
 
 /**
  * @brief: grow the tree by splitting nodes to the full extend
@@ -15,30 +16,24 @@ void DeviceTrainer::GrowTree(RegTree &tree)
 {
 	int nNumofSplittableNode = 0;
 
-	//start splitting this tree from the root node
-	vector<TreeNode*> splittableNode;
-	for(int i = 0; i < int(tree.nodes.size()); i++)
-	{
-		splittableNode.push_back(tree.nodes[i]);
-		nNumofSplittableNode++;
-	}
+	//copy the root node to GPU
+	GBDTGPUMemManager manager;
+	manager.MemcpyHostToDevice(tree.nodes[0], manager.pSplittableNode, sizeof(TreeNode));
+	nNumofSplittableNode++;
 
 	//split node(s)
 	int nCurDepth = 0;
-	while(splittableNode.size() > 0 && nCurDepth <= m_nMaxDepth)
+	while(nNumofSplittableNode > 0 && nCurDepth <= m_nMaxDepth)
 	{
 		splitter.m_nCurDept = nCurDepth;
 //		cout << "splitting " << nCurDepth << " level..." << endl;
-		vector<SplitPoint> vBest;
 
-		vector<nodeStat> rchildStat, lchildStat;
 		int bufferSize = splitter.mapNodeIdToBufferPos.size();//maps node id to buffer position
-		vBest.resize(bufferSize);
-		rchildStat.resize(bufferSize);
-		lchildStat.resize(bufferSize);
 
 		//efficient way to find the best split
 		clock_t begin_find_fea = clock();
+		vector<SplitPoint> vBest;
+		vector<nodeStat> rchildStat, lchildStat;
 		splitter.FeaFinderAllNode(vBest, rchildStat, lchildStat);
 
 		clock_t end_find_fea = clock();
@@ -49,6 +44,7 @@ void DeviceTrainer::GrowTree(RegTree &tree)
 		bool bLastLevel = false;
 		if(nCurDepth == m_nMaxDepth)
 			bLastLevel = true;
+	vector<TreeNode*> splittableNode;
 		splitter.SplitAll(splittableNode, vBest, tree, m_nNumofNode, rchildStat, lchildStat, bLastLevel);
 		clock_t end_split_t = clock();
 		total_split_t += (double(end_split_t - start_split_t) / CLOCKS_PER_SEC);
