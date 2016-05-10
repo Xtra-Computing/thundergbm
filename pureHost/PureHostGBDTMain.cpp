@@ -14,12 +14,17 @@
 #include "MyAssert.h"
 #include "UpdateOps/Pruner.h"
 
+#include "PureHostGBDTMain.h"
+
 int mainPureHost()
 {
 	clock_t begin_whole, end_whole;
 	/********* read training instances from a file **************/
 	vector<vector<double> > v_vInstance;
 	string strFileName = "data/YearPredictionMSD";
+	HostSplitter splitter;
+	HostTrainer trainer(&splitter);
+
 	int nNumofFeatures;
 	int nNumofExamples;
 	long long nNumofValue;
@@ -37,14 +42,13 @@ int mainPureHost()
 	cout << "start training..." << endl;
 	/********* run the GBDT learning process ******************/
 	vector<RegTree> v_Tree;
-	HostTrainer trainer;
 
 	trainer.m_vvInsSparse = v_vInsSparse;
 //	trainer.m_vvInstance_fixedPos = v_vInstance;
 	trainer.m_vTrueValue = v_fLabel;
 
-	int nNumofTree = 50;
-	int nMaxDepth = 208;
+	int nNumofTree = 2;
+	int nMaxDepth = 5;
 	double fLabda = 1;//this one is constant in xgboost
 	double fGamma = 1;//minimum loss
 	Pruner::min_loss = fGamma;

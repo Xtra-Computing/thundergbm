@@ -84,5 +84,5 @@ void GBDTGPUMemManager::allocMemForSplittableNode(int nMaxNumofSplittableNode)
 
 	//map splittable node to buffer id
 	checkCudaErrors(cudaMalloc((void**)&pSNIdToBuffId, sizeof(int) * m_maxNumofSplittable));
-	checkCudaErrors(cudaMemset((void**)&pSNIdToBuffId, -1, sizeof(int) * m_maxNumofSplittable));
+	checkCudaErrors(cudaMemset(pSNIdToBuffId, -1, sizeof(int) * m_maxNumofSplittable));
 }

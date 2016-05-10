@@ -14,13 +14,20 @@
 #include "pureHost/MyAssert.h"
 
 #include "gpu/gbdtGPUMemManager.h"
+#include "gpu/DeviceTrainer.h"
+#include "pureHost/PureHostGBDTMain.h"
 
 int main()
 {
+	mainPureHost();
+	return 1;
+
 	clock_t begin_whole, end_whole;
 	/********* read training instances from a file **************/
 	string strFileName = "data/YearPredictionMSD";
 	int maxNumofSplittableNode = 100;
+	DeviceSplitter splitter;
+	DeviceTrainer trainer(&splitter);
 
 	cout << "reading data..." << endl;
 	LibSVMDataReader dataReader;
@@ -44,7 +51,6 @@ int main()
 	begin_whole = clock();
 	cout << "start training..." << endl;
 	/********* run the GBDT learning process ******************/
-	HostTrainer trainer;
 
 	trainer.m_vvInsSparse = v_vInsSparse;
 	trainer.m_vTrueValue = v_fLabel;
@@ -63,8 +69,8 @@ int main()
 	int *pInsId = new int[memAllocator.totalNumofValues];
 	double *pdValue = new double[memAllocator.totalNumofValues];
 	int *pNumofKeyValue = new int[nNumofFeatures];
-	KeyValue::VecToArray(trainer.splitter.m_vvFeaInxPair, pInsId, pdValue, pNumofKeyValue);
-	KeyValue::TestVecToArray(trainer.splitter.m_vvFeaInxPair, pInsId, pdValue, pNumofKeyValue);
+	KeyValue::VecToArray(trainer.splitter->m_vvFeaInxPair, pInsId, pdValue, pNumofKeyValue);
+	KeyValue::TestVecToArray(trainer.splitter->m_vvFeaInxPair, pInsId, pdValue, pNumofKeyValue);
 
 	//copy feature key-value to device memory
 	memAllocator.MemcpyHostToDevice(pInsId, memAllocator.pDInsId, nNumofValue * sizeof(int));

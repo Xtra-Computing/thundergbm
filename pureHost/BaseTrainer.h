@@ -15,7 +15,7 @@
 #include "Tree/RegTree.h"
 #include "KeyValue.h"
 #include "GDPair.h"
-#include "UpdateOps/HostSplitter.h"
+#include "UpdateOps/BaseSplitter.h"
 #include "UpdateOps/Pruner.h"
 
 using std::string;
@@ -32,7 +32,7 @@ public:
 
 	/*** for more efficient on finding the best split value of a feature ***/
 	vector<vector<KeyValue> > m_vvInsSparse;
-	HostSplitter splitter;
+	BaseSplitter *splitter;
 
 private:
 public:
@@ -41,6 +41,7 @@ public:
 	vector<double> m_vPredBuffer;
 
 public:
+	BaseTrainer(BaseSplitter *pSplitter){splitter = pSplitter;}
 	virtual ~BaseTrainer(){}
 	void InitTrainer(int nNumofTree, int nMaxDepth, double fLabda, double fGamma, int nNumofFea);
 	void TrainGBDT(vector<RegTree> &v_Tree);

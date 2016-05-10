@@ -10,11 +10,12 @@
 #define TRAINER_H_
 
 #include "BaseTrainer.h"
+#include "UpdateOps/HostSplitter.h"
 
 class HostTrainer: public BaseTrainer
 {
 public:
-	HostTrainer(){}
+	HostTrainer(HostSplitter *pHSpliter):BaseTrainer(pHSpliter){}
 	virtual ~HostTrainer(){}
 protected:
 	virtual void GrowTree(RegTree &tree);

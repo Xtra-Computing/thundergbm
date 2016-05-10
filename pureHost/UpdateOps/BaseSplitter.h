@@ -42,7 +42,7 @@ public:
 	void ComputeGDSparse(vector<double> &v_fPredValue, vector<double> &m_vTrueValue_fixedPos);
 
 	//a function for computing the gain of a feature
-	void FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat> &tempStat, vector<nodeStat> &lchildStat);
+	virtual void FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat> &tempStat, vector<nodeStat> &lchildStat) = 0;
 
 	void UpdateNodeStat(vector<TreeNode*> &newSplittableNode, vector<nodeStat> &v_nodeStat);
 
@@ -54,6 +54,19 @@ public:
 
 	const static float rt_eps = 1e-5;
 	const static double min_child_weight = 1.0;//follow xgboost
+
+public:
+	//for debugging
+	template<class T>
+	void PrintVec(vector<T> &vec)
+	{
+		int nNumofEle = vec.size();
+		for(int i = 0; i < nNumofEle; i++)
+		{
+			cout << vec[i] << "\t";
+		}
+		cout << endl;
+	}
 
 public:
 	int m_nRound;

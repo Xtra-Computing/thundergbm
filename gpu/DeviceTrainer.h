@@ -10,11 +10,12 @@
 #define DEVICETRAINER_H_
 
 #include "../pureHost/BaseTrainer.h"
+#include "DeviceSplitter.h"
 
 class DeviceTrainer: public BaseTrainer
 {
 public:
-	DeviceTrainer(){}
+	DeviceTrainer(DeviceSplitter *pSplitter):BaseTrainer(pSplitter){}
 	virtual ~DeviceTrainer(){}
 
 	virtual void GrowTree(RegTree &tree);

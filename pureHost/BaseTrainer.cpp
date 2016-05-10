@@ -23,18 +23,18 @@ void BaseTrainer::InitTrainer(int nNumofTree, int nMaxDepth, double fLabda, doub
 {
 	m_nMaxNumofTree = nNumofTree;
 	m_nMaxDepth = nMaxDepth;
-	splitter.m_labda = fLabda;
-	splitter.m_gamma = fGamma;
+	splitter->m_labda = fLabda;
+	splitter->m_gamma = fGamma;
 
 	//initialise the prediction buffer
 	for(int i = 0; i < (int)m_vvInsSparse.size(); i++)
 	{
 		m_vPredBuffer.push_back(0.0);
 		gdpair gd;
-		splitter.m_vGDPair_fixedPos.push_back(gd);
+		splitter->m_vGDPair_fixedPos.push_back(gd);
 	}
 
-	KeyValue::SortFeaValue(nNumofFea, m_vvInsSparse, splitter.m_vvFeaInxPair);
+	KeyValue::SortFeaValue(nNumofFea, m_vvInsSparse, splitter->m_vvFeaInxPair);
 }
 
 /**
@@ -49,7 +49,7 @@ void BaseTrainer::TrainGBDT(vector<RegTree> & vTree)
 	Predictor pred;
 	for(int i = 0; i < m_nMaxNumofTree; i++)
 	{
-		splitter.m_nRound = i;
+		splitter->m_nRound = i;
 		cout << "start round " << i << endl;
 		clock_t start_round = clock();
 		//initialise a tree
@@ -72,7 +72,7 @@ void BaseTrainer::TrainGBDT(vector<RegTree> & vTree)
 		}
 
 		begin_gd = clock();
-		splitter.ComputeGDSparse(v_fPredValue, m_vTrueValue);
+		splitter->ComputeGDSparse(v_fPredValue, m_vTrueValue);
 		end_gd = clock();
 		total_gd += (double(end_gd - begin_gd) / CLOCKS_PER_SEC);
 
@@ -110,10 +110,10 @@ void BaseTrainer::InitTree(RegTree &tree)
 	tree.nodes.push_back(root);
 
 	//all instances are under node 0
-	splitter.m_nodeIds.clear();
+	splitter->m_nodeIds.clear();
 	for(int i = 0; i < m_vvInsSparse.size(); i++)
 	{
-		splitter.m_nodeIds.push_back(0);
+		splitter->m_nodeIds.push_back(0);
 	}
 
 	total_find_fea_t = 0;
