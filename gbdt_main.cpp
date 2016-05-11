@@ -13,18 +13,24 @@
 #include "pureHost/Evaluation/RMSE.h"
 #include "pureHost/MyAssert.h"
 
-#include "gpu/gbdtGPUMemManager.h"
+#include "gpu/Memory/gbdtGPUMemManager.h"
 #include "gpu/DeviceTrainer.h"
+#include "gpu/initCuda.h"
 #include "pureHost/PureHostGBDTMain.h"
 
 int main()
 {
-//	mainPureHost();
-//	return 1;
+	//mainPureHost();
+	//return 1;
+	if(!InitCUDA('T'))
+	{
+		cerr << "cannot initialise GPU" << endl;
+		return 0;
+	}
 
 	clock_t begin_whole, end_whole;
 	/********* read training instances from a file **************/
-	string strFileName = "data/abalone.txt";
+	string strFileName = "data/YearPredictionMSD";
 	int maxNumofSplittableNode = 100;
 	DeviceSplitter splitter;
 	DeviceTrainer trainer(&splitter);
@@ -43,7 +49,7 @@ int main()
 	//initialise gpu memory allocator
 	GBDTGPUMemManager memAllocator;
 	PROCESS_ERROR(nNumofValue > 0);
-	memAllocator.totalNumofValues = nNumofValue;
+	memAllocator.m_totalNumofValues = nNumofValue;
 	//allocate memory for instances
 	memAllocator.allocMemForIns(nNumofValue, nNumofExamples, nNumofFeatures);
 	memAllocator.allocMemForSplittableNode(maxNumofSplittableNode);
@@ -66,21 +72,21 @@ int main()
 	clock_t end_init = clock();
 
 	//store feature key-value into array
-	int *pInsId = new int[memAllocator.totalNumofValues];
-	double *pdValue = new double[memAllocator.totalNumofValues];
+	int *pInsId = new int[memAllocator.m_totalNumofValues];
+	double *pdValue = new double[memAllocator.m_totalNumofValues];
 	int *pNumofKeyValue = new int[nNumofFeatures];
 	KeyValue::VecToArray(trainer.splitter->m_vvFeaInxPair, pInsId, pdValue, pNumofKeyValue);
 	KeyValue::TestVecToArray(trainer.splitter->m_vvFeaInxPair, pInsId, pdValue, pNumofKeyValue);
 
 	//copy feature key-value to device memory
-	memAllocator.MemcpyHostToDevice(pInsId, memAllocator.pDInsId, nNumofValue * sizeof(int));
-	memAllocator.MemcpyHostToDevice(pdValue, memAllocator.pdDFeaValue, nNumofValue * sizeof(double));
-	memAllocator.MemcpyHostToDevice(pNumofKeyValue, memAllocator.pDNumofKeyValue, nNumofFeatures * sizeof(int));
+	memAllocator.MemcpyHostToDevice(pInsId, memAllocator.m_pDInsId, nNumofValue * sizeof(int));
+	memAllocator.MemcpyHostToDevice(pdValue, memAllocator.m_pdDFeaValue, nNumofValue * sizeof(double));
+	memAllocator.MemcpyHostToDevice(pNumofKeyValue, memAllocator.m_pDNumofKeyValue, nNumofFeatures * sizeof(int));
 
 	memAllocator.TestMemcpyDeviceToHost();
-	memAllocator.TestMemcpyHostToDevice(pInsId, memAllocator.pDInsId, nNumofValue * sizeof(int));
-	memAllocator.TestMemcpyHostToDevice(pdValue, memAllocator.pdDFeaValue, nNumofValue * sizeof(double));
-	memAllocator.TestMemcpyHostToDevice(pNumofKeyValue, memAllocator.pDNumofKeyValue, nNumofFeatures * sizeof(int));
+	memAllocator.TestMemcpyHostToDevice(pInsId, memAllocator.m_pDInsId, nNumofValue * sizeof(int));
+	memAllocator.TestMemcpyHostToDevice(pdValue, memAllocator.m_pdDFeaValue, nNumofValue * sizeof(double));
+	memAllocator.TestMemcpyHostToDevice(pNumofKeyValue, memAllocator.m_pDNumofKeyValue, nNumofFeatures * sizeof(int));
 
 	//free host memory
 	delete []pInsId;

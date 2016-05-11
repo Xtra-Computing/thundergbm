@@ -107,7 +107,7 @@ __device__ double CalGain(const nodeStat &parent, const nodeStat &r_child, float
 	return fGain;
 }
 
-__host__ __device__ int GetBufferId(int *pSNIdToBuffId, int snid, int m_maxNumofSplittable)
+__device__ int GetBufferId(int *pSNIdToBuffId, int snid, int m_maxNumofSplittable)
 {
 	int buffId = -1;
 
@@ -124,31 +124,6 @@ __host__ __device__ int GetBufferId(int *pSNIdToBuffId, int snid, int m_maxNumof
 		for(int i = m_maxNumofSplittable - 1; i > 0; i--)
 		{
 			if(pSNIdToBuffId[i] == snid)
-				buffId = i;
-		}
-	}
-
-	return buffId;
-}
-
-__host__ int AssignBufferId(int *pSNIdToBuffId, int snid, int m_maxNumofSplittable)
-{
-	int buffId = -1;
-
-	int remain = snid % m_maxNumofSplittable;//use mode operation as Hash function to find the buffer position
-
-	//finding a location for snid
-	if(pSNIdToBuffId[remain] == -1)
-	{
-		buffId = remain;
-		pSNIdToBuffId[remain] = snid;
-	}
-	else
-	{
-		//Hash conflict
-		for(int i = m_maxNumofSplittable - 1; i > 0; i--)
-		{
-			if(pSNIdToBuffId[i] == -1)
 				buffId = i;
 		}
 	}

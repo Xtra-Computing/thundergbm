@@ -9,9 +9,9 @@
 #ifndef DEVICESPLITTERKERNEL_H_
 #define DEVICESPLITTERKERNEL_H_
 
-#include "../pureHost/UpdateOps/NodeStat.h"
-#include "../pureHost/UpdateOps/SplitPoint.h"
-#include "../pureHost/BaseClasses/BaseSplitter.h"
+#include "../../pureHost/UpdateOps/NodeStat.h"
+#include "../../pureHost/UpdateOps/SplitPoint.h"
+#include "../../pureHost/BaseClasses/BaseSplitter.h"
 
 
 typedef double float_point;
@@ -23,11 +23,7 @@ __global__ void FindFeaSplitValue(int nNumofKeyValues, int *idStartAddress, floa
 
 __device__ double CalGain(const nodeStat &parent, const nodeStat &r_child, float_point &l_child_GD,
 									 float_point &l_child_Hess, float_point &lambda);
-	/**
-	 * @brief: return buffer id given a splittable node id
-	 */
-__host__ __device__ int GetBufferId(int *pSNIdToBuffId, int snid, int m_maxNumofSplittable);
-__host__ int AssignBufferId(int *pSNIdToBuffId, int snid, int m_maxNumofSplittable);
+
 __device__ bool UpdateSplitPoint(SplitPoint &curBest, double fGain, double fSplitValue, int nFeatureId);
 
 __device__ void UpdateLRStat(nodeStat &RChildStat, nodeStat &LChildStat, nodeStat &TempRChildStat,
@@ -37,6 +33,7 @@ __device__ void UpdateSplitInfo(nodeStat &snStat, SplitPoint &bestSP, nodeStat &
 										 nodeStat &TempRChildStat, float_point &tempGD, float_point &temHess,
 										 float_point &lambda, float_point &sv, int &featureId);
 
-
+//has an identical verion in host
+__device__ int GetBufferId(int *pSNIdToBuffId, int snid, int m_maxNumofSplittable);
 
 #endif /* DEVICESPLITTERKERNEL_H_ */

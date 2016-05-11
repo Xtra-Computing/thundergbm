@@ -10,7 +10,7 @@
 #define DEVICETRAINER_H_
 
 #include "../pureHost/BaseClasses/BaseTrainer.h"
-#include "DeviceSplitter.h"
+#include "Splitter/DeviceSplitter.h"
 
 class DeviceTrainer: public BaseTrainer
 {

@@ -9,7 +9,7 @@
 #include <helper_cuda.h>
 
 #include "gpuMemManager.h"
-#include "../pureHost/MyAssert.h"
+#include "../../pureHost/MyAssert.h"
 
 
 /**
@@ -33,6 +33,14 @@ void GPUMemManager::MemcpyDeviceToHost(void *pDevSrc, void *pHostDst, int numofB
 	PROCESS_ERROR(pDevSrc != NULL);
 	PROCESS_ERROR(pHostDst != NULL);
 	checkCudaErrors(cudaMemcpy(pHostDst, pDevSrc, numofByte, cudaMemcpyDeviceToHost));
+}
+
+/**
+ * @brief: set gpu memory
+ */
+void GPUMemManager::Memset(void *pDevSrc, int value, int numofByte)
+{
+	checkCudaErrors(cudaMemset(pDevSrc, value, numofByte));
 }
 
 /**
