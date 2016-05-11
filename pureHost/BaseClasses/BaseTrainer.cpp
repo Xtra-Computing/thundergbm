@@ -10,11 +10,10 @@
 
 #include <ctime>
 
-#include "HostTrainer.h"
-#include "Predictor.h"
-#include "Tree/TreeNode.h"
-#include "Tree/PrintTree.h"
-#include "Evaluation/RMSE.h"
+#include "../Predictor.h"
+#include "../Tree/TreeNode.h"
+#include "../Tree/PrintTree.h"
+#include "../Evaluation/RMSE.h"
 
 /*
  * @brief: initialise constants of a trainer

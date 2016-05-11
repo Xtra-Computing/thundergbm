@@ -12,8 +12,7 @@
 #include <map>
 #include <iostream>
 
-#include "HostSplitter.h"
-#include "SplitPoint.h"
+#include "../UpdateOps/SplitPoint.h"
 #include "../MyAssert.h"
 #include "BaseSplitter.h"
 

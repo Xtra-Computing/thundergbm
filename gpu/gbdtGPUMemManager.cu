@@ -28,14 +28,15 @@ float_point *GBDTGPUMemManager::pHess = NULL;
 //memory for splittable nodes
 int GBDTGPUMemManager::m_maxNumofSplittable = -1;
 TreeNode *GBDTGPUMemManager::pSplittableNode = NULL;
-SplitPoint *GBDTGPUMemManager::pBestSplitPoint = NULL;
-nodeStat *GBDTGPUMemManager::pSNodeStat = NULL;
+SplitPoint *GBDTGPUMemManager::pBestSplitPoint = NULL;//(require memset!) store the best split points
+nodeStat *GBDTGPUMemManager::pSNodeStat = NULL;		//splittable node statistics
 nodeStat *GBDTGPUMemManager::pRChildStat = NULL;
 nodeStat *GBDTGPUMemManager::pLChildStat = NULL;
-nodeStat *GBDTGPUMemManager::pTempRChildStat = NULL;//store temporary statistics of right child
+nodeStat *GBDTGPUMemManager::pTempRChildStat = NULL;//(require memset!) store temporary statistics of right child
 float_point *GBDTGPUMemManager::pLastValue = NULL;	//store the last processed value (for computing split point)
 
-int *GBDTGPUMemManager::pSNIdToBuffId = NULL;	//map splittable node id to buffer position
+int *GBDTGPUMemManager::pSNIdToBuffId = NULL;	//(require memset!) map splittable node id to buffer position
+int *GBDTGPUMemManager::pBuffIdVec = NULL;		//store all the buffer ids
 
 /**
  * @brief: allocate memory for instances
@@ -73,6 +74,7 @@ void GBDTGPUMemManager::allocMemForSplittableNode(int nMaxNumofSplittableNode)
 
 	checkCudaErrors(cudaMalloc((void**)&pSplittableNode, sizeof(TreeNode) * m_maxNumofSplittable));
 	checkCudaErrors(cudaMalloc((void**)&pBestSplitPoint, sizeof(SplitPoint) * m_maxNumofSplittable));
+
 	checkCudaErrors(cudaMalloc((void**)&pSNodeStat, sizeof(nodeStat) * m_maxNumofSplittable));
 	checkCudaErrors(cudaMalloc((void**)&pRChildStat, sizeof(nodeStat) * m_maxNumofSplittable));
 	checkCudaErrors(cudaMalloc((void**)&pLChildStat, sizeof(nodeStat) * m_maxNumofSplittable));
@@ -80,9 +82,10 @@ void GBDTGPUMemManager::allocMemForSplittableNode(int nMaxNumofSplittableNode)
 	//temporary space for splittable nodes
 	checkCudaErrors(cudaMalloc((void**)&pTempRChildStat, sizeof(nodeStat) * m_maxNumofSplittable));
 	checkCudaErrors(cudaMalloc((void**)&pLastValue, sizeof(float_point) * m_maxNumofSplittable));
+	checkCudaErrors(cudaMemset(pLastValue, 0, sizeof(float_point) * m_maxNumofSplittable));
 
 
 	//map splittable node to buffer id
 	checkCudaErrors(cudaMalloc((void**)&pSNIdToBuffId, sizeof(int) * m_maxNumofSplittable));
-	checkCudaErrors(cudaMemset(pSNIdToBuffId, -1, sizeof(int) * m_maxNumofSplittable));
+	checkCudaErrors(cudaMalloc((void**)&pBuffIdVec, sizeof(int) * m_maxNumofSplittable));
 }

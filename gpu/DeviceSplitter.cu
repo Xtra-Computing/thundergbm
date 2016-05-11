@@ -6,26 +6,16 @@
  *		@brief: 
  */
 
-#include "DeviceSplitter.h"
-#include <algorithm>
-#include <math.h>
 #include <iostream>
 
 #include "../pureHost/MyAssert.h"
 #include "gbdtGPUMemManager.h"
+#include "DeviceSplitter.h"
 #include "DeviceSplitterKernel.h"
 
-
-using std::map;
-using std::make_pair;
 using std::cout;
 using std::endl;
 
-const float rt_2eps = 2.0 * DeviceSplitter::rt_eps;
-__global__ void FindFeaSplitValue(int nNumofKeyValues, int *idStartAddress, float_point *pValueStartAddress, int *pInsIdToNodeId,
-								  nodeStat *pTempRChildStat, float_point *pGD, float_point *pHess, float_point *pLastValue,
-								  nodeStat *pSNodeState, SplitPoint *pBestSplitPoin, nodeStat *pRChildStat, nodeStat *pLChildStat,
-								  int *pSNIdToBuffId, int maxNumofSplittable, int featureId, int numofSNode, float_point lambda);
 
 /**
  * @brief: efficient best feature finder
@@ -36,18 +26,81 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 	int numofSNode = vBest.size();
 
 	GBDTGPUMemManager manager;
-
-
 	int nNumofFeature = manager.m_numofFea;
 	PROCESS_ERROR(nNumofFeature > 0);
 
+	//copy gradient and hessian to GPU memory
+	float_point *pHostGD = new float_point[manager.m_numofIns];
+	float_point *pHostHess = new float_point[manager.m_numofIns];
+	for(int i = 0; i < manager.m_numofIns; i++)
+	{
+		pHostGD[i] = m_vGDPair_fixedPos[i].grad;
+		pHostHess[i] = m_vGDPair_fixedPos[i].hess;
+	}
+	manager.MemcpyHostToDevice(pHostGD, manager.pGrad, sizeof(float_point) * manager.m_numofIns);
+	manager.MemcpyHostToDevice(pHostHess, manager.pHess, sizeof(float_point) * manager.m_numofIns);
+	float_point *pGD = manager.pGrad;
+	float_point *pHess = manager.pHess;
+	delete[] pHostGD;
+	delete[] pHostHess;
+
+	//copy instance id to node id infomation
+	int *pInsToNodeId = new int[manager.m_numofIns];
+	PROCESS_ERROR(manager.m_numofIns == m_nodeIds.size());
+	manager.VecToArray(m_nodeIds, pInsToNodeId);
+	manager.MemcpyHostToDevice(pInsToNodeId, manager.pInsIdToNodeId, sizeof(int) * manager.m_numofIns);
+	delete[] pInsToNodeId;
+
+	//copy splittable nodes to GPU memory
+	int maxNumofSplittable = manager.m_maxNumofSplittable;
+	int *pSNIdToBuffIdHost = new int[maxNumofSplittable];
+	memset(pSNIdToBuffIdHost, -1, sizeof(int) * maxNumofSplittable);
+	checkCudaErrors(cudaMemset(manager.pSNIdToBuffId, -1, sizeof(int) * maxNumofSplittable));
+	nodeStat *pHostNodeStat = new nodeStat[maxNumofSplittable];
+	int *pBuffId = new int[maxNumofSplittable];//save all the buffer ids
+	int bidCounter = 0;
+	for(map<int, int>::iterator it = mapNodeIdToBufferPos.begin(); it != mapNodeIdToBufferPos.end(); it++)
+	{
+		int snid = it->first;
+		int vecId = it->second;
+		PROCESS_ERROR(vecId < m_nodeStat.size());
+		int buffId = AssignBufferId(pSNIdToBuffIdHost, snid, maxNumofSplittable);
+		PROCESS_ERROR(buffId >= 0);
+		pHostNodeStat[buffId] = m_nodeStat[vecId];
+
+		//save the buffer ids into a set
+		pBuffId[bidCounter] = buffId;
+		bidCounter++;
+	}
+
+	manager.MemcpyHostToDevice(pHostNodeStat, manager.pSNodeStat, sizeof(nodeStat) * maxNumofSplittable);
+	manager.MemcpyHostToDevice(pSNIdToBuffIdHost, manager.pSNIdToBuffId, sizeof(int) * maxNumofSplittable);
+
+	//copy buffer ids to GPU memory
+	PROCESS_ERROR(bidCounter == numofSNode);
+	manager.MemcpyHostToDevice(pBuffId, manager.pBuffIdVec, sizeof(int) * maxNumofSplittable);
+	nodeStat *pSNodeState = manager.pSNodeStat;
+
+	delete[] pHostNodeStat;
+	delete[] pBuffId;
+
+	//use short names for temporary info
+	nodeStat *pTempRChildStat = manager.pTempRChildStat;
+	float_point *pLastValue = manager.pLastValue;
+
+	//use short names for instance info
+	int *pInsId = manager.pDInsId;
+	float_point *pFeaValue = manager.pdDFeaValue;
+	int *pNumofKeyValue = manager.pDNumofKeyValue;
+
+	//reset the best splittable points
+	SplitPoint *pBestPointHost = new SplitPoint[maxNumofSplittable];
+	manager.MemcpyHostToDevice(pBestPointHost, manager.pBestSplitPoint, sizeof(SplitPoint) * maxNumofSplittable);
+	delete []pBestPointHost;
+
+
 	for(int f = 0; f < nNumofFeature; f++)
 	{
-
-		int *pInsId = manager.pDInsId;
-		float_point *pFeaValue = manager.pdDFeaValue;
-		int *pNumofKeyValue = manager.pDNumofKeyValue;
-
 		//the number of key values of the f{th} feature
 		int numofCurFeaKeyValues = 0;
 		manager.MemcpyDeviceToHost(pNumofKeyValue + f, &numofCurFeaKeyValues, sizeof(int));
@@ -68,35 +121,9 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 		//copy the value of the start position of the current feature
 		manager.MemcpyHostToDevice(&startPosOfCurFea, manager.pFeaStartPos + f, sizeof(long long));
 
-		int *pInsToNodeId = new int[manager.m_numofIns];
-		PROCESS_ERROR(manager.m_numofIns == m_nodeIds.size());
-		manager.VecToArray(m_nodeIds, pInsToNodeId);
-		manager.MemcpyHostToDevice(pInsToNodeId, manager.pInsIdToNodeId, sizeof(int) * manager.m_numofIns);
-		nodeStat *pHostNodeStat = new nodeStat[manager.m_numofIns];
-		manager.VecToArray(m_nodeStat, pHostNodeStat);
-		manager.MemcpyHostToDevice(pHostNodeStat, manager.pSNodeStat, sizeof(int) * manager.m_numofIns);
+		//reset the temporary right child statistics
+		checkCudaErrors(cudaMemset(pTempRChildStat, 0, sizeof(nodeStat) * maxNumofSplittable));
 
-		float_point *pHostGD = new float_point[manager.m_numofIns];
-		float_point *pHostHess = new float_point[manager.m_numofIns];
-		for(int i = 0; i < manager.m_numofIns; i++)
-		{
-			pHostGD[i] = m_vGDPair_fixedPos[i].grad;
-			pHostHess[i] = m_vGDPair_fixedPos[i].hess;
-		}
-		manager.MemcpyHostToDevice(pHostGD, manager.pGrad, manager.m_numofIns);
-		manager.MemcpyHostToDevice(pHostHess, manager.pHess, manager.m_numofIns);
-
-		delete[] pHostGD;
-		delete[] pHostHess;
-		delete[] pInsToNodeId;
-		delete[] pHostNodeStat;
-
-nodeStat *pSNodeState = manager.pSNodeStat;
-nodeStat *pTempRChildStat = manager.pTempRChildStat;
-float_point *pLastValue = manager.pLastValue;
-
-float_point *pGD = manager.pGrad;
-float_point *pHess = manager.pHess;
 
 		//find the split value for this feature
 	int *idStartAddress = pInsId + startPosOfCurFea;
@@ -105,163 +132,35 @@ float_point *pHess = manager.pHess;
 		FindFeaSplitValue<<<1, 1>>>(numofCurFeaKeyValues, idStartAddress, pValueStartAddress, manager.pInsIdToNodeId,
 									pTempRChildStat, pGD, pHess, pLastValue, pSNodeState, manager.pBestSplitPoint,
 									manager.pRChildStat, manager.pLChildStat, manager.pSNIdToBuffId,
-									manager.m_maxNumofSplittable, f, numofSNode, DeviceSplitter::m_labda);
+									manager.m_maxNumofSplittable, f, manager.pBuffIdVec, numofSNode, DeviceSplitter::m_labda);
+		cudaDeviceSynchronize();
 
-		//copy back to vectors
-		SplitPoint *pBestHost = new SplitPoint[numofSNode];
-		nodeStat *pRChildStatHost = new nodeStat[numofSNode];
-		nodeStat *pLChildStatHost = new nodeStat[numofSNode];
-		manager.MemcpyDeviceToHost(manager.pBestSplitPoint, pBestHost, sizeof(SplitPoint) * numofSNode);
-		manager.MemcpyDeviceToHost(manager.pRChildStat, pRChildStatHost, sizeof(nodeStat) * numofSNode);
-		manager.MemcpyDeviceToHost(manager.pLChildStat, pLChildStatHost, sizeof(nodeStat) * numofSNode);
-		for(int b = 0; b < numofSNode; b++)
+
+		//copy back the best split points to vectors
+		SplitPoint *pBestHost = new SplitPoint[maxNumofSplittable];
+		nodeStat *pRChildStatHost = new nodeStat[maxNumofSplittable];
+		nodeStat *pLChildStatHost = new nodeStat[maxNumofSplittable];
+		manager.MemcpyDeviceToHost(manager.pBestSplitPoint, pBestHost, sizeof(SplitPoint) * maxNumofSplittable);
+		manager.MemcpyDeviceToHost(manager.pRChildStat, pRChildStatHost, sizeof(nodeStat) * maxNumofSplittable);
+		manager.MemcpyDeviceToHost(manager.pLChildStat, pLChildStatHost, sizeof(nodeStat) * maxNumofSplittable);
+		for(map<int, int>::iterator it = mapNodeIdToBufferPos.begin(); it != mapNodeIdToBufferPos.end(); it++)
 		{
-			vBest[b] = pBestHost[b];
-			rchildStat[b] = pRChildStatHost[b];
-			lchildStat[b] = pLChildStatHost[b];
+			int snid = it->first;//splittable node id
+			int vecId = it->second;//position id in vectors
+			PROCESS_ERROR(vecId < m_nodeStat.size());
+			//position id in buffer
+			int buffId = GetBufferId(pSNIdToBuffIdHost, snid, maxNumofSplittable);
+			PROCESS_ERROR(buffId >= 0);
+
+			vBest[vecId] = pBestHost[buffId];
+			rchildStat[vecId] = pRChildStatHost[buffId];
+			lchildStat[vecId] = pLChildStatHost[buffId];
 		}
-	}
-}
-
-__global__ void FindFeaSplitValue(int nNumofKeyValues, int *idStartAddress, float_point *pValueStartAddress, int *pInsIdToNodeId,
-								  nodeStat *pTempRChildStat, float_point *pGD, float_point *pHess, float_point *pLastValue,
-								  nodeStat *pSNodeState, SplitPoint *pBestSplitPoint, nodeStat *pRChildStat, nodeStat *pLChildStat,
-								  int *pSNIdToBuffId, int maxNumofSplittable, int featureId, int numofSNode, float_point lambda)
-{
-    for(int i = 0; i < nNumofKeyValues; i++)
-    {
-    	int insId = idStartAddress[i];
-    	int nid = pInsIdToNodeId[insId];
-		if(nid < -1)
-		{
-			printf("Error: nid=%d\n", nid);
-			return;
-		}
-		if(nid == -1)
-			continue;
-
-		// start working
-		double fvalue = pValueStartAddress[i];
-
-		// get the buffer id of node nid
-		int bufferPos = GetBufferId(pSNIdToBuffId, nid, maxNumofSplittable);
-
-		if(pTempRChildStat[bufferPos].sum_hess == 0.0)//equivalent to IsEmpty()
-		{
-			pTempRChildStat[bufferPos].sum_gd += pGD[insId];
-			pTempRChildStat[bufferPos].sum_hess += pHess[insId];
-			pLastValue[bufferPos] = fvalue;
-		}
-		else
-		{
-			// try to find a split
-			if(fabs(fvalue - pLastValue[bufferPos]) > rt_2eps)
-			{
-				float_point tempGD = pSNodeState[bufferPos].sum_gd - pTempRChildStat[bufferPos].sum_gd;
-				float_point tempHess = pSNodeState[bufferPos].sum_hess - pTempRChildStat[bufferPos].sum_hess;
-				bool needUpdate = NeedUpdate(pTempRChildStat[bufferPos].sum_hess, tempHess);
-				if(needUpdate == true)
-				{
-					double sv = (fvalue + pLastValue[bufferPos]) * 0.5f;
-
-		            UpdateSplitInfo(pSNodeState[bufferPos], pBestSplitPoint[bufferPos], pRChildStat[bufferPos],
-		            							  pLChildStat[bufferPos], pTempRChildStat[bufferPos], tempGD, tempHess,
-		            							  lambda, sv, featureId);
-				}
-			}
-			//update the statistics
-			pTempRChildStat[bufferPos].sum_gd += pGD[insId];
-			pTempRChildStat[bufferPos].sum_hess += pHess[insId];
-			pLastValue[bufferPos] = fvalue;
-		}
+		delete[] pBestHost;
+		delete[] pRChildStatHost;
+		delete[] pLChildStatHost;
 	}
 
-    // finish updating all statistics, check if it is possible to include all sum statistics
-    for(int i = 0; i < numofSNode; i++)
-    {
-    	float_point tempGD = pSNodeState[i].sum_gd - pTempRChildStat[i].sum_gd;
-    	float_point tempHess = pSNodeState[i].sum_hess - pTempRChildStat[i].sum_hess;
-    	bool needUpdate = NeedUpdate(pTempRChildStat[i].sum_hess, tempHess);
-        if(needUpdate == true)
-        {
-            const float delta = fabs(pLastValue[i]) + DeviceSplitter::rt_eps;
-            float_point sv = pLastValue[i] + delta;
-
-            UpdateSplitInfo(pSNodeState[i], pBestSplitPoint[i], pRChildStat[i], pLChildStat[i],
-            							  pTempRChildStat[i], tempGD, tempHess, lambda, sv, featureId);
-        }
-    }
+	delete[] pSNIdToBuffIdHost;//use twice
 }
 
-__device__ double CalGain(const nodeStat &parent, const nodeStat &r_child, float_point &l_child_GD,
-										  float_point &l_child_Hess, float_point &lambda)
-{
-	PROCESS_ERROR(abs(parent.sum_gd - l_child_GD - r_child.sum_gd) < 0.0001);
-	PROCESS_ERROR(parent.sum_hess == l_child_Hess + r_child.sum_hess);
-
-	//compute the gain
-	double fGain = (l_child_GD * l_child_GD)/(l_child_Hess + lambda) +
-				   (r_child.sum_gd * r_child.sum_gd)/(r_child.sum_hess + lambda) -
-				   (parent.sum_gd * parent.sum_gd)/(parent.sum_hess + lambda);
-
-	return fGain;
-}
-
-__device__ int GetBufferId(int *pSNIdToBuffId, int snid, int m_maxNumofSplittable)
-{
-	int buffId = -1;
-
-	int remain = snid % m_maxNumofSplittable;//use mode operation as Hash function to find the buffer position
-	if(pSNIdToBuffId[remain] == -1)
-		buffId = remain;
-	else
-	{
-		//Hash conflict
-		for(int i = m_maxNumofSplittable - 1; i > 0; i--)
-		{
-			if(pSNIdToBuffId[i] == -1)
-				buffId = i;
-		}
-	}
-
-	return buffId;
-}
-
- __device__ bool UpdateSplitPoint(SplitPoint &curBest, double fGain, double fSplitValue, int nFeatureId)
-{
-	if(fGain > curBest.m_fGain )//|| (fGain == m_fGain && nFeatureId == m_nFeatureId) NOT USE (second condition is for updating to a new split value)
-	{
-		curBest.m_fGain = fGain;
-		curBest.m_fSplitValue = fSplitValue;
-		curBest.m_nFeatureId = nFeatureId;
-		return true;
-	}
-	return false;
-}
-
-__device__ void UpdateLRStat(nodeStat &RChildStat, nodeStat &LChildStat, nodeStat &TempRChildStat,
-											 float_point &grad, float_point &hess)
-{
-	LChildStat.sum_gd = grad;
-	LChildStat.sum_hess = hess;
-	RChildStat = TempRChildStat;
-}
-
-__device__ bool NeedUpdate(float_point &RChildHess, float_point &LChildHess)
-{
-	if(LChildHess >= DeviceSplitter::min_child_weight && RChildHess >= DeviceSplitter::min_child_weight)
-		return true;
-	return false;
-}
-
-__device__ void UpdateSplitInfo(nodeStat &snStat, SplitPoint &bestSP, nodeStat &RChildStat, nodeStat &LChildStat,
-											  nodeStat &TempRChildStat, float_point &tempGD, float_point &tempHess,
-											  float_point &lambda, float_point &sv, int &featureId)
-{
-	double loss_chg = CalGain(snStat, TempRChildStat, tempGD, tempHess, lambda);
-    bool bUpdated = UpdateSplitPoint(bestSP, loss_chg, sv, featureId);
-	if(bUpdated == true)
-	{
-		UpdateLRStat(RChildStat, LChildStat, TempRChildStat, tempGD, tempHess);
-	}
-}

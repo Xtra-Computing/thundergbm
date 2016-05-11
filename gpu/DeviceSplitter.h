@@ -11,16 +11,12 @@
 
 #include <vector>
 
-#include "../pureHost/Tree/RegTree.h"
-#include "../pureHost/Tree/TreeNode.h"
-#include "../pureHost/KeyValue.h"
 #include "../pureHost/UpdateOps/NodeStat.h"
 #include "../pureHost/UpdateOps/SplitPoint.h"
-#include "../pureHost/UpdateOps/BaseSplitter.h"
+#include "../pureHost/BaseClasses/BaseSplitter.h"
 
 using std::vector;
 
-typedef double float_point;
 
 class DeviceSplitter: public BaseSplitter
 {

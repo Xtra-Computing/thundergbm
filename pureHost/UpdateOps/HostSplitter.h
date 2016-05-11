@@ -18,7 +18,7 @@
 #include "SplitPoint.h"
 #include "NodeStat.h"
 #include "../GDPair.h"
-#include "BaseSplitter.h"
+#include "../BaseClasses/BaseSplitter.h"
 
 using std::vector;
 using std::map;

@@ -46,6 +46,7 @@ public:
 
 	//map splittable node id to buffer position
 	static int *pSNIdToBuffId;
+	static int *pBuffIdVec;
 
 	//model param
 	static float_point m_lambda;

@@ -46,8 +46,7 @@ void DeviceTrainer::GrowTree(RegTree &tree)
 		rchildStat.resize(bufferSize);
 		lchildStat.resize(bufferSize);
 
-		DeviceSplitter devSplitter;
-		devSplitter.FeaFinderAllNode(vBest, rchildStat, lchildStat);
+		splitter->FeaFinderAllNode(vBest, rchildStat, lchildStat);
 
 		clock_t end_find_fea = clock();
 		total_find_fea_t += (double(end_find_fea - begin_find_fea) / CLOCKS_PER_SEC);

@@ -9,7 +9,7 @@
 #ifndef TRAINER_H_
 #define TRAINER_H_
 
-#include "BaseTrainer.h"
+#include "BaseClasses/BaseTrainer.h"
 #include "UpdateOps/HostSplitter.h"
 
 class HostTrainer: public BaseTrainer

@@ -15,8 +15,8 @@
 #include "../Tree/RegTree.h"
 #include "../Tree/TreeNode.h"
 #include "../KeyValue.h"
-#include "SplitPoint.h"
-#include "NodeStat.h"
+#include "../UpdateOps/SplitPoint.h"
+#include "../UpdateOps/NodeStat.h"
 #include "../GDPair.h"
 
 using std::vector;
@@ -35,6 +35,8 @@ public:
 	double m_gamma;//the weight of the cost of the number of trees
 
 public:
+	virtual ~BaseSplitter(){}
+
 	void SplitAll(vector<TreeNode*> &splittableNode, const vector<SplitPoint> &vBest, RegTree &tree, int &m_nNumofNode,
 				  const vector<nodeStat> &rchildStat, const vector<nodeStat> &lchildStat, bool bLastLevel);
 
