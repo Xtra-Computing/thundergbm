@@ -22,6 +22,10 @@ class DeviceSplitter: public BaseSplitter
 {
 public:
 	virtual void FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat> &rchildStat, vector<nodeStat> &lchildStat);
+	virtual void SplitAll(vector<TreeNode*> &splittableNode, const vector<SplitPoint> &vBest, RegTree &tree, int &m_nNumofNode,
+				  	  	  const vector<nodeStat> &rchildStat, const vector<nodeStat> &lchildStat, bool bLastLevel);
+
+
 	static int AssignBufferId(int *pSNIdToBuffId, int snid, int m_maxNumofSplittable);
 
 	/**

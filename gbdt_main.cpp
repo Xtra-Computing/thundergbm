@@ -30,7 +30,7 @@ int main()
 
 	clock_t begin_whole, end_whole;
 	/********* read training instances from a file **************/
-	string strFileName = "data/YearPredictionMSD";
+	string strFileName = "data/abalone.txt";
 	int maxNumofSplittableNode = 100;
 	DeviceSplitter splitter;
 	DeviceTrainer trainer(&splitter);
