@@ -12,8 +12,8 @@
 #include "../../pureHost/MyAssert.h"
 #include "../Memory/gbdtGPUMemManager.h"
 #include "DeviceSplitter.h"
-#include "DeviceFindFeaKernel.h"
 #include "../Preparator.h"
+#include "DeviceSplitAllKernel.h"
 
 using std::cout;
 using std::endl;
@@ -37,6 +37,16 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 	PROCESS_ERROR(vBest.size() == rchildStat.size());
 	PROCESS_ERROR(vBest.size() == lchildStat.size());
 
+	GBDTGPUMemManager manager;
+	for(int t = 0; t < tree.nodes.size(); t++)
+	{
+		manager.MemcpyHostToDevice(tree.nodes[t], manager.m_pTreeNode + t, sizeof(TreeNode) * 1);
+	}
+
+	//compute the base_weight of tree node, also determines if a node is a leaf.
+	ComputeWeight<<<1, 1>>>(manager.m_pTreeNode, manager.m_pSplittableNode, manager.m_pSNIdToBuffId,
+			  	  	  	  	  manager.m_pBestSplitPoint, manager.m_pSNodeStat, rt_eps, LEAFNODE,
+			  	  	  	  	  m_labda, nNumofSplittableNode, bLastLevel);
 
 	for(int n = 0; n < nNumofSplittableNode; n++)
 	{
@@ -53,6 +63,21 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 			tree.nodes[nid]->predValue = tree.nodes[nid]->base_weight;
 			tree.nodes[nid]->rightChildId = LEAFNODE;
 		}
+	}
+
+	//testing
+	for(int t = 0; t < tree.nodes.size(); t++)
+	{
+		TreeNode tempNode;
+		manager.MemcpyDeviceToHost(manager.m_pTreeNode + t, &tempNode, sizeof(TreeNode) * 1);
+		if(tempNode.loss != tree.nodes[t]->loss)
+		{
+			cout << "t=" << t << "; " << tempNode.loss << " v.s " << tree.nodes[t]->loss << endl;
+		}
+		PROCESS_ERROR(tempNode.loss == tree.nodes[t]->loss);
+		PROCESS_ERROR(tempNode.base_weight == tree.nodes[t]->base_weight);
+		PROCESS_ERROR(tempNode.predValue == tree.nodes[t]->predValue);
+		PROCESS_ERROR(tempNode.rightChildId == tree.nodes[t]->rightChildId);
 	}
 
 	//for each splittable node, assign lchild and rchild ids
@@ -126,7 +151,6 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 	PROCESS_ERROR(vFid.size() <= nNumofSplittableNode);
 
 	//find unique used feature ids
-	GBDTGPUMemManager manager;
 	manager.Memset(manager.m_pFeaIdToBuffId, -1, sizeof(int) * manager.m_maxNumofUsedFea);
 	DataPreparator preparator;
 	int *pFidHost = new int[vFid.size()];

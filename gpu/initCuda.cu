@@ -22,7 +22,8 @@ bool InitCUDA(char gpuType)
     int count;
 
     checkCudaErrors(cudaGetDeviceCount(&count));
-    if(count == 0) {
+    if(count == 0)
+    {
         fprintf(stderr, "There is no device.\n");
         return false;
     }
@@ -31,10 +32,12 @@ bool InitCUDA(char gpuType)
     CUcontext context;
     int i;
     bool bUseTesla = false;
-    for(i = 0; i < count; i++) {
+    for(i = 0; i < count; i++)
+    {
         cudaDeviceProp prop;
         checkCudaErrors(cudaGetDeviceProperties(&prop, i));
-        if(cudaGetDeviceProperties(&prop, i) == cudaSuccess) {
+        if(cudaGetDeviceProperties(&prop, i) == cudaSuccess)
+        {
         	cout << prop.name << endl;
         	if(prop.name[0] == gpuType && prop.name[1] == 'e')
         	{
@@ -54,7 +57,8 @@ bool InitCUDA(char gpuType)
 
     if(i == count)
     {
-        cerr << "There is no device of " << gpuType << " series. Please reset the parameter of \"" << __PRETTY_FUNCTION__ << "\"" <<endl;
+        cerr << "There is no device of " << gpuType << " series. Please reset the parameter of \""
+        	 << __PRETTY_FUNCTION__ << "\"" <<endl;
         return false;
     }
 

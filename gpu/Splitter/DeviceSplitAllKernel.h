@@ -16,7 +16,9 @@
 
 typedef double float_point;
 
-__global__ void ComputeWeight(int nNumofKeyValues);
+__global__ void ComputeWeight(TreeNode *pAllTreeNode, TreeNode *pSplittableNode, int *pSNIdToBufferId,
+		  	  	  	  	  	  	  SplitPoint *pBestSplitPoint, nodeStat *pSNodeStat, float_point rt_eps, int flag_LEAFNODE,
+		  	  	  	  	  	  	  float_point lambda, int numofSplittableNode, bool bLastLevel);
 
 
 

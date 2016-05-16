@@ -25,6 +25,10 @@ int GBDTGPUMemManager::m_numofFea = -1;
 float_point *GBDTGPUMemManager::m_pGrad = NULL;
 float_point *GBDTGPUMemManager::m_pHess = NULL;
 
+//memory for the tree
+TreeNode *GBDTGPUMemManager::m_pTreeNode = NULL;
+int GBDTGPUMemManager::m_maxNumofNode = -1;
+
 //memory for splittable nodes
 int GBDTGPUMemManager::m_maxNumofSplittable = -1;
 TreeNode *GBDTGPUMemManager::m_pSplittableNode = NULL;
@@ -99,12 +103,26 @@ void GBDTGPUMemManager::allocMemForSplittableNode(int nMaxNumofSplittableNode)
 	checkCudaErrors(cudaMalloc((void**)&m_pBuffIdVec, sizeof(int) * m_maxNumofSplittable));
 }
 
+/**
+ * @brief: memory for splitAll process
+ */
 void GBDTGPUMemManager::allocMemForSplitting(int nMaxNumofUsedFeature)
 {
+	PROCESS_ERROR(nMaxNumofUsedFeature > 0);
 	m_maxNumofUsedFea = nMaxNumofUsedFeature;
 	//map splittable node to buffer id
 	checkCudaErrors(cudaMalloc((void**)&m_pFeaIdToBuffId, sizeof(int) * m_maxNumofUsedFea));
 	checkCudaErrors(cudaMalloc((void**)&m_pUniqueFeaIdVec, sizeof(int) * m_maxNumofUsedFea));
+}
+
+/**
+ * @brief: reserve memory for the tree
+ */
+void GBDTGPUMemManager::allocMemForTree(int maxNumofNode)
+{
+	PROCESS_ERROR(maxNumofNode > 0);
+	m_maxNumofNode = maxNumofNode;
+	checkCudaErrors(cudaMalloc((void**)&m_pTreeNode, sizeof(TreeNode) * m_maxNumofNode));
 }
 
 /**

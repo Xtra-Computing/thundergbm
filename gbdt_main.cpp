@@ -7,6 +7,7 @@
  */
 
 #include <math.h>
+#include <time.h>
 #include "pureHost/DataReader/LibsvmReaderSparse.h"
 #include "pureHost/HostTrainer.h"
 #include "pureHost/Predictor.h"
@@ -22,7 +23,7 @@ int main()
 {
 	//mainPureHost();
 	//return 1;
-	if(!InitCUDA('T'))
+	if(!InitCUDA('G'))
 	{
 		cerr << "cannot initialise GPU" << endl;
 		return 0;
@@ -33,6 +34,7 @@ int main()
 	string strFileName = "data/abalone.txt";
 	int maxNumofSplittableNode = 100;
 	int maxNumofUsedFeature = 1000;
+	int maxNumofNode = 10000;
 	DeviceSplitter splitter;
 	DeviceTrainer trainer(&splitter);
 
@@ -55,6 +57,7 @@ int main()
 	memAllocator.allocMemForIns(nNumofValue, nNumofExamples, nNumofFeatures);
 	memAllocator.allocMemForSplittableNode(maxNumofSplittableNode);//use in find features (i.e. best split points) process
 	memAllocator.allocMemForSplitting(maxNumofUsedFeature);//use in splitting all nodes process
+	memAllocator.allocMemForTree(maxNumofNode);//reserve memory for the tree
 
 	begin_whole = clock();
 	cout << "start training..." << endl;

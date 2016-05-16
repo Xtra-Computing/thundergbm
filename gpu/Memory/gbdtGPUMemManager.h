@@ -30,6 +30,10 @@ public:
 	//memory for gradient and hessian
 	static float_point *m_pGrad, *m_pHess;
 
+	//memory for the tree
+	static TreeNode *m_pTreeNode;
+	static int m_maxNumofNode;
+
 	//memory for splittable nodes
 	static int m_maxNumofSplittable;
 	static TreeNode *m_pSplittableNode;
@@ -56,6 +60,7 @@ public:
 	void allocMemForIns(int nTotalNumofValue, int numofIns, int numofFeature);
 	void allocMemForSplittableNode(int nMaxNumofSplittableNode);
 	void allocMemForSplitting(int nMaxNumofUsedFeature);
+	void allocMemForTree(int maxNumofNode);
 	void allocHostMemory();
 	void releaseHostMemory();
 };

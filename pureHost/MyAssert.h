@@ -9,6 +9,7 @@
 #ifndef MYASSERT_H_
 #define MYASSERT_H_
 
+#include <string.h>
 #include <assert.h>
 
 #define _DEBUG

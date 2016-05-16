@@ -6,8 +6,6 @@
  *		@brief: predict value for each instance
  */
 
-#include <string.h>
-
 #include "Predictor.h"
 #include "SparsePred/DenseInstance.h"
 #include "MyAssert.h"
