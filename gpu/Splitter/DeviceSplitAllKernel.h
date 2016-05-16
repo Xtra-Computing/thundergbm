@@ -20,6 +20,11 @@ __global__ void ComputeWeight(TreeNode *pAllTreeNode, TreeNode *pSplittableNode,
 		  	  	  	  	  	  	  SplitPoint *pBestSplitPoint, nodeStat *pSNodeStat, float_point rt_eps, int flag_LEAFNODE,
 		  	  	  	  	  	  	  float_point lambda, int numofSplittableNode, bool bLastLevel);
 
-
+__global__ void CreateNewNode(TreeNode *pAllTreeNode, TreeNode *pSplittableNode, TreeNode *pNewSplittableNode,
+		  	  	  	  	  	  	  int *pSNIdToBufferId, SplitPoint *pBestSplitPoint,
+		  	  	  	  	  	  	  int *pParentId, int *pLChildId, int *pRChildId,
+		  	  	  	  	  	  	  nodeStat *pLChildStat, nodeStat *pRChildStat, nodeStat *pNewNodeStat,
+		  	  	  	  	  	  	  int *m_nNumofNode,
+		  	  	  	  	  	  	  float_point rt_eps, int nNumofSplittableNode, bool bLastLevel);
 
 #endif /* DEVICESPLITALL_H_ */

@@ -11,6 +11,7 @@
 
 #include "../../pureHost/MyAssert.h"
 #include "../Memory/gbdtGPUMemManager.h"
+#include "../Memory/SplitNodeMemManager.h"
 #include "DeviceSplitter.h"
 #include "../Preparator.h"
 #include "DeviceSplitAllKernel.h"
@@ -38,10 +39,11 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 	PROCESS_ERROR(vBest.size() == lchildStat.size());
 
 	GBDTGPUMemManager manager;
+	SNGPUManager snManager;//splittable node memory manager
 	//copy the obtained tree nodes
 	for(int t = 0; t < tree.nodes.size(); t++)
 	{
-		manager.MemcpyHostToDevice(tree.nodes[t], manager.m_pTreeNode + t, sizeof(TreeNode) * 1);
+		manager.MemcpyHostToDevice(tree.nodes[t], snManager.m_pTreeNode + t, sizeof(TreeNode) * 1);
 	}
 
 	//copy the splittable nodes to GPU memory
@@ -51,10 +53,11 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 	}
 
 	//compute the base_weight of tree node, also determines if a node is a leaf.
-	ComputeWeight<<<1, 1>>>(manager.m_pTreeNode, manager.m_pSplittableNode, manager.m_pSNIdToBuffId,
+	ComputeWeight<<<1, 1>>>(snManager.m_pTreeNode, manager.m_pSplittableNode, manager.m_pSNIdToBuffId,
 			  	  	  	  	  manager.m_pBestSplitPoint, manager.m_pSNodeStat, rt_eps, LEAFNODE,
 			  	  	  	  	  m_labda, nNumofSplittableNode, bLastLevel);
 
+	//original cpu code, now for testing
 	for(int n = 0; n < nNumofSplittableNode; n++)
 	{
 		int nid = splittableNode[n]->nodeId;
@@ -72,12 +75,12 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 		}
 	}
 
-	//testing
-	cout << "numof tree nodes is " << tree.nodes.size() << endl;
+	//testing. Compare the results from GPU with those from CPU
+//	cout << "numof tree nodes is " << tree.nodes.size() << endl;
 	for(int t = 0; t < tree.nodes.size(); t++)
 	{
 		TreeNode tempNode;
-		manager.MemcpyDeviceToHost(manager.m_pTreeNode + t, &tempNode, sizeof(TreeNode) * 1);
+		manager.MemcpyDeviceToHost(snManager.m_pTreeNode + t, &tempNode, sizeof(TreeNode) * 1);
 		if(tempNode.loss != tree.nodes[t]->loss)
 		{
 			cout << "t=" << t << "; " << tempNode.loss << " v.s " << tree.nodes[t]->loss << endl;
@@ -87,6 +90,15 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 		PROCESS_ERROR(tempNode.predValue == tree.nodes[t]->predValue);
 		PROCESS_ERROR(tempNode.rightChildId == tree.nodes[t]->rightChildId);
 	}
+
+	//copy the number of nodes in the tree to the GPU memory
+	manager.MemcpyHostToDevice(&m_nNumofNode, snManager.m_pCurNumofNode, sizeof(int));
+
+	CreateNewNode<<<1, 1>>>(snManager.m_pTreeNode, manager.m_pSplittableNode, snManager.m_pNewSplittableNode,
+							manager.m_pSNIdToBuffId, manager.m_pBestSplitPoint,
+							snManager.m_pParentId, snManager.m_pLeftChildId, snManager.m_pRightChildId,
+							manager.m_pLChildStat, manager.m_pRChildStat, snManager.m_pNewNodeStat,
+							snManager.m_pCurNumofNode, rt_eps, nNumofSplittableNode, bLastLevel);
 
 	//for each splittable node, assign lchild and rchild ids
 	map<int, pair<int, int> > mapPidCid;//(parent id, (lchildId, rchildId)).
@@ -138,6 +150,20 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 
 			m_nNumofNode += 2;
 		}
+	}
+
+	//testing. Compare the new splittable nodes form GPU with those from CPU
+	for(int n = 0; n < newSplittableNode.size(); n++)
+	{
+		TreeNode tempNode;
+		manager.MemcpyDeviceToHost(snManager.m_pNewSplittableNode + n, &tempNode, sizeof(TreeNode) * 1);
+		if(tempNode.nodeId != newSplittableNode[n]->nodeId)
+		{
+			cout << "n=" << n << "; " << tempNode.nodeId << " v.s " << newSplittableNode[n]->nodeId << endl;
+		}
+		PROCESS_ERROR(tempNode.nodeId == newSplittableNode[n]->nodeId);
+		PROCESS_ERROR(tempNode.parentId == newSplittableNode[n]->parentId);
+		PROCESS_ERROR(tempNode.level == newSplittableNode[n]->level);
 	}
 
 	//get all the used feature indices

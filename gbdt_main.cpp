@@ -15,6 +15,7 @@
 #include "pureHost/MyAssert.h"
 
 #include "gpu/Memory/gbdtGPUMemManager.h"
+#include "gpu/Memory/SplitNodeMemManager.h"
 #include "gpu/DeviceTrainer.h"
 #include "gpu/initCuda.h"
 #include "pureHost/PureHostGBDTMain.h"
@@ -23,7 +24,7 @@ int main()
 {
 	//mainPureHost();
 	//return 1;
-	if(!InitCUDA('T'))
+	if(!InitCUDA('G'))
 	{
 		cerr << "cannot initialise GPU" << endl;
 		return 0;
@@ -57,7 +58,11 @@ int main()
 	memAllocator.allocMemForIns(nNumofValue, nNumofExamples, nNumofFeatures);
 	memAllocator.allocMemForSplittableNode(maxNumofSplittableNode);//use in find features (i.e. best split points) process
 	memAllocator.allocMemForSplitting(maxNumofUsedFeature);//use in splitting all nodes process
-	memAllocator.allocMemForTree(maxNumofNode);//reserve memory for the tree
+
+	SNGPUManager snManger;
+	snManger.allocMemForTree(maxNumofNode);//reserve memory for the tree
+	snManger.allocMemForParenChildIdMapping(maxNumofSplittableNode);
+	snManger.allocMemForNewNode(maxNumofSplittableNode);
 
 	begin_whole = clock();
 	cout << "start training..." << endl;
