@@ -23,7 +23,7 @@ __global__ void ComputeWeight(TreeNode *pAllTreeNode, TreeNode *pSplittableNode,
 		}
 //		cout << "node " << nid << " needs to split..." << endl;
 		int bufferPos = pSNIdToBufferId[nid];
-		if(bufferPos < 0 || bufferPos >= numofSplittableNode)
+		if(bufferPos < 0)
 		{
 			printf("Error in %s: bufferPos=%d\n", __PRETTY_FUNCTION__, bufferPos);
 			return;

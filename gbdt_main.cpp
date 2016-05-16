@@ -23,7 +23,7 @@ int main()
 {
 	//mainPureHost();
 	//return 1;
-	if(!InitCUDA('G'))
+	if(!InitCUDA('T'))
 	{
 		cerr << "cannot initialise GPU" << endl;
 		return 0;

@@ -38,9 +38,16 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 	PROCESS_ERROR(vBest.size() == lchildStat.size());
 
 	GBDTGPUMemManager manager;
+	//copy the obtained tree nodes
 	for(int t = 0; t < tree.nodes.size(); t++)
 	{
 		manager.MemcpyHostToDevice(tree.nodes[t], manager.m_pTreeNode + t, sizeof(TreeNode) * 1);
+	}
+
+	//copy the splittable nodes to GPU memory
+	for(int s = 0; s < splittableNode.size(); s++)
+	{
+		manager.MemcpyHostToDevice(splittableNode[s], manager.m_pSplittableNode + s, sizeof(TreeNode));
 	}
 
 	//compute the base_weight of tree node, also determines if a node is a leaf.
