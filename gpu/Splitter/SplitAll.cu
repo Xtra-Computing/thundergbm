@@ -66,6 +66,7 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 	}
 
 	//testing
+	cout << "numof tree nodes is " << tree.nodes.size() << endl;
 	for(int t = 0; t < tree.nodes.size(); t++)
 	{
 		TreeNode tempNode;
