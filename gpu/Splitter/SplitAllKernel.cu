@@ -10,7 +10,7 @@
 
 __global__ void ComputeWeight(int nNumofSplittableNode)
 {
-	for(int n = 0; n < nNumofSplittableNode; n++)
+/*	for(int n = 0; n < nNumofSplittableNode; n++)
 	{
 		int nid = splittableNode[n]->nodeId;
 //		cout << "node " << nid << " needs to split..." << endl;
@@ -26,4 +26,5 @@ __global__ void ComputeWeight(int nNumofSplittableNode)
 			tree.nodes[nid]->rightChildId = LEAFNODE;
 		}
 	}
+	*/
 }

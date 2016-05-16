@@ -6,6 +6,7 @@
  *		@brief: 
  */
 
+#include <string.h>
 #include "RegTree.h"
 #include "../MyAssert.h"
 

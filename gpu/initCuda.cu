@@ -47,14 +47,14 @@ bool InitCUDA(char gpuType)
         	}
             if(prop.major >= 1)
             {
-            	cout << "compute capability: " << prop.major << "; " << count << " devices" << endl;
+            	cout << count << " device(s) with compute capability " << prop.major << endl;
             }
         }
     }
 
     if(i == count)
     {
-        fprintf(stderr, "There is no device supporting CUDA 1.x.\n");
+        cerr << "There is no device of " << gpuType << " series. Please reset the parameter of \"" << __PRETTY_FUNCTION__ << "\"" <<endl;
         return false;
     }
 
