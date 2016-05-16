@@ -1,0 +1,10 @@
+.project
+.cproject
+.settings
+Debug
+Release
+data
+*.txt
+gbdt
+*~
+core

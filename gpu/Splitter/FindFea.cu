@@ -11,7 +11,7 @@
 #include "../../pureHost/MyAssert.h"
 #include "../Memory/gbdtGPUMemManager.h"
 #include "DeviceSplitter.h"
-#include "DeviceSplitterKernel.h"
+#include "DeviceFindFeaKernel.h"
 #include "../Preparator.h"
 
 using std::cout;
@@ -23,7 +23,6 @@ using std::endl;
  */
 void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat> &rchildStat, vector<nodeStat> &lchildStat)
 {
-
 	int numofSNode = vBest.size();
 
 	GBDTGPUMemManager manager;
@@ -42,7 +41,7 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 
 	//copy instance id to node id infomation
 	PROCESS_ERROR(manager.m_numofIns == m_nodeIds.size());
-	manager.VecToArray(m_nodeIds, manager.m_pInsToNodeId);
+	preparator.VecToArray(m_nodeIds, manager.m_pInsToNodeId);
 	manager.MemcpyHostToDevice(manager.m_pInsToNodeId, manager.m_pInsIdToNodeId, sizeof(int) * manager.m_numofIns);
 
 	//copy splittable node information and buffer ids to GPU memory
@@ -104,57 +103,5 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 	}
 
 	preparator.ReleaseMem();
-}
-
-int DeviceSplitter::AssignBufferId(int *pSNIdToBuffId, int snid, int m_maxNumofSplittable)
-{
-	int buffId = -1;
-
-	int remain = snid % m_maxNumofSplittable;//use mode operation as Hash function to find the buffer position
-
-	//finding a location for snid
-	if(pSNIdToBuffId[remain] == -1)
-	{
-		buffId = remain;
-		pSNIdToBuffId[remain] = snid;
-	}
-	else
-	{
-		//Hash conflict
-		for(int i = m_maxNumofSplittable - 1; i > 0; i--)
-		{
-			if(pSNIdToBuffId[i] == -1)
-				buffId = i;
-		}
-	}
-
-	return buffId;
-}
-
-/**
- * @brief: has an identical verion in device
- */
-int DeviceSplitter::GetBufferId(int *pSNIdToBuffId, int snid, int m_maxNumofSplittable)
-{
-	int buffId = -1;
-
-	int remain = snid % m_maxNumofSplittable;//use mode operation as Hash function to find the buffer position
-
-	//checking where snid is located
-	if(pSNIdToBuffId[remain] == snid)
-	{
-		buffId = remain;
-	}
-	else
-	{
-		//Hash conflict
-		for(int i = m_maxNumofSplittable - 1; i > 0; i--)
-		{
-			if(pSNIdToBuffId[i] == snid)
-				buffId = i;
-		}
-	}
-
-	return buffId;
 }
 

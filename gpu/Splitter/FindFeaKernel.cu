@@ -8,7 +8,7 @@
 
 #include <stdio.h>
 
-#include "DeviceSplitterKernel.h"
+#include "DeviceFindFeaKernel.h"
 #include "DeviceSplitter.h"
 
 const float rt_2eps = 2.0 * DeviceSplitter::rt_eps;

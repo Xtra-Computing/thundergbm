@@ -34,9 +34,7 @@ public:
 	static int m_maxNumofSplittable;
 	static TreeNode *m_pSplittableNode;
 	static SplitPoint *m_pBestSplitPoint;
-	static nodeStat *m_pSNodeStat, *m_pRChildStat, *m_pLChildStat;
-
-	static nodeStat *m_pTempRChildStat;
+	static nodeStat *m_pSNodeStat, *m_pRChildStat, *m_pLChildStat, *m_pTempRChildStat;
 	static float_point *m_pLastValue;
 
 	//map splittable node id to buffer position
@@ -45,6 +43,11 @@ public:
 	//model param
 	static float_point m_lambda;
 
+	//for used features in a tree
+	static int m_maxNumofUsedFea;
+	static int *m_pFeaIdToBuffId;
+	static int *m_pUniqueFeaIdVec;
+
 	//for host memory (use to reset GPU memory)
 	static SplitPoint *m_pBestPointHost;
 	static int *m_pInsToNodeId;
@@ -52,6 +55,7 @@ public:
 public:
 	void allocMemForIns(int nTotalNumofValue, int numofIns, int numofFeature);
 	void allocMemForSplittableNode(int nMaxNumofSplittableNode);
+	void allocMemForSplitting(int nMaxNumofUsedFeature);
 	void allocHostMemory();
 	void releaseHostMemory();
 };

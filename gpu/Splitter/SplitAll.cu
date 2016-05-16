@@ -12,7 +12,7 @@
 #include "../../pureHost/MyAssert.h"
 #include "../Memory/gbdtGPUMemManager.h"
 #include "DeviceSplitter.h"
-#include "DeviceSplitterKernel.h"
+#include "DeviceFindFeaKernel.h"
 #include "../Preparator.h"
 
 using std::cout;
@@ -24,6 +24,7 @@ using std::sort;
 
 /**
  * @brief: split all splittable nodes of the current level
+ * @numofNode: for computing new children ids
  */
 void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<SplitPoint> &vBest, RegTree &tree, int &m_nNumofNode,
 		 	 	 	    const vector<nodeStat> &rchildStat, const vector<nodeStat> &lchildStat, bool bLastLevel)
@@ -36,6 +37,24 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 	PROCESS_ERROR(vBest.size() == rchildStat.size());
 	PROCESS_ERROR(vBest.size() == lchildStat.size());
 
+
+	for(int n = 0; n < nNumofSplittableNode; n++)
+	{
+		int nid = splittableNode[n]->nodeId;
+//		cout << "node " << nid << " needs to split..." << endl;
+		int bufferPos = mapNodeIdToBufferPos[nid];
+		PROCESS_ERROR(bufferPos < vBest.size());
+		//mark the node as a leaf node if (1) the gain is negative or (2) the tree reaches maximum depth.
+		tree.nodes[nid]->loss = vBest[bufferPos].m_fGain;
+		tree.nodes[nid]->base_weight = ComputeWeightSparseData(bufferPos);
+		if(vBest[bufferPos].m_fGain <= rt_eps || bLastLevel == true)
+		{
+			//weight of a leaf node
+			tree.nodes[nid]->predValue = tree.nodes[nid]->base_weight;
+			tree.nodes[nid]->rightChildId = LEAFNODE;
+		}
+	}
+
 	//for each splittable node, assign lchild and rchild ids
 	map<int, pair<int, int> > mapPidCid;//(parent id, (lchildId, rchildId)).
 	vector<TreeNode*> newSplittableNode;
@@ -46,17 +65,8 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 //		cout << "node " << nid << " needs to split..." << endl;
 		int bufferPos = mapNodeIdToBufferPos[nid];
 		PROCESS_ERROR(bufferPos < vBest.size());
-		//mark the node as a leaf node if (1) the gain is negative or (2) the tree reaches maximum depth.
-		tree.nodes[nid]->loss = vBest[bufferPos].m_fGain;
-		tree.nodes[nid]->base_weight = ComputeWeightSparseData(bufferPos);
 
-		if(vBest[bufferPos].m_fGain <= rt_eps || bLastLevel == true)
-		{
-			//weight of a leaf node
-			tree.nodes[nid]->predValue = tree.nodes[nid]->base_weight;
-			tree.nodes[nid]->rightChildId = LEAFNODE;
-		}
-		else
+		if(!(vBest[bufferPos].m_fGain <= rt_eps || bLastLevel == true))
 		{
 			int lchildId = m_nNumofNode;
 			int rchildId = m_nNumofNode + 1;
@@ -114,15 +124,42 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 	if(vFid.size() == 0)
 		PROCESS_ERROR(nNumofSplittableNode == 1 || bLastLevel == true);
 	PROCESS_ERROR(vFid.size() <= nNumofSplittableNode);
+
+	//find unique used feature ids
+	GBDTGPUMemManager manager;
+	manager.Memset(manager.m_pFeaIdToBuffId, -1, sizeof(int) * manager.m_maxNumofUsedFea);
+	DataPreparator preparator;
+	int *pFidHost = new int[vFid.size()];
+	preparator.VecToArray(vFid, pFidHost);
+	//push all the elements into a hash map
+	int numofUniqueFid = 0;
+	int *pUniqueFidHost = new int[vFid.size()];
+	preparator.m_pUsedFIDMap = new int[manager.m_maxNumofUsedFea];
+	memset(preparator.m_pUsedFIDMap, -1, manager.m_maxNumofUsedFea);
+	for(int i = 0; i < vFid.size(); i++)
+	{
+		bool bIsNew = false;
+		int hashValue = preparator.AssignHashValue(preparator.m_pUsedFIDMap, vFid[i], manager.m_maxNumofUsedFea, bIsNew);
+		if(bIsNew == true)
+		{
+			pUniqueFidHost[numofUniqueFid] = vFid[i];
+			numofUniqueFid++;
+		}
+	}
+
+	delete[] pFidHost;
+	delete[] preparator.m_pUsedFIDMap;
+
 	sort(vFid.begin(), vFid.end());
 	vFid.resize(std::unique(vFid.begin(), vFid.end()) - vFid.begin());
 	PROCESS_ERROR(vFid.size() <= nNumofSplittableNode);
+	PROCESS_ERROR(vFid.size() == numofUniqueFid);
 //	PrintVec(vFid);
 
 	//for each used feature to make decision
-	for(int u = 0; u < vFid.size(); u++)
+	for(int u = 0; u < numofUniqueFid; u++)
 	{
-		int ufid = vFid[u];
+		int ufid = pUniqueFidHost[u];
 		PROCESS_ERROR(ufid < m_vvFeaInxPair.size() && ufid >= 0);
 
 		//for each instance that has value on the feature
@@ -171,6 +208,8 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 			}
 		}
 	}
+
+	delete[] pUniqueFidHost;//for storing unique used feature ids
 
 	//for those instances of unknown feature values.
 	for(int i = 0; i < m_nodeIds.size(); i++)

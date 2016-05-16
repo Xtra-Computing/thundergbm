@@ -36,7 +36,12 @@ nodeStat *GBDTGPUMemManager::m_pTempRChildStat = NULL;//(require memset!) store 
 float_point *GBDTGPUMemManager::m_pLastValue = NULL;	//store the last processed value (for computing split point)
 
 int *GBDTGPUMemManager::m_pSNIdToBuffId = NULL;	//(require memset!) map splittable node id to buffer position
-int *GBDTGPUMemManager::m_pBuffIdVec = NULL;		//store all the buffer ids
+int *GBDTGPUMemManager::m_pBuffIdVec = NULL;		//store all the buffer ids for splittable nodes
+
+//for used features
+int GBDTGPUMemManager::m_maxNumofUsedFea = -1;	//for reserving GPU memory; maximum number of used features in a tree
+int *GBDTGPUMemManager::m_pFeaIdToBuffId = NULL;//(require memset!) map feature id to buffer id
+int *GBDTGPUMemManager::m_pUniqueFeaIdVec = NULL;	//store all the used feature ids
 
 //host memory for GPU memory reset
 SplitPoint *GBDTGPUMemManager::m_pBestPointHost = NULL;//best split points
@@ -92,6 +97,14 @@ void GBDTGPUMemManager::allocMemForSplittableNode(int nMaxNumofSplittableNode)
 	//map splittable node to buffer id
 	checkCudaErrors(cudaMalloc((void**)&m_pSNIdToBuffId, sizeof(int) * m_maxNumofSplittable));
 	checkCudaErrors(cudaMalloc((void**)&m_pBuffIdVec, sizeof(int) * m_maxNumofSplittable));
+}
+
+void GBDTGPUMemManager::allocMemForSplitting(int nMaxNumofUsedFeature)
+{
+	m_maxNumofUsedFea = nMaxNumofUsedFeature;
+	//map splittable node to buffer id
+	checkCudaErrors(cudaMalloc((void**)&m_pFeaIdToBuffId, sizeof(int) * m_maxNumofUsedFea));
+	checkCudaErrors(cudaMalloc((void**)&m_pUniqueFeaIdVec, sizeof(int) * m_maxNumofUsedFea));
 }
 
 /**

@@ -32,6 +32,7 @@ int main()
 	/********* read training instances from a file **************/
 	string strFileName = "data/abalone.txt";
 	int maxNumofSplittableNode = 100;
+	int maxNumofUsedFeature = 1000;
 	DeviceSplitter splitter;
 	DeviceTrainer trainer(&splitter);
 
@@ -52,7 +53,8 @@ int main()
 	memAllocator.m_totalNumofValues = nNumofValue;
 	//allocate memory for instances
 	memAllocator.allocMemForIns(nNumofValue, nNumofExamples, nNumofFeatures);
-	memAllocator.allocMemForSplittableNode(maxNumofSplittableNode);
+	memAllocator.allocMemForSplittableNode(maxNumofSplittableNode);//use in find features (i.e. best split points) process
+	memAllocator.allocMemForSplitting(maxNumofUsedFeature);//use in splitting all nodes process
 
 	begin_whole = clock();
 	cout << "start training..." << endl;
