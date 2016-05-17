@@ -59,7 +59,7 @@ __global__ void CreateNewNode(TreeNode *pAllTreeNode, TreeNode *pSplittableNode,
 								  int *pSNIdToBufferId, SplitPoint *pBestSplitPoint,
 								  int *pParentId, int *pLChildId, int *pRChildId,
 								  nodeStat *pLChildStat, nodeStat *pRChildStat, nodeStat *pNewNodeStat,
-								  int *m_nNumofNode,
+								  int *pNumofNode,
 								  float_point rt_eps, int nNumofSplittableNode, bool bLastLevel)
 {
 	//for each splittable node, assign lchild and rchild ids
@@ -75,8 +75,8 @@ __global__ void CreateNewNode(TreeNode *pAllTreeNode, TreeNode *pSplittableNode,
 
 		if(!(pBestSplitPoint[bufferPos].m_fGain <= rt_eps || bLastLevel == true))
 		{
-			int lchildId = *m_nNumofNode;
-			int rchildId = *m_nNumofNode + 1;
+			int lchildId = *pNumofNode;
+			int rchildId = *pNumofNode + 1;
 
 			//parent id to child ids
 			pParentId[bufferPos] = nid;
@@ -116,7 +116,7 @@ __global__ void CreateNewNode(TreeNode *pAllTreeNode, TreeNode *pSplittableNode,
 			pAllTreeNode[nid].featureId = pBestSplitPoint[bufferPos].m_nFeatureId;
 			pAllTreeNode[nid].fSplitValue = pBestSplitPoint[bufferPos].m_fSplitValue;
 
-			m_nNumofNode += 2;
+			*pNumofNode = (*pNumofNode + 2);
 		}
 	}
 
