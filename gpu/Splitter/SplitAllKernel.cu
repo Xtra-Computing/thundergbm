@@ -173,6 +173,9 @@ __global__ void CreateNewNode(TreeNode *pAllTreeNode, TreeNode *pSplittableNode,
 			pAllTreeNode[nid].featureId = pBestSplitPoint[bufferPos].m_nFeatureId;
 			pAllTreeNode[nid].fSplitValue = pBestSplitPoint[bufferPos].m_fSplitValue;
 
+			//this is used in finding unique feature ids
+			pSplittableNode[n].featureId = pBestSplitPoint[bufferPos].m_nFeatureId;
+
 			*pNumofNode = (*pNumofNode + 2);
 		}
 	}
