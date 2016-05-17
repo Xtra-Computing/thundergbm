@@ -36,6 +36,17 @@ void GPUMemManager::MemcpyDeviceToHost(void *pDevSrc, void *pHostDst, int numofB
 }
 
 /**
+ * @brief: copy data from device to device
+ */
+void GPUMemManager::MemcpyDeviceToDevice(void *pDevSrc, void *pDevDst, int numofByte)
+{
+	PROCESS_ERROR(numofByte > 0);
+	PROCESS_ERROR(pDevSrc != NULL);
+	PROCESS_ERROR(pDevDst != NULL);
+	checkCudaErrors(cudaMemcpy(pDevDst, pDevSrc, numofByte, cudaMemcpyDeviceToDevice));
+}
+
+/**
  * @brief: set gpu memory
  */
 void GPUMemManager::Memset(void *pDevSrc, int value, int numofByte)
@@ -65,7 +76,7 @@ void GPUMemManager::TestMemcpyHostToDevice(void *hostSrc, void *pDevDst, int num
 }
 
 /**
- * @brief:
+ * @brief: testing memcpy from device to host
  */
 void GPUMemManager::TestMemcpyDeviceToHost()
 {
@@ -84,6 +95,38 @@ void GPUMemManager::TestMemcpyDeviceToHost()
 	int *hostValues2 = new int[numofEle];
 
 	MemcpyDeviceToHost(devValues, hostValues2, numofEle * sizeof(int));
+
+	for(int i = 0; i < numofEle; i++)
+	{
+		PROCESS_ERROR(hostValues[i] == hostValues2[i]);
+	}
+
+	delete []hostValues;
+	delete []hostValues2;
+}
+
+/**
+ * @brief: testing memcpy for device to device
+ */
+void GPUMemManager::TestMemcpyDeviceToDevice()
+{
+	int numofEle = 10;
+	int *hostValues = new int[numofEle];
+	for(int i = 0; i < numofEle; i++)
+	{
+		hostValues[i] = i;
+	}
+
+	int *devValues, *devDes;
+	checkCudaErrors(cudaMalloc((void**)&devValues, sizeof(int) * numofEle));
+	checkCudaErrors(cudaMalloc((void**)&devDes, sizeof(int) * numofEle));
+
+	MemcpyHostToDevice(hostValues, devValues, numofEle * sizeof(int));
+	MemcpyDeviceToDevice(devValues, devDes, numofEle * sizeof(int));
+
+	int *hostValues2 = new int[numofEle];
+
+	MemcpyDeviceToHost(devDes, hostValues2, numofEle * sizeof(int));
 
 	for(int i = 0; i < numofEle; i++)
 	{

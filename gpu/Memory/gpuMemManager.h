@@ -18,10 +18,12 @@ class GPUMemManager
 public:
 	void MemcpyHostToDevice(void *pHostSrc, void *pDevDst, int numofByte);
 	void MemcpyDeviceToHost(void *pDevSrc, void *pHostDst, int numofByte);
+	void MemcpyDeviceToDevice(void *pDevSrc, void *pDevDst, int numofByte);
 	void Memset(void *pDevSrc, int value, int numofByte);
 
 	void TestMemcpyHostToDevice(void *pHostSrc, void *pDevDst, int numofByte);
 	void TestMemcpyDeviceToHost();
+	void TestMemcpyDeviceToDevice();
 };
 
 

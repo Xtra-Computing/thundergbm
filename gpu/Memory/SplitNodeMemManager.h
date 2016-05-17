@@ -26,8 +26,9 @@ public:
 	static nodeStat *m_pNewNodeStat;
 	static TreeNode *m_pNewSplittableNode;
 
-	//memory for current number of node
+	//memory for current number of nodes and number of new nodes
 	static int *m_pCurNumofNode;
+	static int *m_pNumofNewNode;
 
 	//memory for used features in the current splittable nodes
 	static int m_maxNumofUsedFea;

@@ -25,6 +25,7 @@ TreeNode *SNGPUManager::m_pNewSplittableNode = NULL;
 
 //current numof nodes
 int *SNGPUManager::m_pCurNumofNode = NULL;
+int *SNGPUManager::m_pNumofNewNode = NULL;
 
 //for used features
 int SNGPUManager::m_maxNumofUsedFea = -1;	//for reserving GPU memory; maximum number of used features in a tree
@@ -41,6 +42,7 @@ void SNGPUManager::allocMemForTree(int maxNumofNode)
 	m_maxNumofNode = maxNumofNode;
 	checkCudaErrors(cudaMalloc((void**)&m_pTreeNode, sizeof(TreeNode) * m_maxNumofNode));
 	checkCudaErrors(cudaMalloc((void**)&m_pCurNumofNode, sizeof(int)));
+	checkCudaErrors(cudaMalloc((void**)&m_pNumofNewNode, sizeof(int)));
 
 }
 

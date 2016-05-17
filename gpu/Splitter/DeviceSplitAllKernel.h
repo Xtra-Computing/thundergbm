@@ -24,7 +24,7 @@ __global__ void CreateNewNode(TreeNode *pAllTreeNode, TreeNode *pSplittableNode,
 		  	  	  	  	  	  	  int *pSNIdToBufferId, SplitPoint *pBestSplitPoint,
 		  	  	  	  	  	  	  int *pParentId, int *pLChildId, int *pRChildId,
 		  	  	  	  	  	  	  nodeStat *pLChildStat, nodeStat *pRChildStat, nodeStat *pNewNodeStat,
-		  	  	  	  	  	  	  int *m_nNumofNode,
+		  	  	  	  	  	  	  int *m_nNumofNode, int *pNumofNewNode,
 		  	  	  	  	  	  	  float_point rt_eps, int nNumofSplittableNode, bool bLastLevel);
 
 
@@ -38,5 +38,12 @@ __global__ void InsToNewNode(TreeNode *pAllTreeNode, float_point *pdFeaValue, in
 		 	 	 	 	 	 	 int *pUniqueFidVec, int *pNumofUniqueFid,
 		 	 	 	 	 	 	 int *pParentId, int *pLChildId, int *pRChildId,
 		 	 	 	 	 	 	 int preMaxNodeId, int numofFea, int numofIns, int flag_LEAFNODE);
+
+__global__ void InsToNewNodeByDefault(TreeNode *pAllTreeNode, int *pInsIdToNodeId, int *pSNIdToBuffId,
+		   	   	   	   	   	   	   	   	   int *pParentId, int *pLChildId,
+		   	   	   	   	   	   	   	   	   int preMaxNodeId, int numofIns, int flag_LEAFNODE);
+
+__global__ void UpdateNewSplittable(TreeNode *pNewSplittableNode, nodeStat *pNewNodeStat, int *pSNIdToBuffId,
+		   	   	   	   	   	   	   	    nodeStat *pSNodeStat, int *pNumofNewNode, int maxNumofSplittable);
 
 #endif /* DEVICESPLITALL_H_ */

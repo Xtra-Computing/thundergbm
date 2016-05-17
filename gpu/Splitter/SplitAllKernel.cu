@@ -116,13 +116,13 @@ __global__ void CreateNewNode(TreeNode *pAllTreeNode, TreeNode *pSplittableNode,
 								  int *pSNIdToBufferId, SplitPoint *pBestSplitPoint,
 								  int *pParentId, int *pLChildId, int *pRChildId,
 								  nodeStat *pLChildStat, nodeStat *pRChildStat, nodeStat *pNewNodeStat,
-								  int *pNumofNode,
+								  int *pNumofNode, int *pNumofNewNode,
 								  float_point rt_eps, int nNumofSplittableNode, bool bLastLevel)
 {
 	//for each splittable node, assign lchild and rchild ids
 //	vector<TreeNode*> newSplittableNode;
 
-	int numofNewNode = 0;
+	ErrorChecker(*pNumofNewNode == 0, __PRETTY_FUNCTION__, "*pNumofNewNode == 0");
 	for(int n = 0; n < nNumofSplittableNode; n++)
 	{
 		int nid = pSplittableNode[n].nodeId;
@@ -143,11 +143,11 @@ __global__ void CreateNewNode(TreeNode *pAllTreeNode, TreeNode *pSplittableNode,
 			ErrorChecker(pRChildStat[bufferPos].sum_hess, __PRETTY_FUNCTION__, "rchildStat[bufferPos].sum_hess");
 
 			//push left and right child statistics into a vector
-			int leftNewNodeId = numofNewNode;
-			int rightNewNodeId = numofNewNode + 1;
+			int leftNewNodeId = *pNumofNewNode;
+			int rightNewNodeId = *pNumofNewNode + 1;
 			pNewNodeStat[leftNewNodeId] = pLChildStat[bufferPos];
 			pNewNodeStat[rightNewNodeId] = pRChildStat[bufferPos];
-			numofNewNode += 2;
+			*pNumofNewNode = (*pNumofNewNode + 2);
 
 			//split into two nodes
 			TreeNode &leftChild = pAllTreeNode[lchildId];
@@ -279,5 +279,41 @@ __global__ void InsToNewNode(TreeNode *pAllTreeNode, float_point *pdFeaValue, in
 					pInsIdToNodeId[insId] = pLChildId[bufferPos];//left child id
 			}
 		}
+	}
+}
+
+__global__ void InsToNewNodeByDefault(TreeNode *pAllTreeNode, int *pInsIdToNodeId, int *pSNIdToBuffId,
+										   int *pParentId, int *pLChildId,
+										   int preMaxNodeId, int numofIns, int flag_LEAFNODE)
+{
+	for(int i = 0; i < numofIns; i++)
+	{
+		int nid = pInsIdToNodeId[i];
+		if(nid == -1 || nid > preMaxNodeId)//processed node (i.e. leaf node or new node)
+			continue;
+		//newly constructed leaf node
+		if(pAllTreeNode[nid].rightChildId == flag_LEAFNODE)
+		{
+			pInsIdToNodeId[i] = -1;
+		}
+		else
+		{
+			int bufferPos = pSNIdToBuffId[nid];
+			pInsIdToNodeId[i] = pLChildId[bufferPos];//by default the instance with unknown feature value going to left child
+			ErrorCond(bufferPos != -1, __PRETTY_FUNCTION__, "rChild=lChild+1");
+		}
+	}
+}
+
+__global__ void UpdateNewSplittable(TreeNode *pNewSplittableNode, nodeStat *pNewNodeStat, int *pSNIdToBuffId,
+								   nodeStat *pSNodeStat, int *pNumofNewNode, int maxNumofSplittable)
+{
+	for(int i = 0; i < *pNumofNewNode; i++)
+	{
+		int nid = pNewSplittableNode[i].nodeId;
+		ErrorChecker(nid, __PRETTY_FUNCTION__, "nid");
+		bool bIsNew = false;
+		int bufferPos = AssignHashValue(pSNIdToBuffId, nid, maxNumofSplittable, bIsNew);
+		pSNodeStat[bufferPos] = pNewNodeStat[i];
 	}
 }
