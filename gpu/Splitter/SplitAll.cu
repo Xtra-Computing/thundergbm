@@ -62,6 +62,8 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 	{
 		int nid = splittableNode[n]->nodeId;
 //		cout << "node " << nid << " needs to split..." << endl;
+		map<int, int>::iterator itBufferPos = mapNodeIdToBufferPos.find(nid);
+		assert(itBufferPos != mapNodeIdToBufferPos.end());
 		int bufferPos = mapNodeIdToBufferPos[nid];
 		PROCESS_ERROR(bufferPos < vBest.size());
 		//mark the node as a leaf node if (1) the gain is negative or (2) the tree reaches maximum depth.
@@ -110,6 +112,8 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 		int nid = splittableNode[n]->nodeId;
 //		cout << "node " << nid << " needs to split..." << endl;
 		int bufferPos = mapNodeIdToBufferPos[nid];
+		map<int, int>::iterator itBufferPos = mapNodeIdToBufferPos.find(nid);
+		assert(itBufferPos != mapNodeIdToBufferPos.end() && bufferPos == itBufferPos->second);
 		PROCESS_ERROR(bufferPos < vBest.size());
 
 		if(!(vBest[bufferPos].m_fGain <= rt_eps || bLastLevel == true))
@@ -232,6 +236,9 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 	PROCESS_ERROR(vFid.size() == numofUniqueFid);
 //	PrintVec(vFid);
 
+	int testBufferPos = mapNodeIdToBufferPos[8];
+	cout << "test buffer pos=" << testBufferPos << "; preMaxNodeId=" << preMaxNodeId << endl;
+
 	//for each used feature to move instances to new nodes
 	InsToNewNode<<<1, 1>>>(snManager.m_pTreeNode, manager.m_pdDFeaValue, manager.m_pDInsId,
 						   	 manager.m_pFeaStartPos, manager.m_pDNumofKeyValue,
@@ -260,6 +267,8 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 
 			PROCESS_ERROR(nid >= 0);
 			int bufferPos = mapNodeIdToBufferPos[nid];
+			map<int, int>::iterator itBufferPos = mapNodeIdToBufferPos.find(nid);
+			assert(itBufferPos != mapNodeIdToBufferPos.end());
 			int fid = vBest[bufferPos].m_nFeatureId;
 			if(fid != ufid)//this feature is not the splitting feature for the instance.
 				continue;
@@ -291,6 +300,14 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 					m_nodeIds[insId] = it->second.first;//left child id
 			}
 		}
+	}
+
+	//testing. Compare ins id to node id
+	int *insIdToNodeIdHost = new int[manager.m_numofIns];
+	manager.MemcpyDeviceToHost(manager.m_pInsIdToNodeId, insIdToNodeIdHost, sizeof(int) * manager.m_numofIns);
+	for(int i = 0; i < manager.m_numofIns; i++)
+	{
+		PROCESS_ERROR(insIdToNodeIdHost[i] == m_nodeIds[i]);
 	}
 
 	delete[] pUniqueFidHost;//for storing unique used feature ids

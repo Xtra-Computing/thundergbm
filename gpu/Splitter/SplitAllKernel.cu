@@ -243,6 +243,9 @@ __global__ void InsToNewNode(TreeNode *pAllTreeNode, float_point *pdFeaValue, in
 			if(nid < 0)//leaf node
 				continue;
 
+			if(nid > preMaxNodeId)//new node ids
+				continue;
+
 			ErrorChecker(nid, __PRETTY_FUNCTION__, "nid");
 			int bufferPos = pSNIdToBuffId[nid];
 			ErrorChecker(bufferPos, __PRETTY_FUNCTION__, "bufferPos");

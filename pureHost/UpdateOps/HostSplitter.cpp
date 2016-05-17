@@ -152,6 +152,8 @@ void HostSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Spli
 		int nid = splittableNode[n]->nodeId;
 //		cout << "node " << nid << " needs to split..." << endl;
 		int bufferPos = mapNodeIdToBufferPos[nid];
+		map<int, int>::iterator itBufferPos = mapNodeIdToBufferPos.find(nid);
+		PROCESS_ERROR(itBufferPos == mapNodeIdToBufferPos.end() && bufferPos == itBufferPos->second);
 		PROCESS_ERROR(bufferPos < vBest.size());
 		//mark the node as a leaf node if (1) the gain is negative or (2) the tree reaches maximum depth.
 		tree.nodes[nid]->loss = vBest[bufferPos].m_fGain;
@@ -246,6 +248,8 @@ void HostSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Spli
 
 			PROCESS_ERROR(nid >= 0);
 			int bufferPos = mapNodeIdToBufferPos[nid];
+			map<int, int>::iterator itBufferPos = mapNodeIdToBufferPos.find(nid);
+			PROCESS_ERROR(itBufferPos == mapNodeIdToBufferPos.end() && bufferPos == itBufferPos->second);
 			int fid = vBest[bufferPos].m_nFeatureId;
 			if(fid != ufid)//this feature is not the splitting feature for the instance.
 				continue;
