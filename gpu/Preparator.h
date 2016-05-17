@@ -47,6 +47,7 @@ public:
 
 public:
 
+	//has an identical version in device @splitAll
 	static int AssignHashValue(int *pSNIdToBuffId, int snid, int m_maxNumofSplittable, bool &bIsNew);
 
 	/**

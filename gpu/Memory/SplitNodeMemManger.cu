@@ -26,6 +26,12 @@ TreeNode *SNGPUManager::m_pNewSplittableNode = NULL;
 //current numof nodes
 int *SNGPUManager::m_pCurNumofNode = NULL;
 
+//for used features
+int SNGPUManager::m_maxNumofUsedFea = -1;	//for reserving GPU memory; maximum number of used features in a tree
+int *SNGPUManager::m_pFeaIdToBuffId = NULL;//(require memset!) map feature id to buffer id
+int *SNGPUManager::m_pUniqueFeaIdVec = NULL;	//store all the used feature ids
+int *SNGPUManager::m_pNumofUniqueFeaId = NULL;//(require memset!)store the number of unique feature ids
+
 /**
  * @brief: reserve memory for the tree
  */
@@ -57,4 +63,17 @@ void SNGPUManager::allocMemForNewNode(int maxNumofSplittable)
 	PROCESS_ERROR(maxNumofSplittable > 0);
 	checkCudaErrors(cudaMalloc((void**)&m_pNewNodeStat, sizeof(nodeStat) * maxNumofSplittable));
 	checkCudaErrors(cudaMalloc((void**)&m_pNewSplittableNode, sizeof(TreeNode) * maxNumofSplittable));
+}
+
+/**
+ * @brief: memory for splitAll process
+ */
+void SNGPUManager::allocMemForUsedFea(int nMaxNumofUsedFeature)
+{
+	PROCESS_ERROR(nMaxNumofUsedFeature > 0);
+	m_maxNumofUsedFea = nMaxNumofUsedFeature;
+	//map splittable node to buffer id
+	checkCudaErrors(cudaMalloc((void**)&m_pFeaIdToBuffId, sizeof(int) * m_maxNumofUsedFea));
+	checkCudaErrors(cudaMalloc((void**)&m_pUniqueFeaIdVec, sizeof(int) * m_maxNumofUsedFea));
+	checkCudaErrors(cudaMalloc((void**)&m_pNumofUniqueFeaId, sizeof(int)));
 }

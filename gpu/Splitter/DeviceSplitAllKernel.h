@@ -27,4 +27,9 @@ __global__ void CreateNewNode(TreeNode *pAllTreeNode, TreeNode *pSplittableNode,
 		  	  	  	  	  	  	  int *m_nNumofNode,
 		  	  	  	  	  	  	  float_point rt_eps, int nNumofSplittableNode, bool bLastLevel);
 
+
+__global__ void GetUniqueFid(TreeNode *pAllTreeNode, TreeNode *pSplittableNode, int nNumofSplittableNode,
+		 	 	 	 	 	 	 int *pFeaIdToBuffId, int *pUniqueFidVec,int *pNumofUniqueFid,
+		 	 	 	 	 	 	 int maxNumofUsedFea, int flag_LEAFNODE);
+
 #endif /* DEVICESPLITALL_H_ */

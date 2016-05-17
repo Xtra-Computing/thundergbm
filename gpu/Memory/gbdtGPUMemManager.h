@@ -43,11 +43,6 @@ public:
 	//model param
 	static float_point m_lambda;
 
-	//for used features in a tree
-	static int m_maxNumofUsedFea;
-	static int *m_pFeaIdToBuffId;
-	static int *m_pUniqueFeaIdVec;
-
 	//for host memory (use to reset GPU memory)
 	static SplitPoint *m_pBestPointHost;
 	static int *m_pInsToNodeId;
@@ -55,7 +50,6 @@ public:
 public:
 	void allocMemForIns(int nTotalNumofValue, int numofIns, int numofFeature);
 	void allocMemForSplittableNode(int nMaxNumofSplittableNode);
-	void allocMemForSplitting(int nMaxNumofUsedFeature);
 
 	void allocHostMemory();
 	void releaseHostMemory();

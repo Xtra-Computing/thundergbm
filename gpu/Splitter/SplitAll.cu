@@ -100,6 +100,7 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 							manager.m_pLChildStat, manager.m_pRChildStat, snManager.m_pNewNodeStat,
 							snManager.m_pCurNumofNode, rt_eps, nNumofSplittableNode, bLastLevel);
 
+	//cpu code, now for testing
 	//for each splittable node, assign lchild and rchild ids
 	map<int, pair<int, int> > mapPidCid;//(parent id, (lchildId, rchildId)).
 	vector<TreeNode*> newSplittableNode;
@@ -166,6 +167,13 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 		PROCESS_ERROR(tempNode.level == newSplittableNode[n]->level);
 	}
 
+	//find all used unique feature ids
+	manager.Memset(snManager.m_pFeaIdToBuffId, -1, sizeof(int) * snManager.m_maxNumofUsedFea);
+	manager.Memset(snManager.m_pNumofUniqueFeaId, 0, sizeof(int));
+	GetUniqueFid<<<1, 1>>>(snManager.m_pTreeNode, manager.m_pSplittableNode, nNumofSplittableNode,
+							 snManager.m_pFeaIdToBuffId, snManager.m_pUniqueFeaIdVec, snManager.m_pNumofUniqueFeaId,
+			 	 	 	 	 snManager.m_maxNumofUsedFea, LEAFNODE);
+
 	//get all the used feature indices
 	vector<int> vFid;
 	for(int n = 0; n < nNumofSplittableNode; n++)
@@ -185,26 +193,36 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 	PROCESS_ERROR(vFid.size() <= nNumofSplittableNode);
 
 	//find unique used feature ids
-	manager.Memset(manager.m_pFeaIdToBuffId, -1, sizeof(int) * manager.m_maxNumofUsedFea);
 	DataPreparator preparator;
 	int *pFidHost = new int[vFid.size()];
 	preparator.VecToArray(vFid, pFidHost);
 	//push all the elements into a hash map
 	int numofUniqueFid = 0;
 	int *pUniqueFidHost = new int[vFid.size()];
-	preparator.m_pUsedFIDMap = new int[manager.m_maxNumofUsedFea];
-	memset(preparator.m_pUsedFIDMap, -1, manager.m_maxNumofUsedFea);
+	preparator.m_pUsedFIDMap = new int[snManager.m_maxNumofUsedFea];
+	memset(preparator.m_pUsedFIDMap, -1, snManager.m_maxNumofUsedFea);
 	for(int i = 0; i < vFid.size(); i++)
 	{
 		bool bIsNew = false;
-		int hashValue = preparator.AssignHashValue(preparator.m_pUsedFIDMap, vFid[i], manager.m_maxNumofUsedFea, bIsNew);
+		int hashValue = preparator.AssignHashValue(preparator.m_pUsedFIDMap, vFid[i], snManager.m_maxNumofUsedFea, bIsNew);
 		if(bIsNew == true)
 		{
 			pUniqueFidHost[numofUniqueFid] = vFid[i];
 			numofUniqueFid++;
 		}
 	}
+	//comparing unique ids
+	int *pUniqueIdFromDevice = new int[snManager.m_maxNumofUsedFea];
+	int numofUniqueFromDevice = 0;
+	manager.MemcpyDeviceToHost(snManager.m_pUniqueFeaIdVec, pUniqueIdFromDevice, sizeof(int) * snManager.m_maxNumofUsedFea);
+	manager.MemcpyDeviceToHost(snManager.m_pNumofUniqueFeaId, &numofUniqueFromDevice, sizeof(int));
+	PROCESS_ERROR(numofUniqueFromDevice == numofUniqueFid);
+	for(int i = 0; i < numofUniqueFid; i++)
+	{
+		PROCESS_ERROR(pUniqueIdFromDevice[i] == pUniqueFidHost[i]);
+	}
 
+	delete[] pUniqueIdFromDevice;
 	delete[] pFidHost;
 	delete[] preparator.m_pUsedFIDMap;
 

@@ -57,12 +57,12 @@ int main()
 	//allocate memory for instances
 	memAllocator.allocMemForIns(nNumofValue, nNumofExamples, nNumofFeatures);
 	memAllocator.allocMemForSplittableNode(maxNumofSplittableNode);//use in find features (i.e. best split points) process
-	memAllocator.allocMemForSplitting(maxNumofUsedFeature);//use in splitting all nodes process
 
 	SNGPUManager snManger;
 	snManger.allocMemForTree(maxNumofNode);//reserve memory for the tree
 	snManger.allocMemForParenChildIdMapping(maxNumofSplittableNode);
 	snManger.allocMemForNewNode(maxNumofSplittableNode);
+	snManger.allocMemForUsedFea(maxNumofUsedFeature);//use in splitting all nodes process
 
 	begin_whole = clock();
 	cout << "start training..." << endl;

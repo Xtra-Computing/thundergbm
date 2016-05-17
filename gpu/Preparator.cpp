@@ -107,8 +107,9 @@ void DataPreparator::CopyBestSplitPoint(const map<int, int> &mapNodeIdToBufferPo
 }
 
 /**
- * @brief: a hash function
+ * @brief: a hash function (has an identical version in device @splitAll)
  * @bIsNew: for checking if the hash value is newly produced.
+ *
  */
 int DataPreparator::AssignHashValue(int *pEntryToHashValue, int snid, int m_maxNumofSplittable, bool &bIsNew)
 {

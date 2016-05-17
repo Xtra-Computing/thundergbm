@@ -12,12 +12,69 @@
 
 using std::string;
 
+__device__ void ErrorCond(bool bCon, const char* functionName, const char* temp)
+{
+	if(bCon == false)
+	{
+		printf("Error in %s: %s=%d\n", functionName, temp);
+	}
+}
+
 __device__ void ErrorChecker(int value, const char* functionName, const char* temp)
 {
 	if(value < 0)
 	{
 		printf("Error in %s: %s=%d\n", functionName, temp, value);
 	}
+}
+
+/**
+ * @brief: has an identical version in host
+ */
+__device__ int AssignHashValue(int *pEntryToHashValue, int snid, int m_maxNumofSplittable, bool &bIsNew)
+{
+	bIsNew = false;//
+	int buffId = -1;
+
+	int remain = snid % m_maxNumofSplittable;//use mode operation as Hash function to find the buffer position
+
+	//the entry has been seen before, and is found without hash conflict
+	if(pEntryToHashValue[remain] == snid)
+	{
+		return remain;
+	}
+
+	//the entry hasn't been seen before, and its hash value is found without hash conflict
+	if(pEntryToHashValue[remain] == -1)
+	{
+		bIsNew = true;
+		buffId = remain;
+		pEntryToHashValue[remain] = snid;
+	}
+	else//the hash value is used for other entry
+	{
+		//Hash conflict
+		for(int i = m_maxNumofSplittable - 1; i > 0; i--)
+		{
+			bool hashValueFound = false;
+			if(pEntryToHashValue[i] == -1)//the entry hasn't been seen before, and now is assigned a hash value.
+			{
+				hashValueFound = true;
+				bIsNew = true;
+			}
+			else if(pEntryToHashValue[i] == snid)//the entry has been seen before, and now its hash value is found.
+				hashValueFound = true;
+
+			if(hashValueFound == true)
+			{
+				buffId = i;
+				break;
+			}
+		}
+	}
+
+	ErrorChecker(buffId, __PRETTY_FUNCTION__, "buffId");
+	return buffId;
 }
 
 /**
@@ -111,7 +168,7 @@ __global__ void CreateNewNode(TreeNode *pAllTreeNode, TreeNode *pSplittableNode,
 
 			pAllTreeNode[nid].leftChildId = leftChild.nodeId;
 			pAllTreeNode[nid].rightChildId = rightChild.nodeId;
-			ErrorChecker(pBestSplitPoint[bufferPos].m_nFeatureId + 1, __PRETTY_FUNCTION__, "pBestSplitPoint[bufferPos].m_nFeatureId");
+			ErrorChecker(pBestSplitPoint[bufferPos].m_nFeatureId, __PRETTY_FUNCTION__, "pBestSplitPoint[bufferPos].m_nFeatureId");
 
 			pAllTreeNode[nid].featureId = pBestSplitPoint[bufferPos].m_nFeatureId;
 			pAllTreeNode[nid].fSplitValue = pBestSplitPoint[bufferPos].m_fSplitValue;
@@ -120,4 +177,33 @@ __global__ void CreateNewNode(TreeNode *pAllTreeNode, TreeNode *pSplittableNode,
 		}
 	}
 
+}
+
+/**
+ * @brief: get unique used feature ids of the splittable nodes
+ */
+__global__ void GetUniqueFid(TreeNode *pAllTreeNode, TreeNode *pSplittableNode, int nNumofSplittableNode,
+								 int *pFeaIdToBuffId, int *pUniqueFidVec,int *pNumofUniqueFid,
+								 int maxNumofUsedFea, int flag_LEAFNODE)
+{
+	ErrorCond(*pNumofUniqueFid == 0, __PRETTY_FUNCTION__, "*pNumofUniqueFid == 0");
+	for(int n = 0; n < nNumofSplittableNode; n++)
+	{
+		int fid = pSplittableNode[n].featureId;
+		int nid = pSplittableNode[n].nodeId;
+		if(fid == -1 && pAllTreeNode[nid].rightChildId == flag_LEAFNODE)
+		{//leaf node should satisfy two conditions at this step
+			continue;
+		}
+		ErrorChecker(fid, __PRETTY_FUNCTION__, "fid");
+		bool bIsNew = false;
+		int hashValue = AssignHashValue(pFeaIdToBuffId, fid, maxNumofUsedFea, bIsNew);
+		if(bIsNew == true)
+		{
+			pUniqueFidVec[*pNumofUniqueFid] = fid;
+			*pNumofUniqueFid = *pNumofUniqueFid + 1;
+		}
+	}
+
+	ErrorChecker(nNumofSplittableNode - *pNumofUniqueFid, __PRETTY_FUNCTION__, "nNumofSplittableNode - pNumofUniqueFid");
 }

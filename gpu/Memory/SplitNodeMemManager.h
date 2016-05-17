@@ -29,10 +29,17 @@ public:
 	//memory for current number of node
 	static int *m_pCurNumofNode;
 
+	//memory for used features in the current splittable nodes
+	static int m_maxNumofUsedFea;
+	static int *m_pFeaIdToBuffId;
+	static int *m_pUniqueFeaIdVec;
+	static int *m_pNumofUniqueFeaId;
+
 public:
 	void allocMemForTree(int maxNumofNode);
 	void allocMemForParenChildIdMapping(int maxNumofSplittable);
 	void allocMemForNewNode(int maxNumofSplittable);
+	void allocMemForUsedFea(int nMaxNumofUsedFeature);
 };
 
 
