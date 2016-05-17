@@ -174,7 +174,7 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 							 snManager.m_pFeaIdToBuffId, snManager.m_pUniqueFeaIdVec, snManager.m_pNumofUniqueFeaId,
 			 	 	 	 	 snManager.m_maxNumofUsedFea, LEAFNODE);
 
-	//get all the used feature indices
+	//CPU code for getting all the used feature indices; now for testing.
 	vector<int> vFid;
 	for(int n = 0; n < nNumofSplittableNode; n++)
 	{
@@ -231,6 +231,14 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 	PROCESS_ERROR(vFid.size() <= nNumofSplittableNode);
 	PROCESS_ERROR(vFid.size() == numofUniqueFid);
 //	PrintVec(vFid);
+
+	//for each used feature to move instances to new nodes
+	InsToNewNode<<<1, 1>>>(snManager.m_pTreeNode, manager.m_pdDFeaValue, manager.m_pDInsId,
+						   	 manager.m_pFeaStartPos, manager.m_pDNumofKeyValue,
+						   	 manager.m_pInsIdToNodeId, manager.m_pSNIdToBuffId, manager.m_pBestSplitPoint,
+						   	 snManager.m_pUniqueFeaIdVec, snManager.m_pNumofUniqueFeaId,
+							 snManager.m_pParentId, snManager.m_pLeftChildId, snManager.m_pRightChildId,
+							 preMaxNodeId, manager.m_numofFea, manager.m_numofIns, LEAFNODE);
 
 	//for each used feature to make decision
 	for(int u = 0; u < numofUniqueFid; u++)

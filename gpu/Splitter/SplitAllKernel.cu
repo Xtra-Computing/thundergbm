@@ -186,7 +186,7 @@ __global__ void CreateNewNode(TreeNode *pAllTreeNode, TreeNode *pSplittableNode,
  * @brief: get unique used feature ids of the splittable nodes
  */
 __global__ void GetUniqueFid(TreeNode *pAllTreeNode, TreeNode *pSplittableNode, int nNumofSplittableNode,
-								 int *pFeaIdToBuffId, int *pUniqueFidVec,int *pNumofUniqueFid,
+								 int *pFeaIdToBuffId, int *pUniqueFidVec, int *pNumofUniqueFid,
 								 int maxNumofUsedFea, int flag_LEAFNODE)
 {
 	ErrorCond(*pNumofUniqueFid == 0, __PRETTY_FUNCTION__, "*pNumofUniqueFid == 0");
@@ -209,4 +209,72 @@ __global__ void GetUniqueFid(TreeNode *pAllTreeNode, TreeNode *pSplittableNode, 
 	}
 
 	ErrorChecker(nNumofSplittableNode - *pNumofUniqueFid, __PRETTY_FUNCTION__, "nNumofSplittableNode - pNumofUniqueFid");
+}
+
+/**
+ * @brief: assign instances (which have non-zero values on the feature of interest) to new nodes
+ */
+__global__ void InsToNewNode(TreeNode *pAllTreeNode, float_point *pdFeaValue, int *pInsId,
+								 long long *pFeaStartPos, int *pNumofKeyValue,
+								 int *pInsIdToNodeId, int *pSNIdToBuffId, SplitPoint *pBestSplitPoint,
+								 int *pUniqueFidVec, int *pNumofUniqueFid,
+								 int *pParentId, int *pLChildId, int *pRChildId,
+								 int preMaxNodeId, int numofFea, int numofIns, int flag_LEAFNODE)
+{
+	int numofUniqueFid = *pNumofUniqueFid;
+	for(int u = 0; u < numofUniqueFid; u++)
+	{
+		int ufid = pUniqueFidVec[u];
+		ErrorChecker(ufid, __PRETTY_FUNCTION__, "ufid");
+		ErrorChecker(numofFea - ufid, __PRETTY_FUNCTION__, "numofFea - ufid");
+
+		//for each instance that has value on the feature
+		long long curFeaStartPos = pFeaStartPos[ufid];
+		float_point *pdCurFeaValue = pdFeaValue + curFeaStartPos;
+		int *pCurFeaInsId = pInsId + curFeaStartPos;
+		int nNumofPair = pNumofKeyValue[ufid];
+		for(int i = 0; i < nNumofPair; i++)
+		{
+			int insId = pCurFeaInsId[i];
+			ErrorChecker(insId, __PRETTY_FUNCTION__, "insId");
+			ErrorChecker(numofIns - insId, __PRETTY_FUNCTION__, "numofIns - insId");
+			int nid = pInsIdToNodeId[insId];
+
+			if(nid < 0)//leaf node
+				continue;
+
+			ErrorChecker(nid, __PRETTY_FUNCTION__, "nid");
+			int bufferPos = pSNIdToBuffId[nid];
+			ErrorChecker(bufferPos, __PRETTY_FUNCTION__, "bufferPos");
+			int fid = pBestSplitPoint[bufferPos].m_nFeatureId;
+			if(fid != ufid)//this feature is not the splitting feature for the instance.
+				continue;
+
+
+			if(nid != pParentId[bufferPos])//node doesn't need to split (leaf node or new node)
+			{
+				if(pAllTreeNode[nid].rightChildId != flag_LEAFNODE)
+				{
+					ErrorChecker(preMaxNodeId - nid, __PRETTY_FUNCTION__, "preMaxNodeId - nid");
+					continue;
+				}
+				ErrorCond(pAllTreeNode[nid].rightChildId == flag_LEAFNODE, __PRETTY_FUNCTION__, "pAllTreeNode[nid].rightChildId == flag_LEAFNODE");
+				continue;
+			}
+
+			if(nid == pParentId[bufferPos])
+			{//internal node (needs to split)
+				ErrorCond(pRChildId[bufferPos] == pLChildId[bufferPos] + 1, __PRETTY_FUNCTION__, "rChild=lChild+1");//right child id > than left child id
+
+				double fPivot = pBestSplitPoint[bufferPos].m_fSplitValue;
+				double fvalue = pdCurFeaValue[i];
+				if(fvalue >= fPivot)
+				{
+					pInsIdToNodeId[insId] = pRChildId[bufferPos];//right child id
+				}
+				else
+					pInsIdToNodeId[insId] = pLChildId[bufferPos];//left child id
+			}
+		}
+	}
 }

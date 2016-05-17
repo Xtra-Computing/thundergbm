@@ -12,7 +12,7 @@
 #include "../../pureHost/MyAssert.h"
 
 //memory for instances
-int *GBDTGPUMemManager::m_pDInsId = NULL;				//all the instance ids
+int *GBDTGPUMemManager::m_pDInsId = NULL;				//all the instance ids for each key-value pair
 float_point *GBDTGPUMemManager::m_pdDFeaValue = NULL; //all the feature values
 int *GBDTGPUMemManager::m_pDNumofKeyValue = NULL;		//the number of key-value pairs of each feature
 long long *GBDTGPUMemManager::m_pFeaStartPos = NULL;	//start key-value position of each feature
