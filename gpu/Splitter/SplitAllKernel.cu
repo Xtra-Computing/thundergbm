@@ -306,8 +306,10 @@ __global__ void InsToNewNodeByDefault(TreeNode *pAllTreeNode, int *pInsIdToNodeI
 }
 
 __global__ void UpdateNewSplittable(TreeNode *pNewSplittableNode, nodeStat *pNewNodeStat, int *pSNIdToBuffId,
-								   nodeStat *pSNodeStat, int *pNumofNewNode, int maxNumofSplittable)
+								   	    nodeStat *pSNodeStat, int *pNumofNewNode, int *pBuffIdVec, int *pBuffIdCounter,
+								   	    int maxNumofSplittable)
 {
+	ErrorChecker(*pBuffIdCounter == 0, __PRETTY_FUNCTION__, "*pBuffIdCounter == 0");
 	for(int i = 0; i < *pNumofNewNode; i++)
 	{
 		int nid = pNewSplittableNode[i].nodeId;
@@ -315,5 +317,10 @@ __global__ void UpdateNewSplittable(TreeNode *pNewSplittableNode, nodeStat *pNew
 		bool bIsNew = false;
 		int bufferPos = AssignHashValue(pSNIdToBuffId, nid, maxNumofSplittable, bIsNew);
 		pSNodeStat[bufferPos] = pNewNodeStat[i];
+		if(bIsNew == true)
+		{
+			pBuffIdVec[*pBuffIdCounter] = bufferPos;
+			*pBuffIdCounter = (*pBuffIdCounter + 1);
+		}
 	}
 }

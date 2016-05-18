@@ -38,7 +38,7 @@ public:
 	static float_point *m_pLastValue;
 
 	//map splittable node id to buffer position
-	static int *m_pSNIdToBuffId, *m_pBuffIdVec;
+	static int *m_pSNIdToBuffId, *m_pBuffIdVec, *m_pNumofBuffId;
 
 	//model param
 	static float_point m_lambda;

@@ -29,14 +29,15 @@ float_point *GBDTGPUMemManager::m_pHess = NULL;
 int GBDTGPUMemManager::m_maxNumofSplittable = -1;
 TreeNode *GBDTGPUMemManager::m_pSplittableNode = NULL;
 SplitPoint *GBDTGPUMemManager::m_pBestSplitPoint = NULL;//(require memset!) store the best split points
-nodeStat *GBDTGPUMemManager::m_pSNodeStat = NULL;		//splittable node statistics
+nodeStat *GBDTGPUMemManager::m_pSNodeStat = NULL;	//splittable node statistics
 nodeStat *GBDTGPUMemManager::m_pRChildStat = NULL;
 nodeStat *GBDTGPUMemManager::m_pLChildStat = NULL;
 nodeStat *GBDTGPUMemManager::m_pTempRChildStat = NULL;//(require memset!) store temporary statistics of right child
-float_point *GBDTGPUMemManager::m_pLastValue = NULL;	//store the last processed value (for computing split point)
+float_point *GBDTGPUMemManager::m_pLastValue = NULL;//store the last processed value (for computing split point)
 
 int *GBDTGPUMemManager::m_pSNIdToBuffId = NULL;	//(require memset!) map splittable node id to buffer position
-int *GBDTGPUMemManager::m_pBuffIdVec = NULL;		//store all the buffer ids for splittable nodes
+int *GBDTGPUMemManager::m_pBuffIdVec = NULL;	//store all the buffer ids for splittable nodes
+int *GBDTGPUMemManager::m_pNumofBuffId = NULL;	//the total number of buffer ids in the current round.
 
 //host memory for GPU memory reset
 SplitPoint *GBDTGPUMemManager::m_pBestPointHost = NULL;//best split points
@@ -92,6 +93,7 @@ void GBDTGPUMemManager::allocMemForSplittableNode(int nMaxNumofSplittableNode)
 	//map splittable node to buffer id
 	checkCudaErrors(cudaMalloc((void**)&m_pSNIdToBuffId, sizeof(int) * m_maxNumofSplittable));
 	checkCudaErrors(cudaMalloc((void**)&m_pBuffIdVec, sizeof(int) * m_maxNumofSplittable));
+	checkCudaErrors(cudaMalloc((void**)&m_pNumofBuffId, sizeof(int)));
 }
 
 /**

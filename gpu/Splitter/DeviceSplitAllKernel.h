@@ -44,6 +44,7 @@ __global__ void InsToNewNodeByDefault(TreeNode *pAllTreeNode, int *pInsIdToNodeI
 		   	   	   	   	   	   	   	   	   int preMaxNodeId, int numofIns, int flag_LEAFNODE);
 
 __global__ void UpdateNewSplittable(TreeNode *pNewSplittableNode, nodeStat *pNewNodeStat, int *pSNIdToBuffId,
-		   	   	   	   	   	   	   	    nodeStat *pSNodeStat, int *pNumofNewNode, int maxNumofSplittable);
+		   	   	   	   	   	   	   	    nodeStat *pSNodeStat, int *pNumofNewNode, int *pBuffIdVec,
+		   	   	   	   	   	   	   	    int *pBuffIdCounter, int maxNumofSplittable);
 
 #endif /* DEVICESPLITALL_H_ */

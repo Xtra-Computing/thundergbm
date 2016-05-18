@@ -352,10 +352,12 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 
 	//reset nodeId to bufferId
 	manager.Memset(manager.m_pSNIdToBuffId, -1, sizeof(int) * manager.m_maxNumofSplittable);
+	manager.Memset(manager.m_pNumofBuffId, 0, sizeof(int));
 	//reset nodeStat
 	manager.Memset(manager.m_pSNodeStat, 0, sizeof(nodeStat) * manager.m_maxNumofSplittable);
 	UpdateNewSplittable<<<1, 1>>>(snManager.m_pNewSplittableNode, snManager.m_pNewNodeStat, manager.m_pSNIdToBuffId,
-			   	   	   	   	   	   	   manager.m_pSNodeStat, snManager.m_pNumofNewNode, manager.m_maxNumofSplittable);
+			   	   	   	   	   	  manager.m_pSNodeStat, snManager.m_pNumofNewNode, manager.m_pBuffIdVec, manager.m_pNumofBuffId,
+			   	   	   	   	   	  manager.m_maxNumofSplittable);
 	manager.MemcpyDeviceToDevice(snManager.m_pNewSplittableNode, manager.m_pSplittableNode, sizeof(TreeNode) * manager.m_maxNumofSplittable);
 
 	//##################################### cpu code. new for testing

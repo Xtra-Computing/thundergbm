@@ -45,7 +45,6 @@ void DataPreparator::PrepareSNodeInfo(const map<int, int> &mapNodeIdToBufferPos,
 	int maxNumofSplittable = manager.m_maxNumofSplittable;
 	m_pSNIdToBuffIdHost = new int[maxNumofSplittable];
 	memset(m_pSNIdToBuffIdHost, -1, sizeof(int) * maxNumofSplittable);
-	manager.Memset(manager.m_pSNIdToBuffId, -1, sizeof(int) * maxNumofSplittable);
 	nodeStat *pHostNodeStat = new nodeStat[maxNumofSplittable];
 	int *pBuffId = new int[maxNumofSplittable];//save all the buffer ids
 	int bidCounter = 0;
@@ -63,15 +62,38 @@ void DataPreparator::PrepareSNodeInfo(const map<int, int> &mapNodeIdToBufferPos,
 		pBuffId[bidCounter] = buffId;
 		bidCounter++;
 	}
+	PROCESS_ERROR(bidCounter == m_nodeStat.size());
 
+	if(mapNodeIdToBufferPos.size() > 1)//after first round; testing
+	{
+		//Splittable node ids to buffer ids
+		int *pSNIDToBuffIdHost2 = new int[maxNumofSplittable];
+		manager.MemcpyDeviceToHost(manager.m_pSNIdToBuffId, pSNIDToBuffIdHost2, sizeof(int) * maxNumofSplittable);
+		for(int i = 0; i < maxNumofSplittable; i++)
+		{
+			//cout << "size=" << mapNodeIdToBufferPos.size() << "; " << pSNIDToBuffIdHost2[i] << " v.s. " << m_pSNIdToBuffIdHost[i] << endl;
+			PROCESS_ERROR(pSNIDToBuffIdHost2[i] == m_pSNIdToBuffIdHost[i]);
+		}
+		delete[] pSNIDToBuffIdHost2;
 
-	manager.MemcpyHostToDevice(pHostNodeStat, manager.m_pSNodeStat, sizeof(nodeStat) * maxNumofSplittable);
-	manager.MemcpyHostToDevice(m_pSNIdToBuffIdHost, manager.m_pSNIdToBuffId, sizeof(int) * maxNumofSplittable);
+		//number buffer ids
+		int *pBuffIdHost = new int[maxNumofSplittable];
+		manager.MemcpyDeviceToHost(manager.m_pBuffIdVec, pBuffIdHost, sizeof(int) * maxNumofSplittable);
+		for(int i = 0; i < bidCounter; i++)
+		{
+			//cout << pBuffIdHost[i] << " v.s. " << pBuffId[i] << endl;
+			PROCESS_ERROR(pBuffIdHost[i] == pBuffId[i]);
+		}
+	}
+	else//first round
+	{
+		manager.Memset(manager.m_pSNIdToBuffId, -1, sizeof(int) * maxNumofSplittable);
+		manager.MemcpyHostToDevice(m_pSNIdToBuffIdHost, manager.m_pSNIdToBuffId, sizeof(int) * maxNumofSplittable);
+		manager.MemcpyHostToDevice(pHostNodeStat, manager.m_pSNodeStat, sizeof(nodeStat) * maxNumofSplittable);
+		manager.MemcpyHostToDevice(pBuffId, manager.m_pBuffIdVec, sizeof(int) * maxNumofSplittable);
+	}
 
 	//copy buffer ids to GPU memory
-	PROCESS_ERROR(bidCounter == m_nodeStat.size());
-	manager.MemcpyHostToDevice(pBuffId, manager.m_pBuffIdVec, sizeof(int) * maxNumofSplittable);
-
 
 	delete[] pHostNodeStat;
 	delete[] pBuffId;
