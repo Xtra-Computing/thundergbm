@@ -58,7 +58,8 @@ void GPUMemManager::Memset(void *pDevSrc, int value, int numofByte)
  * @brief: copy data from host to device
  */
 void GPUMemManager::TestMemcpyHostToDevice(void *hostSrc, void *pDevDst, int numofByte)
-{
+{//hostSrc and pDevDst have the same values.
+
 	PROCESS_ERROR(numofByte > 0);
 	PROCESS_ERROR(hostSrc != NULL);
 	PROCESS_ERROR(pDevDst != NULL);

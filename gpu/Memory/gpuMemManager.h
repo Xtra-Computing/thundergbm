@@ -16,10 +16,10 @@ typedef double float_point;
 class GPUMemManager
 {
 public:
-	void MemcpyHostToDevice(void *pHostSrc, void *pDevDst, int numofByte);
-	void MemcpyDeviceToHost(void *pDevSrc, void *pHostDst, int numofByte);
-	void MemcpyDeviceToDevice(void *pDevSrc, void *pDevDst, int numofByte);
-	void Memset(void *pDevSrc, int value, int numofByte);
+	static void MemcpyHostToDevice(void *pHostSrc, void *pDevDst, int numofByte);
+	static void MemcpyDeviceToHost(void *pDevSrc, void *pHostDst, int numofByte);
+	static void MemcpyDeviceToDevice(void *pDevSrc, void *pDevDst, int numofByte);
+	static void Memset(void *pDevSrc, int value, int numofByte);
 
 	void TestMemcpyHostToDevice(void *pHostSrc, void *pDevDst, int numofByte);
 	void TestMemcpyDeviceToHost();

@@ -49,7 +49,8 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 	//copy the splittable nodes to GPU memory
 	for(int s = 0; s < splittableNode.size(); s++)
 	{
-		manager.MemcpyHostToDevice(splittableNode[s], manager.m_pSplittableNode + s, sizeof(TreeNode));
+		//Only need "fid" and "nid" of the splittable nodes.
+//		manager.MemcpyHostToDevice(splittableNode[s], manager.m_pSplittableNode + s, sizeof(TreeNode));
 	}
 
 	//compute the base_weight of tree node, also determines if a node is a leaf.
@@ -176,6 +177,7 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 
 	//find all used unique feature ids
 	manager.Memset(snManager.m_pFeaIdToBuffId, -1, sizeof(int) * snManager.m_maxNumofUsedFea);
+	manager.Memset(snManager.m_pUniqueFeaIdVec, -1, sizeof(int) * snManager.m_maxNumofUsedFea);
 	manager.Memset(snManager.m_pNumofUniqueFeaId, 0, sizeof(int));
 	GetUniqueFid<<<1, 1>>>(snManager.m_pTreeNode, manager.m_pSplittableNode, nNumofSplittableNode,
 							 snManager.m_pFeaIdToBuffId, snManager.m_pUniqueFeaIdVec, snManager.m_pNumofUniqueFeaId,
@@ -194,7 +196,7 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 		PROCESS_ERROR(fid >= 0);
 		vFid.push_back(fid);
 	}
-//	PrintVec(vFid);
+
 	if(vFid.size() == 0)
 		PROCESS_ERROR(nNumofSplittableNode == 1 || bLastLevel == true);
 	PROCESS_ERROR(vFid.size() <= nNumofSplittableNode);
@@ -208,7 +210,7 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 	int *pUniqueFidHost = new int[vFid.size()];
 	preparator.m_pUsedFIDMap = new int[snManager.m_maxNumofUsedFea];
 	memset(preparator.m_pUsedFIDMap, -1, snManager.m_maxNumofUsedFea);
-	for(int i = 0; i < vFid.size(); i++)
+	for(int i = 0; i < vFid.size(); i++)//get unique id by host
 	{
 		bool bIsNew = false;
 		int hashValue = preparator.AssignHashValue(preparator.m_pUsedFIDMap, vFid[i], snManager.m_maxNumofUsedFea, bIsNew);
@@ -218,11 +220,55 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 			numofUniqueFid++;
 		}
 	}
+
+	TreeNode *pNewSNode1 = new TreeNode[manager.m_maxNumofSplittable];
+	manager.MemcpyDeviceToHost(manager.m_pSplittableNode, pNewSNode1, sizeof(TreeNode) * manager.m_maxNumofSplittable);
+	/*for(int s = 0; s < nNumofSplittableNode; s++)
+	{
+		int snid = splittableNode[s]->nodeId;
+		PROCESS_ERROR(snid == pNewSNode1[s].nodeId);
+		int sfid = splittableNode[s]->featureId;
+		PROCESS_ERROR(sfid == pNewSNode1[s].featureId);
+	}*/
+
 	//comparing unique ids
 	int *pUniqueIdFromDevice = new int[snManager.m_maxNumofUsedFea];
 	int numofUniqueFromDevice = 0;
 	manager.MemcpyDeviceToHost(snManager.m_pUniqueFeaIdVec, pUniqueIdFromDevice, sizeof(int) * snManager.m_maxNumofUsedFea);
 	manager.MemcpyDeviceToHost(snManager.m_pNumofUniqueFeaId, &numofUniqueFromDevice, sizeof(int));
+	if(numofUniqueFromDevice != numofUniqueFid)
+	{
+		for(int s = 0; s < nNumofSplittableNode; s++)
+		{
+			cout << splittableNode[s]->featureId << "\t";
+		}
+		cout << endl;
+
+		for(int s = 0; s < 19; s++)
+		{
+			cout << pNewSNode1[s].featureId << "\t";
+		}
+		cout << endl;
+
+//		PrintVec(vFid);
+		cout << numofUniqueFid << " v.s. " << numofUniqueFromDevice << endl;
+		for(int i = 0; i < numofUniqueFid; i++)
+		{
+			cout << pUniqueFidHost[i] << '\t';
+		}
+		cout << endl;
+		for(int i = 0; i < numofUniqueFromDevice; i++)
+		{
+			cout << pUniqueIdFromDevice[i] << '\t';
+		}
+		cout << endl;
+	}
+	cout.flush();
+	if(numofUniqueFromDevice != numofUniqueFid)
+	{
+		cout << "oh shit" << endl;
+		exit(0);
+	}
 	PROCESS_ERROR(numofUniqueFromDevice == numofUniqueFid);
 	for(int i = 0; i < numofUniqueFid; i++)
 	{
@@ -372,16 +418,33 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 	//nid to buffer id to obtain nodeStat for comparison
 	int *pHostSNIdToBuffId = new int[manager.m_maxNumofSplittable];
 	nodeStat *pSNodeStat = new nodeStat[manager.m_maxNumofSplittable];
+	TreeNode *pNewSNode = new TreeNode[manager.m_maxNumofSplittable];
+	int numofNewNode = -1;
 	manager.MemcpyDeviceToHost(manager.m_pSNIdToBuffId, pHostSNIdToBuffId, sizeof(int) * manager.m_maxNumofSplittable);
 	manager.MemcpyDeviceToHost(manager.m_pSNodeStat, pSNodeStat, sizeof(nodeStat) * manager.m_maxNumofSplittable);
+	manager.MemcpyDeviceToHost(manager.m_pSplittableNode, pNewSNode, sizeof(TreeNode) * manager.m_maxNumofSplittable);
+	manager.MemcpyDeviceToHost(snManager.m_pNumofNewNode, &numofNewNode, sizeof(int));
+	PROCESS_ERROR(numofNewNode == newSplittableNode.size());
 	for(int i = 0; i < newSplittableNode.size(); i++)
 	{
 		int nid = newSplittableNode[i]->nodeId;
+		PROCESS_ERROR(nid == pNewSNode[i].nodeId);
+		int sfid = newSplittableNode[i]->featureId;
+		if(sfid != pNewSNode[i].featureId)
+		{
+			cout << sfid << " v.s. " << pNewSNode[i].featureId << endl;
+			cout << "oh shit" << endl;
+			exit(0);
+		}
+		PROCESS_ERROR(sfid == pNewSNode[i].featureId);
 		int buffPos = pHostSNIdToBuffId[nid];
 		PROCESS_ERROR(buffPos >= 0);
 		int buffPosHost = mapNodeIdToBufferPos[nid];
 		PROCESS_ERROR(pSNodeStat[buffPos].sum_gd == m_nodeStat[buffPosHost].sum_gd);
 		PROCESS_ERROR(pSNodeStat[buffPos].sum_hess == m_nodeStat[buffPosHost].sum_hess);
 	}
+	delete []pHostSNIdToBuffId;
+	delete []pSNodeStat;
+	delete []pNewSNode;
 	//################################## end
 }

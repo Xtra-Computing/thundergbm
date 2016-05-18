@@ -41,8 +41,8 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 
 	//copy instance id to node id infomation
 	PROCESS_ERROR(manager.m_numofIns == m_nodeIds.size());
-	preparator.VecToArray(m_nodeIds, manager.m_pInsToNodeId);
-	manager.MemcpyHostToDevice(manager.m_pInsToNodeId, manager.m_pInsIdToNodeId, sizeof(int) * manager.m_numofIns);
+	preparator.VecToArray(m_nodeIds, manager.m_pInsToNodeIdHost);
+	manager.MemcpyHostToDevice(manager.m_pInsToNodeIdHost, manager.m_pInsIdToNodeId, sizeof(int) * manager.m_numofIns);
 
 	//copy splittable node information and buffer ids to GPU memory
 	preparator.PrepareSNodeInfo(mapNodeIdToBufferPos, m_nodeStat);

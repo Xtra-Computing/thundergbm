@@ -45,7 +45,7 @@ public:
 
 	//for host memory (use to reset GPU memory)
 	static SplitPoint *m_pBestPointHost;
-	static int *m_pInsToNodeId;
+	static int *m_pInsToNodeIdHost;
 
 public:
 	void allocMemForIns(int nTotalNumofValue, int numofIns, int numofFeature);

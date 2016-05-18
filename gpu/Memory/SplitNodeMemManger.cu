@@ -8,6 +8,7 @@
 #include <helper_cuda.h>
 #include "SplitNodeMemManager.h"
 #include "../../pureHost/MyAssert.h"
+#include "gpuMemManager.h"
 
 
 //memory for the tree
@@ -33,6 +34,9 @@ int *SNGPUManager::m_pFeaIdToBuffId = NULL;//(require memset!) map feature id to
 int *SNGPUManager::m_pUniqueFeaIdVec = NULL;	//store all the used feature ids
 int *SNGPUManager::m_pNumofUniqueFeaId = NULL;//(require memset!)store the number of unique feature ids
 
+//host memory for reset purposes
+TreeNode *SNGPUManager::m_pTreeNodeHost = NULL;
+
 /**
  * @brief: reserve memory for the tree
  */
@@ -44,6 +48,16 @@ void SNGPUManager::allocMemForTree(int maxNumofNode)
 	checkCudaErrors(cudaMalloc((void**)&m_pCurNumofNode, sizeof(int)));
 	checkCudaErrors(cudaMalloc((void**)&m_pNumofNewNode, sizeof(int)));
 
+	//for reseting memory for the next tree
+	m_pTreeNodeHost = new TreeNode[m_maxNumofNode];
+}
+
+/**
+ * @brief: reset memory for next tree
+ */
+void SNGPUManager::resetForNextTree()
+{
+	GPUMemManager::MemcpyHostToDevice(m_pTreeNodeHost, m_pTreeNode, sizeof(TreeNode) * m_maxNumofNode);
 }
 
 /**

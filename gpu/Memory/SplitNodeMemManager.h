@@ -36,11 +36,16 @@ public:
 	static int *m_pUniqueFeaIdVec;
 	static int *m_pNumofUniqueFeaId;
 
+	//host memory for reset purposes
+	static TreeNode *m_pTreeNodeHost;
+
 public:
 	void allocMemForTree(int maxNumofNode);
 	void allocMemForParenChildIdMapping(int maxNumofSplittable);
 	void allocMemForNewNode(int maxNumofSplittable);
 	void allocMemForUsedFea(int nMaxNumofUsedFeature);
+
+	void resetForNextTree();
 };
 
 

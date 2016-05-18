@@ -41,7 +41,7 @@ int *GBDTGPUMemManager::m_pNumofBuffId = NULL;	//the total number of buffer ids 
 
 //host memory for GPU memory reset
 SplitPoint *GBDTGPUMemManager::m_pBestPointHost = NULL;//best split points
-int *GBDTGPUMemManager::m_pInsToNodeId = NULL;//map instance id to snode id
+int *GBDTGPUMemManager::m_pInsToNodeIdHost = NULL;//map instance id to snode id
 
 /**
  * @brief: allocate memory for instances
@@ -102,7 +102,7 @@ void GBDTGPUMemManager::allocMemForSplittableNode(int nMaxNumofSplittableNode)
 void GBDTGPUMemManager::allocHostMemory()
 {
 	m_pBestPointHost = new SplitPoint[m_maxNumofSplittable];
-	m_pInsToNodeId = new int[m_numofIns];
+	m_pInsToNodeIdHost = new int[m_numofIns];
 }
 
 /**
@@ -111,5 +111,5 @@ void GBDTGPUMemManager::allocHostMemory()
 void GBDTGPUMemManager::releaseHostMemory()
 {
 	delete []m_pBestPointHost;
-	delete []m_pInsToNodeId;
+	delete []m_pInsToNodeIdHost;
 }

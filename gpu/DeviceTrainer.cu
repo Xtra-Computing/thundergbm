@@ -9,6 +9,7 @@
 #include "DeviceTrainer.h"
 #include "Splitter/DeviceSplitter.h"
 #include "Memory/gbdtGPUMemManager.h"
+#include "Memory/SplitNodeMemManager.h"
 
 /**
  * @brief: grow the tree by splitting nodes to the full extend
@@ -20,6 +21,8 @@ void DeviceTrainer::GrowTree(RegTree &tree)
 	//copy the root node to GPU
 	GBDTGPUMemManager manager;
 	manager.MemcpyHostToDevice(tree.nodes[0], manager.m_pSplittableNode, sizeof(TreeNode));
+	SNGPUManager snManager;
+	snManager.resetForNextTree();//reset tree nodes to default value
 	nNumofSplittableNode++;
 
 	vector<TreeNode*> splittableNode;
