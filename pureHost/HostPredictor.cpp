@@ -6,13 +6,13 @@
  *		@brief: predict value for each instance
  */
 
-#include "Predictor.h"
+#include "HostPredictor.h"
 #include "SparsePred/DenseInstance.h"
 #include "MyAssert.h"
 
 /**
  * @brief: prediction function for sparse instances
- */
+
 void Predictor::PredictSparseIns(vector<vector<KeyValue> > &v_vInstance, vector<RegTree> &vTree,
 								 vector<double> &v_fPredValue, vector<double> &v_predBuffer)
 {
@@ -47,12 +47,12 @@ void Predictor::PredictSparseIns(vector<vector<KeyValue> > &v_vInstance, vector<
 	}
 
 	PROCESS_ERROR(v_fPredValue.size() == v_vInstance.size());
-}
+}*/
 
 
 /**
  * @brief: prediction function for sparse instances
- */
+
 void Predictor::PredictSparseIns(vector<vector<KeyValue> > &v_vInstance, vector<RegTree> &vTree, vector<double> &v_fPredValue)
 {
 	DenseInsConverter denseInsConverter(vTree);
@@ -81,4 +81,4 @@ void Predictor::PredictSparseIns(vector<vector<KeyValue> > &v_vInstance, vector<
 	}
 
 	assert(v_fPredValue.size() == v_vInstance.size());
-}
+}*/

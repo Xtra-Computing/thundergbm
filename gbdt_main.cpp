@@ -10,7 +10,7 @@
 #include <time.h>
 #include "pureHost/DataReader/LibsvmReaderSparse.h"
 #include "pureHost/HostTrainer.h"
-#include "pureHost/Predictor.h"
+#include "pureHost/HostPredictor.h"
 #include "pureHost/Evaluation/RMSE.h"
 #include "pureHost/MyAssert.h"
 
@@ -24,7 +24,7 @@ int main()
 {
 	//mainPureHost();
 	//return 1;
-	if(!InitCUDA('T'))
+	if(!InitCUDA('G'))
 	{
 		cerr << "cannot initialise GPU" << endl;
 		return 0;
@@ -36,6 +36,9 @@ int main()
 	int maxNumofSplittableNode = 100;
 	int maxNumofUsedFeature = 1000;
 	int maxNumofNode = 10000;
+
+	HostPredictor pred;
+
 	DeviceSplitter splitter;
 	DeviceTrainer trainer(&splitter);
 
@@ -127,7 +130,6 @@ int main()
 
 	//run the GBDT prediction process
 	clock_t begin_pre, end_pre;
-	Predictor pred;
 	vector<double> v_fPredValue;
 
 	begin_pre = clock();

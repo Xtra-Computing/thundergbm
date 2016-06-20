@@ -105,3 +105,8 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 	preparator.ReleaseMem();
 }
 
+void DeviceSplitter::ComputeGD(vector<RegTree> &vTree)
+{
+
+}
+

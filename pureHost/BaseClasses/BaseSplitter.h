@@ -39,12 +39,14 @@ public:
 
 	virtual void SplitAll(vector<TreeNode*> &splittableNode, const vector<SplitPoint> &vBest, RegTree &tree, int &m_nNumofNode,
 				  	  	  const vector<nodeStat> &rchildStat, const vector<nodeStat> &lchildStat, bool bLastLevel) = 0;
+	//a function for computing the gain of a feature
+	virtual void FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat> &tempStat, vector<nodeStat> &lchildStat) = 0;
+	//predict the value for each instance and compute their gradient
+	virtual void ComputeGD(vector<RegTree> &vTree) = 0;
 
 	double ComputeWeightSparseData(int bufferPos);
 	void ComputeGDSparse(vector<double> &v_fPredValue, vector<double> &m_vTrueValue_fixedPos);
 
-	//a function for computing the gain of a feature
-	virtual void FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat> &tempStat, vector<nodeStat> &lchildStat) = 0;
 
 	void UpdateNodeStat(vector<TreeNode*> &newSplittableNode, vector<nodeStat> &v_nodeStat);
 

@@ -9,7 +9,7 @@
 #include <math.h>
 #include "DataReader/LibsvmReaderSparse.h"
 #include "HostTrainer.h"
-#include "Predictor.h"
+#include "HostPredictor.h"
 #include "Evaluation/RMSE.h"
 #include "MyAssert.h"
 #include "UpdateOps/Pruner.h"
@@ -77,7 +77,7 @@ int mainPureHost()
 
 	//run the GBDT prediction process
 	clock_t begin_pre, end_pre;
-	Predictor pred;
+	HostPredictor pred;
 	vector<double> v_fPredValue;
 
 	begin_pre = clock();

@@ -10,7 +10,8 @@
 
 #include <ctime>
 
-#include "../Predictor.h"
+#include "../UpdateOps/HostSplitter.h"
+#include "../HostPredictor.h"
 #include "../Tree/TreeNode.h"
 #include "../Tree/PrintTree.h"
 #include "../Evaluation/RMSE.h"
@@ -45,7 +46,8 @@ void BaseTrainer::TrainGBDT(vector<RegTree> & vTree)
 	clock_t end_pred, end_gd, end_grow;
 	double total_pred = 0, total_gd = 0, total_grow = 0;
 
-	Predictor pred;
+	HostPredictor pred;
+	HostSplitter hsplit;
 	for(int i = 0; i < m_nMaxNumofTree; i++)
 	{
 		splitter->m_nRound = i;
@@ -56,6 +58,12 @@ void BaseTrainer::TrainGBDT(vector<RegTree> & vTree)
 		InitTree(tree);
 
 		//predict the data by the existing trees
+		hsplit.m_vvInsSparse = m_vvInsSparse;
+		hsplit.m_vPredBuffer = m_vPredBuffer;
+		hsplit.m_vTrueValue = m_vTrueValue;
+		hsplit.ComputeGD(vTree);
+
+		/*
 		vector<double> v_fPredValue;
 		begin_pred = clock();
 		pred.PredictSparseIns(m_vvInsSparse, vTree, v_fPredValue, m_vPredBuffer);
@@ -74,6 +82,7 @@ void BaseTrainer::TrainGBDT(vector<RegTree> & vTree)
 		splitter->ComputeGDSparse(v_fPredValue, m_vTrueValue);
 		end_gd = clock();
 		total_gd += (double(end_gd - begin_gd) / CLOCKS_PER_SEC);
+		*/
 
 		//grow the tree
 		begin_grow = clock();

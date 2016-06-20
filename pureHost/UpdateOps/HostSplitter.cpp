@@ -11,6 +11,8 @@
 #include <map>
 #include <iostream>
 
+#include "../Evaluation/RMSE.h"
+#include "../HostPredictor.h"
 #include "HostSplitter.h"
 #include "SplitPoint.h"
 #include "../MyAssert.h"
@@ -311,4 +313,24 @@ void HostSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Spli
 	splittableNode = newSplittableNode;
 }
 
+/**
+ * @brief: predict the value for each instance and compute the gradient for each instance
+ */
+void HostSplitter::ComputeGD(vector<RegTree> &vTree)
+{
+	vector<double> v_fPredValue;
+
+	HostPredictor pred;
+	pred.PredictSparseIns(m_vvInsSparse, vTree, v_fPredValue, m_vPredBuffer);
+
+	if(vTree.size() > 0)
+	{
+		//run the GBDT prediction process
+		EvalRMSE rmse;
+		double fRMSE = rmse.Eval(v_fPredValue, m_vTrueValue);
+		cout << "rmse=" << fRMSE << endl;
+	}
+
+	ComputeGDSparse(v_fPredValue, m_vTrueValue);
+}
 
