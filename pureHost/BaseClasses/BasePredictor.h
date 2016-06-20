@@ -1,21 +1,20 @@
 /*
- * Predictor.h
+ * BasePredictor.h
  *
- *  Created on: 7 Jan 2016
- *      Author: Zeyi Wen
- *		@brief: 
+ *  Created on: 27/05/2016
+ *      Author: zeyi
  */
 
-#ifndef PREDICTOR_H_
-#define PREDICTOR_H_
+#ifndef BASEPREDICTOR_H_
+#define BASEPREDICTOR_H_
 
 #include <vector>
-#include "Tree/RegTree.h"
-#include "KeyValue.h"
+#include "../Tree/RegTree.h"
+#include "../KeyValue.h"
 
 using std::vector;
 
-class Predictor
+class BasePredictor
 {
 public:
 	void PredictSparseIns(vector<vector<KeyValue> > &v_vInstance, vector<RegTree> &v_Tree,
@@ -24,5 +23,4 @@ public:
 };
 
 
-
-#endif /* PREDICTOR_H_ */
+#endif /* BASEPREDICTOR_H_ */
