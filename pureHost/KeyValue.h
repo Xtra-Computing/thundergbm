@@ -20,7 +20,7 @@ public:
 
 public:
 	static void SortFeaValue(int nNumofDim, vector<vector<KeyValue> > &vvInsSparse, vector<vector<KeyValue> > &vvFeaInxPair);
-	static void VecToArray(vector<vector<KeyValue> > &vvFeaInxPair, int *pInsId, double *pdValue, int *pNumofKeyValue);
+	static void VecToArray(vector<vector<KeyValue> > &vvFeaInxPair, int *pInsId, double *pdValue, int *pNumofKeyValue, long long *plStartPos);
 
 	static void TestVecToArray(vector<vector<KeyValue> > &vvFeaInxPair, int *pInsId, double *pdValue, int *pNumofKeyValue);
 };

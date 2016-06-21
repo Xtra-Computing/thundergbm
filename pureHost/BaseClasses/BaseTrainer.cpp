@@ -58,12 +58,15 @@ void BaseTrainer::TrainGBDT(vector<RegTree> & vTree)
 		InitTree(tree);
 
 		//predict the data by the existing trees
+
 		hsplit.m_vvInsSparse = m_vvInsSparse;
 		hsplit.m_vPredBuffer = m_vPredBuffer;
 		hsplit.m_vTrueValue = m_vTrueValue;
 		hsplit.ComputeGD(vTree);
+		m_vPredBuffer = hsplit.m_vPredBuffer;
+		/**/
 
-		/*
+/*
 		vector<double> v_fPredValue;
 		begin_pred = clock();
 		pred.PredictSparseIns(m_vvInsSparse, vTree, v_fPredValue, m_vPredBuffer);

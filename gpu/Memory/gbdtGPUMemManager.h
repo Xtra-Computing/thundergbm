@@ -18,10 +18,14 @@
 class GBDTGPUMemManager: public GPUMemManager
 {
 public:
-	//memory for instances
+	//memory for instances (key on feature id)
 	static int *m_pDInsId, *m_pDNumofKeyValue;
 	static float_point *m_pdDFeaValue;
 	static long long *m_pFeaStartPos;
+	//memory for instances (key on instance id)
+	static int *m_pDFeaId, *m_pDNumofFea;
+	static float_point *m_pdDInsValue;
+	static long long *m_pInsStartPos;
 
 	static int *m_pInsIdToNodeId;
 	static long long m_totalNumofValues;

@@ -11,11 +11,17 @@
 #include "gbdtGPUMemManager.h"
 #include "../../pureHost/MyAssert.h"
 
-//memory for instances
+//memory for instances (key on feature id)
 int *GBDTGPUMemManager::m_pDInsId = NULL;				//all the instance ids for each key-value pair
-float_point *GBDTGPUMemManager::m_pdDFeaValue = NULL; //all the feature values
+float_point *GBDTGPUMemManager::m_pdDFeaValue = NULL; 	//all the feature values
 int *GBDTGPUMemManager::m_pDNumofKeyValue = NULL;		//the number of key-value pairs of each feature
 long long *GBDTGPUMemManager::m_pFeaStartPos = NULL;	//start key-value position of each feature
+//memory for instances (key on instance id)
+int *GBDTGPUMemManager::m_pDFeaId = NULL;				//all the feature ids for every instance
+float_point *GBDTGPUMemManager::m_pdDInsValue = NULL;	//all the feature values for every instance
+int *GBDTGPUMemManager::m_pDNumofFea = NULL;			//the number of features for each instance
+long long *GBDTGPUMemManager::m_pInsStartPos = NULL;	//the start position of each instance
+
 int *GBDTGPUMemManager::m_pInsIdToNodeId = NULL; 		//map instance id to node id
 long long GBDTGPUMemManager::m_totalNumofValues = -1;
 int GBDTGPUMemManager::m_numofIns = -1;
@@ -54,12 +60,20 @@ void GBDTGPUMemManager::allocMemForIns(int nTotalNumofValue, int numofIns, int n
 	m_totalNumofValues = nTotalNumofValue;
 	m_numofIns = numofIns;
 	m_numofFea = numofFeature;
+
+	//memory for instances (key on feature id)
 	checkCudaErrors(cudaMalloc((void**)&m_pDInsId, sizeof(int) * m_totalNumofValues));
 	checkCudaErrors(cudaMalloc((void**)&m_pdDFeaValue, sizeof(float_point) * m_totalNumofValues));
 	checkCudaErrors(cudaMalloc((void**)&m_pDNumofKeyValue, sizeof(int) * m_numofFea));
+	checkCudaErrors(cudaMalloc((void**)&m_pFeaStartPos, sizeof(long long) * m_numofFea));
+	//memory for instances (key on instance id)
+	checkCudaErrors(cudaMalloc((void**)&m_pDFeaId, sizeof(int) * m_totalNumofValues));
+	checkCudaErrors(cudaMalloc((void**)&m_pdDInsValue, sizeof(float_point) * m_totalNumofValues));
+	checkCudaErrors(cudaMalloc((void**)&m_pDNumofFea, sizeof(int) * m_numofIns));
+	checkCudaErrors(cudaMalloc((void**)&m_pInsStartPos, sizeof(long long) * m_numofIns));
+
 
 	checkCudaErrors(cudaMalloc((void**)&m_pInsIdToNodeId, sizeof(int) * m_numofIns));
-	checkCudaErrors(cudaMalloc((void**)&m_pFeaStartPos, sizeof(long long) * m_numofIns));
 
 	//gradient and hessian
 	checkCudaErrors(cudaMalloc((void**)&m_pGrad, sizeof(float_point) * m_numofIns));

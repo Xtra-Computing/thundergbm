@@ -81,7 +81,7 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 		PROCESS_ERROR(startPosOfPrevFea >= 0);
 		long long startPosOfCurFea = startPosOfPrevFea + numofPreFeaKeyValues;
 		//copy the value of the start position of the current feature
-		manager.MemcpyHostToDevice(&startPosOfCurFea, manager.m_pFeaStartPos + f, sizeof(long long));
+//		manager.MemcpyHostToDevice(&startPosOfCurFea, manager.m_pFeaStartPos + f, sizeof(long long));
 
 		//reset the temporary right child statistics
 		checkCudaErrors(cudaMemset(pTempRChildStat, 0, sizeof(nodeStat) * maxNumofSplittable));
@@ -107,6 +107,20 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 
 void DeviceSplitter::ComputeGD(vector<RegTree> &vTree)
 {
+	vector<double> v_fPredValue;
+/*
+	HostPredictor pred;
+	pred.PredictSparseIns(m_vvInsSparse, vTree, v_fPredValue, m_vPredBuffer);
 
+	if(vTree.size() > 0)
+	{
+		//run the GBDT prediction process
+		EvalRMSE rmse;
+		double fRMSE = rmse.Eval(v_fPredValue, m_vTrueValue);
+		cout << "rmse=" << fRMSE << endl;
+	}
+
+	ComputeGDSparse(v_fPredValue, m_vTrueValue);
+	*/
 }
 

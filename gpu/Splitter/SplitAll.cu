@@ -63,6 +63,7 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 	{
 		int nid = splittableNode[n]->nodeId;
 //		cout << "node " << nid << " needs to split..." << endl;
+//		cout << mapNodeIdToBufferPos.size() << endl;
 		map<int, int>::iterator itBufferPos = mapNodeIdToBufferPos.find(nid);
 		assert(itBufferPos != mapNodeIdToBufferPos.end());
 		int bufferPos = mapNodeIdToBufferPos[nid];

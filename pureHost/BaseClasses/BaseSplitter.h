@@ -26,13 +26,13 @@ using std::map;
 class BaseSplitter
 {
 public:
-	vector<vector<KeyValue> > m_vvFeaInxPair; //value is feature value (sorted in a descendant order); id is instance id
-	map<int, int> mapNodeIdToBufferPos;
-	vector<int> m_nodeIds; //instance id to node id
-	vector<gdpair> m_vGDPair_fixedPos;
-	vector<nodeStat> m_nodeStat; //all the constructed tree nodes
-	double m_labda;//the weight of the cost of complexity of a tree
-	double m_gamma;//the weight of the cost of the number of trees
+	static vector<vector<KeyValue> > m_vvFeaInxPair; //value is feature value (sorted in a descendant order); id is instance id
+	static map<int, int> mapNodeIdToBufferPos;
+	static vector<int> m_nodeIds; //instance id to node id
+	static vector<gdpair> m_vGDPair_fixedPos;
+	static vector<nodeStat> m_nodeStat; //all the constructed tree nodes
+	static double m_labda;//the weight of the cost of complexity of a tree
+	static double m_gamma;//the weight of the cost of the number of trees
 
 public:
 	virtual ~BaseSplitter(){}

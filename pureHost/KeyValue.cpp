@@ -63,31 +63,35 @@ void KeyValue::SortFeaValue(int nNumofDim, vector<vector<KeyValue> > &vvInsSpars
 /**
  * @brief: convert a vector to an array
  * @vvFeaInxPair: each feature has a vector of key (which is instance id) and value
- * @pInsId:  all the instance ids corresponding pair
+ * @pId:  all the instance/feature ids corresponding pair
  * @pdValue: all the feature values
  * @pNumofKeyValue: number of key-value pairs of each feature
  */
-void KeyValue::VecToArray(vector<vector<KeyValue> > &vvFeaInxPair, int *pInsId, double *pdValue, int *pNumofKeyValue)
+void KeyValue::VecToArray(vector<vector<KeyValue> > &vvKeyValuePair, int *pId, double *pdValue, int *pNumofKeyValue, long long *plStartPos)
 {
-	PROCESS_ERROR(pInsId != NULL);
+	PROCESS_ERROR(pId != NULL);
 	PROCESS_ERROR(pdValue != NULL);
 	PROCESS_ERROR(pNumofKeyValue != NULL);
 
 	int nCur = 0;//the current processing key-value pair
-	int nFeature = vvFeaInxPair.size();
-	for(int i = 0; i < nFeature; i++)
+	int nKeyValue = vvKeyValuePair.size();
+	long long totalPreValue = 0;
+	for(int i = 0; i < nKeyValue; i++)
 	{//for each feature
-		vector<KeyValue> &vKV = vvFeaInxPair[i];
-		int nNumofValue = vKV.size();
-		pNumofKeyValue[i] = nNumofValue;
+		vector<KeyValue> &vKV = vvKeyValuePair[i];
+		int nNumofPair = vKV.size();
+		pNumofKeyValue[i] = nNumofPair;
 
 		//for each pair of key-value
-		for(int p = 0; p < nNumofValue; p++)
+		for(int p = 0; p < nNumofPair; p++)
 		{
-			pInsId[nCur] = vKV[p].id;
+			pId[nCur] = vKV[p].id;
 			pdValue[nCur] = vKV[p].featureValue;
 			nCur++;//move to next key value
 		}
+
+		plStartPos[i] = totalPreValue;
+		totalPreValue += nNumofPair;
 	}
 }
 

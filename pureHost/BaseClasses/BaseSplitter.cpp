@@ -22,6 +22,14 @@ using std::make_pair;
 using std::cout;
 using std::endl;
 
+vector<vector<KeyValue> > BaseSplitter::m_vvFeaInxPair; //value is feature value (sorted in a descendant order); id (or key) is instance id
+map<int, int> BaseSplitter::mapNodeIdToBufferPos;
+vector<int> BaseSplitter::m_nodeIds; //instance id to node id
+vector<gdpair> BaseSplitter::m_vGDPair_fixedPos;
+vector<nodeStat> BaseSplitter::m_nodeStat; //all the constructed tree nodes
+double BaseSplitter::m_labda;//the weight of the cost of complexity of a tree
+double BaseSplitter::m_gamma;//the weight of the cost of the number of trees
+
 /**
  * @brief: update the node statistics and buffer positions.
  */

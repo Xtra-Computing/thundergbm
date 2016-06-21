@@ -24,7 +24,7 @@ int main()
 {
 	//mainPureHost();
 	//return 1;
-	if(!InitCUDA('G'))
+	if(!InitCUDA('T'))
 	{
 		cerr << "cannot initialise GPU" << endl;
 		return 0;
@@ -86,26 +86,48 @@ int main()
 
 	//store feature key-value into array
 	int *pInsId = new int[memAllocator.m_totalNumofValues];
-	double *pdValue = new double[memAllocator.m_totalNumofValues];
+	float_point *pdValue = new float_point[memAllocator.m_totalNumofValues];
 	int *pNumofKeyValue = new int[nNumofFeatures];
-	KeyValue::VecToArray(trainer.splitter->m_vvFeaInxPair, pInsId, pdValue, pNumofKeyValue);
+	long long *plFeaStartPos = new long long[nNumofFeatures];//get start position of each feature
+
+	KeyValue::VecToArray(trainer.splitter->m_vvFeaInxPair, pInsId, pdValue, pNumofKeyValue, plFeaStartPos);
 	KeyValue::TestVecToArray(trainer.splitter->m_vvFeaInxPair, pInsId, pdValue, pNumofKeyValue);
 
 	//copy feature key-value to device memory
 	memAllocator.MemcpyHostToDevice(pInsId, memAllocator.m_pDInsId, nNumofValue * sizeof(int));
-	memAllocator.MemcpyHostToDevice(pdValue, memAllocator.m_pdDFeaValue, nNumofValue * sizeof(double));
+	memAllocator.MemcpyHostToDevice(pdValue, memAllocator.m_pdDFeaValue, nNumofValue * sizeof(float_point));
 	memAllocator.MemcpyHostToDevice(pNumofKeyValue, memAllocator.m_pDNumofKeyValue, nNumofFeatures * sizeof(int));
+	memAllocator.MemcpyHostToDevice(plFeaStartPos, memAllocator.m_pFeaStartPos, nNumofFeatures * sizeof(long long));
 
 	memAllocator.TestMemcpyDeviceToHost();
 	memAllocator.TestMemcpyDeviceToDevice();
 	memAllocator.TestMemcpyHostToDevice(pInsId, memAllocator.m_pDInsId, nNumofValue * sizeof(int));
-	memAllocator.TestMemcpyHostToDevice(pdValue, memAllocator.m_pdDFeaValue, nNumofValue * sizeof(double));
+	memAllocator.TestMemcpyHostToDevice(pdValue, memAllocator.m_pdDFeaValue, nNumofValue * sizeof(float_point));
 	memAllocator.TestMemcpyHostToDevice(pNumofKeyValue, memAllocator.m_pDNumofKeyValue, nNumofFeatures * sizeof(int));
+
+	//store sparse instances to GPU memory
+	int *pFeaId = new int[nNumofValue];
+	float_point *pdFeaValue = new float_point[nNumofValue];
+	int *pNumofFea = new int[nNumofExamples];
+	long long *plInsStartPos = new long long[nNumofExamples];
+	KeyValue::VecToArray(trainer.m_vvInsSparse, pFeaId, pdFeaValue, pNumofFea, plInsStartPos);
+	KeyValue::TestVecToArray(trainer.m_vvInsSparse, pFeaId, pdFeaValue, pNumofFea);
+
+	//copy instance key-value to device memory
+	memAllocator.MemcpyHostToDevice(pFeaId, memAllocator.m_pDFeaId, nNumofValue * sizeof(int));
+	memAllocator.MemcpyHostToDevice(pdFeaValue, memAllocator.m_pdDInsValue, nNumofValue * sizeof(float_point));
+	memAllocator.MemcpyHostToDevice(pNumofFea, memAllocator.m_pDNumofFea, nNumofExamples * sizeof(int));
+	memAllocator.MemcpyHostToDevice(plInsStartPos, memAllocator.m_pInsStartPos, nNumofExamples * sizeof(long long));
 
 	//free host memory
 	delete []pInsId;
 	delete []pdValue;
 	delete []pNumofKeyValue;
+	delete []plFeaStartPos;
+	delete []pFeaId;
+	delete []pdFeaValue;
+	delete []pNumofFea;
+	delete []plInsStartPos;
 
 	//training trees
 	vector<RegTree> v_Tree;
