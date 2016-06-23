@@ -8,7 +8,7 @@
 #ifndef SPLITNODEGPUMEMMANAGER_H_
 #define SPLITNODEGPUMEMMANAGER_H_
 
-#include "../../pureHost/Tree/TreeNode.h"
+#include "../../DeviceHost/TreeNode.h"
 #include "../../pureHost/UpdateOps/NodeStat.h"
 
 class SNGPUManager

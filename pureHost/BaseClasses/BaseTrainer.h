@@ -27,7 +27,7 @@ public:
 	int m_nMaxNumofTree;
 	int m_nMaxDepth;
 
-	vector<vector<double> > m_vvInstance;
+//	vector<vector<double> > m_vvInstance;
 	vector<double> m_vTrueValue;
 
 	/*** for more efficient on finding the best split value of a feature ***/

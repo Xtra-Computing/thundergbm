@@ -67,8 +67,20 @@ void DeviceTrainer::GrowTree(RegTree &tree)
 		nCurDepth++;
 	}
 
+	//copy tree nodes back to host
+	int numofNode = 0;
+	manager.MemcpyDeviceToHost(snManager.m_pCurNumofNode, &numofNode, sizeof(int));
+	TreeNode *pAllNode = new TreeNode[numofNode];
+	manager.MemcpyDeviceToHost(snManager.m_pTreeNode, pAllNode, sizeof(TreeNode) * numofNode);
+	TreeNode **ypAllNode = new TreeNode*[numofNode];
+	for(int n = 0; n < numofNode; n++)
+		ypAllNode[n] = &pAllNode[n];
+	pruner.pruneLeaf(ypAllNode, numofNode);
+	manager.MemcpyHostToDevice(pAllNode, snManager.m_pTreeNode, sizeof(TreeNode) * numofNode);
+
 	clock_t begin_prune = clock();
-	pruner.pruneLeaf(tree);
+	TreeNode **temp = &tree.nodes[0];
+	pruner.pruneLeaf(temp, numofNode);
 	clock_t end_prune = clock();
 	total_prune_t += (double(end_prune - begin_prune) / CLOCKS_PER_SEC);
 }

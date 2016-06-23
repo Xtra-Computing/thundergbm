@@ -14,11 +14,11 @@
 class Pruner
 {
 public:
-	void pruneLeaf(RegTree &tree);
+	void pruneLeaf(TreeNode** nodes, int nNumofNode);
 	static double min_loss;
 private:
-	int TryPruneLeaf(RegTree &tree, int nid, int npruned);
-	void ChangeToLeaf(RegTree &tree, int nid, double value);
+	int TryPruneLeaf(TreeNode** nodes, int nid, int npruned);
+	void ChangeToLeaf(TreeNode* node, double value);
 
 	vector<int> leafChildCnt;
 	vector<int> markDelete;

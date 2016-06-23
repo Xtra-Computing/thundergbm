@@ -14,6 +14,7 @@
 #include <vector>
 #include "../KeyValue.h"
 #include "BaseLibsvmReader.h"
+#include "../../DeviceHost/DefineConst.h"
 
 using std::string;
 using std::vector;
@@ -22,7 +23,6 @@ using std::cerr;
 using std::endl;
 using std::cout;
 
-typedef double float_point;
 
 class LibSVMDataReader: public BaseLibSVMReader
 {

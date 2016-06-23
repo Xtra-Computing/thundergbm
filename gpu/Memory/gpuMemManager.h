@@ -9,8 +9,7 @@
 #ifndef GPUMEMALLOCATOR_H_
 #define GPUMEMALLOCATOR_H_
 
-
-typedef double float_point;
+#include "../../DeviceHost/DefineConst.h"
 
 
 class GPUMemManager

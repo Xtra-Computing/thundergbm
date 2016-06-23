@@ -54,7 +54,9 @@ void HostTrainer::GrowTree(RegTree &tree)
 	}
 
 	clock_t begin_prune = clock();
-	pruner.pruneLeaf(tree);
+	int numofNode = tree.nodes.size();
+	TreeNode ** temp = &tree.nodes[0];
+	pruner.pruneLeaf(temp, numofNode);
 	clock_t end_prune = clock();
 	total_prune_t += (double(end_prune - begin_prune) / CLOCKS_PER_SEC);
 }

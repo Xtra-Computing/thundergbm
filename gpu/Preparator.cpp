@@ -10,6 +10,7 @@
 #include "Memory/gbdtGPUMemManager.h"
 #include "../pureHost/MyAssert.h"
 #include "Splitter/DeviceSplitter.h"
+#include "Hashing.h"
 
 int *DataPreparator::m_pSNIdToBuffIdHost = NULL;
 int *DataPreparator::m_pUsedFIDMap = NULL;
@@ -54,7 +55,7 @@ void DataPreparator::PrepareSNodeInfo(const map<int, int> &mapNodeIdToBufferPos,
 		int vecId = it->second;
 		PROCESS_ERROR(vecId < m_nodeStat.size());
 		bool bIsNew = false;
-		int buffId = AssignHashValue(m_pSNIdToBuffIdHost, snid, maxNumofSplittable, bIsNew);
+		int buffId = Hashing::HostAssignHashValue(m_pSNIdToBuffIdHost, snid, maxNumofSplittable, bIsNew);
 		PROCESS_ERROR(buffId >= 0);
 		pHostNodeStat[buffId] = m_nodeStat[vecId];
 
@@ -116,7 +117,7 @@ void DataPreparator::CopyBestSplitPoint(const map<int, int> &mapNodeIdToBufferPo
 		int snid = it->first;//splittable node id
 		int vecId = it->second;//position id in vectors
 		//position id in buffer
-		int buffId = GetBufferId(m_pSNIdToBuffIdHost, snid, maxNumofSplittable);
+		int buffId = Hashing::HostGetBufferId(m_pSNIdToBuffIdHost, snid, maxNumofSplittable);
 		PROCESS_ERROR(buffId >= 0);
 
 		vBest[vecId] = pBestHost[buffId];
@@ -128,81 +129,5 @@ void DataPreparator::CopyBestSplitPoint(const map<int, int> &mapNodeIdToBufferPo
 	delete[] pLChildStatHost;
 }
 
-/**
- * @brief: a hash function (has an identical version in device @splitAll)
- * @bIsNew: for checking if the hash value is newly produced.
- *
- */
-int DataPreparator::AssignHashValue(int *pEntryToHashValue, int snid, int m_maxNumofSplittable, bool &bIsNew)
-{
-	bIsNew = false;//
-	int buffId = -1;
 
-	int remain = snid % m_maxNumofSplittable;//use mode operation as Hash function to find the buffer position
-
-	//the entry has been seen before, and is found without hash conflict
-	if(pEntryToHashValue[remain] == snid)
-	{
-		return remain;
-	}
-
-	//the entry hasn't been seen before, and its hash value is found without hash conflict
-	if(pEntryToHashValue[remain] == -1)
-	{
-		bIsNew = true;
-		buffId = remain;
-		pEntryToHashValue[remain] = snid;
-	}
-	else//the hash value is used for other entry
-	{
-		//Hash conflict
-		for(int i = m_maxNumofSplittable - 1; i > 0; i--)
-		{
-			bool hashValueFound = false;
-			if(pEntryToHashValue[i] == -1)//the entry hasn't been seen before, and now is assigned a hash value.
-			{
-				hashValueFound = true;
-				bIsNew = true;
-			}
-			else if(pEntryToHashValue[i] == snid)//the entry has been seen before, and now its hash value is found.
-				hashValueFound = true;
-
-			if(hashValueFound == true)
-			{
-				buffId = i;
-				break;
-			}
-		}
-	}
-
-	PROCESS_ERROR(buffId > -1);
-	return buffId;
-}
-
-/**
- * @brief: has an identical verion in device
- */
-int DataPreparator::GetBufferId(int *pSNIdToBuffId, int snid, int m_maxNumofSplittable)
-{
-	int buffId = -1;
-
-	int remain = snid % m_maxNumofSplittable;//use mode operation as Hash function to find the buffer position
-
-	//checking where snid is located
-	if(pSNIdToBuffId[remain] == snid)
-	{
-		buffId = remain;
-	}
-	else
-	{
-		//Hash conflict
-		for(int i = m_maxNumofSplittable - 1; i > 0; i--)
-		{
-			if(pSNIdToBuffId[i] == snid)
-				buffId = i;
-		}
-	}
-
-	return buffId;
-}
 

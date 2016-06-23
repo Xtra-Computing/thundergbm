@@ -22,6 +22,16 @@ float_point *GBDTGPUMemManager::m_pdDInsValue = NULL;	//all the feature values f
 int *GBDTGPUMemManager::m_pDNumofFea = NULL;			//the number of features for each instance
 long long *GBDTGPUMemManager::m_pInsStartPos = NULL;	//the start position of each instance
 
+//memory for prediction
+float_point *GBDTGPUMemManager::m_pPredBuffer = NULL;
+float_point *GBDTGPUMemManager::m_pdTrueTargetValue = NULL;
+float_point *GBDTGPUMemManager::m_pdDenseIns = NULL;
+float_point *GBDTGPUMemManager::m_pTargetValue = NULL;		//will support prediction in parallel
+int GBDTGPUMemManager::maxNumofDenseIns = -1;
+int *GBDTGPUMemManager::m_pHashFeaIdToDenseInsPos = NULL;	//hash map for used feature ids of all trees to the dense instance position
+int *GBDTGPUMemManager::m_pSortedUsedFeaId = NULL;			//sorted used feature ids
+int GBDTGPUMemManager::m_maxUsedFeaInTrees = -1;		//maximum number of used features in all the trees
+
 int *GBDTGPUMemManager::m_pInsIdToNodeId = NULL; 		//map instance id to node id
 long long GBDTGPUMemManager::m_totalNumofValues = -1;
 int GBDTGPUMemManager::m_numofIns = -1;
@@ -72,6 +82,15 @@ void GBDTGPUMemManager::allocMemForIns(int nTotalNumofValue, int numofIns, int n
 	checkCudaErrors(cudaMalloc((void**)&m_pDNumofFea, sizeof(int) * m_numofIns));
 	checkCudaErrors(cudaMalloc((void**)&m_pInsStartPos, sizeof(long long) * m_numofIns));
 
+	//memory for prediction. Buffering previous predicted values
+	checkCudaErrors(cudaMalloc((void**)&m_pPredBuffer, sizeof(float_point) * m_numofIns));
+	checkCudaErrors(cudaMemset(m_pPredBuffer, 0, sizeof(float_point) * m_numofIns));
+	checkCudaErrors(cudaMalloc((void**)&m_pdTrueTargetValue, sizeof(float_point) * m_numofIns));
+	checkCudaErrors(cudaMalloc((void**)&m_pdDenseIns, sizeof(float_point) * m_numofFea * maxNumofDenseIns));//######### whill have bugs when (numofFea < usedFea)
+	checkCudaErrors(cudaMalloc((void**)&m_pTargetValue, sizeof(float_point) * maxNumofDenseIns));
+	checkCudaErrors(cudaMalloc((void**)&m_pHashFeaIdToDenseInsPos, sizeof(int) * m_maxUsedFeaInTrees));
+	checkCudaErrors(cudaMemset(m_pHashFeaIdToDenseInsPos, -1, sizeof(int) * m_maxUsedFeaInTrees));
+	checkCudaErrors(cudaMalloc((void**)&m_pSortedUsedFeaId, sizeof(int) * m_maxUsedFeaInTrees));
 
 	checkCudaErrors(cudaMalloc((void**)&m_pInsIdToNodeId, sizeof(int) * m_numofIns));
 

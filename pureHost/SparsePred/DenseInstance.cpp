@@ -128,10 +128,13 @@ void DenseInsConverter::GetFeatures(const vector<RegTree>& vTree)
  */
 void DenseInsConverter::GetFidToDensePos()
 {
+	cout << "used features are ";
 	for(int i = 0; i < usedFeaSet.size(); i++)
 	{
+		cout << usedFeaSet[i] << "\t";
 		fidToDensePos.insert(make_pair(usedFeaSet[i], i));
 	}
+	cout << endl;
 }
 
 /**

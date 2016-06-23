@@ -11,7 +11,7 @@
 
 #include <helper_cuda.h>
 #include "gpuMemManager.h"
-#include "../../pureHost/Tree/TreeNode.h"
+#include "../../DeviceHost/TreeNode.h"
 #include "../../pureHost/UpdateOps/SplitPoint.h"
 #include "../../pureHost/UpdateOps/NodeStat.h"
 
@@ -26,6 +26,16 @@ public:
 	static int *m_pDFeaId, *m_pDNumofFea;
 	static float_point *m_pdDInsValue;
 	static long long *m_pInsStartPos;
+
+	//memory for prediction
+	static float_point *m_pPredBuffer;
+	static float_point *m_pdTrueTargetValue;
+	static float_point *m_pdDenseIns;
+	static float_point *m_pTargetValue;
+	static int maxNumofDenseIns;
+	static int *m_pHashFeaIdToDenseInsPos;
+	static int *m_pSortedUsedFeaId;
+	static int m_maxUsedFeaInTrees;
 
 	static int *m_pInsIdToNodeId;
 	static long long m_totalNumofValues;

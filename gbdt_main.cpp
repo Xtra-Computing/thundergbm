@@ -36,6 +36,8 @@ int main()
 	int maxNumofSplittableNode = 100;
 	int maxNumofUsedFeature = 1000;
 	int maxNumofNode = 10000;
+	int maxNumofDenseIns = 1;
+	int maxUsedFeaInTrees = 1000;
 
 	HostPredictor pred;
 
@@ -57,6 +59,9 @@ int main()
 	GBDTGPUMemManager memAllocator;
 	PROCESS_ERROR(nNumofValue > 0);
 	memAllocator.m_totalNumofValues = nNumofValue;
+	memAllocator.maxNumofDenseIns = maxNumofDenseIns;
+	memAllocator.m_maxUsedFeaInTrees = maxUsedFeaInTrees;
+
 	//allocate memory for instances
 	memAllocator.allocMemForIns(nNumofValue, nNumofExamples, nNumofFeatures);
 	memAllocator.allocMemForSplittableNode(maxNumofSplittableNode);//use in find features (i.e. best split points) process
@@ -112,6 +117,12 @@ int main()
 	long long *plInsStartPos = new long long[nNumofExamples];
 	KeyValue::VecToArray(trainer.m_vvInsSparse, pFeaId, pdFeaValue, pNumofFea, plInsStartPos);
 	KeyValue::TestVecToArray(trainer.m_vvInsSparse, pFeaId, pdFeaValue, pNumofFea);
+	cout << "start pos ins0=" << plInsStartPos[0] << " ins1=" << plInsStartPos[1] << " ins2=" << plInsStartPos[2] << endl;
+	for(int fv = 0; fv < 6; fv++)
+	{
+		cout << pdFeaValue[fv] << "\t";
+	}
+	cout << endl;
 
 	//copy instance key-value to device memory
 	memAllocator.MemcpyHostToDevice(pFeaId, memAllocator.m_pDFeaId, nNumofValue * sizeof(int));
@@ -128,6 +139,14 @@ int main()
 	delete []pdFeaValue;
 	delete []pNumofFea;
 	delete []plInsStartPos;
+
+	float_point *pTrueLabel = new float_point[nNumofExamples];
+	for(int i = 0; i < nNumofExamples; i++)
+	{
+		pTrueLabel[i] = v_fLabel[i];
+	}
+	//copy true labels to gpu memory
+	memAllocator.MemcpyHostToDevice(pTrueLabel, memAllocator.m_pdTrueTargetValue, nNumofExamples * sizeof(float_point));
 
 	//training trees
 	vector<RegTree> v_Tree;

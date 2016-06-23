@@ -12,9 +12,8 @@
 #include "../../pureHost/UpdateOps/NodeStat.h"
 #include "../../pureHost/UpdateOps/SplitPoint.h"
 #include "../../pureHost/BaseClasses/BaseSplitter.h"
+#include "../../DeviceHost/DefineConst.h"
 
-
-typedef double float_point;
 
 __global__ void ComputeWeight(TreeNode *pAllTreeNode, TreeNode *pSplittableNode, int *pSNIdToBufferId,
 		  	  	  	  	  	  	  SplitPoint *pBestSplitPoint, nodeStat *pSNodeStat, float_point rt_eps, int flag_LEAFNODE,

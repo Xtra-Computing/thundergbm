@@ -14,6 +14,7 @@
 #include "../Memory/SplitNodeMemManager.h"
 #include "DeviceSplitter.h"
 #include "../Preparator.h"
+#include "../Hashing.h"
 #include "DeviceSplitAllKernel.h"
 
 using std::cout;
@@ -214,7 +215,7 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 	for(int i = 0; i < vFid.size(); i++)//get unique id by host
 	{
 		bool bIsNew = false;
-		int hashValue = preparator.AssignHashValue(preparator.m_pUsedFIDMap, vFid[i], snManager.m_maxNumofUsedFea, bIsNew);
+		int hashValue = Hashing::HostAssignHashValue(preparator.m_pUsedFIDMap, vFid[i], snManager.m_maxNumofUsedFea, bIsNew);
 		if(bIsNew == true)
 		{
 			pUniqueFidHost[numofUniqueFid] = vFid[i];

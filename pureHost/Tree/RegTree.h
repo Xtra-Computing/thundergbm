@@ -11,7 +11,7 @@
 
 #include <map>
 #include <vector>
-#include "TreeNode.h"
+#include "../../DeviceHost/TreeNode.h"
 
 using std::vector;
 using std::map;

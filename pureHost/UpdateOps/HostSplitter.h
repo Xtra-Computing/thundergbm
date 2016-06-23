@@ -13,7 +13,7 @@
 #include <map>
 
 #include "../Tree/RegTree.h"
-#include "../Tree/TreeNode.h"
+#include "../../DeviceHost/TreeNode.h"
 #include "../KeyValue.h"
 #include "SplitPoint.h"
 #include "NodeStat.h"

@@ -10,11 +10,10 @@
 #define BASELIBSVMREADER_H_
 
 #include <fstream>
+#include "../../DeviceHost/DefineConst.h"
 
 using std::string;
 using std::ifstream;
-
-typedef double float_point;
 
 class BaseLibSVMReader
 {

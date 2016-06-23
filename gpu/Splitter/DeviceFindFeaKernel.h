@@ -12,9 +12,7 @@
 #include "../../pureHost/UpdateOps/NodeStat.h"
 #include "../../pureHost/UpdateOps/SplitPoint.h"
 #include "../../pureHost/BaseClasses/BaseSplitter.h"
-
-
-typedef double float_point;
+#include "../../DeviceHost/DefineConst.h"
 
 __global__ void FindFeaSplitValue(int nNumofKeyValues, int *idStartAddress, float_point *pValueStartAddress, int *pInsIdToNodeId,
 								  nodeStat *pTempRChildStat, float_point *pGD, float_point *pHess, float_point *pLastValue,

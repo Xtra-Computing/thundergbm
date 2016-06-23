@@ -107,29 +107,6 @@ __device__ double CalGain(const nodeStat &parent, const nodeStat &r_child, float
 	return fGain;
 }
 
-__device__ int GetBufferId(int *pSNIdToBuffId, int snid, int m_maxNumofSplittable)
-{
-	int buffId = -1;
-
-	int remain = snid % m_maxNumofSplittable;//use mode operation as Hash function to find the buffer position
-
-	//checking where snid is located
-	if(pSNIdToBuffId[remain] == snid)
-	{
-		buffId = remain;
-	}
-	else
-	{
-		//Hash conflict
-		for(int i = m_maxNumofSplittable - 1; i > 0; i--)
-		{
-			if(pSNIdToBuffId[i] == snid)
-				buffId = i;
-		}
-	}
-
-	return buffId;
-}
 
  __device__ bool UpdateSplitPoint(SplitPoint &curBest, double fGain, double fSplitValue, int nFeatureId)
 {

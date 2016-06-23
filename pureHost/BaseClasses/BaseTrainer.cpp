@@ -12,9 +12,10 @@
 
 #include "../UpdateOps/HostSplitter.h"
 #include "../HostPredictor.h"
-#include "../Tree/TreeNode.h"
+#include "../../DeviceHost/TreeNode.h"
 #include "../Tree/PrintTree.h"
 #include "../Evaluation/RMSE.h"
+#include "../../gpu/Splitter/DeviceSplitter.h"
 
 /*
  * @brief: initialise constants of a trainer
@@ -59,12 +60,15 @@ void BaseTrainer::TrainGBDT(vector<RegTree> & vTree)
 
 		//predict the data by the existing trees
 
-		hsplit.m_vvInsSparse = m_vvInsSparse;
+		/*hsplit.m_vvInsSparse = m_vvInsSparse;
 		hsplit.m_vPredBuffer = m_vPredBuffer;
 		hsplit.m_vTrueValue = m_vTrueValue;
 		hsplit.ComputeGD(vTree);
 		m_vPredBuffer = hsplit.m_vPredBuffer;
-		/**/
+		*/
+
+		((DeviceSplitter*)splitter)->vv_insDebug = m_vvInsSparse;
+		splitter->ComputeGD(vTree);
 
 /*
 		vector<double> v_fPredValue;

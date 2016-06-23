@@ -44,16 +44,6 @@ public:
 			arr[i] = vec[i];
 		}
 	}
-
-public:
-
-	//has an identical version in device @splitAll
-	static int AssignHashValue(int *pSNIdToBuffId, int snid, int m_maxNumofSplittable, bool &bIsNew);
-
-	/**
-	 * @brief: return buffer id given a splittable node id
-	 */
-	static int GetBufferId(int *pSNIdToBuffId, int snid, int m_maxNumofSplittable);
 };
 
 
