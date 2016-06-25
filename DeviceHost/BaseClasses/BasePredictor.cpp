@@ -6,8 +6,8 @@
  */
 
 #include "BasePredictor.h"
-#include "../SparsePred/DenseInstance.h"
-#include "../MyAssert.h"
+#include "../../pureHost/SparsePred/DenseInstance.h"
+#include "../../DeviceHost/MyAssert.h"
 
 /**
  * @brief: prediction function for sparse instances

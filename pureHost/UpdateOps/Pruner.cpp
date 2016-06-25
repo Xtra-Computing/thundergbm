@@ -9,7 +9,7 @@
 #include <iostream>
 
 #include "Pruner.h"
-#include "../MyAssert.h"
+#include "../../DeviceHost/MyAssert.h"
 
 using std::cout;
 using std::endl;
@@ -76,7 +76,7 @@ void Pruner::ChangeToLeaf(TreeNode* node, double value)
 	markDelete[node->leftChildId] = -1;
 	markDelete[node->rightChildId] = -1;
 
-	cout << "node id " << node->leftChildId << " and " << node->rightChildId << " are pruned; new leaf is " << node->nodeId << endl;
+//	cout << "node id " << node->leftChildId << " and " << node->rightChildId << " are pruned; new leaf is " << node->nodeId << endl;
 
 	node->featureId = -1;
 	node->leftChildId = -1;

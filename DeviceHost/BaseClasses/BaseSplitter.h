@@ -11,17 +11,18 @@
 
 #include <vector>
 #include <map>
+#include <string>
 
-#include "../Tree/RegTree.h"
-#include "../../DeviceHost/TreeNode.h"
-#include "../KeyValue.h"
-#include "../UpdateOps/SplitPoint.h"
-#include "../UpdateOps/NodeStat.h"
-#include "../GDPair.h"
+#include "../../pureHost/Tree/RegTree.h"
+#include "../TreeNode.h"
+#include "../../pureHost/KeyValue.h"
+#include "../../pureHost/UpdateOps/SplitPoint.h"
+#include "../../pureHost/UpdateOps/NodeStat.h"
+#include "../../pureHost/GDPair.h"
 
 using std::vector;
 using std::map;
-
+using std::string;
 
 class BaseSplitter
 {
@@ -37,16 +38,16 @@ public:
 public:
 	virtual ~BaseSplitter(){}
 
+	virtual string SpliterType() = 0;
+
 	virtual void SplitAll(vector<TreeNode*> &splittableNode, const vector<SplitPoint> &vBest, RegTree &tree, int &m_nNumofNode,
 				  	  	  const vector<nodeStat> &rchildStat, const vector<nodeStat> &lchildStat, bool bLastLevel) = 0;
 	//a function for computing the gain of a feature
 	virtual void FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat> &tempStat, vector<nodeStat> &lchildStat) = 0;
 	//predict the value for each instance and compute their gradient
-	virtual void ComputeGD(vector<RegTree> &vTree) = 0;
+	virtual void ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> > & vvInsSparse) = 0;
 
 	double ComputeWeightSparseData(int bufferPos);
-	void ComputeGDSparse(vector<double> &v_fPredValue, vector<double> &m_vTrueValue_fixedPos);
-
 
 	void UpdateNodeStat(vector<TreeNode*> &newSplittableNode, vector<nodeStat> &v_nodeStat);
 

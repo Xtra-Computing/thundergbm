@@ -8,7 +8,8 @@
 
 #include "Preparator.h"
 #include "Memory/gbdtGPUMemManager.h"
-#include "../pureHost/MyAssert.h"
+#include "Memory/SplitNodeMemManager.h"
+#include "../DeviceHost/MyAssert.h"
 #include "Splitter/DeviceSplitter.h"
 #include "Hashing.h"
 
@@ -17,6 +18,7 @@ int *DataPreparator::m_pUsedFIDMap = NULL;
 
 /**
  * @brief: copy the gradient and hessian to GPU memory
+ * @@@@@@@deprecated@@@@@@@@
  */
 void DataPreparator::PrepareGDHess(const vector<gdpair> &m_vGDPair_fixedPos)
 {
@@ -38,6 +40,7 @@ void DataPreparator::PrepareGDHess(const vector<gdpair> &m_vGDPair_fixedPos)
 
 /**
  * @brief: copy splittable node information to GPU memory
+ * @@@@@@@deprecated@@@@@@@@
  */
 void DataPreparator::PrepareSNodeInfo(const map<int, int> &mapNodeIdToBufferPos, const vector<nodeStat> &m_nodeStat)
 {
@@ -64,6 +67,23 @@ void DataPreparator::PrepareSNodeInfo(const map<int, int> &mapNodeIdToBufferPos,
 		bidCounter++;
 	}
 	PROCESS_ERROR(bidCounter == m_nodeStat.size());
+
+	#ifdef _COMPARE_HOST
+	//check if initialise the root node correctly
+	int *pSNIdToBuffIdHost = new int[maxNumofSplittable];
+	nodeStat *pSNodeStat = new nodeStat[maxNumofSplittable];
+	int *pBuffIdHost = new int[maxNumofSplittable];
+	manager.MemcpyDeviceToHost(manager.m_pSNIdToBuffId, pSNIdToBuffIdHost, sizeof(int) * maxNumofSplittable);
+	manager.MemcpyDeviceToHost(manager.m_pSNodeStat, pSNodeStat, sizeof(nodeStat) * maxNumofSplittable);
+	manager.MemcpyDeviceToHost(manager.m_pBuffIdVec, pBuffIdHost, sizeof(int) * maxNumofSplittable);
+	for(int sn = 0; sn < mapNodeIdToBufferPos.size(); sn++)
+	{
+		if(pSNIdToBuffIdHost[sn] != m_pSNIdToBuffIdHost[sn])
+			cout << "diff sn2buffid: " << pSNIdToBuffIdHost[sn] << " v.s. " << m_pSNIdToBuffIdHost[sn]
+				 << "; buffid: " << pBuffIdHost[sn] << " v.s. " << pBuffId[sn]
+				 << "; nodestat: " << pSNodeStat[sn].sum_gd << " v.s. " << pHostNodeStat[sn].sum_gd << endl;
+	}
+	#endif
 
 	if(mapNodeIdToBufferPos.size() > 1)//after first round; testing
 	{
@@ -112,18 +132,26 @@ void DataPreparator::CopyBestSplitPoint(const map<int, int> &mapNodeIdToBufferPo
 	manager.MemcpyDeviceToHost(manager.m_pBestSplitPoint, pBestHost, sizeof(SplitPoint) * maxNumofSplittable);
 	manager.MemcpyDeviceToHost(manager.m_pRChildStat, pRChildStatHost, sizeof(nodeStat) * maxNumofSplittable);
 	manager.MemcpyDeviceToHost(manager.m_pLChildStat, pLChildStatHost, sizeof(nodeStat) * maxNumofSplittable);
+
+	int *pTempSNIdToBuffIdHost = new int[maxNumofSplittable];
+	memset(pTempSNIdToBuffIdHost, -1, sizeof(int) * maxNumofSplittable);
+	manager.MemcpyDeviceToHost(manager.m_pSNIdToBuffId, pTempSNIdToBuffIdHost, sizeof(int) * maxNumofSplittable);
+
 	for(map<int, int>::const_iterator it = mapNodeIdToBufferPos.begin(); it != mapNodeIdToBufferPos.end(); it++)
 	{
 		int snid = it->first;//splittable node id
 		int vecId = it->second;//position id in vectors
 		//position id in buffer
-		int buffId = Hashing::HostGetBufferId(m_pSNIdToBuffIdHost, snid, maxNumofSplittable);
+		int buffId = Hashing::HostGetBufferId(pTempSNIdToBuffIdHost, snid, maxNumofSplittable);
+
 		PROCESS_ERROR(buffId >= 0);
 
 		vBest[vecId] = pBestHost[buffId];
 		rchildStat[vecId] = pRChildStatHost[buffId];
 		lchildStat[vecId] = pLChildStatHost[buffId];
 	}
+
+	delete[] pTempSNIdToBuffIdHost;
 	delete[] pBestHost;
 	delete[] pRChildStatHost;
 	delete[] pLChildStatHost;

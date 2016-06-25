@@ -10,11 +10,11 @@
 
 #include <ctime>
 
-#include "../UpdateOps/HostSplitter.h"
-#include "../HostPredictor.h"
+#include "../../pureHost/UpdateOps/HostSplitter.h"
+#include "../../pureHost/HostPredictor.h"
 #include "../../DeviceHost/TreeNode.h"
-#include "../Tree/PrintTree.h"
-#include "../Evaluation/RMSE.h"
+#include "../../pureHost/Tree/PrintTree.h"
+#include "../../pureHost/Evaluation/RMSE.h"
 #include "../../gpu/Splitter/DeviceSplitter.h"
 
 /*
@@ -60,36 +60,15 @@ void BaseTrainer::TrainGBDT(vector<RegTree> & vTree)
 
 		//predict the data by the existing trees
 
-		/*hsplit.m_vvInsSparse = m_vvInsSparse;
-		hsplit.m_vPredBuffer = m_vPredBuffer;
-		hsplit.m_vTrueValue = m_vTrueValue;
-		hsplit.ComputeGD(vTree);
-		m_vPredBuffer = hsplit.m_vPredBuffer;
-		*/
-
-		((DeviceSplitter*)splitter)->vv_insDebug = m_vvInsSparse;
-		splitter->ComputeGD(vTree);
-
-/*
-		vector<double> v_fPredValue;
-		begin_pred = clock();
-		pred.PredictSparseIns(m_vvInsSparse, vTree, v_fPredValue, m_vPredBuffer);
-		end_pred = clock();
-		total_pred += (double(end_pred - begin_pred) / CLOCKS_PER_SEC);
-
-		if(i > 0)
+		if(splitter->SpliterType().compare("host") == 0)
 		{
-			//run the GBDT prediction process
-			EvalRMSE rmse;
-			double fRMSE = rmse.Eval(v_fPredValue, m_vTrueValue);
-			cout << "rmse=" << fRMSE << endl;
+			((HostSplitter*)splitter)->m_vPredBuffer = m_vPredBuffer;
+			((HostSplitter*)splitter)->m_vTrueValue = m_vTrueValue;
+			splitter->ComputeGD(vTree, m_vvInsSparse);
+			m_vPredBuffer = ((HostSplitter*)splitter)->m_vPredBuffer;
 		}
-
-		begin_gd = clock();
-		splitter->ComputeGDSparse(v_fPredValue, m_vTrueValue);
-		end_gd = clock();
-		total_gd += (double(end_gd - begin_gd) / CLOCKS_PER_SEC);
-		*/
+		else
+			splitter->ComputeGD(vTree, m_vvInsSparse);
 
 		//grow the tree
 		begin_grow = clock();
@@ -110,30 +89,6 @@ void BaseTrainer::TrainGBDT(vector<RegTree> & vTree)
 
 	cout << "pred sec = " << total_pred << "; gd sec = " << total_gd << "; grow sec = " << total_grow << endl;
 
-}
-
-/**
- * @brief: initialise tree
- */
-void BaseTrainer::InitTree(RegTree &tree)
-{
-	TreeNode *root = new TreeNode[1];
-	m_nNumofNode = 1;
-	root->nodeId = 0;
-	root->level = 0;
-
-	tree.nodes.push_back(root);
-
-	//all instances are under node 0
-	splitter->m_nodeIds.clear();
-	for(int i = 0; i < m_vvInsSparse.size(); i++)
-	{
-		splitter->m_nodeIds.push_back(0);
-	}
-
-	total_find_fea_t = 0;
-	total_split_t = 0;
-	total_prune_t = 0;
 }
 
 /**

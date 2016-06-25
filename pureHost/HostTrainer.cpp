@@ -60,3 +60,27 @@ void HostTrainer::GrowTree(RegTree &tree)
 	clock_t end_prune = clock();
 	total_prune_t += (double(end_prune - begin_prune) / CLOCKS_PER_SEC);
 }
+
+/**
+ * @brief: initialise tree
+ */
+void HostTrainer::InitTree(RegTree &tree)
+{
+	TreeNode *root = new TreeNode[1];
+	m_nNumofNode = 1;
+	root->nodeId = 0;
+	root->level = 0;
+
+	tree.nodes.push_back(root);
+
+	//all instances are under node 0
+	splitter->m_nodeIds.clear();
+	for(int i = 0; i < m_vvInsSparse.size(); i++)
+	{
+		splitter->m_nodeIds.push_back(0);
+	}
+
+	total_find_fea_t = 0;
+	total_split_t = 0;
+	total_prune_t = 0;
+}

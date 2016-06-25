@@ -11,7 +11,7 @@
 #include "HostTrainer.h"
 #include "HostPredictor.h"
 #include "Evaluation/RMSE.h"
-#include "MyAssert.h"
+#include "../DeviceHost/MyAssert.h"
 #include "UpdateOps/Pruner.h"
 
 #include "PureHostGBDTMain.h"

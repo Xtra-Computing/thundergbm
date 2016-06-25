@@ -9,7 +9,7 @@
 #ifndef DEVICETRAINER_H_
 #define DEVICETRAINER_H_
 
-#include "../pureHost/BaseClasses/BaseTrainer.h"
+#include "../DeviceHost/BaseClasses/BaseTrainer.h"
 #include "Splitter/DeviceSplitter.h"
 
 class DeviceTrainer: public BaseTrainer
@@ -18,6 +18,7 @@ public:
 	DeviceTrainer(DeviceSplitter *pSplitter):BaseTrainer(pSplitter){}
 	virtual ~DeviceTrainer(){}
 
+	virtual void InitTree(RegTree &tree);
 	virtual void GrowTree(RegTree &tree);
 };
 

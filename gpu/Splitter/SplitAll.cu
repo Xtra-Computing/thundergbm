@@ -9,7 +9,7 @@
 #include <iostream>
 #include <algorithm>
 
-#include "../../pureHost/MyAssert.h"
+#include "../../DeviceHost/MyAssert.h"
 #include "../Memory/gbdtGPUMemManager.h"
 #include "../Memory/SplitNodeMemManager.h"
 #include "DeviceSplitter.h"
@@ -32,33 +32,25 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 		 	 	 	    const vector<nodeStat> &rchildStat, const vector<nodeStat> &lchildStat, bool bLastLevel)
 {
 	int preMaxNodeId = m_nNumofNode - 1;
+	PROCESS_ERROR(preMaxNodeId >= 0);
 
+	#ifdef _COMPARE_HOST
 	int nNumofSplittableNode = splittableNode.size();
 	PROCESS_ERROR(nNumofSplittableNode > 0);
 	PROCESS_ERROR(splittableNode.size() == vBest.size());
 	PROCESS_ERROR(vBest.size() == rchildStat.size());
 	PROCESS_ERROR(vBest.size() == lchildStat.size());
+	#endif
 
 	GBDTGPUMemManager manager;
 	SNGPUManager snManager;//splittable node memory manager
-	//copy the obtained tree nodes
-	for(int t = 0; t < tree.nodes.size(); t++)
-	{
-		manager.MemcpyHostToDevice(tree.nodes[t], snManager.m_pTreeNode + t, sizeof(TreeNode) * 1);
-	}
-
-	//copy the splittable nodes to GPU memory
-	for(int s = 0; s < splittableNode.size(); s++)
-	{
-		//Only need "fid" and "nid" of the splittable nodes.
-//		manager.MemcpyHostToDevice(splittableNode[s], manager.m_pSplittableNode + s, sizeof(TreeNode));
-	}
 
 	//compute the base_weight of tree node, also determines if a node is a leaf.
 	ComputeWeight<<<1, 1>>>(snManager.m_pTreeNode, manager.m_pSplittableNode, manager.m_pSNIdToBuffId,
 			  	  	  	  	  manager.m_pBestSplitPoint, manager.m_pSNodeStat, rt_eps, LEAFNODE,
-			  	  	  	  	  m_labda, nNumofSplittableNode, bLastLevel);
+			  	  	  	  	  m_labda, manager.m_curNumofSplitable, bLastLevel);
 
+	#ifdef _COMPARE_HOST
 	//################ original cpu code, now for testing
 	for(int n = 0; n < nNumofSplittableNode; n++)
 	{
@@ -96,17 +88,18 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 		PROCESS_ERROR(tempNode.rightChildId == tree.nodes[t]->rightChildId);
 	}
 	//#################### end
+	#endif
 
 	//copy the number of nodes in the tree to the GPU memory
-	manager.MemcpyHostToDevice(&m_nNumofNode, snManager.m_pCurNumofNode, sizeof(int));
 	manager.Memset(snManager.m_pNumofNewNode, 0, sizeof(int));
 
 	CreateNewNode<<<1, 1>>>(snManager.m_pTreeNode, manager.m_pSplittableNode, snManager.m_pNewSplittableNode,
 							manager.m_pSNIdToBuffId, manager.m_pBestSplitPoint,
 							snManager.m_pParentId, snManager.m_pLeftChildId, snManager.m_pRightChildId,
 							manager.m_pLChildStat, manager.m_pRChildStat, snManager.m_pNewNodeStat,
-							snManager.m_pCurNumofNode, snManager.m_pNumofNewNode, rt_eps, nNumofSplittableNode, bLastLevel);
+							snManager.m_pCurNumofNode, snManager.m_pNumofNewNode, rt_eps, manager.m_curNumofSplitable, bLastLevel);
 
+	#ifdef _COMPARE_HOST
 	//####################### cpu code, now for testing
 	//for each splittable node, assign lchild and rchild ids
 	map<int, pair<int, int> > mapPidCid;//(parent id, (lchildId, rchildId)).
@@ -167,24 +160,28 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 	{
 		TreeNode tempNode;
 		manager.MemcpyDeviceToHost(snManager.m_pNewSplittableNode + n, &tempNode, sizeof(TreeNode) * 1);
-		if(tempNode.nodeId != newSplittableNode[n]->nodeId)
+		if(tempNode.nodeId != newSplittableNode[n]->nodeId || tempNode.level != newSplittableNode[n]->level)
 		{
-			cout << "n=" << n << "; " << tempNode.nodeId << " v.s " << newSplittableNode[n]->nodeId << endl;
+			cout << "n=" << n << "; nid " << tempNode.nodeId << " v.s " << newSplittableNode[n]->nodeId
+				 << "; level " << tempNode.level << " v.s. " << newSplittableNode[n]->level
+				 << "; # of splittable is " << newSplittableNode.size() << endl;
 		}
 		PROCESS_ERROR(tempNode.nodeId == newSplittableNode[n]->nodeId);
 		PROCESS_ERROR(tempNode.parentId == newSplittableNode[n]->parentId);
 		PROCESS_ERROR(tempNode.level == newSplittableNode[n]->level);
 	}
 	//######################### end
+	#endif
 
 	//find all used unique feature ids
 	manager.Memset(snManager.m_pFeaIdToBuffId, -1, sizeof(int) * snManager.m_maxNumofUsedFea);
 	manager.Memset(snManager.m_pUniqueFeaIdVec, -1, sizeof(int) * snManager.m_maxNumofUsedFea);
 	manager.Memset(snManager.m_pNumofUniqueFeaId, 0, sizeof(int));
-	GetUniqueFid<<<1, 1>>>(snManager.m_pTreeNode, manager.m_pSplittableNode, nNumofSplittableNode,
+	GetUniqueFid<<<1, 1>>>(snManager.m_pTreeNode, manager.m_pSplittableNode, manager.m_curNumofSplitable,
 							 snManager.m_pFeaIdToBuffId, snManager.m_pUniqueFeaIdVec, snManager.m_pNumofUniqueFeaId,
 			 	 	 	 	 snManager.m_maxNumofUsedFea, LEAFNODE);
 
+	#ifdef _COMPARE_HOST
 	//######################### CPU code for getting all the used feature indices; now for testing.
 	vector<int> vFid;
 	for(int n = 0; n < nNumofSplittableNode; n++)
@@ -290,6 +287,7 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 //	int testBufferPos = mapNodeIdToBufferPos[8];
 //	cout << "test buffer pos=" << testBufferPos << "; preMaxNodeId=" << preMaxNodeId << endl;
 	//############################ end
+	#endif
 
 	//for each used feature to move instances to new nodes
 	InsToNewNode<<<1, 1>>>(snManager.m_pTreeNode, manager.m_pdDFeaValue, manager.m_pDInsId,
@@ -299,6 +297,7 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 							 snManager.m_pParentId, snManager.m_pLeftChildId, snManager.m_pRightChildId,
 							 preMaxNodeId, manager.m_numofFea, manager.m_numofIns, LEAFNODE);
 
+	#ifdef _COMPARE_HOST
 	//############################ CPU code for each used feature to make decision; now for testing
 	for(int u = 0; u < numofUniqueFid; u++)
 	{
@@ -364,12 +363,14 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 
 	delete[] pUniqueFidHost;//for storing unique used feature ids
 	//############################# end
+	#endif
 
 	//for those instances of unknown feature values.
 	InsToNewNodeByDefault<<<1, 1>>>(snManager.m_pTreeNode, manager.m_pInsIdToNodeId, manager.m_pSNIdToBuffId,
 									snManager.m_pParentId, snManager.m_pLeftChildId,
 			   	   	   	   	   	   	preMaxNodeId, manager.m_numofIns, LEAFNODE);
 
+	#ifdef _COMPARE_HOST
 	//########################### CPU code for those instances of unknown feature values. Now for testing
 	for(int i = 0; i < m_nodeIds.size(); i++)
 	{
@@ -397,6 +398,7 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 	}
 	delete []insIdToNodeIdHost;
 	//################################# end
+	#endif
 
 	//reset nodeId to bufferId
 	manager.Memset(manager.m_pSNIdToBuffId, -1, sizeof(int) * manager.m_maxNumofSplittable);
@@ -408,6 +410,7 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 			   	   	   	   	   	  manager.m_maxNumofSplittable);
 	manager.MemcpyDeviceToDevice(snManager.m_pNewSplittableNode, manager.m_pSplittableNode, sizeof(TreeNode) * manager.m_maxNumofSplittable);
 
+	#ifdef _COMPARE_HOST
 	//##################################### cpu code. new for testing
 	mapNodeIdToBufferPos.clear();
 
@@ -439,7 +442,7 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 			exit(0);
 		}
 		PROCESS_ERROR(sfid == pNewSNode[i].featureId);
-		int buffPos = pHostSNIdToBuffId[nid];
+		int buffPos = pHostSNIdToBuffId[nid];//########### here might need to use hash function (commented on 24 June 16:09)
 		PROCESS_ERROR(buffPos >= 0);
 		int buffPosHost = mapNodeIdToBufferPos[nid];
 		PROCESS_ERROR(pSNodeStat[buffPos].sum_gd == m_nodeStat[buffPosHost].sum_gd);
@@ -449,4 +452,5 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 	delete []pSNodeStat;
 	delete []pNewSNode;
 	//################################## end
+	#endif
 }

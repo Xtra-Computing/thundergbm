@@ -9,7 +9,7 @@
 #include <algorithm>
 
 #include "KeyValue.h"
-#include "MyAssert.h"
+#include "../DeviceHost/MyAssert.h"
 
 using std::sort;
 

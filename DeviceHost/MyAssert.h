@@ -12,6 +12,8 @@
 #include <string.h>
 #include <assert.h>
 
+//#define _COMPARE_HOST
+
 #define _DEBUG
 
 #ifndef _DEBUG

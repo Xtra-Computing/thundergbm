@@ -114,6 +114,7 @@ __global__ void CreateNewNode(TreeNode *pAllTreeNode, TreeNode *pSplittableNode,
 			pSplittableNode[n].featureId = pBestSplitPoint[bufferPos].m_nFeatureId;
 
 			*pNumofNode = (*pNumofNode + 2);
+//			printf("cur # of node is %d\n", *pNumofNode);
 		}
 	}
 
@@ -225,6 +226,7 @@ __global__ void InsToNewNodeByDefault(TreeNode *pAllTreeNode, int *pInsIdToNodeI
 										   int *pParentId, int *pLChildId,
 										   int preMaxNodeId, int numofIns, int flag_LEAFNODE)
 {
+	ErrorChecker(preMaxNodeId, __PRETTY_FUNCTION__, "maxId shoud >= 0");
 	for(int i = 0; i < numofIns; i++)
 	{
 		int nid = pInsIdToNodeId[i];
@@ -255,6 +257,7 @@ __global__ void UpdateNewSplittable(TreeNode *pNewSplittableNode, nodeStat *pNew
 		ErrorChecker(nid, __PRETTY_FUNCTION__, "nid");
 		bool bIsNew = false;
 		int bufferPos = AssignHashValue(pSNIdToBuffId, nid, maxNumofSplittable, bIsNew);
+
 		ErrorChecker(bufferPos, __PRETTY_FUNCTION__, "bufferPos");
 		pSNodeStat[bufferPos] = pNewNodeStat[i];
 		if(bIsNew == true)

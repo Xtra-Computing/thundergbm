@@ -12,7 +12,7 @@
 #include "pureHost/HostTrainer.h"
 #include "pureHost/HostPredictor.h"
 #include "pureHost/Evaluation/RMSE.h"
-#include "pureHost/MyAssert.h"
+#include "DeviceHost/MyAssert.h"
 
 #include "gpu/Memory/gbdtGPUMemManager.h"
 #include "gpu/Memory/SplitNodeMemManager.h"
@@ -22,8 +22,8 @@
 
 int main()
 {
-	//mainPureHost();
-	//return 1;
+//	mainPureHost();
+//	return 1;
 	if(!InitCUDA('T'))
 	{
 		cerr << "cannot initialise GPU" << endl;
@@ -117,12 +117,6 @@ int main()
 	long long *plInsStartPos = new long long[nNumofExamples];
 	KeyValue::VecToArray(trainer.m_vvInsSparse, pFeaId, pdFeaValue, pNumofFea, plInsStartPos);
 	KeyValue::TestVecToArray(trainer.m_vvInsSparse, pFeaId, pdFeaValue, pNumofFea);
-	cout << "start pos ins0=" << plInsStartPos[0] << " ins1=" << plInsStartPos[1] << " ins2=" << plInsStartPos[2] << endl;
-	for(int fv = 0; fv < 6; fv++)
-	{
-		cout << pdFeaValue[fv] << "\t";
-	}
-	cout << endl;
 
 	//copy instance key-value to device memory
 	memAllocator.MemcpyHostToDevice(pFeaId, memAllocator.m_pDFeaId, nNumofValue * sizeof(int));

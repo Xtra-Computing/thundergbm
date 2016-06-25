@@ -31,7 +31,8 @@ public:
 
 	static void ReleaseMem()
 	{
-		delete []m_pSNIdToBuffIdHost;
+		if(m_pSNIdToBuffIdHost != NULL)
+			delete []m_pSNIdToBuffIdHost;
 	}
 
 	//convert a vector to an array

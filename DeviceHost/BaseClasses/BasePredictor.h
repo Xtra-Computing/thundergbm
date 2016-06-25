@@ -9,8 +9,8 @@
 #define BASEPREDICTOR_H_
 
 #include <vector>
-#include "../Tree/RegTree.h"
-#include "../KeyValue.h"
+#include "../../pureHost/Tree/RegTree.h"
+#include "../../pureHost/KeyValue.h"
 
 using std::vector;
 

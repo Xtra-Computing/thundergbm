@@ -12,8 +12,8 @@
 #include <map>
 #include <iostream>
 
-#include "../UpdateOps/SplitPoint.h"
-#include "../MyAssert.h"
+#include "../../pureHost/UpdateOps/SplitPoint.h"
+#include "../../DeviceHost/MyAssert.h"
 #include "BaseSplitter.h"
 
 using std::map;
@@ -58,30 +58,6 @@ double BaseSplitter::ComputeWeightSparseData(int bufferPos)
 	return nodeWeight;
 }
 
-/**
- * @brief: compute the first order gradient and the second order gradient
- */
-void BaseSplitter::ComputeGDSparse(vector<double> &v_fPredValue, vector<double> &m_vTrueValue_fixedPos)
-{
-	nodeStat rootStat;
-	int nTotal = m_vTrueValue_fixedPos.size();
-	for(int i = 0; i < nTotal; i++)
-	{
-		m_vGDPair_fixedPos[i].grad = v_fPredValue[i] - m_vTrueValue_fixedPos[i];
-		m_vGDPair_fixedPos[i].hess = 1;
-		rootStat.sum_gd += m_vGDPair_fixedPos[i].grad;
-		rootStat.sum_hess += m_vGDPair_fixedPos[i].hess;
-//		if(i < 20)
-//		{
-//			cout.precision(6);
-//			printf("pred and gd of %d is %f and %f\n", i, v_fPredValue[i], m_vGDPair_fixedPos[i].grad);
-//		}
-	}
-
-	m_nodeStat.clear();
-	m_nodeStat.push_back(rootStat);
-	mapNodeIdToBufferPos.insert(make_pair(0,0));//node0 in pos0 of buffer
-}
 
 /**
  * @brief: compute gain for a split

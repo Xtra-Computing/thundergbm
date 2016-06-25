@@ -8,14 +8,14 @@
 
 #include <iostream>
 
-#include "../../pureHost/MyAssert.h"
+#include "../../DeviceHost/MyAssert.h"
 #include "../../pureHost/SparsePred/DenseInstance.h"
 #include "../Memory/gbdtGPUMemManager.h"
 #include "../Memory/SplitNodeMemManager.h"
 #include "DeviceSplitter.h"
 #include "DeviceFindFeaKernel.h"
 #include "../Preparator.h"
-#include "DevicePredKernel.h"
+#include "Initiator.h"
 #include "../Hashing.h"
 #include "../DevicePrediction.h"
 
@@ -38,23 +38,14 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 	int nNumofFeature = manager.m_numofFea;
 	PROCESS_ERROR(nNumofFeature > 0);
 
-	DataPreparator preparator;
-	//copy gd and hess to GPU memory
-	preparator.PrepareGDHess(m_vGDPair_fixedPos);
-
+	//gd and hess short name on GPU memory
 	float_point *pGD = manager.m_pGrad;
 	float_point *pHess = manager.m_pHess;
 
-	//copy instance id to node id infomation
-	PROCESS_ERROR(manager.m_numofIns == m_nodeIds.size());
-	preparator.VecToArray(m_nodeIds, manager.m_pInsToNodeIdHost);
-	manager.MemcpyHostToDevice(manager.m_pInsToNodeIdHost, manager.m_pInsIdToNodeId, sizeof(int) * manager.m_numofIns);
-
-	//copy splittable node information and buffer ids to GPU memory
-	preparator.PrepareSNodeInfo(mapNodeIdToBufferPos, m_nodeStat);
+	//splittable node information short name on GPU memory
 	nodeStat *pSNodeState = manager.m_pSNodeStat;
 
-	//use short names for temporary info
+	//use short names for temporary info on GPU memory
 	nodeStat *pTempRChildStat = manager.m_pTempRChildStat;
 	float_point *pLastValue = manager.m_pLastValue;
 
@@ -63,8 +54,8 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 	float_point *pFeaValue = manager.m_pdDFeaValue;
 	int *pNumofKeyValue = manager.m_pDNumofKeyValue;
 
-	//reset the best splittable points
 	int maxNumofSplittable = manager.m_maxNumofSplittable;
+	//Memory set for best split points (i.e. reset the best splittable points)
 	manager.MemcpyHostToDevice(manager.m_pBestPointHost, manager.m_pBestSplitPoint, sizeof(SplitPoint) * maxNumofSplittable);
 
 	for(int f = 0; f < nNumofFeature; f++)
@@ -86,12 +77,9 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 		}
 		PROCESS_ERROR(startPosOfPrevFea >= 0);
 		long long startPosOfCurFea = startPosOfPrevFea + numofPreFeaKeyValues;
-		//copy the value of the start position of the current feature
-//		manager.MemcpyHostToDevice(&startPosOfCurFea, manager.m_pFeaStartPos + f, sizeof(long long));
 
 		//reset the temporary right child statistics
 		checkCudaErrors(cudaMemset(pTempRChildStat, 0, sizeof(nodeStat) * maxNumofSplittable));
-
 
 		//find the split value for this feature
 		int *idStartAddress = pInsId + startPosOfCurFea;
@@ -104,17 +92,18 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 		cudaDeviceSynchronize();
 
 
+		#ifdef _COMPARE_HOST
 		//copy back the best split points to vectors
+		DataPreparator preparator;
 		preparator.CopyBestSplitPoint(mapNodeIdToBufferPos, vBest, rchildStat, lchildStat);
+		#endif
 	}
-
-	preparator.ReleaseMem();
 }
 
 /**
  * @brief: prediction and compute gradient descent
  */
-void DeviceSplitter::ComputeGD(vector<RegTree> &vTree)
+void DeviceSplitter::ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> > &vvInsSparse)
 {
 	GBDTGPUMemManager manager;
 	SNGPUManager snManager;
@@ -138,9 +127,7 @@ void DeviceSplitter::ComputeGD(vector<RegTree> &vTree)
 		{
 			bool bIsNewHashValue = false;
 			int hashValue = Hashing::HostAssignHashValue(pHashUsedFea, denseInsConverter.usedFeaSet[uf], numofUsedFea, bIsNewHashValue);
-			#ifdef _DEBUG
 //			cout << "hash value of " << denseInsConverter.usedFeaSet[uf] << " is " << hashValue << endl;
-			#endif
 		}
 
 		pSortedUsedFea = new int[numofUsedFea];
@@ -165,8 +152,8 @@ void DeviceSplitter::ComputeGD(vector<RegTree> &vTree)
 		TreeNode *pAllNode = new TreeNode[numofNode];
 		manager.MemcpyDeviceToHost(snManager.m_pTreeNode, pAllNode, sizeof(TreeNode) * numofNode);
 
-		#ifdef _DEBUG
-		cout << numofNode << " v.s. " << vTree[nNumofTree - 1].nodes.size() << endl;
+		#ifdef _COMPARE_HOST
+//		cout << numofNode << " v.s. " << vTree[nNumofTree - 1].nodes.size() << endl;
 		//compare each node
 		for(int n = 0; n < numofNode; n++)
 		{
@@ -183,10 +170,10 @@ void DeviceSplitter::ComputeGD(vector<RegTree> &vTree)
 		#endif
 	}
 
+	checkCudaErrors(cudaMemset(manager.m_pTargetValue, 0, sizeof(float_point) * nNumofIns));
 	for(int i = 0; i < nNumofIns; i++)
 	{
 		double fValue = 0;
-		checkCudaErrors(cudaMemset(manager.m_pTargetValue, 0, sizeof(float_point)));
 		manager.MemcpyDeviceToHost(manager.m_pPredBuffer + i, &fValue, sizeof(float_point));
 
 		//start prediction ###############
@@ -208,8 +195,9 @@ void DeviceSplitter::ComputeGD(vector<RegTree> &vTree)
 			FillDense<<<1, 1>>>(pDevInsValue, pDevFeaId, numofFeaValue, manager.m_pdDenseIns,
 								manager.m_pSortedUsedFeaId, manager.m_pHashFeaIdToDenseInsPos, numofUsedFea);
 
+			#ifdef _COMPARE_HOST
 			//construct dense instance #### now for testing
-			denseInsConverter.SparseToDense(vv_insDebug[i], vDense);
+			denseInsConverter.SparseToDense(vvInsSparse[i], vDense);
 			//denseInsConverter.PrintDenseVec(vDense);
 
 			//copy the dense instance to vector for testing
@@ -233,6 +221,7 @@ void DeviceSplitter::ComputeGD(vector<RegTree> &vTree)
 				//vDense.push_back(pDense[i]);
 			}
 			////////end for testing
+			#endif
 		}
 
 		//prediction using the last tree
@@ -241,9 +230,9 @@ void DeviceSplitter::ComputeGD(vector<RegTree> &vTree)
 			int numofNode = 0;
 			manager.MemcpyDeviceToHost(snManager.m_pCurNumofNode, &numofNode, sizeof(int));
 			PredTarget<<<1, 1>>>(snManager.m_pTreeNode, numofNode, manager.m_pdDenseIns, numofUsedFea,
-								 manager.m_pHashFeaIdToDenseInsPos, manager.m_pTargetValue);
+								 manager.m_pHashFeaIdToDenseInsPos, manager.m_pTargetValue + i);
 
-			#ifdef _DEBUG
+			#ifdef _COMPARE_HOST
 			//host prediction
 			for(int t = nNumofTree - 1; t >= 0 && t < nNumofTree; t++)
 			{
@@ -252,7 +241,7 @@ void DeviceSplitter::ComputeGD(vector<RegTree> &vTree)
 			}
 
 			float_point fTarget = 0;
-			manager.MemcpyDeviceToHost(manager.m_pTargetValue, &fTarget, sizeof(float_point));
+			manager.MemcpyDeviceToHost(manager.m_pTargetValue + i, &fTarget, sizeof(float_point));
 			if(fValue != fTarget)
 				cout << "Target value diff " << fValue << " v.s. " << fTarget << endl;
 			#endif
@@ -260,7 +249,7 @@ void DeviceSplitter::ComputeGD(vector<RegTree> &vTree)
 		}
 
 		v_fPredValue.push_back(fValue);
-		manager.MemcpyDeviceToDevice(manager.m_pTargetValue, manager.m_pPredBuffer + i, sizeof(float_point));
+		manager.MemcpyDeviceToDevice(manager.m_pTargetValue + i, manager.m_pPredBuffer + i, sizeof(float_point));
 	}
 
 	if(pHashUsedFea == NULL)
@@ -270,6 +259,10 @@ void DeviceSplitter::ComputeGD(vector<RegTree> &vTree)
 
 //	ComputeGDSparse(v_fPredValue, m_vTrueValue);
 	//compute GD
+	ComputeGDKernel<<<1, 1>>>(nNumofIns, manager.m_pTargetValue, manager.m_pdTrueTargetValue, manager.m_pGrad, manager.m_pHess);
+
+	#ifdef _COMPARE_HOST
+	//compute host GD
 	int nTotal = nNumofIns;
 	for(int i = 0; i < nTotal; i++)
 	{
@@ -279,6 +272,20 @@ void DeviceSplitter::ComputeGD(vector<RegTree> &vTree)
 		m_vGDPair_fixedPos[i].hess = 1;
 	}
 
+	//compare GDs
+	float_point *pfGrad = new float_point[nNumofIns];
+	float_point *pfHess = new float_point[nNumofIns];
+	manager.MemcpyDeviceToHost(manager.m_pGrad, pfGrad, sizeof(float_point) * nNumofIns);
+	manager.MemcpyDeviceToHost(manager.m_pHess, pfHess, sizeof(float_point) * nNumofIns);
+	for(int i = 0; i < nTotal; i++)
+	{
+		if(m_vGDPair_fixedPos[i].grad != pfGrad[i] || m_vGDPair_fixedPos[i].hess != pfHess[i])
+			cout << "diff gd: " << m_vGDPair_fixedPos[i].grad << " v.s. " << pfGrad[i] << endl;
+	}
+	delete []pfGrad;
+	delete []pfHess;
+
+	//root node state of the next tree
 	nodeStat rootStat;
 	for(int i = 0; i < nTotal; i++)
 	{
@@ -286,9 +293,14 @@ void DeviceSplitter::ComputeGD(vector<RegTree> &vTree)
 		rootStat.sum_hess += m_vGDPair_fixedPos[i].hess;
 	}
 
-
 	m_nodeStat.clear();
 	m_nodeStat.push_back(rootStat);
 	mapNodeIdToBufferPos.insert(make_pair(0,0));//node0 in pos0 of buffer
+	#endif
+
+	//copy splittable nodes to GPU memory
+	InitNodeStat<<<1, 1>>>(nNumofIns, manager.m_pGrad, manager.m_pHess,
+						   manager.m_pSNodeStat, manager.m_pSNIdToBuffId, manager.m_maxNumofSplittable,
+						   manager.m_pBuffIdVec);
 }
 

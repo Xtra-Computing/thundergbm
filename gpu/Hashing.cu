@@ -7,7 +7,7 @@
  */
 
 #include "Hashing.h"
-#include "../pureHost/MyAssert.h"
+#include "../DeviceHost/MyAssert.h"
 #include "DeviceHashing.h"
 
 /**

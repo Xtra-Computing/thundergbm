@@ -7,7 +7,7 @@
  */
 
 #include "RegTree.h"
-#include "../MyAssert.h"
+#include "../../DeviceHost/MyAssert.h"
 
 /**
  * @brief: get the leaf index given a sparse instance

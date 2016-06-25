@@ -15,7 +15,7 @@
 #include "../HostPredictor.h"
 #include "HostSplitter.h"
 #include "SplitPoint.h"
-#include "../MyAssert.h"
+#include "../../DeviceHost/MyAssert.h"
 
 using std::map;
 using std::pair;
@@ -155,7 +155,8 @@ void HostSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Spli
 //		cout << "node " << nid << " needs to split..." << endl;
 		int bufferPos = mapNodeIdToBufferPos[nid];
 		map<int, int>::iterator itBufferPos = mapNodeIdToBufferPos.find(nid);
-		PROCESS_ERROR(itBufferPos == mapNodeIdToBufferPos.end() && bufferPos == itBufferPos->second);
+//		cout << itBufferPos->first << " v.s. " << itBufferPos->second << endl;
+		PROCESS_ERROR(itBufferPos != mapNodeIdToBufferPos.end() && bufferPos == itBufferPos->second);
 		PROCESS_ERROR(bufferPos < vBest.size());
 		//mark the node as a leaf node if (1) the gain is negative or (2) the tree reaches maximum depth.
 		tree.nodes[nid]->loss = vBest[bufferPos].m_fGain;
@@ -251,7 +252,7 @@ void HostSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Spli
 			PROCESS_ERROR(nid >= 0);
 			int bufferPos = mapNodeIdToBufferPos[nid];
 			map<int, int>::iterator itBufferPos = mapNodeIdToBufferPos.find(nid);
-			PROCESS_ERROR(itBufferPos == mapNodeIdToBufferPos.end() && bufferPos == itBufferPos->second);
+			PROCESS_ERROR(itBufferPos != mapNodeIdToBufferPos.end() && bufferPos == itBufferPos->second);
 			int fid = vBest[bufferPos].m_nFeatureId;
 			if(fid != ufid)//this feature is not the splitting feature for the instance.
 				continue;
@@ -316,12 +317,12 @@ void HostSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Spli
 /**
  * @brief: predict the value for each instance and compute the gradient for each instance
  */
-void HostSplitter::ComputeGD(vector<RegTree> &vTree)
+void HostSplitter::ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> > & vvInsSparse)
 {
 	vector<double> v_fPredValue;
 
 	HostPredictor pred;
-	pred.PredictSparseIns(m_vvInsSparse, vTree, v_fPredValue, m_vPredBuffer);
+	pred.PredictSparseIns(vvInsSparse, vTree, v_fPredValue, m_vPredBuffer);
 
 	if(vTree.size() > 0)
 	{
@@ -334,3 +335,27 @@ void HostSplitter::ComputeGD(vector<RegTree> &vTree)
 	ComputeGDSparse(v_fPredValue, m_vTrueValue);
 }
 
+/**
+ * @brief: compute the first order gradient and the second order gradient
+ */
+void HostSplitter::ComputeGDSparse(vector<double> &v_fPredValue, vector<double> &m_vTrueValue_fixedPos)
+{
+	nodeStat rootStat;
+	int nTotal = m_vTrueValue_fixedPos.size();
+	for(int i = 0; i < nTotal; i++)
+	{
+		m_vGDPair_fixedPos[i].grad = v_fPredValue[i] - m_vTrueValue_fixedPos[i];
+		m_vGDPair_fixedPos[i].hess = 1;
+		rootStat.sum_gd += m_vGDPair_fixedPos[i].grad;
+		rootStat.sum_hess += m_vGDPair_fixedPos[i].hess;
+//		if(i < 20)
+//		{
+//			cout.precision(6);
+//			printf("pred and gd of %d is %f and %f\n", i, v_fPredValue[i], m_vGDPair_fixedPos[i].grad);
+//		}
+	}
+
+	m_nodeStat.clear();
+	m_nodeStat.push_back(rootStat);
+	mapNodeIdToBufferPos.insert(make_pair(0,0));//node0 in pos0 of buffer
+}

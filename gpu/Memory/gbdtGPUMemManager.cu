@@ -9,7 +9,7 @@
 #include <helper_cuda.h>
 
 #include "gbdtGPUMemManager.h"
-#include "../../pureHost/MyAssert.h"
+#include "../../DeviceHost/MyAssert.h"
 
 //memory for instances (key on feature id)
 int *GBDTGPUMemManager::m_pDInsId = NULL;				//all the instance ids for each key-value pair
@@ -43,6 +43,7 @@ float_point *GBDTGPUMemManager::m_pHess = NULL;
 
 //memory for splittable nodes
 int GBDTGPUMemManager::m_maxNumofSplittable = -1;
+int GBDTGPUMemManager::m_curNumofSplitable = -1;
 TreeNode *GBDTGPUMemManager::m_pSplittableNode = NULL;
 SplitPoint *GBDTGPUMemManager::m_pBestSplitPoint = NULL;//(require memset!) store the best split points
 nodeStat *GBDTGPUMemManager::m_pSNodeStat = NULL;	//splittable node statistics
@@ -57,7 +58,6 @@ int *GBDTGPUMemManager::m_pNumofBuffId = NULL;	//the total number of buffer ids 
 
 //host memory for GPU memory reset
 SplitPoint *GBDTGPUMemManager::m_pBestPointHost = NULL;//best split points
-int *GBDTGPUMemManager::m_pInsToNodeIdHost = NULL;//map instance id to snode id
 
 /**
  * @brief: allocate memory for instances
@@ -87,7 +87,7 @@ void GBDTGPUMemManager::allocMemForIns(int nTotalNumofValue, int numofIns, int n
 	checkCudaErrors(cudaMemset(m_pPredBuffer, 0, sizeof(float_point) * m_numofIns));
 	checkCudaErrors(cudaMalloc((void**)&m_pdTrueTargetValue, sizeof(float_point) * m_numofIns));
 	checkCudaErrors(cudaMalloc((void**)&m_pdDenseIns, sizeof(float_point) * m_numofFea * maxNumofDenseIns));//######### whill have bugs when (numofFea < usedFea)
-	checkCudaErrors(cudaMalloc((void**)&m_pTargetValue, sizeof(float_point) * maxNumofDenseIns));
+	checkCudaErrors(cudaMalloc((void**)&m_pTargetValue, sizeof(float_point) * m_numofIns));
 	checkCudaErrors(cudaMalloc((void**)&m_pHashFeaIdToDenseInsPos, sizeof(int) * m_maxUsedFeaInTrees));
 	checkCudaErrors(cudaMemset(m_pHashFeaIdToDenseInsPos, -1, sizeof(int) * m_maxUsedFeaInTrees));
 	checkCudaErrors(cudaMalloc((void**)&m_pSortedUsedFeaId, sizeof(int) * m_maxUsedFeaInTrees));
@@ -135,7 +135,6 @@ void GBDTGPUMemManager::allocMemForSplittableNode(int nMaxNumofSplittableNode)
 void GBDTGPUMemManager::allocHostMemory()
 {
 	m_pBestPointHost = new SplitPoint[m_maxNumofSplittable];
-	m_pInsToNodeIdHost = new int[m_numofIns];
 }
 
 /**
@@ -144,5 +143,4 @@ void GBDTGPUMemManager::allocHostMemory()
 void GBDTGPUMemManager::releaseHostMemory()
 {
 	delete []m_pBestPointHost;
-	delete []m_pInsToNodeIdHost;
 }

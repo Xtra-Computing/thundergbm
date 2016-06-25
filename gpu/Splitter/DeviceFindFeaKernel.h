@@ -11,7 +11,7 @@
 
 #include "../../pureHost/UpdateOps/NodeStat.h"
 #include "../../pureHost/UpdateOps/SplitPoint.h"
-#include "../../pureHost/BaseClasses/BaseSplitter.h"
+#include "../../DeviceHost/BaseClasses/BaseSplitter.h"
 #include "../../DeviceHost/DefineConst.h"
 
 __global__ void FindFeaSplitValue(int nNumofKeyValues, int *idStartAddress, float_point *pValueStartAddress, int *pInsIdToNodeId,

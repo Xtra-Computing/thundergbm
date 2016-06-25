@@ -11,7 +11,7 @@
 
 
 #include <iostream>
-#include "../MyAssert.h"
+#include "../../DeviceHost/MyAssert.h"
 
 using std::cout;
 using std::endl;

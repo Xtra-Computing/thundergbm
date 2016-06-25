@@ -13,7 +13,7 @@ __device__ void ErrorCond(bool bCon, const char* functionName, const char* temp)
 {
 	if(bCon == false)
 	{
-		printf("Error in %s: %s=%d\n", functionName, temp);
+		printf("Error in %s: %s\n", functionName, temp);
 	}
 }
 

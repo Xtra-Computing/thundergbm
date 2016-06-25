@@ -12,11 +12,11 @@
 #include <iostream>
 #include <vector>
 
-#include "../Tree/RegTree.h"
-#include "../KeyValue.h"
-#include "../GDPair.h"
+#include "../../pureHost/Tree/RegTree.h"
+#include "../../pureHost/KeyValue.h"
+#include "../../pureHost/GDPair.h"
 #include "BaseSplitter.h"
-#include "../UpdateOps/Pruner.h"
+#include "../../pureHost/UpdateOps/Pruner.h"
 
 using std::string;
 using std::vector;
@@ -50,7 +50,7 @@ public:
 	void ReleaseTree(vector<RegTree> &v_Tree);
 
 protected:
-	void InitTree(RegTree &tree);
+	virtual void InitTree(RegTree &tree) = 0;
 	virtual void GrowTree(RegTree &tree) = 0;
 
 private:

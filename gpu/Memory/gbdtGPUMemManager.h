@@ -46,6 +46,7 @@ public:
 
 	//memory for splittable nodes
 	static int m_maxNumofSplittable;
+	static int m_curNumofSplitable;
 	static TreeNode *m_pSplittableNode;
 	static SplitPoint *m_pBestSplitPoint;
 	static nodeStat *m_pSNodeStat, *m_pRChildStat, *m_pLChildStat, *m_pTempRChildStat;
@@ -59,7 +60,6 @@ public:
 
 	//for host memory (use to reset GPU memory)
 	static SplitPoint *m_pBestPointHost;
-	static int *m_pInsToNodeIdHost;
 
 public:
 	void allocMemForIns(int nTotalNumofValue, int numofIns, int numofFeature);

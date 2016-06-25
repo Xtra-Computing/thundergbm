@@ -12,7 +12,7 @@
 #include <vector>
 #include "Tree/RegTree.h"
 #include "KeyValue.h"
-#include "BaseClasses/BasePredictor.h"
+#include "../DeviceHost/BaseClasses/BasePredictor.h"
 
 using std::vector;
 

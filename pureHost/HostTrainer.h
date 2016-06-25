@@ -9,7 +9,7 @@
 #ifndef TRAINER_H_
 #define TRAINER_H_
 
-#include "BaseClasses/BaseTrainer.h"
+#include "../DeviceHost/BaseClasses/BaseTrainer.h"
 #include "UpdateOps/HostSplitter.h"
 
 class HostTrainer: public BaseTrainer
@@ -18,6 +18,7 @@ public:
 	HostTrainer(HostSplitter *pHSpliter):BaseTrainer(pHSpliter){}
 	virtual ~HostTrainer(){}
 protected:
+	virtual void InitTree(RegTree &tree);
 	virtual void GrowTree(RegTree &tree);
 };
 
