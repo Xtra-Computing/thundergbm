@@ -9,8 +9,8 @@
 #ifndef DEVICESPLITALL_H_
 #define DEVICESPLITALL_H_
 
-#include "../../pureHost/UpdateOps/NodeStat.h"
-#include "../../pureHost/UpdateOps/SplitPoint.h"
+#include "../../Host/UpdateOps/NodeStat.h"
+#include "../../Host/UpdateOps/SplitPoint.h"
 #include "../../DeviceHost/BaseClasses/BaseSplitter.h"
 #include "../../DeviceHost/DefineConst.h"
 

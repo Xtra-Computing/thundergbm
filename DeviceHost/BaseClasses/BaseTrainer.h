@@ -12,11 +12,11 @@
 #include <iostream>
 #include <vector>
 
-#include "../../pureHost/Tree/RegTree.h"
-#include "../../pureHost/KeyValue.h"
-#include "../../pureHost/GDPair.h"
+#include "../../Host/Tree/RegTree.h"
+#include "../../Host/KeyValue.h"
+#include "../../Host/GDPair.h"
 #include "BaseSplitter.h"
-#include "../../pureHost/UpdateOps/Pruner.h"
+#include "../../Host/UpdateOps/Pruner.h"
 
 using std::string;
 using std::vector;

@@ -10,12 +10,12 @@
 
 #include <ctime>
 
-#include "../../pureHost/UpdateOps/HostSplitter.h"
-#include "../../pureHost/HostPredictor.h"
+#include "../../Host/UpdateOps/HostSplitter.h"
+#include "../../Host/HostPredictor.h"
 #include "../../DeviceHost/TreeNode.h"
-#include "../../pureHost/Tree/PrintTree.h"
-#include "../../pureHost/Evaluation/RMSE.h"
-#include "../../gpu/Splitter/DeviceSplitter.h"
+#include "../../Host/Tree/PrintTree.h"
+#include "../../Host/Evaluation/RMSE.h"
+#include "../../Device/Splitter/DeviceSplitter.h"
 
 /*
  * @brief: initialise constants of a trainer

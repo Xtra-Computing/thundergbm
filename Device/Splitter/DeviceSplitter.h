@@ -11,8 +11,8 @@
 
 #include <vector>
 
-#include "../../pureHost/UpdateOps/NodeStat.h"
-#include "../../pureHost/UpdateOps/SplitPoint.h"
+#include "../../Host/UpdateOps/NodeStat.h"
+#include "../../Host/UpdateOps/SplitPoint.h"
 #include "../../DeviceHost/BaseClasses/BaseSplitter.h"
 
 using std::vector;

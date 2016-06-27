@@ -11,9 +11,9 @@
 
 #include <vector>
 #include <map>
-#include "../pureHost/GDPair.h"
-#include "../pureHost/UpdateOps/NodeStat.h"
-#include "../pureHost/UpdateOps/SplitPoint.h"
+#include "../Host/GDPair.h"
+#include "../Host/UpdateOps/NodeStat.h"
+#include "../Host/UpdateOps/SplitPoint.h"
 
 using std::vector;
 using std::map;

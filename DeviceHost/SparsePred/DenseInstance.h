@@ -12,8 +12,8 @@
 #include <vector>
 #include <map>
 
-#include "../KeyValue.h"
-#include "../Tree/RegTree.h"
+#include "../../Host/KeyValue.h"
+#include "../../Host/Tree/RegTree.h"
 
 using std::vector;
 using std::map;

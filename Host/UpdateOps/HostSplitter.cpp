@@ -322,7 +322,7 @@ void HostSplitter::ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> > &
 	vector<double> v_fPredValue;
 
 	HostPredictor pred;
-	pred.PredictSparseIns(vvInsSparse, vTree, v_fPredValue, m_vPredBuffer);
+	pred.PredictSparseInsByLastTree(vvInsSparse, vTree, v_fPredValue, m_vPredBuffer);
 
 	if(vTree.size() > 0)
 	{

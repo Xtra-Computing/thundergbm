@@ -12,8 +12,8 @@
 #include <helper_cuda.h>
 #include "gpuMemManager.h"
 #include "../../DeviceHost/TreeNode.h"
-#include "../../pureHost/UpdateOps/SplitPoint.h"
-#include "../../pureHost/UpdateOps/NodeStat.h"
+#include "../../Host/UpdateOps/SplitPoint.h"
+#include "../../Host/UpdateOps/NodeStat.h"
 
 class GBDTGPUMemManager: public GPUMemManager
 {

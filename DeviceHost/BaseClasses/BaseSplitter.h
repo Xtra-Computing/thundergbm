@@ -13,12 +13,12 @@
 #include <map>
 #include <string>
 
-#include "../../pureHost/Tree/RegTree.h"
+#include "../../Host/Tree/RegTree.h"
 #include "../TreeNode.h"
-#include "../../pureHost/KeyValue.h"
-#include "../../pureHost/UpdateOps/SplitPoint.h"
-#include "../../pureHost/UpdateOps/NodeStat.h"
-#include "../../pureHost/GDPair.h"
+#include "../../Host/KeyValue.h"
+#include "../../Host/UpdateOps/SplitPoint.h"
+#include "../../Host/UpdateOps/NodeStat.h"
+#include "../../Host/GDPair.h"
 
 using std::vector;
 using std::map;

@@ -8,16 +8,17 @@
 
 #include <iostream>
 
-#include "../../DeviceHost/MyAssert.h"
-#include "../../pureHost/SparsePred/DenseInstance.h"
-#include "../Memory/gbdtGPUMemManager.h"
 #include "../Memory/SplitNodeMemManager.h"
+#include "../Memory/gbdtGPUMemManager.h"
+#include "../Memory/dtMemManager.h"
+#include "../../DeviceHost/MyAssert.h"
+#include "../../DeviceHost/SparsePred/DenseInstance.h"
 #include "DeviceSplitter.h"
 #include "DeviceFindFeaKernel.h"
 #include "../Preparator.h"
 #include "Initiator.h"
 #include "../Hashing.h"
-#include "../DevicePrediction.h"
+#include "../DevicePredictorHelper.h"
 
 using std::cout;
 using std::endl;
@@ -104,7 +105,6 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 void DeviceSplitter::ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> > &vvInsSparse)
 {
 	GBDTGPUMemManager manager;
-	SNGPUManager snManager;
 
 	vector<double> v_fPredValue;
 
@@ -146,6 +146,7 @@ void DeviceSplitter::ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> >
 	if(nNumofTree - 1 >= 0)
 	{
 		#ifdef _COMPARE_HOST
+		SNGPUManager snManager;
 		int numofNode = 0;
 		manager.MemcpyDeviceToHost(snManager.m_pCurNumofNode, &numofNode, sizeof(int));
 		TreeNode *pAllNode = new TreeNode[numofNode];
@@ -168,6 +169,20 @@ void DeviceSplitter::ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> >
 		#endif
 	}
 
+	//the last learned tree
+	int numofNodeOfLastTree = 0;
+	DTGPUMemManager treeManager;
+	TreeNode *pLastTree = NULL;
+	int numofTreeLearnt = treeManager.m_numofTreeLearnt;
+	if(numofTreeLearnt > 0)
+	{
+		manager.MemcpyDeviceToHost(treeManager.m_pNumofNodeEachTree + numofTreeLearnt - 1, &numofNodeOfLastTree, sizeof(int));
+		int startPosOfLastTree = -1;
+		manager.MemcpyDeviceToHost(treeManager.m_pStartPosOfEachTree + numofTreeLearnt - 1, &startPosOfLastTree, sizeof(int));
+		pLastTree = treeManager.m_pAllTree + startPosOfLastTree;
+	}
+
+	//start prediction
 	checkCudaErrors(cudaMemset(manager.m_pTargetValue, 0, sizeof(float_point) * nNumofIns));
 	for(int i = 0; i < nNumofIns; i++)
 	{
@@ -225,10 +240,9 @@ void DeviceSplitter::ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> >
 		//prediction using the last tree
 		if(nNumofTree - 1 >= 0)
 		{
-			int numofNode = 0;
 			PROCESS_ERROR(numofUsedFea <= manager.m_maxUsedFeaInTrees);
-			manager.MemcpyDeviceToHost(snManager.m_pCurNumofNode, &numofNode, sizeof(int));
-			PredTarget<<<1, 1>>>(snManager.m_pTreeNode, numofNode, manager.m_pdDenseIns, numofUsedFea,
+			assert(pLastTree != NULL);
+			PredTarget<<<1, 1>>>(pLastTree, numofNodeOfLastTree, manager.m_pdDenseIns, numofUsedFea,
 								 manager.m_pHashFeaIdToDenseInsPos, manager.m_pTargetValue + i);
 
 			#ifdef _COMPARE_HOST

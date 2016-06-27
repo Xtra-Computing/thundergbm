@@ -10,18 +10,18 @@
 #include <time.h>
 #include <helper_cuda.h>
 #include <cuda.h>
-#include "pureHost/DataReader/LibsvmReaderSparse.h"
-#include "pureHost/HostTrainer.h"
-#include "pureHost/HostPredictor.h"
-#include "pureHost/Evaluation/RMSE.h"
+#include "Host/DataReader/LibsvmReaderSparse.h"
+#include "Host/HostTrainer.h"
+#include "Host/Evaluation/RMSE.h"
 #include "DeviceHost/MyAssert.h"
 
-#include "gpu/Memory/gbdtGPUMemManager.h"
-#include "gpu/Memory/SplitNodeMemManager.h"
-#include "gpu/Memory/dtMemManager.h"
-#include "gpu/DeviceTrainer.h"
-#include "gpu/initCuda.h"
-#include "pureHost/PureHostGBDTMain.h"
+#include "Device/Memory/gbdtGPUMemManager.h"
+#include "Device/Memory/SplitNodeMemManager.h"
+#include "Device/Memory/dtMemManager.h"
+#include "Device/DeviceTrainer.h"
+#include "Device/DevicePredictor.h"
+#include "Device/initCuda.h"
+#include "Host/PureHostGBDTMain.h"
 
 int main()
 {
@@ -49,7 +49,7 @@ int main()
 	double fLabda = 1;//this one is constant in xgboost
 	double fGamma = 1;//minimum loss
 
-	HostPredictor pred;
+	DevicePredictor pred;
 
 	DeviceSplitter splitter;
 	DeviceTrainer trainer(&splitter);
@@ -66,13 +66,11 @@ int main()
 	dataReader.ReadLibSVMFormatSparse(v_vInsSparse, v_fLabel, strFileName, nNumofFeatures, nNumofExamples);
 
 	//allocate memory for trees
-/*	DTGPUMemManager treeMemManager;
+	DTGPUMemManager treeMemManager;
 	int maxNumofNodePerTree = pow(2, nMaxDepth + 1) - 1;
 	cout << "max number of node per tree is " << maxNumofNodePerTree << endl;
 	treeMemManager.allocMemForTrees(nNumofTree, maxNumofNodePerTree);
-*/
-	//############ this problem will be fixed later
-int maxNumofNodePerTree = 10000;
+
 
 	//initialise gpu memory allocator
 	GBDTGPUMemManager memAllocator;

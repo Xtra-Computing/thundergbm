@@ -7,10 +7,11 @@
  */
 
 #include "DeviceTrainer.h"
+#include "Splitter/Initiator.h"
 #include "Splitter/DeviceSplitter.h"
 #include "Memory/gbdtGPUMemManager.h"
 #include "Memory/SplitNodeMemManager.h"
-#include "Splitter/Initiator.h"
+#include "Memory/dtMemManager.h"
 
 /**
  * @brief: grow the tree by splitting nodes to the full extend
@@ -93,11 +94,31 @@ void DeviceTrainer::GrowTree(RegTree &tree)
 	for(int n = 0; n < numofNode; n++)
 	{
 		ypAllNode[n] = &pAllNode[n];
+		#ifndef _COMPARE_HOST
 		tree.nodes.push_back(&pAllNode[n]);//for getting features of trees
+		#endif
 	}
 	pruner.pruneLeaf(ypAllNode, numofNode);
-	manager.MemcpyHostToDevice(pAllNode, snManager.m_pTreeNode, sizeof(TreeNode) * numofNode);
 	delete []ypAllNode;
+	//########### can be improved by storing only the valid nodes afterwards
+
+	//copy the final tree to GPU memory
+	manager.MemcpyHostToDevice(pAllNode, snManager.m_pTreeNode, sizeof(TreeNode) * numofNode);
+	//copy the final tree for ensembling
+	DTGPUMemManager treeManager;
+	int numofTreeLearnt = treeManager.m_numofTreeLearnt;
+	manager.MemcpyHostToDevice(&numofNode, treeManager.m_pNumofNodeEachTree + numofTreeLearnt, sizeof(int));
+	int numofNodePreviousTree = 0;
+	int previousStartPos = 0;
+	if(numofTreeLearnt > 0)
+	{
+		manager.MemcpyDeviceToHost(treeManager.m_pNumofNodeEachTree + numofTreeLearnt - 1, &numofNodePreviousTree, sizeof(int));
+		manager.MemcpyDeviceToHost(treeManager.m_pStartPosOfEachTree + numofTreeLearnt - 1, &previousStartPos, sizeof(int));
+	}
+	int treeStartPos = previousStartPos + numofNodePreviousTree;
+	manager.MemcpyHostToDevice(&treeStartPos, treeManager.m_pStartPosOfEachTree, sizeof(int));
+	manager.MemcpyDeviceToDevice(snManager.m_pTreeNode, treeManager.m_pAllTree, sizeof(TreeNode) * numofNode);
+	treeManager.m_numofTreeLearnt++;
 
 	#ifdef _COMPARE_HOST
 	TreeNode **temp = &tree.nodes[0];
@@ -133,7 +154,7 @@ void DeviceTrainer::InitTree(RegTree &tree)
 	total_split_t = 0;
 	total_prune_t = 0;
 
-	//initial root node in GPU has been moved to grow tree.
+	//#### initial root node in GPU has been moved to grow tree.
 
 	//all instances belong to the root node
 	GBDTGPUMemManager manager;

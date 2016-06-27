@@ -11,7 +11,7 @@
 
 #include "../../DeviceHost/DefineConst.h"
 #include "../../DeviceHost/TreeNode.h"
-#include "../../pureHost/UpdateOps/NodeStat.h"
+#include "../../Host/UpdateOps/NodeStat.h"
 
 __global__ void ComputeGDKernel(int numofIns, float_point *pfPredValue, float_point *pfTrueValue, float_point *pGrad, float_point *pHess);
 __global__ void InitNodeStat(int numofIns, float_point *pGrad, float_point *pHess,

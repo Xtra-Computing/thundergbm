@@ -9,17 +9,19 @@
 #define BASEPREDICTOR_H_
 
 #include <vector>
-#include "../../pureHost/Tree/RegTree.h"
-#include "../../pureHost/KeyValue.h"
+#include "../../Host/Tree/RegTree.h"
+#include "../../Host/KeyValue.h"
 
 using std::vector;
 
 class BasePredictor
 {
 public:
-	void PredictSparseIns(vector<vector<KeyValue> > &v_vInstance, vector<RegTree> &v_Tree,
+	virtual~BasePredictor(){}
+
+	void PredictSparseInsByLastTree(vector<vector<KeyValue> > &v_vInstance, vector<RegTree> &v_Tree,
 					   	  vector<double> &v_fPredValue, vector<double> &v_predBuffer);
-	void PredictSparseIns(vector<vector<KeyValue> > &v_vInstance, vector<RegTree> &vTree, vector<double> &v_fPredValue);
+	virtual void PredictSparseIns(vector<vector<KeyValue> > &v_vInstance, vector<RegTree> &vTree, vector<double> &v_fPredValue) = 0;
 };
 
 
