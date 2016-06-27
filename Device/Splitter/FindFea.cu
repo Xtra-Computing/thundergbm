@@ -8,17 +8,18 @@
 
 #include <iostream>
 
-#include "../Memory/SplitNodeMemManager.h"
-#include "../Memory/gbdtGPUMemManager.h"
-#include "../Memory/dtMemManager.h"
-#include "../../DeviceHost/MyAssert.h"
-#include "../../DeviceHost/SparsePred/DenseInstance.h"
 #include "DeviceSplitter.h"
 #include "DeviceFindFeaKernel.h"
-#include "../Preparator.h"
 #include "Initiator.h"
+#include "../Memory/gbdtGPUMemManager.h"
+#include "../Memory/SplitNodeMemManager.h"
+#include "../Memory/dtMemManager.h"
+#include "../Preparator.h"
 #include "../Hashing.h"
 #include "../DevicePredictorHelper.h"
+#include "../DevicePredictor.h"
+#include "../../DeviceHost/MyAssert.h"
+#include "../../DeviceHost/SparsePred/DenseInstance.h"
 
 using std::cout;
 using std::endl;
@@ -105,37 +106,17 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 void DeviceSplitter::ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> > &vvInsSparse)
 {
 	GBDTGPUMemManager manager;
-
-	vector<double> v_fPredValue;
-
-//	pred.PredictSparseIns(m_vvInsSparse, vTree, v_fPredValue, m_vPredBuffer);
-
+	DevicePredictor pred;
 	//get features and store the feature ids in a way that the access is efficient
 	DenseInsConverter denseInsConverter(vTree);
+
+	vector<double> v_fPredValue;
 
 	//hash feature id to position id
 	int numofUsedFea = denseInsConverter.usedFeaSet.size();
 	int *pHashUsedFea = NULL;
 	int *pSortedUsedFea = NULL;
-	if(numofUsedFea > 0)
-	{
-		pHashUsedFea = new int[numofUsedFea];
-		memset(pHashUsedFea, -1, sizeof(int) * numofUsedFea);
-		for(int uf = 0; uf < numofUsedFea; uf++)
-		{
-			bool bIsNewHashValue = false;
-			int hashValue = Hashing::HostAssignHashValue(pHashUsedFea, denseInsConverter.usedFeaSet[uf], numofUsedFea, bIsNewHashValue);
-//			cout << "hash value of " << denseInsConverter.usedFeaSet[uf] << " is " << hashValue << endl;
-		}
-
-		pSortedUsedFea = new int[numofUsedFea];
-		for(int uf = 0; uf < numofUsedFea; uf++)
-			pSortedUsedFea[uf] = denseInsConverter.usedFeaSet[uf];
-
-		//copy hash map to gpu memory
-		manager.MemcpyHostToDevice(pHashUsedFea, manager.m_pHashFeaIdToDenseInsPos, sizeof(int) * numofUsedFea);
-		manager.MemcpyHostToDevice(pSortedUsedFea, manager.m_pSortedUsedFeaId, sizeof(int) * numofUsedFea);
-	}
+	pred.GetUsedFeature(denseInsConverter.usedFeaSet, pHashUsedFea, pSortedUsedFea);
 
 	//for each tree
 	int nNumofTree = vTree.size();
@@ -143,9 +124,9 @@ void DeviceSplitter::ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> >
 	PROCESS_ERROR(nNumofIns > 0);
 
 	//copy tree from GPU memory
+	#ifdef _COMPARE_HOST
 	if(nNumofTree - 1 >= 0)
 	{
-		#ifdef _COMPARE_HOST
 		SNGPUManager snManager;
 		int numofNode = 0;
 		manager.MemcpyDeviceToHost(snManager.m_pCurNumofNode, &numofNode, sizeof(int));
@@ -166,21 +147,16 @@ void DeviceSplitter::ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> >
 					 << "; rc id: " << pAllNode[n].rightChildId << " v.s. " << vTree[nNumofTree - 1].nodes[n]->rightChildId << endl;
 			}
 		}
-		#endif
 	}
+	#endif
 
 	//the last learned tree
 	int numofNodeOfLastTree = 0;
-	DTGPUMemManager treeManager;
 	TreeNode *pLastTree = NULL;
+	DTGPUMemManager treeManager;
 	int numofTreeLearnt = treeManager.m_numofTreeLearnt;
-	if(numofTreeLearnt > 0)
-	{
-		manager.MemcpyDeviceToHost(treeManager.m_pNumofNodeEachTree + numofTreeLearnt - 1, &numofNodeOfLastTree, sizeof(int));
-		int startPosOfLastTree = -1;
-		manager.MemcpyDeviceToHost(treeManager.m_pStartPosOfEachTree + numofTreeLearnt - 1, &startPosOfLastTree, sizeof(int));
-		pLastTree = treeManager.m_pAllTree + startPosOfLastTree;
-	}
+	int treeId = numofTreeLearnt - 1;
+	pred.GetTreeInfo(pLastTree, numofNodeOfLastTree, treeId);
 
 	//start prediction
 	checkCudaErrors(cudaMemset(manager.m_pTargetValue, 0, sizeof(float_point) * nNumofIns));
@@ -194,19 +170,13 @@ void DeviceSplitter::ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> >
 		vector<double> vDense;
 		if(nNumofTree > 0)
 		{
-			long long startPos = -1;
-			long long *pInsStartPos = manager.m_pInsStartPos + (long long)i;
-			manager.MemcpyDeviceToHost(pInsStartPos, &startPos, sizeof(long long));
-//			cout << "start pos ins" << i << "=" << startPos << endl;
-			float_point *pDevInsValue = manager.m_pdDInsValue + startPos;
-			int *pDevFeaId = manager.m_pDFeaId + startPos;
-			int numofFeaValue = -1;
-			int *pNumofFea = manager.m_pDNumofFea + i;
-			manager.MemcpyDeviceToHost(pNumofFea, &numofFeaValue, sizeof(int));
+			pred.FillDenseIns(i, numofUsedFea);
 
-			checkCudaErrors(cudaMemset(manager.m_pdDenseIns, 0, sizeof(float_point) * numofUsedFea));
-			FillDense<<<1, 1>>>(pDevInsValue, pDevFeaId, numofFeaValue, manager.m_pdDenseIns,
-								manager.m_pSortedUsedFeaId, manager.m_pHashFeaIdToDenseInsPos, numofUsedFea);
+			//prediction using the last tree
+			PROCESS_ERROR(numofUsedFea <= manager.m_maxUsedFeaInTrees);
+			assert(pLastTree != NULL);
+			PredTarget<<<1, 1>>>(pLastTree, numofNodeOfLastTree, manager.m_pdDenseIns, numofUsedFea,
+								 manager.m_pHashFeaIdToDenseInsPos, manager.m_pTargetValue + i, treeManager.m_maxTreeDepth);
 
 			#ifdef _COMPARE_HOST
 			//construct dense instance #### now for testing
@@ -233,19 +203,10 @@ void DeviceSplitter::ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> >
 
 				//vDense.push_back(pDense[i]);
 			}
-			////////end for testing
-			#endif
-		}
 
-		//prediction using the last tree
-		if(nNumofTree - 1 >= 0)
-		{
-			PROCESS_ERROR(numofUsedFea <= manager.m_maxUsedFeaInTrees);
-			assert(pLastTree != NULL);
-			PredTarget<<<1, 1>>>(pLastTree, numofNodeOfLastTree, manager.m_pdDenseIns, numofUsedFea,
-								 manager.m_pHashFeaIdToDenseInsPos, manager.m_pTargetValue + i);
+			float_point fTarget = 0;
+			manager.MemcpyDeviceToHost(manager.m_pTargetValue + i, &fTarget, sizeof(float_point));
 
-			#ifdef _COMPARE_HOST
 			//host prediction
 			for(int t = nNumofTree - 1; t >= 0 && t < nNumofTree; t++)
 			{
@@ -253,12 +214,9 @@ void DeviceSplitter::ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> >
 				fValue += vTree[t][nodeId]->predValue;
 			}
 
-			float_point fTarget = 0;
-			manager.MemcpyDeviceToHost(manager.m_pTargetValue + i, &fTarget, sizeof(float_point));
 			if(fValue != fTarget)
 				cout << "Target value diff " << fValue << " v.s. " << fTarget << endl;
 			#endif
-
 		}
 
 		v_fPredValue.push_back(fValue);
@@ -270,9 +228,12 @@ void DeviceSplitter::ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> >
 	if(pSortedUsedFea != NULL)
 		delete []pSortedUsedFea;
 
-//	ComputeGDSparse(v_fPredValue, m_vTrueValue);
 	//compute GD
 	ComputeGDKernel<<<1, 1>>>(nNumofIns, manager.m_pTargetValue, manager.m_pdTrueTargetValue, manager.m_pGrad, manager.m_pHess);
+	//copy splittable nodes to GPU memory
+	InitNodeStat<<<1, 1>>>(nNumofIns, manager.m_pGrad, manager.m_pHess,
+						   manager.m_pSNodeStat, manager.m_pSNIdToBuffId, manager.m_maxNumofSplittable,
+						   manager.m_pBuffIdVec);
 
 	#ifdef _COMPARE_HOST
 	//compute host GD
@@ -310,10 +271,5 @@ void DeviceSplitter::ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> >
 	m_nodeStat.push_back(rootStat);
 	mapNodeIdToBufferPos.insert(make_pair(0,0));//node0 in pos0 of buffer
 	#endif
-
-	//copy splittable nodes to GPU memory
-	InitNodeStat<<<1, 1>>>(nNumofIns, manager.m_pGrad, manager.m_pHess,
-						   manager.m_pSNodeStat, manager.m_pSNIdToBuffId, manager.m_maxNumofSplittable,
-						   manager.m_pBuffIdVec);
 }
 

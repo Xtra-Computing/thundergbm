@@ -21,6 +21,8 @@ public:
 	virtual void InitTree(RegTree &tree);
 	virtual void GrowTree(RegTree &tree);
 	virtual void ReleaseTree(vector<RegTree> &v_Tree);
+
+	static void StoreFinalTree(TreeNode *pAllNode, int numofNode);
 };
 
 

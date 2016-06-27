@@ -14,6 +14,51 @@
 #include "Memory/dtMemManager.h"
 
 /**
+ * @brief: initialise tree
+ */
+void DeviceTrainer::InitTree(RegTree &tree)
+{
+	#ifdef _COMPARE_HOST
+	TreeNode *root = new TreeNode[1];
+	m_nNumofNode = 1;
+	root->nodeId = 0;
+	root->level = 0;
+
+	tree.nodes.push_back(root);
+
+	//all instances are under node 0
+	splitter->m_nodeIds.clear();
+	for(int i = 0; i < m_vvInsSparse.size(); i++)
+	{
+		splitter->m_nodeIds.push_back(0);
+	}
+	#endif
+
+	total_find_fea_t = 0;
+	total_split_t = 0;
+	total_prune_t = 0;
+
+	//#### initial root node in GPU has been moved to grow tree.
+
+	//all instances belong to the root node
+	GBDTGPUMemManager manager;
+	cudaMemset(manager.m_pInsIdToNodeId, 0, sizeof(int) * manager.m_numofIns);
+}
+
+/**
+ * @brief: release memory used by trees
+ */
+void DeviceTrainer::ReleaseTree(vector<RegTree> &v_Tree)
+{
+	int nNumofTree = v_Tree.size();
+	for(int i = 0; i < nNumofTree; i++)
+	{
+		int nNumofNodes = v_Tree[i].nodes.size();
+		delete[] v_Tree[i].nodes[0];
+	}
+}
+
+/**
  * @brief: grow the tree by splitting nodes to the full extend
  */
 void DeviceTrainer::GrowTree(RegTree &tree)
@@ -102,23 +147,7 @@ void DeviceTrainer::GrowTree(RegTree &tree)
 	delete []ypAllNode;
 	//########### can be improved by storing only the valid nodes afterwards
 
-	//copy the final tree to GPU memory
-	manager.MemcpyHostToDevice(pAllNode, snManager.m_pTreeNode, sizeof(TreeNode) * numofNode);
-	//copy the final tree for ensembling
-	DTGPUMemManager treeManager;
-	int numofTreeLearnt = treeManager.m_numofTreeLearnt;
-	manager.MemcpyHostToDevice(&numofNode, treeManager.m_pNumofNodeEachTree + numofTreeLearnt, sizeof(int));
-	int numofNodePreviousTree = 0;
-	int previousStartPos = 0;
-	if(numofTreeLearnt > 0)
-	{
-		manager.MemcpyDeviceToHost(treeManager.m_pNumofNodeEachTree + numofTreeLearnt - 1, &numofNodePreviousTree, sizeof(int));
-		manager.MemcpyDeviceToHost(treeManager.m_pStartPosOfEachTree + numofTreeLearnt - 1, &previousStartPos, sizeof(int));
-	}
-	int treeStartPos = previousStartPos + numofNodePreviousTree;
-	manager.MemcpyHostToDevice(&treeStartPos, treeManager.m_pStartPosOfEachTree, sizeof(int));
-	manager.MemcpyDeviceToDevice(snManager.m_pTreeNode, treeManager.m_pAllTree, sizeof(TreeNode) * numofNode);
-	treeManager.m_numofTreeLearnt++;
+	StoreFinalTree(pAllNode, numofNode);
 
 	#ifdef _COMPARE_HOST
 	TreeNode **temp = &tree.nodes[0];
@@ -130,46 +159,30 @@ void DeviceTrainer::GrowTree(RegTree &tree)
 }
 
 /**
- * @brief: initialise tree
+ * @brief: store the tree learned at this round to GPU memory
  */
-void DeviceTrainer::InitTree(RegTree &tree)
+void DeviceTrainer::StoreFinalTree(TreeNode *pAllNode, int numofNode)
 {
-	#ifdef _COMPARE_HOST
-	TreeNode *root = new TreeNode[1];
-	m_nNumofNode = 1;
-	root->nodeId = 0;
-	root->level = 0;
-
-	tree.nodes.push_back(root);
-
-	//all instances are under node 0
-	splitter->m_nodeIds.clear();
-	for(int i = 0; i < m_vvInsSparse.size(); i++)
-	{
-		splitter->m_nodeIds.push_back(0);
-	}
-	#endif
-
-	total_find_fea_t = 0;
-	total_split_t = 0;
-	total_prune_t = 0;
-
-	//#### initial root node in GPU has been moved to grow tree.
-
-	//all instances belong to the root node
 	GBDTGPUMemManager manager;
-	cudaMemset(manager.m_pInsIdToNodeId, 0, sizeof(int) * manager.m_numofIns);
-}
+	SNGPUManager snManager;
+	//copy the final tree to GPU memory
+	manager.MemcpyHostToDevice(pAllNode, snManager.m_pTreeNode, sizeof(TreeNode) * numofNode);
 
-/**
- * @brief: release memory used by trees
- */
-void DeviceTrainer::ReleaseTree(vector<RegTree> &v_Tree)
-{
-	int nNumofTree = v_Tree.size();
-	for(int i = 0; i < nNumofTree; i++)
+	//copy the final tree for ensembling
+	DTGPUMemManager treeManager;
+	int numofTreeLearnt = treeManager.m_numofTreeLearnt;
+	int curLearningTreeId = numofTreeLearnt;
+	manager.MemcpyHostToDevice(&numofNode, treeManager.m_pNumofNodeEachTree + curLearningTreeId, sizeof(int));
+	int numofNodePreviousTree = 0;
+	int previousStartPos = 0;
+	if(numofTreeLearnt > 0)
 	{
-		int nNumofNodes = v_Tree[i].nodes.size();
-		delete[] v_Tree[i].nodes[0];
+		int lastLearntTreeId = numofTreeLearnt - 1;
+		manager.MemcpyDeviceToHost(treeManager.m_pNumofNodeEachTree + lastLearntTreeId, &numofNodePreviousTree, sizeof(int));
+		manager.MemcpyDeviceToHost(treeManager.m_pStartPosOfEachTree + lastLearntTreeId, &previousStartPos, sizeof(int));
 	}
+	int treeStartPos = previousStartPos + numofNodePreviousTree;
+	manager.MemcpyHostToDevice(&treeStartPos, treeManager.m_pStartPosOfEachTree + curLearningTreeId, sizeof(int));
+	manager.MemcpyDeviceToDevice(snManager.m_pTreeNode, treeManager.m_pAllTree + treeStartPos, sizeof(TreeNode) * numofNode);
+	treeManager.m_numofTreeLearnt++;
 }

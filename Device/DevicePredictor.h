@@ -21,6 +21,9 @@ class DevicePredictor: public BasePredictor
 {
 public:
 	virtual void PredictSparseIns(vector<vector<KeyValue> > &v_vInstance, vector<RegTree> &vTree, vector<double> &v_fPredValue);
+	static void GetUsedFeature(vector<int> &v_usedFeaSortedId, int *&pHashUsedFea, int *&pSortedUsedFea);
+	static void GetTreeInfo(TreeNode *&pTree, int &numofNodeOfTheTree, int treeId);
+	static void FillDenseIns(int insId, int numofUsedFea);
 };
 
 #endif /* DEVICEPREDICTION_H_ */

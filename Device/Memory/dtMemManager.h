@@ -20,9 +20,10 @@ public:
 	static int *m_pStartPosOfEachTree;
 	static int m_numofTree;
 	static int m_numofTreeLearnt;
+	static int m_maxTreeDepth;
 
 public:
-	void allocMemForTrees(int numofTree, int maxNumofNodePerTree);
+	void allocMemForTrees(int numofTree, int maxNumofNodePerTree, int maxDepth);
 };
 
 

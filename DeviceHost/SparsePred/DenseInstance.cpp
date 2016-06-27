@@ -117,6 +117,7 @@ void DenseInsConverter::GetFeatures(const vector<RegTree>& vTree)
 	{
 		usedFeaSet.push_back(*it);
 	}
+	cout << "the numof used features is " << usedFeaSet.size() << endl;
 
 	//sort the vector ascendantly
 	sort(usedFeaSet.begin(), usedFeaSet.end());
