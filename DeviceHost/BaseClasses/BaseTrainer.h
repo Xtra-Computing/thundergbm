@@ -47,11 +47,11 @@ public:
 	void TrainGBDT(vector<RegTree> &v_Tree);
 	void SaveModel(string fileName, const vector<RegTree> &v_Tree);
 
-	void ReleaseTree(vector<RegTree> &v_Tree);
 
 protected:
 	virtual void InitTree(RegTree &tree) = 0;
 	virtual void GrowTree(RegTree &tree) = 0;
+	virtual void ReleaseTree(vector<RegTree> &v_Tree) = 0;
 
 private:
 //for debugging

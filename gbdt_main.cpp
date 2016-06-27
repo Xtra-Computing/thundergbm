@@ -8,6 +8,8 @@
 
 #include <math.h>
 #include <time.h>
+#include <helper_cuda.h>
+#include <cuda.h>
 #include "pureHost/DataReader/LibsvmReaderSparse.h"
 #include "pureHost/HostTrainer.h"
 #include "pureHost/HostPredictor.h"
@@ -16,6 +18,7 @@
 
 #include "gpu/Memory/gbdtGPUMemManager.h"
 #include "gpu/Memory/SplitNodeMemManager.h"
+#include "gpu/Memory/dtMemManager.h"
 #include "gpu/DeviceTrainer.h"
 #include "gpu/initCuda.h"
 #include "pureHost/PureHostGBDTMain.h"
@@ -24,7 +27,9 @@ int main()
 {
 //	mainPureHost();
 //	return 1;
-	if(!InitCUDA('T'))
+
+	CUcontext context;
+	if(!InitCUDA('T', context))
 	{
 		cerr << "cannot initialise GPU" << endl;
 		return 0;
@@ -35,9 +40,14 @@ int main()
 	string strFileName = "data/abalone.txt";
 	int maxNumofSplittableNode = 100;
 	int maxNumofUsedFeature = 1000;
-	int maxNumofNode = 10000;
 	int maxNumofDenseIns = 1;
 	int maxUsedFeaInTrees = 1000;
+
+	//for training
+	int nNumofTree = 2;
+	int nMaxDepth = 5;
+	double fLabda = 1;//this one is constant in xgboost
+	double fGamma = 1;//minimum loss
 
 	HostPredictor pred;
 
@@ -55,6 +65,15 @@ int main()
 	vector<vector<KeyValue> > v_vInsSparse;
 	dataReader.ReadLibSVMFormatSparse(v_vInsSparse, v_fLabel, strFileName, nNumofFeatures, nNumofExamples);
 
+	//allocate memory for trees
+/*	DTGPUMemManager treeMemManager;
+	int maxNumofNodePerTree = pow(2, nMaxDepth + 1) - 1;
+	cout << "max number of node per tree is " << maxNumofNodePerTree << endl;
+	treeMemManager.allocMemForTrees(nNumofTree, maxNumofNodePerTree);
+*/
+	//############ this problem will be fixed later
+int maxNumofNodePerTree = 10000;
+
 	//initialise gpu memory allocator
 	GBDTGPUMemManager memAllocator;
 	PROCESS_ERROR(nNumofValue > 0);
@@ -65,9 +84,10 @@ int main()
 	//allocate memory for instances
 	memAllocator.allocMemForIns(nNumofValue, nNumofExamples, nNumofFeatures);
 	memAllocator.allocMemForSplittableNode(maxNumofSplittableNode);//use in find features (i.e. best split points) process
+	memAllocator.allocHostMemory();//allocate reusable host memory
 
 	SNGPUManager snManger;
-	snManger.allocMemForTree(maxNumofNode);//reserve memory for the tree
+	snManger.allocMemForTree(maxNumofNodePerTree);//reserve memory for the tree
 	snManger.allocMemForParenChildIdMapping(maxNumofSplittableNode);
 	snManger.allocMemForNewNode(maxNumofSplittableNode);
 	snManger.allocMemForUsedFea(maxNumofUsedFeature);//use in splitting all nodes process
@@ -79,10 +99,6 @@ int main()
 	trainer.m_vvInsSparse = v_vInsSparse;
 	trainer.m_vTrueValue = v_fLabel;
 
-	int nNumofTree = 2;
-	int nMaxDepth = 5;
-	double fLabda = 1;//this one is constant in xgboost
-	double fGamma = 1;//minimum loss
 	Pruner::min_loss = fGamma;
 
 	clock_t start_init = clock();
@@ -141,6 +157,7 @@ int main()
 	}
 	//copy true labels to gpu memory
 	memAllocator.MemcpyHostToDevice(pTrueLabel, memAllocator.m_pdTrueTargetValue, nNumofExamples * sizeof(float_point));
+	delete[] pTrueLabel;
 
 	//training trees
 	vector<RegTree> v_Tree;
@@ -178,6 +195,9 @@ int main()
 	cout << "rmse=" << fRMSE << endl;
 
 	trainer.ReleaseTree(v_Tree);
+	memAllocator.releaseHostMemory();
+
+	ReleaseCuda(context);
 
 	return 0;
 }

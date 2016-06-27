@@ -32,8 +32,6 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 	int numofSNode = vBest.size();
 
 	GBDTGPUMemManager manager;
-	//allocate reusable host memory
-	manager.allocHostMemory();
 
 	int nNumofFeature = manager.m_numofFea;
 	PROCESS_ERROR(nNumofFeature > 0);
@@ -147,12 +145,12 @@ void DeviceSplitter::ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> >
 	//copy tree from GPU memory
 	if(nNumofTree - 1 >= 0)
 	{
+		#ifdef _COMPARE_HOST
 		int numofNode = 0;
 		manager.MemcpyDeviceToHost(snManager.m_pCurNumofNode, &numofNode, sizeof(int));
 		TreeNode *pAllNode = new TreeNode[numofNode];
 		manager.MemcpyDeviceToHost(snManager.m_pTreeNode, pAllNode, sizeof(TreeNode) * numofNode);
 
-		#ifdef _COMPARE_HOST
 //		cout << numofNode << " v.s. " << vTree[nNumofTree - 1].nodes.size() << endl;
 		//compare each node
 		for(int n = 0; n < numofNode; n++)
@@ -228,6 +226,7 @@ void DeviceSplitter::ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> >
 		if(nNumofTree - 1 >= 0)
 		{
 			int numofNode = 0;
+			PROCESS_ERROR(numofUsedFea <= manager.m_maxUsedFeaInTrees);
 			manager.MemcpyDeviceToHost(snManager.m_pCurNumofNode, &numofNode, sizeof(int));
 			PredTarget<<<1, 1>>>(snManager.m_pTreeNode, numofNode, manager.m_pdDenseIns, numofUsedFea,
 								 manager.m_pHashFeaIdToDenseInsPos, manager.m_pTargetValue + i);
@@ -252,9 +251,9 @@ void DeviceSplitter::ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> >
 		manager.MemcpyDeviceToDevice(manager.m_pTargetValue + i, manager.m_pPredBuffer + i, sizeof(float_point));
 	}
 
-	if(pHashUsedFea == NULL)
+	if(pHashUsedFea != NULL)
 		delete []pHashUsedFea;
-	if(pSortedUsedFea == NULL)
+	if(pSortedUsedFea != NULL)
 		delete []pSortedUsedFea;
 
 //	ComputeGDSparse(v_fPredValue, m_vTrueValue);

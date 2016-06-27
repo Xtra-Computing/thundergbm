@@ -72,6 +72,7 @@ void DeviceTrainer::GrowTree(RegTree &tree)
 
 		int curNumofNode = -1;
 		manager.MemcpyDeviceToHost(snManager.m_pCurNumofNode, &curNumofNode, sizeof(int));
+		PROCESS_ERROR(curNumofNode > 0);
 		splitter->SplitAll(splittableNode, vBest, tree, curNumofNode, rchildStat, lchildStat, bLastLevel);
 		clock_t end_split_t = clock();
 		total_split_t += (double(end_split_t - start_split_t) / CLOCKS_PER_SEC);
@@ -90,9 +91,13 @@ void DeviceTrainer::GrowTree(RegTree &tree)
 	manager.MemcpyDeviceToHost(snManager.m_pTreeNode, pAllNode, sizeof(TreeNode) * numofNode);
 	TreeNode **ypAllNode = new TreeNode*[numofNode];
 	for(int n = 0; n < numofNode; n++)
+	{
 		ypAllNode[n] = &pAllNode[n];
+		tree.nodes.push_back(&pAllNode[n]);//for getting features of trees
+	}
 	pruner.pruneLeaf(ypAllNode, numofNode);
 	manager.MemcpyHostToDevice(pAllNode, snManager.m_pTreeNode, sizeof(TreeNode) * numofNode);
+	delete []ypAllNode;
 
 	#ifdef _COMPARE_HOST
 	TreeNode **temp = &tree.nodes[0];
@@ -135,4 +140,15 @@ void DeviceTrainer::InitTree(RegTree &tree)
 	cudaMemset(manager.m_pInsIdToNodeId, 0, sizeof(int) * manager.m_numofIns);
 }
 
-
+/**
+ * @brief: release memory used by trees
+ */
+void DeviceTrainer::ReleaseTree(vector<RegTree> &v_Tree)
+{
+	int nNumofTree = v_Tree.size();
+	for(int i = 0; i < nNumofTree; i++)
+	{
+		int nNumofNodes = v_Tree[i].nodes.size();
+		delete[] v_Tree[i].nodes[0];
+	}
+}

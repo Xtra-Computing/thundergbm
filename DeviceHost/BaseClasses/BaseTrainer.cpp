@@ -120,21 +120,6 @@ void BaseTrainer::SaveModel(string fileName, const vector<RegTree> &v_Tree)
 
 }
 
-/**
- * @brief: release memory used by trees
- */
-void BaseTrainer::ReleaseTree(vector<RegTree> &v_Tree)
-{
-	int nNumofTree = v_Tree.size();
-	for(int i = 0; i < nNumofTree; i++)
-	{
-		int nNumofNodes = v_Tree[i].nodes.size();
-		for(int j = 0; j < nNumofNodes; j++)
-		{
-			delete[] v_Tree[i].nodes[j];
-		}
-	}
-}
 
 /**
  * @brief: print the predicted values

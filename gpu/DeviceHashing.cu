@@ -6,6 +6,8 @@
  *		@brief: 
  */
 
+#include <stdio.h>
+
 #include "DeviceHashing.h"
 
 /**
@@ -63,6 +65,8 @@ __device__ __host__ int GetBufferId(int *pEntryToHashValue, int entry, int maxHa
 	int remain = entry % maxHashValue;//use mode operation as Hash function to find the buffer position
 
 	//checking where snid is located
+	if(remain < 0)
+		printf("hash value error: %d\n", remain);
 	if(pEntryToHashValue[remain] == entry)
 	{
 		buffId = remain;

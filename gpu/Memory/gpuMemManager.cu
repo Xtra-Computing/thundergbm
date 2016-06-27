@@ -64,16 +64,16 @@ void GPUMemManager::TestMemcpyHostToDevice(void *hostSrc, void *pDevDst, int num
 	PROCESS_ERROR(hostSrc != NULL);
 	PROCESS_ERROR(pDevDst != NULL);
 
-	void *hostDst = new char[numofByte];
+	char *hostDst = new char[numofByte];
 
 	checkCudaErrors(cudaMemcpy(hostDst, pDevDst, numofByte, cudaMemcpyDeviceToHost));
 
 	for(int b = 0; b < numofByte; b++)
 	{
-		PROCESS_ERROR(((char*)hostDst)[b] == ((char*)hostSrc)[b]);
+		PROCESS_ERROR(hostDst[b] == ((char*)hostSrc)[b]);
 	}
 
-	delete []hostDst;
+	delete[] hostDst;
 }
 
 /**

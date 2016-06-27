@@ -17,7 +17,7 @@ using std::endl;
  * @brief: initialize CUDA device
  */
 
-bool InitCUDA(char gpuType)
+bool InitCUDA(char gpuType, CUcontext &context)
 {
     int count;
 
@@ -29,7 +29,7 @@ bool InitCUDA(char gpuType)
     }
 
     CUdevice device;
-    CUcontext context;
+
     int i;
     bool bUseTesla = false;
     for(i = 0; i < count; i++)
@@ -70,3 +70,8 @@ bool InitCUDA(char gpuType)
     return true;
 }
 
+bool ReleaseCuda(CUcontext &context)
+{
+	cuCtxDetach(context);
+	return true;
+}

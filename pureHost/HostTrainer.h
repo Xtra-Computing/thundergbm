@@ -17,6 +17,7 @@ class HostTrainer: public BaseTrainer
 public:
 	HostTrainer(HostSplitter *pHSpliter):BaseTrainer(pHSpliter){}
 	virtual ~HostTrainer(){}
+	virtual void ReleaseTree(vector<RegTree> &v_Tree);
 protected:
 	virtual void InitTree(RegTree &tree);
 	virtual void GrowTree(RegTree &tree);

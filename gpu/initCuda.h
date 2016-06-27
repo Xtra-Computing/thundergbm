@@ -8,6 +8,7 @@
 #ifndef INITCUDA_H_
 #define INITCUDA_H_
 
-bool InitCUDA(char);
+bool InitCUDA(char, CUcontext &context);
+bool ReleaseCuda(CUcontext &context);
 
 #endif /* INITCUDA_H_ */
