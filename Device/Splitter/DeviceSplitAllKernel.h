@@ -20,16 +20,16 @@ __global__ void ComputeWeight(TreeNode *pAllTreeNode, TreeNode *pSplittableNode,
 		  	  	  	  	  	  	  float_point lambda, int numofSplittableNode, bool bLastLevel);
 
 __global__ void CreateNewNode(TreeNode *pAllTreeNode, TreeNode *pSplittableNode, TreeNode *pNewSplittableNode,
-		  	  	  	  	  	  	  int *pSNIdToBufferId, SplitPoint *pBestSplitPoint,
+								  const int *pSNIdToBufferId, const SplitPoint *pBestSplitPoint,
 		  	  	  	  	  	  	  int *pParentId, int *pLChildId, int *pRChildId,
-		  	  	  	  	  	  	  nodeStat *pLChildStat, nodeStat *pRChildStat, nodeStat *pNewNodeStat,
+		  	  	  	  	  	  	  const nodeStat *pLChildStat, const nodeStat *pRChildStat, nodeStat *pNewNodeStat,
 		  	  	  	  	  	  	  int *m_nNumofNode, int *pNumofNewNode,
 		  	  	  	  	  	  	  float_point rt_eps, int nNumofSplittableNode, bool bLastLevel);
 
 
 __global__ void GetUniqueFid(TreeNode *pAllTreeNode, TreeNode *pSplittableNode, int nNumofSplittableNode,
 		 	 	 	 	 	 	 int *pFeaIdToBuffId, int *pUniqueFidVec,int *pNumofUniqueFid,
-		 	 	 	 	 	 	 int maxNumofUsedFea, int flag_LEAFNODE);
+		 	 	 	 	 	 	 int maxNumofUsedFea, int flag_LEAFNODE, int *pnLock);
 
 __global__ void InsToNewNode(TreeNode *pAllTreeNode, float_point *pdFeaValue, int *pInsId,
 		 	 	 	 	 	 	 long long *pFeaStartPos, int *pNumofKeyValue,
@@ -44,6 +44,6 @@ __global__ void InsToNewNodeByDefault(TreeNode *pAllTreeNode, int *pInsIdToNodeI
 
 __global__ void UpdateNewSplittable(TreeNode *pNewSplittableNode, nodeStat *pNewNodeStat, int *pSNIdToBuffId,
 		   	   	   	   	   	   	   	    nodeStat *pSNodeStat, int *pNumofNewNode, int *pBuffIdVec,
-		   	   	   	   	   	   	   	    int *pBuffIdCounter, int maxNumofSplittable);
+		   	   	   	   	   	   	   	    int *pBuffIdCounter, int maxNumofSplittable, int *pnLock);
 
 #endif /* DEVICESPLITALL_H_ */

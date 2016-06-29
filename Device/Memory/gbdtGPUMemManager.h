@@ -51,6 +51,7 @@ public:
 	static SplitPoint *m_pBestSplitPoint;
 	static nodeStat *m_pSNodeStat, *m_pRChildStat, *m_pLChildStat, *m_pTempRChildStat;
 	static float_point *m_pLastValue;
+	static int *m_nSNLock;
 
 	//map splittable node id to buffer position
 	static int *m_pSNIdToBuffId, *m_pBuffIdVec, *m_pNumofBuffId;

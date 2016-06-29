@@ -51,6 +51,7 @@ nodeStat *GBDTGPUMemManager::m_pRChildStat = NULL;
 nodeStat *GBDTGPUMemManager::m_pLChildStat = NULL;
 nodeStat *GBDTGPUMemManager::m_pTempRChildStat = NULL;//(require memset!) store temporary statistics of right child
 float_point *GBDTGPUMemManager::m_pLastValue = NULL;//store the last processed value (for computing split point)
+int *GBDTGPUMemManager::m_nSNLock = NULL;
 
 int *GBDTGPUMemManager::m_pSNIdToBuffId = NULL;	//(require memset!) map splittable node id to buffer position
 int *GBDTGPUMemManager::m_pBuffIdVec = NULL;	//store all the buffer ids for splittable nodes
@@ -121,6 +122,9 @@ void GBDTGPUMemManager::allocMemForSplittableNode(int nMaxNumofSplittableNode)
 	checkCudaErrors(cudaMalloc((void**)&m_pTempRChildStat, sizeof(nodeStat) * m_maxNumofSplittable));
 	checkCudaErrors(cudaMalloc((void**)&m_pLastValue, sizeof(float_point) * m_maxNumofSplittable));
 	checkCudaErrors(cudaMemset(m_pLastValue, 0, sizeof(float_point) * m_maxNumofSplittable));
+
+	checkCudaErrors(cudaMalloc((void**)&m_nSNLock, sizeof(int)));//a lock for critical region
+	checkCudaErrors(cudaMemset(m_nSNLock, 0, sizeof(int)));
 
 
 	//map splittable node to buffer id
