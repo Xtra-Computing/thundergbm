@@ -12,7 +12,7 @@
 #include <string.h>
 #include <assert.h>
 
-//#define _COMPARE_HOST
+//#define _COMPARE_HOST Be careful! Ids of new nodes change now.
 
 #define _DEBUG
 
