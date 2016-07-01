@@ -58,7 +58,7 @@ __device__ __host__ int AssignHashValue(int *pEntryToHashValue, int origin, int 
 	return buffId;
 }
 
-__device__ __host__ int GetBufferId(int *pEntryToHashValue, int entry, int maxHashValue)
+__device__ __host__ int GetBufferId(const int *pEntryToHashValue, int entry, int maxHashValue)
 {
 	int buffId = -1;
 

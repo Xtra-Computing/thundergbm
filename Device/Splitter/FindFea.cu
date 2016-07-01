@@ -18,6 +18,7 @@
 #include "../Hashing.h"
 #include "../DevicePredictorHelper.h"
 #include "../DevicePredictor.h"
+#include "../KernelConf.h"
 #include "../../DeviceHost/MyAssert.h"
 #include "../../DeviceHost/SparsePred/DenseInstance.h"
 
@@ -34,6 +35,11 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 	int numofSNode = vBest.size();
 
 	GBDTGPUMemManager manager;
+	SNGPUManager snManager;
+	int tempNumofSN = 0;
+	manager.MemcpyDeviceToHost(snManager.m_pCurNumofNode, &tempNumofSN, sizeof(int));
+//	cout << "numofSN temp=" << tempNumofSN << endl;
+	numofSNode = tempNumofSN;
 
 	int nNumofFeature = manager.m_numofFea;
 	PROCESS_ERROR(nNumofFeature > 0);
@@ -58,46 +64,33 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 	//Memory set for best split points (i.e. reset the best splittable points)
 	manager.MemcpyHostToDevice(manager.m_pBestPointHost, manager.m_pBestSplitPoint, sizeof(SplitPoint) * maxNumofSplittable);
 
+	//allocate numofFeature*numofSplittabeNode
+	manager.allocMemForSNForEachThread(nNumofFeature, manager.m_maxNumofSplittable);
 	for(int f = 0; f < nNumofFeature; f++)
-	{
-		//the number of key values of the f{th} feature
-		int numofCurFeaKeyValues = 0;
-		manager.MemcpyDeviceToHost(pNumofKeyValue + f, &numofCurFeaKeyValues, sizeof(int));
-		PROCESS_ERROR(numofCurFeaKeyValues > 0);
+		manager.MemcpyDeviceToDevice(pSNodeState, manager.m_pSNodeStatPerThread + f * maxNumofSplittable, sizeof(nodeStat) * maxNumofSplittable);
 
-		long long startPosOfPrevFea = 0;
-		int numofPreFeaKeyValues = 0;
-		if(f > 0)
-		{
-			//number of key values of the previous feature
-			manager.MemcpyDeviceToHost(pNumofKeyValue + (f - 1), &numofPreFeaKeyValues, sizeof(int));
-			PROCESS_ERROR(numofPreFeaKeyValues > 0);
-			//copy value of the start position of the previous feature
-			manager.MemcpyDeviceToHost(manager.m_pFeaStartPos + (f - 1), &startPosOfPrevFea, sizeof(long long));
-		}
-		PROCESS_ERROR(startPosOfPrevFea >= 0);
-		long long startPosOfCurFea = startPosOfPrevFea + numofPreFeaKeyValues;
+	KernelConf conf;
+	dim3 dimGridThreadForEachFea;
+	conf.ComputeBlock(nNumofFeature, dimGridThreadForEachFea);
+	int sharedMemSizeEachFea = 1;
+	FindFeaSplitValue2<<<dimGridThreadForEachFea, sharedMemSizeEachFea>>>(
+									  pNumofKeyValue, manager.m_pFeaStartPos, pInsId, pFeaValue, manager.m_pInsIdToNodeId,
+									  manager.m_pTempRChildStatPerThread, pGD, pHess, manager.m_pLastValuePerThread,
+									  manager.m_pSNodeStatPerThread, manager.m_pBestSplitPointPerThread,
+									  manager.m_pRChildStatPerThread, manager.m_pLChildStatPerThread,
+									  manager.m_pSNIdToBuffId, maxNumofSplittable, manager.m_pBuffIdVec, numofSNode,
+									  DeviceSplitter::m_lambda, nNumofFeature);
 
-		//reset the temporary right child statistics
-		checkCudaErrors(cudaMemset(pTempRChildStat, 0, sizeof(nodeStat) * maxNumofSplittable));
+	PickBestFea<<<1, 1>>>(manager.m_pTempRChildStatPerThread, manager.m_pLastValuePerThread, manager.m_pSNodeStatPerThread,
+			manager.m_pBestSplitPointPerThread, manager.m_pRChildStatPerThread, manager.m_pLChildStatPerThread,
+								numofSNode, nNumofFeature, maxNumofSplittable);
 
-		//find the split value for this feature
-		int *idStartAddress = pInsId + startPosOfCurFea;
-		float_point *pValueStartAddress = pFeaValue + startPosOfCurFea;
-
-		FindFeaSplitValue<<<1, 1>>>(numofCurFeaKeyValues, idStartAddress, pValueStartAddress, manager.m_pInsIdToNodeId,
-									pTempRChildStat, pGD, pHess, pLastValue, pSNodeState, manager.m_pBestSplitPoint,
-									manager.m_pRChildStat, manager.m_pLChildStat, manager.m_pSNIdToBuffId,
-									manager.m_maxNumofSplittable, f, manager.m_pBuffIdVec, numofSNode, DeviceSplitter::m_labda);
-		cudaDeviceSynchronize();
-
-
-		#ifdef _COMPARE_HOST
-		//copy back the best split points to vectors
-		DataPreparator preparator;
-		preparator.CopyBestSplitPoint(mapNodeIdToBufferPos, vBest, rchildStat, lchildStat);
-		#endif
-	}
+	manager.MemcpyDeviceToDevice(manager.m_pTempRChildStatPerThread, pTempRChildStat, sizeof(nodeStat) * maxNumofSplittable);
+	manager.MemcpyDeviceToDevice(manager.m_pLastValuePerThread, pLastValue, sizeof(float_point) * maxNumofSplittable);
+	manager.MemcpyDeviceToDevice(manager.m_pSNodeStatPerThread, pSNodeState, sizeof(nodeStat) * maxNumofSplittable);
+	manager.MemcpyDeviceToDevice(manager.m_pBestSplitPointPerThread, manager.m_pBestSplitPoint, sizeof(SplitPoint) * maxNumofSplittable);
+	manager.MemcpyDeviceToDevice(manager.m_pRChildStatPerThread, manager.m_pRChildStat, sizeof(nodeStat) * maxNumofSplittable);
+	manager.MemcpyDeviceToDevice(manager.m_pLChildStatPerThread, manager.m_pLChildStat, sizeof(nodeStat) * maxNumofSplittable);
 }
 
 /**

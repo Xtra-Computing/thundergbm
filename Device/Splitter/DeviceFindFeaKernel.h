@@ -14,10 +14,20 @@
 #include "../../DeviceHost/BaseClasses/BaseSplitter.h"
 #include "../../DeviceHost/DefineConst.h"
 
-__global__ void FindFeaSplitValue(int nNumofKeyValues, int *idStartAddress, float_point *pValueStartAddress, int *pInsIdToNodeId,
-								  nodeStat *pTempRChildStat, float_point *pGD, float_point *pHess, float_point *pLastValue,
+__global__ void FindFeaSplitValue2(int *pnNumofKeyValues, long long *pnFeaStartPos, const int *pInsId, const float_point *pFeaValue, const int *pInsIdToNodeId,
+								  nodeStat *pTempRChildStatPerThread, const float_point *pGD, const float_point *pHess, float_point *pLastValuePerThread,
+								  nodeStat *pSNodeStatPerThread, SplitPoint *pBestSplitPointPerThread,
+								  nodeStat *pRChildStatPerThread, nodeStat *pLChildStatPerThread,
+								  const int *pSNIdToBuffId, int maxNumofSplittable, const int *pBuffId, int numofSNode,
+								  float_point lambda, int numofFea);
+__global__ void PickBestFea(nodeStat *pTempRChildStatPerThread, float_point *pLastValuePerThread, nodeStat *pSNodeStatePerThread,
+							SplitPoint *pBestSplitPointPerThread, nodeStat *pRChildStatPerThread, nodeStat *pLChildStatPerThread,
+							int numofSNode, int numofFea, int maxNumofSplittable);
+
+__global__ void FindFeaSplitValue(int nNumofKeyValues, const int *idStartAddress, const float_point *pValueStartAddress, const int *pInsIdToNodeId,
+								  nodeStat *pTempRChildStat, const float_point *pGD, const float_point *pHess, float_point *pLastValue,
 								  nodeStat *pSNodeState, SplitPoint *pBestSplitPoin, nodeStat *pRChildStat, nodeStat *pLChildStat,
-								  int *pSNIdToBuffId, int maxNumofSplittable, int featureId, int *pBuffId, int numofSNode, float_point lambda);
+								  const int *pSNIdToBuffId, int maxNumofSplittable, int featureId, const int *pBuffId, int numofSNode, float_point lambda);
 
 __device__ double CalGain(const nodeStat &parent, const nodeStat &r_child, float_point &l_child_GD,
 									 float_point &l_child_Hess, float_point &lambda);
@@ -31,7 +41,5 @@ __device__ void UpdateSplitInfo(nodeStat &snStat, SplitPoint &bestSP, nodeStat &
 										 nodeStat &TempRChildStat, float_point &tempGD, float_point &temHess,
 										 float_point &lambda, float_point &sv, int &featureId);
 
-//has an identical verion in host
-__device__ int GetBufferId(int *pSNIdToBuffId, int snid, int m_maxNumofSplittable);
 
 #endif /* DEVICESPLITTERKERNEL_H_ */

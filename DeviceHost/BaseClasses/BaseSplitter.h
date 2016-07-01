@@ -32,7 +32,7 @@ public:
 	static vector<int> m_nodeIds; //instance id to node id
 	static vector<gdpair> m_vGDPair_fixedPos;
 	static vector<nodeStat> m_nodeStat; //all the constructed tree nodes
-	static double m_labda;//the weight of the cost of complexity of a tree
+	static double m_lambda;//the weight of the cost of complexity of a tree
 	static double m_gamma;//the weight of the cost of the number of trees
 
 public:

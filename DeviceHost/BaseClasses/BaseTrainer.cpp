@@ -24,7 +24,7 @@ void BaseTrainer::InitTrainer(int nNumofTree, int nMaxDepth, double fLabda, doub
 {
 	m_nMaxNumofTree = nNumofTree;
 	m_nMaxDepth = nMaxDepth;
-	splitter->m_labda = fLabda;
+	splitter->m_lambda = fLabda;
 	splitter->m_gamma = fGamma;
 
 	//initialise the prediction buffer

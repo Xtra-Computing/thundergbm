@@ -53,6 +53,11 @@ public:
 	static float_point *m_pLastValue;
 	static int *m_nSNLock;
 
+	//memory for finding best split for each feature on each node
+	static nodeStat *m_pSNodeStatPerThread, *m_pRChildStatPerThread, *m_pLChildStatPerThread, *m_pTempRChildStatPerThread;
+	static float_point *m_pLastValuePerThread;
+	static SplitPoint *m_pBestSplitPointPerThread;
+
 	//map splittable node id to buffer position
 	static int *m_pSNIdToBuffId, *m_pBuffIdVec, *m_pNumofBuffId;
 
@@ -61,10 +66,12 @@ public:
 
 	//for host memory (use to reset GPU memory)
 	static SplitPoint *m_pBestPointHost;
+	static SplitPoint *m_pBestPointHostPerThread;
 
 public:
 	void allocMemForIns(int nTotalNumofValue, int numofIns, int numofFeature);
 	void allocMemForSplittableNode(int nMaxNumofSplittableNode);
+	void allocMemForSNForEachThread(int maxNumofThread, int maxNumofSplittable);
 
 	void allocHostMemory();
 	void releaseHostMemory();

@@ -6,8 +6,11 @@
  *		@brief: 
  */
 
+#include <iostream>
 #include "KernelConf.h"
 
+using std::cout;
+using std::endl;
 
 int KernelConf::m_maxBlockSize = -1;
 
@@ -35,5 +38,6 @@ void KernelConf::ComputeBlock(int numofThread, dim3 &dimGridThinThread)
 		nGridDimX = numofThread;
 
 	dim3 temp(nGridDimX, nGridDimY);
+//	cout << temp.x << " v.s. " << nGridDimX << "; y " << temp.y << " v.s. " << nGridDimY << endl;
 	dimGridThinThread = temp;
 }

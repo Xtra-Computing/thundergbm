@@ -53,7 +53,7 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 	int sharedMemSizeSN = 1;
 	ComputeWeight<<<dimGridThreadForEachSN, sharedMemSizeSN>>>(snManager.m_pTreeNode, manager.m_pSplittableNode, manager.m_pSNIdToBuffId,
 			  	  	  	  	  manager.m_pBestSplitPoint, manager.m_pSNodeStat, rt_eps, LEAFNODE,
-			  	  	  	  	  m_labda, manager.m_curNumofSplitable, bLastLevel);
+			  	  	  	  	  m_lambda, manager.m_curNumofSplitable, bLastLevel);
 
 	#ifdef _COMPARE_HOST
 	//################ original cpu code, now for testing
