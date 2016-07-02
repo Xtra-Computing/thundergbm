@@ -45,7 +45,7 @@ void BaseTrainer::TrainGBDT(vector<RegTree> & vTree)
 {
 	clock_t begin_gd, begin_grow;
 	clock_t end_gd, end_grow;
-	double total_gd = 0, total_grow = 0;
+	double total_gd = 0, total_grow = 0, total_find_fea = 0, total_split = 0;
 
 	HostPredictor pred;
 	HostSplitter hsplit;
@@ -85,11 +85,14 @@ void BaseTrainer::TrainGBDT(vector<RegTree> & vTree)
 //		PrintTree(tree);
 
 		clock_t end_round = clock();
-		cout << "elapsed time of round " << i << " is " << (double(end_round - start_round) / CLOCKS_PER_SEC) << endl;
 		cout << "split time=" << total_split_t << "; total find fea time=" << total_find_fea_t << "; prune time=" << total_prune_t << endl;
+		cout << "elapsed time of round " << i << " is " << (double(end_round - start_round) / CLOCKS_PER_SEC) << endl;
+		total_find_fea += total_find_fea_t;
+		total_split += total_split_t;
 	}
 
-	cout << "gd sec = " << total_gd << "; grow sec = " << total_grow << endl;
+	cout << "total: comp gd = " << total_gd << "; grow = " << total_grow << "; find fea = " << total_find_fea
+		 << "; split = " << total_split << endl;
 
 }
 

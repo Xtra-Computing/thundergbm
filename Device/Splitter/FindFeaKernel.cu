@@ -26,7 +26,6 @@ __global__ void FindFeaSplitValue(const int *pnNumofKeyValues, const long long *
 	int feaId = nGlobalThreadId;
 	if(feaId > numofFea)
 	{
-		printf("should not happened!\n");
 		return;
 	}
 
@@ -75,8 +74,9 @@ __global__ void FindFeaSplitValue(const int *pnNumofKeyValues, const long long *
 			// try to find a split
 			if(fabs(fvalue - pLastValuePerThread[bufferPos]) > rt_2eps)
 			{
-				float_point tempGD = pSNodeStatPerThread[bufferPos].sum_gd - pTempRChildStatPerThread[bufferPos].sum_gd;
-				float_point tempHess = pSNodeStatPerThread[bufferPos].sum_hess - pTempRChildStatPerThread[bufferPos].sum_hess;
+				//SNodeStatPerThread is the same for all the features, so using hashValue is fine and can save memory
+				float_point tempGD = pSNodeStatPerThread[hashValue].sum_gd - pTempRChildStatPerThread[bufferPos].sum_gd;
+				float_point tempHess = pSNodeStatPerThread[hashValue].sum_hess - pTempRChildStatPerThread[bufferPos].sum_hess;
 				bool needUpdate = NeedUpdate(pTempRChildStatPerThread[bufferPos].sum_hess, tempHess);
 				if(needUpdate == true)
 				{
@@ -87,7 +87,7 @@ __global__ void FindFeaSplitValue(const int *pnNumofKeyValues, const long long *
 //						printf("nid=%d, sv=%f, gain=%f\n", nid, sv, loss_chg);
 					}
 
-		            UpdateSplitInfo(pSNodeStatPerThread[bufferPos], pBestSplitPointPerThread[bufferPos], pRChildStatPerThread[bufferPos],
+		            UpdateSplitInfo(pSNodeStatPerThread[hashValue], pBestSplitPointPerThread[bufferPos], pRChildStatPerThread[bufferPos],
 		            							  pLChildStatPerThread[bufferPos], pTempRChildStatPerThread[bufferPos], tempGD, tempHess,
 		            							  lambda, sv, feaId);
 				}
@@ -99,22 +99,24 @@ __global__ void FindFeaSplitValue(const int *pnNumofKeyValues, const long long *
 		}
 	}
 
+
     // finish updating all statistics, check if it is possible to include all sum statistics
     for(int i = 0; i < numofSNode; i++)
     {
     	if(pBuffId[i] < 0)
     		printf("Error in buffer id %d, i=%d, numofSN=%d\n", pBuffId[i], i, numofSNode);
 
-    	int buffId = pBuffId[i] + feaId * maxNumofSplittable;//an id in the buffer
-    	float_point tempGD = pSNodeStatPerThread[buffId].sum_gd - pTempRChildStatPerThread[buffId].sum_gd;
-    	float_point tempHess = pSNodeStatPerThread[buffId].sum_hess - pTempRChildStatPerThread[buffId].sum_hess;
+    	int hashVaue = pBuffId[i];
+    	int buffId = hashVaue + feaId * maxNumofSplittable;//an id in the buffer
+    	float_point tempGD = pSNodeStatPerThread[hashVaue].sum_gd - pTempRChildStatPerThread[buffId].sum_gd;
+    	float_point tempHess = pSNodeStatPerThread[hashVaue].sum_hess - pTempRChildStatPerThread[buffId].sum_hess;
     	bool needUpdate = NeedUpdate(pTempRChildStatPerThread[buffId].sum_hess, tempHess);
         if(needUpdate == true)
         {
             const float delta = fabs(pLastValuePerThread[buffId]) + DeviceSplitter::rt_eps;
             float_point sv = pLastValuePerThread[buffId] + delta;
 
-            UpdateSplitInfo(pSNodeStatPerThread[buffId], pBestSplitPointPerThread[buffId], pRChildStatPerThread[buffId], pLChildStatPerThread[buffId],
+            UpdateSplitInfo(pSNodeStatPerThread[hashVaue], pBestSplitPointPerThread[buffId], pRChildStatPerThread[buffId], pLChildStatPerThread[buffId],
             							  pTempRChildStatPerThread[buffId], tempGD, tempHess, lambda, sv, feaId);
         }
     }

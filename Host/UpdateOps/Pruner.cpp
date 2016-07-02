@@ -48,7 +48,7 @@ int Pruner::TryPruneLeaf(TreeNode** nodes, int nid, int npruned)
     	return npruned;
 
     int pid = node->parentId;
-    PROCESS_ERROR(pid > 0);
+    PROCESS_ERROR(pid >= 0);
     leafChildCnt[pid]++;
     PROCESS_ERROR(min_loss > 0);
 

@@ -74,6 +74,8 @@ __global__ void FillDense(const float_point *pdSparseInsValue, const int *pnSpar
 			int pos = GetBufferId(pHashFeaIdToDenseInsPos, pSortedUsedFea[curDenseTop], totalUsedFea);
 			pdDenseIns[pos] = 0;
 			curDenseTop++;
+			if(curDenseTop >= totalUsedFea)//all the used features have been assigned values
+				return;
 		}
 
 		if(feaId == pSortedUsedFea[curDenseTop])
@@ -81,6 +83,8 @@ __global__ void FillDense(const float_point *pdSparseInsValue, const int *pnSpar
 			int pos = GetBufferId(pHashFeaIdToDenseInsPos, pSortedUsedFea[curDenseTop], totalUsedFea);
 			pdDenseIns[pos] = pdSparseInsValue[i];
 			curDenseTop++;
+			if(curDenseTop >= totalUsedFea)//all the used features have been assigned values
+				return;
 		}
 	}
 
@@ -137,9 +141,12 @@ __global__ void FillMultiDense(const float_point *pdSparseInsValue, const long l
 	int nGlobalThreadId = (blockIdx.y * gridDim.x + blockIdx.x) * blockDim.x + threadIdx.x;
 	if(nGlobalThreadId >= numofInsToFill)
 		return;
+	if(nGlobalThreadId < 0)
+		printf("global id is %d\n", nGlobalThreadId);
 
 	int insId = startInsId + nGlobalThreadId;
 	long long startPos = pInsStartPos[insId];
+	ErrorChecker(startPos, __PRETTY_FUNCTION__, "startPos < 0");
 	int numofFeaValue = pNumofFeaValue[insId];
 	int denseInsStartPos = nGlobalThreadId * numofUsedFea;
 
@@ -149,18 +156,24 @@ __global__ void FillMultiDense(const float_point *pdSparseInsValue, const long l
 	{
 		int feaId = pnSpareInsFeaId[startPos + i];
 
+		ErrorCond(curDenseTop < numofUsedFea, __PRETTY_FUNCTION__, "curDenseTop > numofUsedFea");
 		while(feaId > pSortedUsedFea[curDenseTop])
 		{
 			int pos = GetBufferId(pHashFeaIdToDenseInsPos, pSortedUsedFea[curDenseTop], numofUsedFea);
 			pdDenseIns[denseInsStartPos + pos] = 0;
 			curDenseTop++;
+			if(curDenseTop >= numofUsedFea)//all the used features have been assigned values
+				return;
 		}
 
+		ErrorCond(curDenseTop < numofUsedFea, __PRETTY_FUNCTION__, "curDenseTop > numofUsedFea");
 		if(feaId == pSortedUsedFea[curDenseTop])
 		{//this is a feature needed to be stored in dense instance
 			int pos = GetBufferId(pHashFeaIdToDenseInsPos, pSortedUsedFea[curDenseTop], numofUsedFea);
 			pdDenseIns[denseInsStartPos + pos] = pdSparseInsValue[startPos + i];
 			curDenseTop++;
+			if(curDenseTop >= numofUsedFea)//all the used features have been assigned values
+				return;
 		}
 	}
 

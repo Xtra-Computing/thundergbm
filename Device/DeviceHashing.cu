@@ -65,8 +65,8 @@ __device__ __host__ int GetBufferId(const int *pEntryToHashValue, int entry, int
 	int remain = entry % maxHashValue;//use mode operation as Hash function to find the buffer position
 
 	//checking where snid is located
-	if(remain < 0)
-		printf("hash value error: %d\n", remain);
+	if(entry < 0)
+		printf("hash key error: %d\n", entry);
 	if(pEntryToHashValue[remain] == entry)
 	{
 		buffId = remain;
@@ -80,6 +80,8 @@ __device__ __host__ int GetBufferId(const int *pEntryToHashValue, int entry, int
 				buffId = i;
 		}
 	}
+	if(buffId < 0)
+		printf("hash value error: value=%d, key=%d\n", buffId, entry);
 
 	return buffId;
 }

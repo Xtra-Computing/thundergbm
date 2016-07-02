@@ -9,7 +9,7 @@
 #ifndef PUREHOSTGBDTMAIN_H_
 #define PUREHOSTGBDTMAIN_H_
 
-int mainPureHost();
+int mainPureHost(string);
 
 
 

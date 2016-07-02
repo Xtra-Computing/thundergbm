@@ -8,6 +8,7 @@
 
 #include <stdio.h>
 #include "Hashing.h"
+#include "KernelConf.h"
 #include "DevicePredictor.h"
 #include "DevicePredictorHelper.h"
 #include "Memory/gbdtGPUMemManager.h"
@@ -28,6 +29,13 @@ void DevicePredictor::PredictSparseIns(vector<vector<KeyValue> > &v_vInstance, v
 	DenseInsConverter denseInsConverter(vTree);
 	int numofUsedFea = denseInsConverter.usedFeaSet.size();
 
+	cout << "numofUsedFea=" << numofUsedFea << " v.s. maxUsedFeaInTrees" << manager.m_maxUsedFeaInTrees << endl;
+	if(manager.m_maxUsedFeaInTrees < numofUsedFea)
+	{
+		cout << "numofUsedFea=" << numofUsedFea << " v.s. maxUsedFeaInTrees" << manager.m_maxUsedFeaInTrees << endl;
+		exit(0);
+	}
+
 	//build the hash table for feature id and position id
 	int *pHashUsedFea = NULL;
 	int *pSortedUsedFea = NULL;
@@ -41,10 +49,36 @@ void DevicePredictor::PredictSparseIns(vector<vector<KeyValue> > &v_vInstance, v
 
 	//start prediction
 	checkCudaErrors(cudaMemset(manager.m_pTargetValue, 0, sizeof(float_point) * nNumofIns));
-	for(int i = 0; i < nNumofIns; i++)
-	{
-		FillDenseIns(i, numofUsedFea);
 
+	long long startPos = 0;
+	int startInsId = 0;
+	long long *pInsStartPos = manager.m_pInsStartPos + startInsId;
+	manager.MemcpyDeviceToHost(pInsStartPos, &startPos, sizeof(long long));
+//			cout << "start pos ins" << insId << "=" << startPos << endl;
+	float_point *pDevInsValue = manager.m_pdDInsValue + startPos;
+	int *pDevFeaId = manager.m_pDFeaId + startPos;
+	int *pNumofFea = manager.m_pDNumofFea + startInsId;
+	int numofInsToFill = nNumofIns;
+	KernelConf conf;
+	dim3 dimGridThreadForEachIns;
+	conf.ComputeBlock(numofInsToFill, dimGridThreadForEachIns);
+	int sharedMemSizeEachIns = 1;
+
+	FillMultiDense<<<dimGridThreadForEachIns, sharedMemSizeEachIns>>>(
+										  pDevInsValue, pInsStartPos, pDevFeaId, pNumofFea, manager.m_pdDenseIns,
+										  manager.m_pSortedUsedFeaId, manager.m_pHashFeaIdToDenseInsPos,
+										  numofUsedFea, startInsId, numofInsToFill);
+
+#if testing
+		if(cudaGetLastError() != cudaSuccess)
+		{
+			cout << "error in FillMultiDense" << endl;
+			exit(0);
+		}
+#endif
+
+
+//		FillDenseIns(i, numofUsedFea);
 		//prediction using the last tree
 		for(int t = 0; t < nNumofTree; t++)
 		{
@@ -54,36 +88,20 @@ void DevicePredictor::PredictSparseIns(vector<vector<KeyValue> > &v_vInstance, v
 			int treeId = t;
 			GetTreeInfo(pTree, numofNodeOfTheTree, treeId);
 			PROCESS_ERROR(pTree != NULL);
-			PredTarget<<<1, 1>>>(pTree, numofNodeOfTheTree, manager.m_pdDenseIns, numofUsedFea,
-								 manager.m_pHashFeaIdToDenseInsPos, manager.m_pTargetValue + i, treeManager.m_maxTreeDepth);
+			PredMultiTarget<<<dimGridThreadForEachIns, sharedMemSizeEachIns>>>(
+														manager.m_pTargetValue, numofInsToFill, pTree,
+														manager.m_pdDenseIns, numofUsedFea,
+														manager.m_pHashFeaIdToDenseInsPos, treeManager.m_maxTreeDepth);
 			cudaDeviceSynchronize();
 		}
 
+	for(int i = 0; i < nNumofIns; i++)
+	{
 		float_point fTarget = 0;
 		manager.MemcpyDeviceToHost(manager.m_pTargetValue + i, &fTarget, sizeof(float_point));
 
-		#ifdef _COMPARE_HOST
-		vector<double> vDense;
-		double fValue = 0;
-		denseInsConverter.SparseToDense(v_vInstance[i], vDense);
-		//host prediction
-		for(int t = 0; t < nNumofTree; t++)
-		{
-			int nodeId = vTree[t].GetLeafIdSparseInstance(vDense, denseInsConverter.fidToDensePos);
-			fValue += vTree[t][nodeId]->predValue;
-		}
-
-		if(fValue != fTarget)
-			cout << "Target value diff " << fValue << " v.s. " << fTarget << endl;
-		#endif
-
-
 		v_fPredValue.push_back(fTarget);
 	}
-
-	#ifdef _COMPARE_HOST
-	PROCESS_ERROR(v_fPredValue.size() == v_vInstance.size());
-	#endif
 }
 
 /**
@@ -154,22 +172,3 @@ void DevicePredictor::FillDenseIns(int insId, int numofUsedFea)
 	FillDense<<<1, 1>>>(pDevInsValue, pDevFeaId, numofFeaValue, manager.m_pdDenseIns,
 						manager.m_pSortedUsedFeaId, manager.m_pHashFeaIdToDenseInsPos, numofUsedFea);
 }
-
-void FillMultiDenseIns(int insStartId, int numofInsToFill, int numofUsedFea)
-{
-	GBDTGPUMemManager manager;
-	long long startPos = -1;
-	long long *pInsStartPos = manager.m_pInsStartPos + (long long)insStartId;
-	manager.MemcpyDeviceToHost(pInsStartPos, &startPos, sizeof(long long));
-//			cout << "start pos ins" << insId << "=" << startPos << endl;
-	float_point *pDevInsValue = manager.m_pdDInsValue + startPos;
-	int *pDevFeaId = manager.m_pDFeaId + startPos;
-	int numofFeaValue = -1;
-	int *pNumofFea = manager.m_pDNumofFea + insStartId;
-	manager.MemcpyDeviceToHost(pNumofFea, &numofFeaValue, sizeof(int));
-
-	checkCudaErrors(cudaMemset(manager.m_pdDenseIns, 0, sizeof(float_point) * numofUsedFea));
-	FillDense<<<1, 1>>>(pDevInsValue, pDevFeaId, numofFeaValue, manager.m_pdDenseIns,
-						manager.m_pSortedUsedFeaId, manager.m_pHashFeaIdToDenseInsPos, numofUsedFea);
-}
-

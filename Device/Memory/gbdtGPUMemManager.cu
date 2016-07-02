@@ -54,7 +54,6 @@ float_point *GBDTGPUMemManager::m_pLastValue = NULL;//store the last processed v
 int *GBDTGPUMemManager::m_nSNLock = NULL;
 
 //memory for finding best split for each feature on each node
-nodeStat *GBDTGPUMemManager::m_pSNodeStatPerThread = NULL;
 nodeStat *GBDTGPUMemManager::m_pRChildStatPerThread = NULL;
 nodeStat *GBDTGPUMemManager::m_pLChildStatPerThread = NULL;
 nodeStat *GBDTGPUMemManager::m_pTempRChildStatPerThread = NULL;
@@ -153,22 +152,12 @@ void GBDTGPUMemManager::allocMemForSNForEachThread(int maxNumofThread, int maxNu
 {
 	int numofElement = maxNumofThread * maxNumofSplittable;
 	PROCESS_ERROR(numofElement > 0);
-	checkCudaErrors(cudaMalloc((void**)&m_pSNodeStatPerThread, sizeof(nodeStat) * numofElement));
 	checkCudaErrors(cudaMalloc((void**)&m_pRChildStatPerThread, sizeof(nodeStat) * numofElement));
 	checkCudaErrors(cudaMalloc((void**)&m_pLChildStatPerThread, sizeof(nodeStat) * numofElement));
 	checkCudaErrors(cudaMalloc((void**)&m_pTempRChildStatPerThread, sizeof(nodeStat) * numofElement));
 	checkCudaErrors(cudaMalloc((void**)&m_pLastValuePerThread, sizeof(float_point) * numofElement));
 	checkCudaErrors(cudaMalloc((void**)&m_pBestSplitPointPerThread, sizeof(SplitPoint) * numofElement));
-
-	checkCudaErrors(cudaMemset(m_pSNodeStatPerThread, 0, sizeof(nodeStat) * numofElement));
-	checkCudaErrors(cudaMemset(m_pRChildStatPerThread, 0, sizeof(nodeStat) * numofElement));
-	checkCudaErrors(cudaMemset(m_pLChildStatPerThread, 0, sizeof(nodeStat) * numofElement));
-	checkCudaErrors(cudaMemset(m_pTempRChildStatPerThread, 0, sizeof(nodeStat) * numofElement));
-	checkCudaErrors(cudaMemset(m_pLastValuePerThread, -1, sizeof(float_point) * numofElement));
-
-	SplitPoint *pTempBestPointHost = new SplitPoint[numofElement];
-	MemcpyHostToDevice(pTempBestPointHost, m_pBestSplitPointPerThread, sizeof(SplitPoint) * numofElement);
-	delete[] pTempBestPointHost;
+	m_pBestPointHostPerThread = new SplitPoint[numofElement];
 }
 
 /**
@@ -176,12 +165,12 @@ void GBDTGPUMemManager::allocMemForSNForEachThread(int maxNumofThread, int maxNu
  */
 void GBDTGPUMemManager::freeMemForSNForEachThread()
 {
-	checkCudaErrors(cudaFree(m_pSNodeStatPerThread));
 	checkCudaErrors(cudaFree(m_pRChildStatPerThread));
 	checkCudaErrors(cudaFree(m_pLChildStatPerThread));
 	checkCudaErrors(cudaFree(m_pTempRChildStatPerThread));
 	checkCudaErrors(cudaFree(m_pLastValuePerThread));
 	checkCudaErrors(cudaFree(m_pBestSplitPointPerThread));
+	delete[] m_pBestPointHostPerThread;
 }
 
 /**

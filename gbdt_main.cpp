@@ -25,7 +25,9 @@
 
 int main()
 {
-//	mainPureHost();
+	string strFileName = "data/normalized_amz.txt";
+
+//	mainPureHost(strFileName);
 //	return 1;
 
 	CUcontext context;
@@ -37,10 +39,9 @@ int main()
 
 	clock_t begin_whole, end_whole;
 	/********* read training instances from a file **************/
-	string strFileName = "data/abalone.txt";
 	int maxNumofSplittableNode = 100;
 	int maxNumofUsedFeature = 1000;
-	int maxNumofDenseIns = 1;
+	int maxNumofDenseIns = 1;//###### is later set to the number of instances
 	int maxUsedFeaInTrees = 1000;
 
 	//for training
@@ -64,6 +65,7 @@ int main()
 	vector<double> v_fLabel;
 	vector<vector<KeyValue> > v_vInsSparse;
 	dataReader.ReadLibSVMFormatSparse(v_vInsSparse, v_fLabel, strFileName, nNumofFeatures, nNumofExamples);
+	cout << "data has " << nNumofFeatures << " features and " << nNumofExamples << " instances" << endl;
 
 	//allocate memory for trees
 	DTGPUMemManager treeMemManager;
@@ -75,13 +77,15 @@ int main()
 	GBDTGPUMemManager memAllocator;
 	PROCESS_ERROR(nNumofValue > 0);
 	memAllocator.m_totalNumofValues = nNumofValue;
-	memAllocator.maxNumofDenseIns = maxNumofDenseIns;
+	memAllocator.maxNumofDenseIns = nNumofExamples;
 	memAllocator.m_maxUsedFeaInTrees = maxUsedFeaInTrees;
 
 	//allocate memory for instances
 	memAllocator.allocMemForIns(nNumofValue, nNumofExamples, nNumofFeatures);
 	memAllocator.allocMemForSplittableNode(maxNumofSplittableNode);//use in find features (i.e. best split points) process
 	memAllocator.allocHostMemory();//allocate reusable host memory
+	//allocate numofFeature*numofSplittabeNode
+	memAllocator.allocMemForSNForEachThread(nNumofFeatures, maxNumofSplittableNode);
 
 	SNGPUManager snManger;
 	snManger.allocMemForTree(maxNumofNodePerTree);//reserve memory for the tree
@@ -193,6 +197,7 @@ int main()
 
 	trainer.ReleaseTree(v_Tree);
 	memAllocator.releaseHostMemory();
+	memAllocator.freeMemForSNForEachThread();
 
 	ReleaseCuda(context);
 

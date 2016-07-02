@@ -54,7 +54,7 @@ public:
 	static int *m_nSNLock;
 
 	//memory for finding best split for each feature on each node
-	static nodeStat *m_pSNodeStatPerThread, *m_pRChildStatPerThread, *m_pLChildStatPerThread, *m_pTempRChildStatPerThread;
+	static nodeStat *m_pRChildStatPerThread, *m_pLChildStatPerThread, *m_pTempRChildStatPerThread;
 	static float_point *m_pLastValuePerThread;
 	static SplitPoint *m_pBestSplitPointPerThread;
 
