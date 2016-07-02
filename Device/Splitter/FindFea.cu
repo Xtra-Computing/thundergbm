@@ -32,15 +32,11 @@ using std::make_pair;
  */
 void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat> &rchildStat, vector<nodeStat> &lchildStat)
 {
-	int numofSNode = vBest.size();
-
 	GBDTGPUMemManager manager;
-	SNGPUManager snManager;
-	int tempNumofSN = 0;
-	manager.MemcpyDeviceToHost(snManager.m_pCurNumofNode, &tempNumofSN, sizeof(int));
-//	cout << "numofSN temp=" << tempNumofSN << endl;
-	numofSNode = tempNumofSN;
-
+	int numofSNode = manager.m_curNumofSplitable;
+	int tempSN = 0;
+	manager.MemcpyDeviceToHost(manager.m_pNumofBuffId, &tempSN, sizeof(int));
+	PROCESS_ERROR(numofSNode == tempSN);
 	int nNumofFeature = manager.m_numofFea;
 	PROCESS_ERROR(nNumofFeature > 0);
 
@@ -73,24 +69,55 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 	dim3 dimGridThreadForEachFea;
 	conf.ComputeBlock(nNumofFeature, dimGridThreadForEachFea);
 	int sharedMemSizeEachFea = 1;
-	FindFeaSplitValue2<<<dimGridThreadForEachFea, sharedMemSizeEachFea>>>(
+	cudaDeviceSynchronize();
+	FindFeaSplitValue<<<dimGridThreadForEachFea, sharedMemSizeEachFea>>>(
 									  pNumofKeyValue, manager.m_pFeaStartPos, pInsId, pFeaValue, manager.m_pInsIdToNodeId,
-									  manager.m_pTempRChildStatPerThread, pGD, pHess, manager.m_pLastValuePerThread,
+									  pGD, pHess,
+									  manager.m_pTempRChildStatPerThread, manager.m_pLastValuePerThread,
 									  manager.m_pSNodeStatPerThread, manager.m_pBestSplitPointPerThread,
 									  manager.m_pRChildStatPerThread, manager.m_pLChildStatPerThread,
 									  manager.m_pSNIdToBuffId, maxNumofSplittable, manager.m_pBuffIdVec, numofSNode,
 									  DeviceSplitter::m_lambda, nNumofFeature);
+	cudaDeviceSynchronize();
+#if testing
+	if(cudaGetLastError() != cudaSuccess)
+	{
+		cout << "error in FindFeaSplitValue" << endl;
+		exit(0);
+	}
+#endif
 
-	PickBestFea<<<1, 1>>>(manager.m_pTempRChildStatPerThread, manager.m_pLastValuePerThread, manager.m_pSNodeStatPerThread,
-			manager.m_pBestSplitPointPerThread, manager.m_pRChildStatPerThread, manager.m_pLChildStatPerThread,
-								numofSNode, nNumofFeature, maxNumofSplittable);
+	PickBestFea<<<1, 1>>>(manager.m_pLastValuePerThread,
+						  manager.m_pBestSplitPointPerThread, manager.m_pRChildStatPerThread, manager.m_pLChildStatPerThread,
+						  manager.m_pBuffIdVec, numofSNode, nNumofFeature, maxNumofSplittable);
+#if testing
+	if(cudaGetLastError() != cudaSuccess)
+	{
+		cout << "error in PickBestFea" << endl;
+		exit(0);
+	}
+#endif
 
-	manager.MemcpyDeviceToDevice(manager.m_pTempRChildStatPerThread, pTempRChildStat, sizeof(nodeStat) * maxNumofSplittable);
-	manager.MemcpyDeviceToDevice(manager.m_pLastValuePerThread, pLastValue, sizeof(float_point) * maxNumofSplittable);
-	manager.MemcpyDeviceToDevice(manager.m_pSNodeStatPerThread, pSNodeState, sizeof(nodeStat) * maxNumofSplittable);
+	manager.MemcpyDeviceToDevice(manager.m_pLastValuePerThread, manager.m_pLastValue, sizeof(float_point) * maxNumofSplittable);
 	manager.MemcpyDeviceToDevice(manager.m_pBestSplitPointPerThread, manager.m_pBestSplitPoint, sizeof(SplitPoint) * maxNumofSplittable);
 	manager.MemcpyDeviceToDevice(manager.m_pRChildStatPerThread, manager.m_pRChildStat, sizeof(nodeStat) * maxNumofSplittable);
 	manager.MemcpyDeviceToDevice(manager.m_pLChildStatPerThread, manager.m_pLChildStat, sizeof(nodeStat) * maxNumofSplittable);
+
+	manager.freeMemForSNForEachThread();
+	//print best split points
+#if false
+	int *pTestBuffIdVect = new int[numofSNode];
+	manager.MemcpyDeviceToHost(manager.m_pBuffIdVec, pTestBuffIdVect, sizeof(int) * numofSNode);
+	SplitPoint *testBestSplitPoint = new SplitPoint[maxNumofSplittable];
+	manager.MemcpyDeviceToHost(manager.m_pBestSplitPoint, testBestSplitPoint, sizeof(SplitPoint) * maxNumofSplittable);
+	for(int sn = 0; sn < numofSNode; sn++)
+	{
+		cout << "nid=" << pTestBuffIdVect[sn] << "; snid=" << sn << "; gain=" << testBestSplitPoint[pTestBuffIdVect[sn]].m_fGain << "; fid="
+			 << testBestSplitPoint[pTestBuffIdVect[sn]].m_nFeatureId << "; sv=" << testBestSplitPoint[pTestBuffIdVect[sn]].m_fSplitValue << endl;
+	}
+	delete[] testBestSplitPoint;
+	delete[] pTestBuffIdVect;
+#endif
 }
 
 /**
@@ -103,8 +130,6 @@ void DeviceSplitter::ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> >
 	//get features and store the feature ids in a way that the access is efficient
 	DenseInsConverter denseInsConverter(vTree);
 
-	vector<double> v_fPredValue;
-
 	//hash feature id to position id
 	int numofUsedFea = denseInsConverter.usedFeaSet.size();
 	int *pHashUsedFea = NULL;
@@ -116,33 +141,6 @@ void DeviceSplitter::ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> >
 	int nNumofIns = manager.m_numofIns;
 	PROCESS_ERROR(nNumofIns > 0);
 
-	//copy tree from GPU memory
-	#ifdef _COMPARE_HOST
-	if(nNumofTree - 1 >= 0)
-	{
-		SNGPUManager snManager;
-		int numofNode = 0;
-		manager.MemcpyDeviceToHost(snManager.m_pCurNumofNode, &numofNode, sizeof(int));
-		TreeNode *pAllNode = new TreeNode[numofNode];
-		manager.MemcpyDeviceToHost(snManager.m_pTreeNode, pAllNode, sizeof(TreeNode) * numofNode);
-
-//		cout << numofNode << " v.s. " << vTree[nNumofTree - 1].nodes.size() << endl;
-		//compare each node
-		for(int n = 0; n < numofNode; n++)
-		{
-			if(!(pAllNode[n].nodeId == vTree[nNumofTree - 1].nodes[n]->nodeId
-			   && pAllNode[n].featureId == vTree[nNumofTree - 1].nodes[n]->featureId
-			   && pAllNode[n].fSplitValue == vTree[nNumofTree - 1].nodes[n]->fSplitValue))
-			{
-				cout << "node id: " << pAllNode[n].nodeId << " v.s. " << vTree[nNumofTree - 1].nodes[n]->nodeId
-					 <<	"; feat id: " << pAllNode[n].featureId << " v.s. " << vTree[nNumofTree - 1].nodes[n]->featureId
-					 << "; sp value: " << pAllNode[n].fSplitValue << " v.s. " << vTree[nNumofTree - 1].nodes[n]->fSplitValue
-					 << "; rc id: " << pAllNode[n].rightChildId << " v.s. " << vTree[nNumofTree - 1].nodes[n]->rightChildId << endl;
-			}
-		}
-	}
-	#endif
-
 	//the last learned tree
 	int numofNodeOfLastTree = 0;
 	TreeNode *pLastTree = NULL;
@@ -153,66 +151,51 @@ void DeviceSplitter::ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> >
 
 	//start prediction
 	checkCudaErrors(cudaMemset(manager.m_pTargetValue, 0, sizeof(float_point) * nNumofIns));
+	if(nNumofTree > 0)
+	{
+		long long startPos = 0;
+		int startInsId = 0;
+		long long *pInsStartPos = manager.m_pInsStartPos + startInsId;
+		manager.MemcpyDeviceToHost(pInsStartPos, &startPos, sizeof(long long));
+	//			cout << "start pos ins" << insId << "=" << startPos << endl;
+		float_point *pDevInsValue = manager.m_pdDInsValue + startPos;
+		int *pDevFeaId = manager.m_pDFeaId + startPos;
+		int *pNumofFea = manager.m_pDNumofFea + startInsId;
+		int numofInsToFill = nNumofIns;
+
+		FillMultiDense<<<numofInsToFill, 1>>>(pDevInsValue, pInsStartPos, pDevFeaId, pNumofFea, manager.m_pdDenseIns,
+											  manager.m_pSortedUsedFeaId, manager.m_pHashFeaIdToDenseInsPos,
+											  numofUsedFea, startInsId, numofInsToFill);
+#if testing
+			if(cudaGetLastError() != cudaSuccess)
+			{
+				cout << "error in FillMultiDense" << endl;
+				exit(0);
+			}
+#endif
+	}
+
+
 	for(int i = 0; i < nNumofIns; i++)
 	{
-		double fValue = 0;
-		manager.MemcpyDeviceToHost(manager.m_pPredBuffer + i, &fValue, sizeof(float_point));
-
-		//start prediction ###############
-
-		vector<double> vDense;
 		if(nNumofTree > 0)
 		{
-			pred.FillDenseIns(i, numofUsedFea);
+//			pred.FillDenseIns(i, numofUsedFea);
+			int denseInsStartPos = i * numofUsedFea;
 
 			//prediction using the last tree
 			PROCESS_ERROR(numofUsedFea <= manager.m_maxUsedFeaInTrees);
 			assert(pLastTree != NULL);
-			PredTarget<<<1, 1>>>(pLastTree, numofNodeOfLastTree, manager.m_pdDenseIns, numofUsedFea,
+			PredTarget<<<1, 1>>>(pLastTree, numofNodeOfLastTree, manager.m_pdDenseIns + denseInsStartPos, numofUsedFea,
 								 manager.m_pHashFeaIdToDenseInsPos, manager.m_pTargetValue + i, treeManager.m_maxTreeDepth);
-
-			#ifdef _COMPARE_HOST
-			//construct dense instance #### now for testing
-			denseInsConverter.SparseToDense(vvInsSparse[i], vDense);
-			//denseInsConverter.PrintDenseVec(vDense);
-
-			//copy the dense instance to vector for testing
-			float_point *pDense = new float_point[numofUsedFea];
-			manager.MemcpyDeviceToHost(manager.m_pdDenseIns, pDense, sizeof(float_point) * numofUsedFea);
-
-			bool bDiff = false;
-			for(int i = 0; i < numofUsedFea; i++)
+#if testing
+			if(cudaGetLastError() != cudaSuccess)
 			{
-
-				int pos = Hashing::HostGetBufferId(pHashUsedFea, pSortedUsedFea[i], numofUsedFea);
-				if(vDense[i] != pDense[pos])
-				{
-					cout << "different: " << vDense[i] << " v.s. " << pDense[pos] << "\t";
-					bDiff = true;
-				}
-
-				if(bDiff == true && (i == manager.m_numofFea - 1 || i == vDense.size() - 1))
-					cout << endl;
-
-				//vDense.push_back(pDense[i]);
+				cout << "error in PredTarget" << endl;
+				exit(0);
 			}
-
-			float_point fTarget = 0;
-			manager.MemcpyDeviceToHost(manager.m_pTargetValue + i, &fTarget, sizeof(float_point));
-
-			//host prediction
-			for(int t = nNumofTree - 1; t >= 0 && t < nNumofTree; t++)
-			{
-				int nodeId = vTree[t].GetLeafIdSparseInstance(vDense, denseInsConverter.fidToDensePos);
-				fValue += vTree[t][nodeId]->predValue;
-			}
-
-			if(fValue != fTarget)
-				cout << "Target value diff " << fValue << " v.s. " << fTarget << endl;
-			#endif
+#endif
 		}
-
-		v_fPredValue.push_back(fValue);
 		manager.MemcpyDeviceToDevice(manager.m_pTargetValue + i, manager.m_pPredBuffer + i, sizeof(float_point));
 	}
 
@@ -223,46 +206,22 @@ void DeviceSplitter::ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> >
 
 	//compute GD
 	ComputeGDKernel<<<1, 1>>>(nNumofIns, manager.m_pTargetValue, manager.m_pdTrueTargetValue, manager.m_pGrad, manager.m_pHess);
+
 	//copy splittable nodes to GPU memory
+		//SNodeStat, SNIdToBuffId, pBuffIdVec need to be reset.
+	manager.Memset(manager.m_pSNodeStat, 0, sizeof(nodeStat) * manager.m_maxNumofSplittable);
+	manager.Memset(manager.m_pSNIdToBuffId, -1, sizeof(int) * manager.m_maxNumofSplittable);
+	manager.Memset(manager.m_pBuffIdVec, -1, sizeof(int) * manager.m_maxNumofSplittable);
+	manager.Memset(manager.m_pNumofBuffId, 0, sizeof(int));
 	InitNodeStat<<<1, 1>>>(nNumofIns, manager.m_pGrad, manager.m_pHess,
 						   manager.m_pSNodeStat, manager.m_pSNIdToBuffId, manager.m_maxNumofSplittable,
-						   manager.m_pBuffIdVec);
-
-	#ifdef _COMPARE_HOST
-	//compute host GD
-	int nTotal = nNumofIns;
-	for(int i = 0; i < nTotal; i++)
+						   manager.m_pBuffIdVec, manager.m_pNumofBuffId);
+#if testing
+	if(cudaGetLastError() != cudaSuccess)
 	{
-		float_point fTrueValue = 0;
-		manager.MemcpyDeviceToHost(manager.m_pdTrueTargetValue + i, &fTrueValue, sizeof(float_point));
-		m_vGDPair_fixedPos[i].grad = v_fPredValue[i] - fTrueValue;
-		m_vGDPair_fixedPos[i].hess = 1;
+		cout << "error in InitNodeStat" << endl;
+		exit(0);
 	}
-
-	//compare GDs
-	float_point *pfGrad = new float_point[nNumofIns];
-	float_point *pfHess = new float_point[nNumofIns];
-	manager.MemcpyDeviceToHost(manager.m_pGrad, pfGrad, sizeof(float_point) * nNumofIns);
-	manager.MemcpyDeviceToHost(manager.m_pHess, pfHess, sizeof(float_point) * nNumofIns);
-	for(int i = 0; i < nTotal; i++)
-	{
-		if(m_vGDPair_fixedPos[i].grad != pfGrad[i] || m_vGDPair_fixedPos[i].hess != pfHess[i])
-			cout << "diff gd: " << m_vGDPair_fixedPos[i].grad << " v.s. " << pfGrad[i] << endl;
-	}
-	delete []pfGrad;
-	delete []pfHess;
-
-	//root node state of the next tree
-	nodeStat rootStat;
-	for(int i = 0; i < nTotal; i++)
-	{
-		rootStat.sum_gd += m_vGDPair_fixedPos[i].grad;
-		rootStat.sum_hess += m_vGDPair_fixedPos[i].hess;
-	}
-
-	m_nodeStat.clear();
-	m_nodeStat.push_back(rootStat);
-	mapNodeIdToBufferPos.insert(make_pair(0,0));//node0 in pos0 of buffer
-	#endif
+#endif
 }
 

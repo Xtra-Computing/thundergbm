@@ -68,7 +68,6 @@ int main()
 	//allocate memory for trees
 	DTGPUMemManager treeMemManager;
 	int maxNumofNodePerTree = pow(2, nMaxDepth + 1) - 1;
-	cout << "max number of node per tree is " << maxNumofNodePerTree << endl;
 	treeMemManager.allocMemForTrees(nNumofTree, maxNumofNodePerTree, nMaxDepth);
 
 

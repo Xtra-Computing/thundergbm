@@ -59,7 +59,7 @@ void BaseTrainer::TrainGBDT(vector<RegTree> & vTree)
 		InitTree(tree);
 
 		//predict the data by the existing trees
-
+		begin_gd = clock();
 		if(splitter->SpliterType().compare("host") == 0)
 		{
 			((HostSplitter*)splitter)->m_vPredBuffer = m_vPredBuffer;
@@ -69,6 +69,8 @@ void BaseTrainer::TrainGBDT(vector<RegTree> & vTree)
 		}
 		else
 			splitter->ComputeGD(vTree, m_vvInsSparse);
+		end_gd = clock();
+		total_gd += (double(end_gd - begin_gd) / CLOCKS_PER_SEC);
 
 		//grow the tree
 		begin_grow = clock();

@@ -141,6 +141,9 @@ void GBDTGPUMemManager::allocMemForSplittableNode(int nMaxNumofSplittableNode)
 	checkCudaErrors(cudaMalloc((void**)&m_pSNIdToBuffId, sizeof(int) * m_maxNumofSplittable));
 	checkCudaErrors(cudaMalloc((void**)&m_pBuffIdVec, sizeof(int) * m_maxNumofSplittable));
 	checkCudaErrors(cudaMalloc((void**)&m_pNumofBuffId, sizeof(int)));
+
+	checkCudaErrors(cudaMemset(m_pBuffIdVec, -1, sizeof(int) * m_maxNumofSplittable));
+	checkCudaErrors(cudaMemset(m_pNumofBuffId, 0, sizeof(int)));
 }
 
 /**
@@ -166,6 +169,19 @@ void GBDTGPUMemManager::allocMemForSNForEachThread(int maxNumofThread, int maxNu
 	SplitPoint *pTempBestPointHost = new SplitPoint[numofElement];
 	MemcpyHostToDevice(pTempBestPointHost, m_pBestSplitPointPerThread, sizeof(SplitPoint) * numofElement);
 	delete[] pTempBestPointHost;
+}
+
+/**
+ * @brief: allocate memory for splittable nodes.
+ */
+void GBDTGPUMemManager::freeMemForSNForEachThread()
+{
+	checkCudaErrors(cudaFree(m_pSNodeStatPerThread));
+	checkCudaErrors(cudaFree(m_pRChildStatPerThread));
+	checkCudaErrors(cudaFree(m_pLChildStatPerThread));
+	checkCudaErrors(cudaFree(m_pTempRChildStatPerThread));
+	checkCudaErrors(cudaFree(m_pLastValuePerThread));
+	checkCudaErrors(cudaFree(m_pBestSplitPointPerThread));
 }
 
 /**

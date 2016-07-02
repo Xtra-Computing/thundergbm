@@ -155,3 +155,21 @@ void DevicePredictor::FillDenseIns(int insId, int numofUsedFea)
 						manager.m_pSortedUsedFeaId, manager.m_pHashFeaIdToDenseInsPos, numofUsedFea);
 }
 
+void FillMultiDenseIns(int insStartId, int numofInsToFill, int numofUsedFea)
+{
+	GBDTGPUMemManager manager;
+	long long startPos = -1;
+	long long *pInsStartPos = manager.m_pInsStartPos + (long long)insStartId;
+	manager.MemcpyDeviceToHost(pInsStartPos, &startPos, sizeof(long long));
+//			cout << "start pos ins" << insId << "=" << startPos << endl;
+	float_point *pDevInsValue = manager.m_pdDInsValue + startPos;
+	int *pDevFeaId = manager.m_pDFeaId + startPos;
+	int numofFeaValue = -1;
+	int *pNumofFea = manager.m_pDNumofFea + insStartId;
+	manager.MemcpyDeviceToHost(pNumofFea, &numofFeaValue, sizeof(int));
+
+	checkCudaErrors(cudaMemset(manager.m_pdDenseIns, 0, sizeof(float_point) * numofUsedFea));
+	FillDense<<<1, 1>>>(pDevInsValue, pDevFeaId, numofFeaValue, manager.m_pdDenseIns,
+						manager.m_pSortedUsedFeaId, manager.m_pHashFeaIdToDenseInsPos, numofUsedFea);
+}
+

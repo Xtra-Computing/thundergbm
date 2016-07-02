@@ -15,7 +15,7 @@
 #include "../../DeviceHost/DefineConst.h"
 
 
-__global__ void ComputeWeight(TreeNode *pAllTreeNode, TreeNode *pSplittableNode, int *pSNIdToBufferId,
+__global__ void ComputeWeight(TreeNode *pAllTreeNode, TreeNode *pSplittableNode, const int *pSNIdToBufferId,
 		  	  	  	  	  	  	  SplitPoint *pBestSplitPoint, nodeStat *pSNodeStat, float_point rt_eps, int flag_LEAFNODE,
 		  	  	  	  	  	  	  float_point lambda, int numofSplittableNode, bool bLastLevel);
 
@@ -33,12 +33,12 @@ __global__ void GetUniqueFid(TreeNode *pAllTreeNode, TreeNode *pSplittableNode, 
 
 __global__ void InsToNewNode(TreeNode *pAllTreeNode, float_point *pdFeaValue, int *pInsId,
 		 	 	 	 	 	 	 long long *pFeaStartPos, int *pNumofKeyValue,
-		 	 	 	 	 	 	 int *pInsIdToNodeId, int *pSNIdToBuffId, SplitPoint *pBestSplitPoint,
+		 	 	 	 	 	 	 int *pInsIdToNodeId, const int *pSNIdToBuffId, SplitPoint *pBestSplitPoint,
 		 	 	 	 	 	 	 int *pUniqueFidVec, int *pNumofUniqueFid,
 		 	 	 	 	 	 	 int *pParentId, int *pLChildId, int *pRChildId,
 		 	 	 	 	 	 	 int preMaxNodeId, int numofFea, int numofIns, int flag_LEAFNODE);
 
-__global__ void InsToNewNodeByDefault(TreeNode *pAllTreeNode, int *pInsIdToNodeId, int *pSNIdToBuffId,
+__global__ void InsToNewNodeByDefault(TreeNode *pAllTreeNode, int *pInsIdToNodeId, const int *pSNIdToBuffId,
 		   	   	   	   	   	   	   	   	   int *pParentId, int *pLChildId,
 		   	   	   	   	   	   	   	   	   int preMaxNodeId, int numofIns, int flag_LEAFNODE);
 

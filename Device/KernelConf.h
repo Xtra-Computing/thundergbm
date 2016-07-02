@@ -18,6 +18,6 @@ public:
 	void ComputeBlock(int numofThread, dim3 &dimGridThinThread);
 };
 
-
+#define testing 1
 
 #endif /* KERNELCONF_H_ */

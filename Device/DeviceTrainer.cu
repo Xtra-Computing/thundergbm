@@ -78,12 +78,6 @@ void DeviceTrainer::GrowTree(RegTree &tree)
 	manager.m_curNumofSplitable = 1;
 
 	vector<TreeNode*> splittableNode;
-	#ifdef _COMPARE_HOST
-	for(int i = 0; i < int(tree.nodes.size()); i++)
-	{
-		splittableNode.push_back(tree.nodes[i]);
-	}
-	#endif
 
 	//split node(s)
 	int nCurDepth = 0;
@@ -95,15 +89,6 @@ void DeviceTrainer::GrowTree(RegTree &tree)
 		vector<SplitPoint> vBest;
 		vector<nodeStat> rchildStat, lchildStat;
 		clock_t begin_find_fea = clock();
-		#ifdef _COMPARE_HOST
-		int bufferSize = splitter->mapNodeIdToBufferPos.size();//maps node id to buffer position
-
-		//efficient way to find the best split
-		bufferSize = manager.m_curNumofSplitable;//maps node id to buffer position
-		vBest.resize(bufferSize);
-		rchildStat.resize(bufferSize);
-		lchildStat.resize(bufferSize);
-		#endif
 
 		splitter->FeaFinderAllNode(vBest, rchildStat, lchildStat);
 
@@ -124,6 +109,7 @@ void DeviceTrainer::GrowTree(RegTree &tree)
 		total_split_t += (double(end_split_t - start_split_t) / CLOCKS_PER_SEC);
 
 		manager.MemcpyDeviceToHost(snManager.m_pNumofNewNode, &manager.m_curNumofSplitable, sizeof(int));
+//		cout << "number of new/splittable nodes is " << manager.m_curNumofSplitable << endl;
 
 		nCurDepth++;
 	}
@@ -139,20 +125,13 @@ void DeviceTrainer::GrowTree(RegTree &tree)
 	for(int n = 0; n < numofNode; n++)
 	{
 		ypAllNode[n] = &pAllNode[n];
-		#ifndef _COMPARE_HOST
 		tree.nodes.push_back(&pAllNode[n]);//for getting features of trees
-		#endif
 	}
 	pruner.pruneLeaf(ypAllNode, numofNode);
 	delete []ypAllNode;
 	//########### can be improved by storing only the valid nodes afterwards
 
 	StoreFinalTree(pAllNode, numofNode);
-
-	#ifdef _COMPARE_HOST
-	TreeNode **temp = &tree.nodes[0];
-	pruner.pruneLeaf(temp, numofNode);
-	#endif
 
 	clock_t end_prune = clock();
 	total_prune_t += (double(end_prune - begin_prune) / CLOCKS_PER_SEC);

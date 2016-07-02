@@ -6,18 +6,16 @@
  *		@brief: 
  */
 
-#include <string.h>
+#include <stdio.h>
 #include "DeviceSplitAllKernel.h"
 #include "../Memory/gbdtGPUMemManager.h"
 #include "../DeviceHashing.h"
 #include "../ErrorChecker.h"
 
-using std::string;
-
 /**
  * @brief: compute the base_weight of tree node, also determines if a node is a leaf.
  */
-__global__ void ComputeWeight(TreeNode *pAllTreeNode, TreeNode *pSplittableNode, int *pSNIdToBufferId,
+__global__ void ComputeWeight(TreeNode *pAllTreeNode, TreeNode *pSplittableNode, const int *pSNIdToBufferId,
 								  SplitPoint *pBestSplitPoint, nodeStat *pSNodeStat, float_point rt_eps, int flag_LEAFNODE,
 								  float_point lambda, int numofSplittableNode, bool bLastLevel)
 {
@@ -28,8 +26,8 @@ __global__ void ComputeWeight(TreeNode *pAllTreeNode, TreeNode *pSplittableNode,
 	int nid = pSplittableNode[nGlobalThreadId].nodeId;
 	ErrorChecker(nid, __PRETTY_FUNCTION__, "nid");
 
-//		cout << "node " << nid << " needs to split..." << endl;
-	int bufferPos = pSNIdToBufferId[nid];
+	int bufferPos = pSNIdToBufferId[nid];//########## here should be using the hash function.
+//	printf("node %d needs to split... pos in buff is %d\n", nid, bufferPos);
 	ErrorChecker(bufferPos, __PRETTY_FUNCTION__, "bufferPos");
 
 	//mark the node as a leaf node if (1) the gain is negative or (2) the tree reaches maximum depth.
@@ -66,6 +64,7 @@ __global__ void CreateNewNode(TreeNode *pAllTreeNode, TreeNode *pSplittableNode,
 	int nid = pSplittableNode[nGlobalThreadId].nodeId;
 	ErrorChecker(nid, __PRETTY_FUNCTION__, "nid");
 	int bufferPos = pSNIdToBufferId[nid];
+//	printf("splitting node %d, buffPos is %d, tid=%d\n", nid, bufferPos, nGlobalThreadId);
 	ErrorChecker(bufferPos, __PRETTY_FUNCTION__, "bufferPos");
 
 	if(!(pBestSplitPoint[bufferPos].m_fGain <= rt_eps || bLastLevel == true))
@@ -75,7 +74,7 @@ __global__ void CreateNewNode(TreeNode *pAllTreeNode, TreeNode *pSplittableNode,
 		int lchildId = childrenId;
 		int rchildId = childrenId + 1;
 
-		//parent id to child ids
+		//save parent id and child ids
 		pParentId[bufferPos] = nid;
 		pLChildId[bufferPos] = lchildId;
 		pRChildId[bufferPos] = rchildId;
@@ -168,7 +167,7 @@ __global__ void GetUniqueFid(TreeNode *pAllTreeNode, TreeNode *pSplittableNode, 
  */
 __global__ void InsToNewNode(TreeNode *pAllTreeNode, float_point *pdFeaValue, int *pInsId,
 								 long long *pFeaStartPos, int *pNumofKeyValue,
-								 int *pInsIdToNodeId, int *pSNIdToBuffId, SplitPoint *pBestSplitPoint,
+								 int *pInsIdToNodeId, const int *pSNIdToBuffId, SplitPoint *pBestSplitPoint,
 								 int *pUniqueFidVec, int *pNumofUniqueFid,
 								 int *pParentId, int *pLChildId, int *pRChildId,
 								 int preMaxNodeId, int numofFea, int numofIns, int flag_LEAFNODE)
@@ -237,7 +236,7 @@ __global__ void InsToNewNode(TreeNode *pAllTreeNode, float_point *pdFeaValue, in
 
 }
 
-__global__ void InsToNewNodeByDefault(TreeNode *pAllTreeNode, int *pInsIdToNodeId, int *pSNIdToBuffId,
+__global__ void InsToNewNodeByDefault(TreeNode *pAllTreeNode, int *pInsIdToNodeId, const int *pSNIdToBuffId,
 										   int *pParentId, int *pLChildId,
 										   int preMaxNodeId, int numofIns, int flag_LEAFNODE)
 {
@@ -293,6 +292,7 @@ __global__ void UpdateNewSplittable(TreeNode *pNewSplittableNode, nodeStat *pNew
 			if(bIsNew == true)
 			{
 				int counter = atomicAdd(pBuffIdCounter, 1);
+				ErrorChecker(counter, __PRETTY_FUNCTION__, "counter");
 				pBuffIdVec[counter] = bufferPos;
 			}
 			bLeaveLoop = true;

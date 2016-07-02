@@ -72,6 +72,7 @@ public:
 	void allocMemForIns(int nTotalNumofValue, int numofIns, int numofFeature);
 	void allocMemForSplittableNode(int nMaxNumofSplittableNode);
 	void allocMemForSNForEachThread(int maxNumofThread, int maxNumofSplittable);
+	void freeMemForSNForEachThread();
 
 	void allocHostMemory();
 	void releaseHostMemory();

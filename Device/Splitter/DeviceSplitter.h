@@ -26,6 +26,7 @@ public:
 	virtual void SplitAll(vector<TreeNode*> &splittableNode, const vector<SplitPoint> &vBest, RegTree &tree, int &m_nNumofNode,
 				  	  	  const vector<nodeStat> &rchildStat, const vector<nodeStat> &lchildStat, bool bLastLevel);
 	virtual void ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> > & vvInsSparse);
+	void ComputeGD2(vector<RegTree> &vTree, vector<vector<KeyValue> > & vvInsSparse);
 };
 
 

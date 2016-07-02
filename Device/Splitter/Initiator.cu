@@ -11,7 +11,7 @@
 #include "../ErrorChecker.h"
 #include "../DeviceHashing.h"
 
-__global__ void ComputeGDKernel(int numofIns, float_point *pfPredValue, float_point *pfTrueValue, float_point *pGrad, float_point *pHess)
+__global__ void ComputeGDKernel(int numofIns, const float_point *pfPredValue, const float_point *pfTrueValue, float_point *pGrad, float_point *pHess)
 {
 	for(int i = 0; i < numofIns; i++)
 	{
@@ -21,8 +21,9 @@ __global__ void ComputeGDKernel(int numofIns, float_point *pfPredValue, float_po
 
 }
 
-__global__ void InitNodeStat(int numofIns, float_point *pGrad, float_point *pHess,
-							 nodeStat *pSNodeStat, int *pSNIdToBuffId, int maxNumofSplittable, int *pBuffId)
+__global__ void InitNodeStat(int numofIns, const float_point *pGrad, const float_point *pHess,
+							 nodeStat *pSNodeStat, int *pSNIdToBuffId, int maxNumofSplittable,
+							 int *pBuffId, int *pNumofBuffId)
 {
 	float_point root_sum_gd = 0.0, root_sum_hess = 0.0;
 	for(int i = 0; i < numofIns; i++)
@@ -31,12 +32,15 @@ __global__ void InitNodeStat(int numofIns, float_point *pGrad, float_point *pHes
 		root_sum_hess += pHess[i];
 	}
 
-	int snid = 0;
+	int nid = 0;//id of root node is always 0.
 	bool bIsNew = false;
-	int buffId = AssignHashValue(pSNIdToBuffId, snid, maxNumofSplittable, bIsNew);
+	int buffId = AssignHashValue(pSNIdToBuffId, nid, maxNumofSplittable, bIsNew);
+	if(buffId != 0)
+		printf("buffId = %d\n", buffId);
 	pSNodeStat[buffId].sum_gd = root_sum_gd;
 	pSNodeStat[buffId].sum_hess = root_sum_hess;
-	pBuffId[0] = buffId;
+	pBuffId[0] = buffId;//here we only initialise the root node
+	pNumofBuffId[0] = 1;
 }
 
 /**
