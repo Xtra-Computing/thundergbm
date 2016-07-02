@@ -43,9 +43,9 @@ void BaseTrainer::InitTrainer(int nNumofTree, int nMaxDepth, double fLabda, doub
  */
 void BaseTrainer::TrainGBDT(vector<RegTree> & vTree)
 {
-	clock_t begin_pred, begin_gd, begin_grow;
-	clock_t end_pred, end_gd, end_grow;
-	double total_pred = 0, total_gd = 0, total_grow = 0;
+	clock_t begin_gd, begin_grow;
+	clock_t end_gd, end_grow;
+	double total_gd = 0, total_grow = 0;
 
 	HostPredictor pred;
 	HostSplitter hsplit;
@@ -89,7 +89,7 @@ void BaseTrainer::TrainGBDT(vector<RegTree> & vTree)
 		cout << "split time=" << total_split_t << "; total find fea time=" << total_find_fea_t << "; prune time=" << total_prune_t << endl;
 	}
 
-	cout << "pred sec = " << total_pred << "; gd sec = " << total_gd << "; grow sec = " << total_grow << endl;
+	cout << "gd sec = " << total_gd << "; grow sec = " << total_grow << endl;
 
 }
 

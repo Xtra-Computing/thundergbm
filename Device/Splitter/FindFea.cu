@@ -132,6 +132,7 @@ void DeviceSplitter::ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> >
 
 	//hash feature id to position id
 	int numofUsedFea = denseInsConverter.usedFeaSet.size();
+	PROCESS_ERROR(numofUsedFea <= manager.m_maxUsedFeaInTrees);
 	int *pHashUsedFea = NULL;
 	int *pSortedUsedFea = NULL;
 	pred.GetUsedFeature(denseInsConverter.usedFeaSet, pHashUsedFea, pSortedUsedFea);
@@ -162,8 +163,13 @@ void DeviceSplitter::ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> >
 		int *pDevFeaId = manager.m_pDFeaId + startPos;
 		int *pNumofFea = manager.m_pDNumofFea + startInsId;
 		int numofInsToFill = nNumofIns;
+		KernelConf conf;
+		dim3 dimGridThreadForEachIns;
+		conf.ComputeBlock(numofInsToFill, dimGridThreadForEachIns);
+		int sharedMemSizeEachIns = 1;
 
-		FillMultiDense<<<numofInsToFill, 1>>>(pDevInsValue, pInsStartPos, pDevFeaId, pNumofFea, manager.m_pdDenseIns,
+		FillMultiDense<<<dimGridThreadForEachIns, sharedMemSizeEachIns>>>(
+											  pDevInsValue, pInsStartPos, pDevFeaId, pNumofFea, manager.m_pdDenseIns,
 											  manager.m_pSortedUsedFeaId, manager.m_pHashFeaIdToDenseInsPos,
 											  numofUsedFea, startInsId, numofInsToFill);
 #if testing
@@ -175,29 +181,27 @@ void DeviceSplitter::ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> >
 #endif
 	}
 
-
-	for(int i = 0; i < nNumofIns; i++)
+	//prediction using the last tree
+	if(nNumofTree > 0)
 	{
-		if(nNumofTree > 0)
-		{
-//			pred.FillDenseIns(i, numofUsedFea);
-			int denseInsStartPos = i * numofUsedFea;
-
-			//prediction using the last tree
-			PROCESS_ERROR(numofUsedFea <= manager.m_maxUsedFeaInTrees);
-			assert(pLastTree != NULL);
-			PredTarget<<<1, 1>>>(pLastTree, numofNodeOfLastTree, manager.m_pdDenseIns + denseInsStartPos, numofUsedFea,
-								 manager.m_pHashFeaIdToDenseInsPos, manager.m_pTargetValue + i, treeManager.m_maxTreeDepth);
+		assert(pLastTree != NULL);
+		int numofInsToPre = nNumofIns;
+		KernelConf conf;
+		dim3 dimGridThreadForEachIns;
+		conf.ComputeBlock(numofInsToPre, dimGridThreadForEachIns);
+		int sharedMemSizeEachIns = 1;
+		PredMultiTarget<<<dimGridThreadForEachIns, sharedMemSizeEachIns>>>(
+											  manager.m_pTargetValue, numofInsToPre, pLastTree, manager.m_pdDenseIns,
+											  numofUsedFea, manager.m_pHashFeaIdToDenseInsPos, treeManager.m_maxTreeDepth);
 #if testing
-			if(cudaGetLastError() != cudaSuccess)
-			{
-				cout << "error in PredTarget" << endl;
-				exit(0);
-			}
-#endif
+		if(cudaGetLastError() != cudaSuccess)
+		{
+			cout << "error in PredTarget" << endl;
+			exit(0);
 		}
-		manager.MemcpyDeviceToDevice(manager.m_pTargetValue + i, manager.m_pPredBuffer + i, sizeof(float_point));
+#endif
 	}
+	manager.MemcpyDeviceToDevice(manager.m_pTargetValue, manager.m_pPredBuffer, sizeof(float_point) * nNumofIns);
 
 	if(pHashUsedFea != NULL)
 		delete []pHashUsedFea;

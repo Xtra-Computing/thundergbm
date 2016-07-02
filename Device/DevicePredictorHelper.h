@@ -16,6 +16,9 @@
 
 __global__ void PredTarget(TreeNode *pAllTreeNode, int totalNode, float_point *pDenseIns, int nNumofFea,
 						  int *pnHashFeaIdToPos, float_point *pdTargetValue, int maxDepth);
+__global__ void PredMultiTarget(float_point *pdTargetValue, int numofDenseIns, const TreeNode *pAllTreeNode,
+								const float_point *pDenseIns, int numofFea,
+								const int *pnHashFeaIdToPos, int maxDepth);
 
 __global__ void FillDense(const float_point *pdSparseInsValue, const int *pnSpareInsFeaId, int numofFeaValue,
 						  float_point *pdDenseIns, const int *pSortedUsedFea, const int *pHashFeaIdToDenseInsPos, int totalDim);

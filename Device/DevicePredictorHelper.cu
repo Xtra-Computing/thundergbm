@@ -10,7 +10,7 @@
 #include "ErrorChecker.h"
 #include "DeviceHashing.h"
 
-__device__ int GetNext(TreeNode *pNode, float_point feaValue)
+__device__ int GetNext(const TreeNode *pNode, float_point feaValue)
 {
     if(feaValue < pNode->fSplitValue)
     {
@@ -84,6 +84,49 @@ __global__ void FillDense(const float_point *pdSparseInsValue, const int *pnSpar
 		}
 	}
 
+}
+
+__global__ void PredMultiTarget(float_point *pdTargetValue, int numofDenseIns, const TreeNode *pAllTreeNode,
+								const float_point *pDenseIns, int numofFea,
+								const int *pnHashFeaIdToPos, int maxDepth)
+{
+	int nGlobalThreadId = (blockIdx.y * gridDim.x + blockIdx.x) * blockDim.x + threadIdx.x;
+	if(nGlobalThreadId >= numofDenseIns)
+		return;
+	int targetId = nGlobalThreadId;
+
+	int pid = 0; //node id
+	const TreeNode *curNode = pAllTreeNode + pid;
+	if(curNode->nodeId != 0)
+	{
+		printf("id of root node is %d should be 0\n", curNode->nodeId);
+		return;
+	}
+	int counter = 0;
+	while(curNode->featureId != -1)//!curNode->isLeaf()
+	{
+		int fid = curNode->featureId;
+		ErrorChecker(fid, __PRETTY_FUNCTION__, "fid < 0");
+
+		int maxNumofUsedFea = numofFea;
+		int pos = GetBufferId(pnHashFeaIdToPos, fid, maxNumofUsedFea);
+//		printf("%d hash to %d: fea v=%f\n", fid, pos, pDenseIns[pos]);
+
+		if(pos < numofFea)//feature value is available in the dense vector
+			pid = GetNext(curNode, pDenseIns[targetId * numofFea + pos]);
+		else//feature value is stored in the dense vector (due to truncating)
+			pid = GetNext(curNode, 0);
+		curNode = pAllTreeNode + pid;
+
+		counter++;
+		if(counter > maxDepth)//for skipping from deadlock
+		{
+			printf("%s has bugs\n", __PRETTY_FUNCTION__);
+			break;
+		}
+	}
+
+	pdTargetValue[targetId] += pAllTreeNode[pid].predValue;
 }
 
 __global__ void FillMultiDense(const float_point *pdSparseInsValue, const long long *pInsStartPos, const int *pnSpareInsFeaId,
