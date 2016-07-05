@@ -29,7 +29,6 @@ void DevicePredictor::PredictSparseIns(vector<vector<KeyValue> > &v_vInstance, v
 	DenseInsConverter denseInsConverter(vTree);
 	int numofUsedFea = denseInsConverter.usedFeaSet.size();
 
-	cout << "numofUsedFea=" << numofUsedFea << " v.s. maxUsedFeaInTrees" << manager.m_maxUsedFeaInTrees << endl;
 	if(manager.m_maxUsedFeaInTrees < numofUsedFea)
 	{
 		cout << "numofUsedFea=" << numofUsedFea << " v.s. maxUsedFeaInTrees " << manager.m_maxUsedFeaInTrees << endl;

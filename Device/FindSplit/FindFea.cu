@@ -8,9 +8,9 @@
 
 #include <iostream>
 
-#include "DeviceSplitter.h"
-#include "DeviceFindFeaKernel.h"
-#include "Initiator.h"
+#include "../Splitter/DeviceSplitter.h"
+#include "FindFeaKernel.h"
+#include "../Splitter/Initiator.h"
 #include "../Memory/gbdtGPUMemManager.h"
 #include "../Memory/SplitNodeMemManager.h"
 #include "../Memory/dtMemManager.h"

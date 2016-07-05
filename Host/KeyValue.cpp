@@ -7,11 +7,14 @@
  */
 
 #include <algorithm>
+#include <iostream>
 
 #include "KeyValue.h"
 #include "../DeviceHost/MyAssert.h"
 
 using std::sort;
+using std::cout;
+using std::endl;
 
 /**
  * @brief: sort a vector in a descendant order
@@ -34,6 +37,12 @@ void KeyValue::SortFeaValue(int nNumofDim, vector<vector<KeyValue> > &vvInsSpars
 		vCurParsePos.push_back(0);
 	}
 
+#if analyse_data
+	int maxParir = 50000;
+	int count[maxParir];
+	memset(count, 0, sizeof(int) * maxParir);
+#endif
+
 	for(int j = 0; j < nNumofDim; j++)
 	{
 		vector<KeyValue> featurePair;
@@ -54,10 +63,20 @@ void KeyValue::SortFeaValue(int nNumofDim, vector<vector<KeyValue> > &vvInsSpars
 			}
 		}
 
+#if analyse_data
+		count[featurePair.size()]++;
+#endif
 		sort(featurePair.begin(), featurePair.end(), CmpValue);
 
 		vvFeaInxPair.push_back(featurePair);
 	}
+#if analyse_data
+	for(int i = 0; i < maxParir; i++)
+	{
+		if(count[i] > 0)
+			cout << count[i] << " feas have " << i << " values." << endl;
+	}
+#endif
 }
 
 /**
