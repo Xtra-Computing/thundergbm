@@ -70,14 +70,15 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 	checkCudaErrors(cudaMemset(manager.m_pLastValuePerThread, -1, sizeof(float_point) * numofElement));
 
 	KernelConf conf;
-	dim3 dimGridThreadForEachFea;
-	conf.ComputeBlock(nNumofFeature, dimGridThreadForEachFea);
-	int sharedMemSizeEachFea = 1;
+	int threadPerBlock;
+	dim3 dimNumofBlock;
+	conf.ConfKernel(nNumofFeature, threadPerBlock, dimNumofBlock);
+
 	clock_t begin_per_fea, begin_best;
 	clock_t end_per_fea, end_best;
 	cudaDeviceSynchronize();
 	begin_per_fea = clock();
-	FindFeaSplitValue<<<dimGridThreadForEachFea, sharedMemSizeEachFea>>>(
+	FindFeaSplitValue<<<dimNumofBlock, threadPerBlock>>>(
 									  pNumofKeyValue, manager.m_pFeaStartPos, pInsId, pFeaValue, manager.m_pInsIdToNodeId,
 									  pGD, pHess,
 									  manager.m_pTempRChildStatPerThread, manager.m_pLastValuePerThread,
@@ -94,17 +95,42 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 		exit(0);
 	}
 #endif
-	begin_best = clock();
-	PickBestFea<<<1, 1>>>(manager.m_pLastValuePerThread,
-						  manager.m_pBestSplitPointPerThread, manager.m_pRChildStatPerThread, manager.m_pLChildStatPerThread,
-						  manager.m_pBuffIdVec, numofSNode, nNumofFeature, maxNumofSplittable);
+
+	float_point *pfBestGain;
+	int *pnBestGainKey;
+	int threadPerBlockFindBest;
+	dim3 dimNumofBlockFindBest;
+	conf.ConfKernel(nNumofFeature, threadPerBlockFindBest, dimNumofBlockFindBest);
+	PROCESS_ERROR(dimNumofBlockFindBest.y == 1);
+	dimNumofBlockFindBest.y = numofSNode;
+//	cout << "numof local best block is x=" << dimNumofBlockFindBest.x << " y=" << dimNumofBlockFindBest.y << endl;
+	int numofBlockLocalBest = dimNumofBlockFindBest.x * dimNumofBlockFindBest.y;
+	int numofBlockPerNode = dimNumofBlockFindBest.x;
+	checkCudaErrors(cudaMalloc((void**)&pfBestGain, sizeof(float_point) * maxNumofSplittable * numofBlockLocalBest));
+	checkCudaErrors(cudaMalloc((void**)&pnBestGainKey, sizeof(int) * maxNumofSplittable * numofBlockLocalBest));
+	PickLocalBestFea<<<dimNumofBlockFindBest, threadPerBlockFindBest>>>(
+					 manager.m_pBestSplitPointPerThread, manager.m_pBuffIdVec, numofSNode, nNumofFeature,
+					 maxNumofSplittable, pfBestGain, pnBestGainKey);
 	cudaDeviceSynchronize();
-	end_best = clock();
-	cout << "per fea = " << double(end_per_fea - begin_per_fea)/CLOCKS_PER_SEC << "; best=" << double(end_best - begin_best)/CLOCKS_PER_SEC << endl;
 #if testing
 	if(cudaGetLastError() != cudaSuccess)
 	{
-		cout << "error in PickBestFea" << endl;
+		cout << "error in PickLocalBestFea" << endl;
+		exit(0);
+	}
+#endif
+
+	int blockSizeBestFea = numofBlockPerNode;
+	if(blockSizeBestFea > conf.m_maxBlockSize)
+		blockSizeBestFea = conf.m_maxBlockSize;
+
+	PickGlobalBestFea<<<numofSNode, blockSizeBestFea>>>(manager.m_pLastValuePerThread,
+					  manager.m_pBestSplitPointPerThread, manager.m_pRChildStatPerThread, manager.m_pLChildStatPerThread,
+					  manager.m_pBuffIdVec, numofSNode, pfBestGain, pnBestGainKey, numofBlockPerNode);
+#if testing
+	if(cudaGetLastError() != cudaSuccess)
+	{
+		cout << "error in PickGlobalBestFea" << endl;
 		exit(0);
 	}
 #endif
@@ -114,8 +140,8 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 	manager.MemcpyDeviceToDevice(manager.m_pRChildStatPerThread, manager.m_pRChildStat, sizeof(nodeStat) * maxNumofSplittable);
 	manager.MemcpyDeviceToDevice(manager.m_pLChildStatPerThread, manager.m_pLChildStat, sizeof(nodeStat) * maxNumofSplittable);
 
-	//print best split points
 #if false
+	//print best split points
 	int *pTestBuffIdVect = new int[numofSNode];
 	manager.MemcpyDeviceToHost(manager.m_pBuffIdVec, pTestBuffIdVect, sizeof(int) * numofSNode);
 	SplitPoint *testBestSplitPoint = new SplitPoint[maxNumofSplittable];

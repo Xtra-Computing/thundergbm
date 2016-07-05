@@ -32,7 +32,7 @@ void DevicePredictor::PredictSparseIns(vector<vector<KeyValue> > &v_vInstance, v
 	cout << "numofUsedFea=" << numofUsedFea << " v.s. maxUsedFeaInTrees" << manager.m_maxUsedFeaInTrees << endl;
 	if(manager.m_maxUsedFeaInTrees < numofUsedFea)
 	{
-		cout << "numofUsedFea=" << numofUsedFea << " v.s. maxUsedFeaInTrees" << manager.m_maxUsedFeaInTrees << endl;
+		cout << "numofUsedFea=" << numofUsedFea << " v.s. maxUsedFeaInTrees " << manager.m_maxUsedFeaInTrees << endl;
 		exit(0);
 	}
 
@@ -60,11 +60,11 @@ void DevicePredictor::PredictSparseIns(vector<vector<KeyValue> > &v_vInstance, v
 	int *pNumofFea = manager.m_pDNumofFea + startInsId;
 	int numofInsToFill = nNumofIns;
 	KernelConf conf;
-	dim3 dimGridThreadForEachIns;
-	conf.ComputeBlock(numofInsToFill, dimGridThreadForEachIns);
-	int sharedMemSizeEachIns = 1;
+	int threadPerBlock;
+	dim3 dimNumofBlock;
+	conf.ConfKernel(numofInsToFill, threadPerBlock, dimNumofBlock);
 
-	FillMultiDense<<<dimGridThreadForEachIns, sharedMemSizeEachIns>>>(
+	FillMultiDense<<<dimNumofBlock, threadPerBlock>>>(
 										  pDevInsValue, pInsStartPos, pDevFeaId, pNumofFea, manager.m_pdDenseIns,
 										  manager.m_pSortedUsedFeaId, manager.m_pHashFeaIdToDenseInsPos,
 										  numofUsedFea, startInsId, numofInsToFill);
@@ -88,7 +88,7 @@ void DevicePredictor::PredictSparseIns(vector<vector<KeyValue> > &v_vInstance, v
 			int treeId = t;
 			GetTreeInfo(pTree, numofNodeOfTheTree, treeId);
 			PROCESS_ERROR(pTree != NULL);
-			PredMultiTarget<<<dimGridThreadForEachIns, sharedMemSizeEachIns>>>(
+			PredMultiTarget<<<dimNumofBlock, threadPerBlock>>>(
 														manager.m_pTargetValue, numofInsToFill, pTree,
 														manager.m_pdDenseIns, numofUsedFea,
 														manager.m_pHashFeaIdToDenseInsPos, treeManager.m_maxTreeDepth);

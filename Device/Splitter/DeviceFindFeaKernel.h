@@ -21,10 +21,14 @@ __global__ void FindFeaSplitValue(const int *pnNumofKeyValues, const long long *
 								  nodeStat *pRChildStatPerThread, nodeStat *pLChildStatPerThread,
 								  const int *pSNIdToBuffId, int maxNumofSplittable, const int *pBuffId, int numofSNode,
 								  float_point lambda, int numofFea);
-__global__ void PickBestFea(float_point *pLastValuePerThread,
+__global__ void PickLocalBestFea(const SplitPoint *pBestSplitPointPerThread, const int *pBuffId,
+								 int numofSNode, int numofFea, int maxNumofSplittable,
+								 float_point *pfBestGain, int *pnBestGainKey);
+__global__ void PickGlobalBestFea(float_point *pLastValuePerThread,
 							SplitPoint *pBestSplitPointPerThread, nodeStat *pRChildStatPerThread, nodeStat *pLChildStatPerThread,
-							const int *pBuffId, int numofSNode, int numofFea, int maxNumofSplittable);
+							const int *pBuffId, int numofSNode, const float_point *pfBestGain, const int *pnBestGainKey, int numofBlockPerNode);
 
+//helper functions on device
 __device__ double CalGain(const nodeStat &parent, const nodeStat &r_child,
 						  const float_point &l_child_GD, const float_point &l_child_Hess, const float_point &lambda);
 

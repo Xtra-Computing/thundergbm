@@ -41,10 +41,10 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 
 	//compute the base_weight of tree node, also determines if a node is a leaf.
 	KernelConf conf;
-	dim3 dimGridThreadForEachSN;
-	conf.ComputeBlock(manager.m_curNumofSplitable, dimGridThreadForEachSN);
-	int sharedMemSizeSN = 1;
-	ComputeWeight<<<dimGridThreadForEachSN, sharedMemSizeSN>>>(snManager.m_pTreeNode, manager.m_pSplittableNode, manager.m_pSNIdToBuffId,
+	int threadPerBlock;
+	dim3 dimNumofBlock;
+	conf.ConfKernel(manager.m_curNumofSplitable, threadPerBlock, dimNumofBlock);
+	ComputeWeight<<<dimNumofBlock, threadPerBlock>>>(snManager.m_pTreeNode, manager.m_pSplittableNode, manager.m_pSNIdToBuffId,
 			  	  	  	  	  manager.m_pBestSplitPoint, manager.m_pSNodeStat, rt_eps, LEAFNODE,
 			  	  	  	  	  m_lambda, manager.m_curNumofSplitable, bLastLevel);
 #if testing
@@ -57,7 +57,7 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 
 	//copy the number of nodes in the tree to the GPU memory
 	manager.Memset(snManager.m_pNumofNewNode, 0, sizeof(int));
-	CreateNewNode<<<dimGridThreadForEachSN, sharedMemSizeSN>>>(
+	CreateNewNode<<<dimNumofBlock, threadPerBlock>>>(
 							snManager.m_pTreeNode, manager.m_pSplittableNode, snManager.m_pNewSplittableNode,
 							manager.m_pSNIdToBuffId, manager.m_pBestSplitPoint,
 							snManager.m_pParentId, snManager.m_pLeftChildId, snManager.m_pRightChildId,
@@ -74,7 +74,7 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 	manager.Memset(snManager.m_pFeaIdToBuffId, -1, sizeof(int) * snManager.m_maxNumofUsedFea);
 	manager.Memset(snManager.m_pUniqueFeaIdVec, -1, sizeof(int) * snManager.m_maxNumofUsedFea);
 	manager.Memset(snManager.m_pNumofUniqueFeaId, 0, sizeof(int));
-	GetUniqueFid<<<dimGridThreadForEachSN, sharedMemSizeSN>>>(snManager.m_pTreeNode, manager.m_pSplittableNode, manager.m_curNumofSplitable,
+	GetUniqueFid<<<dimNumofBlock, threadPerBlock>>>(snManager.m_pTreeNode, manager.m_pSplittableNode, manager.m_curNumofSplitable,
 							 snManager.m_pFeaIdToBuffId, snManager.m_pUniqueFeaIdVec, snManager.m_pNumofUniqueFeaId,
 			 	 	 	 	 snManager.m_maxNumofUsedFea, LEAFNODE, manager.m_nSNLock);
 #if testing
@@ -119,11 +119,11 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 #endif
 
 	//for those instances of unknown feature values.
-	dim3 dimGridThreadForEachIns;
-	conf.ComputeBlock(manager.m_numofIns, dimGridThreadForEachIns);
-	int sharedMemSizeIns = 1;
+	int threadPerBlockEachIns;
+	dim3 dimNumofBlockEachIns;
+	conf.ConfKernel(manager.m_numofIns, threadPerBlockEachIns, dimNumofBlockEachIns);
 
-	InsToNewNodeByDefault<<<dimGridThreadForEachIns, sharedMemSizeIns>>>(
+	InsToNewNodeByDefault<<<dimNumofBlockEachIns, threadPerBlockEachIns>>>(
 									snManager.m_pTreeNode, manager.m_pInsIdToNodeId, manager.m_pSNIdToBuffId,
 									snManager.m_pParentId, snManager.m_pLeftChildId,
 			   	   	   	   	   	   	preMaxNodeId, manager.m_numofIns, LEAFNODE);
