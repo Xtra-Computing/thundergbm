@@ -10,6 +10,7 @@
 #define RMSE_H_
 
 #include <vector>
+#include "../../DeviceHost/DefineConst.h"
 
 using std::vector;
 
@@ -17,9 +18,9 @@ class EvalRMSE
 {
 public:
   char *Name(void);
-  float EvalRow(float label, float pred);
-  float GetFinal(float esum, float wsum);
-  float Eval(const vector<double> &preds, const vector<double> &labels);
+  float EvalRow(float_point label, float_point pred);
+  float GetFinal(float_point esum, float_point wsum);
+  float Eval(const vector<float_point> &preds, const vector<float_point> &labels);
 };
 
 

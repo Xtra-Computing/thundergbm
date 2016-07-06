@@ -129,7 +129,7 @@ void BaseTrainer::SaveModel(string fileName, const vector<RegTree> &v_Tree)
 /**
  * @brief: print the predicted values
  */
-void BaseTrainer::PrintPrediction(const vector<double> &vPred)
+void BaseTrainer::PrintPrediction(const vector<float_point> &vPred)
 {
 	int n = vPred.size();
 	ofstream out("prediction.txt");

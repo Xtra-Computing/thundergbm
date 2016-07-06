@@ -23,8 +23,13 @@
 #include "Device/initCuda.h"
 #include "Host/PureHostGBDTMain.h"
 
-int main()
+
+#include "Device/prefixSum.h"
+
+int main(int argc, char *argv[])
 {
+//	TestPrefixSum(argc, argv);
+//	return 1;
 	string strFileName = "data/normalized_amz.txt";
 
 //	mainPureHost(strFileName);
@@ -62,7 +67,7 @@ int main()
 	long long nNumofValue;
 	dataReader.GetDataInfo(strFileName, nNumofFeatures, nNumofExamples, nNumofValue);
 
-	vector<double> v_fLabel;
+	vector<float_point> v_fLabel;
 	vector<vector<KeyValue> > v_vInsSparse;
 	dataReader.ReadLibSVMFormatSparse(v_vInsSparse, v_fLabel, strFileName, nNumofFeatures, nNumofExamples);
 	cout << "data has " << nNumofFeatures << " features and " << nNumofExamples << " instances" << endl;
@@ -183,7 +188,7 @@ int main()
 
 	//run the GBDT prediction process
 	clock_t begin_pre, end_pre;
-	vector<double> v_fPredValue;
+	vector<float_point> v_fPredValue;
 
 	begin_pre = clock();
 	pred.PredictSparseIns(v_vInsSparse, v_Tree, v_fPredValue);

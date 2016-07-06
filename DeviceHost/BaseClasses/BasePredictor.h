@@ -20,8 +20,8 @@ public:
 	virtual~BasePredictor(){}
 
 	void PredictSparseInsByLastTree(vector<vector<KeyValue> > &v_vInstance, vector<RegTree> &v_Tree,
-					   	  vector<double> &v_fPredValue, vector<double> &v_predBuffer);
-	virtual void PredictSparseIns(vector<vector<KeyValue> > &v_vInstance, vector<RegTree> &vTree, vector<double> &v_fPredValue) = 0;
+					   	  vector<float_point> &v_fPredValue, vector<float_point> &v_predBuffer);
+	virtual void PredictSparseIns(vector<vector<KeyValue> > &v_vInstance, vector<RegTree> &vTree, vector<float_point> &v_fPredValue) = 0;
 };
 
 

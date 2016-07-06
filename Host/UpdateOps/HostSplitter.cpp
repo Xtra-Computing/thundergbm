@@ -319,7 +319,7 @@ void HostSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Spli
  */
 void HostSplitter::ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> > & vvInsSparse)
 {
-	vector<double> v_fPredValue;
+	vector<float_point> v_fPredValue;
 
 	HostPredictor pred;
 	pred.PredictSparseInsByLastTree(vvInsSparse, vTree, v_fPredValue, m_vPredBuffer);
@@ -328,7 +328,7 @@ void HostSplitter::ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> > &
 	{
 		//run the GBDT prediction process
 		EvalRMSE rmse;
-		double fRMSE = rmse.Eval(v_fPredValue, m_vTrueValue);
+		float_point fRMSE = rmse.Eval(v_fPredValue, m_vTrueValue);
 		cout << "rmse=" << fRMSE << endl;
 	}
 
@@ -338,7 +338,7 @@ void HostSplitter::ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> > &
 /**
  * @brief: compute the first order gradient and the second order gradient
  */
-void HostSplitter::ComputeGDSparse(vector<double> &v_fPredValue, vector<double> &m_vTrueValue_fixedPos)
+void HostSplitter::ComputeGDSparse(vector<float_point> &v_fPredValue, vector<float_point> &m_vTrueValue_fixedPos)
 {
 	nodeStat rootStat;
 	int nTotal = m_vTrueValue_fixedPos.size();

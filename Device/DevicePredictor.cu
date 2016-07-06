@@ -22,7 +22,7 @@
 /**
  * @brief: prediction function for sparse instances
  */
-void DevicePredictor::PredictSparseIns(vector<vector<KeyValue> > &v_vInstance, vector<RegTree> &vTree, vector<double> &v_fPredValue)
+void DevicePredictor::PredictSparseIns(vector<vector<KeyValue> > &v_vInstance, vector<RegTree> &vTree, vector<float_point> &v_fPredValue)
 {
 	GBDTGPUMemManager manager;
 	DTGPUMemManager treeManager;

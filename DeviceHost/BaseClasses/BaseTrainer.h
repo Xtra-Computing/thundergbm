@@ -28,7 +28,7 @@ public:
 	int m_nMaxDepth;
 
 //	vector<vector<double> > m_vvInstance;
-	vector<double> m_vTrueValue;
+	vector<float_point> m_vTrueValue;
 
 	/*** for more efficient on finding the best split value of a feature ***/
 	vector<vector<KeyValue> > m_vvInsSparse;
@@ -38,7 +38,7 @@ private:
 public:
 	int m_nNumofNode;
 	Pruner pruner;
-	vector<double> m_vPredBuffer;
+	vector<float_point> m_vPredBuffer;
 
 public:
 	BaseTrainer(BaseSplitter *pSplitter){splitter = pSplitter;}
@@ -56,7 +56,7 @@ protected:
 private:
 //for debugging
 	void PrintTree(const RegTree &tree);
-	void PrintPrediction(const vector<double> &vPred);
+	void PrintPrediction(const vector<float_point> &vPred);
 
 public:
 	double total_find_fea_t;

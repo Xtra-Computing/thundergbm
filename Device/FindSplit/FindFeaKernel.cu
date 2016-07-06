@@ -14,6 +14,22 @@
 
 const float rt_2eps = 2.0 * DeviceSplitter::rt_eps;
 
+//helper functions on device
+__device__ double CalGain(const nodeStat &parent, const nodeStat &r_child,
+						  const float_point &l_child_GD, const float_point &l_child_Hess, const float_point &lambda);
+
+__device__ bool UpdateSplitPoint(SplitPoint &curBest, double fGain, double fSplitValue, int nFeatureId);
+
+__device__ void UpdateLRStat(nodeStat &RChildStat, nodeStat &LChildStat,
+							 const nodeStat &TempRChildStat, const float_point &grad, const float_point &hess);
+__device__ bool NeedUpdate(float_point &RChildHess, float_point &LChildHess);
+__device__ void UpdateSplitInfo(const nodeStat &snStat, SplitPoint &bestSP, nodeStat &RChildStat, nodeStat &LChildStat,
+								const nodeStat &TempRChildStat, const float_point &tempGD, const float_point &temHess,
+								const float_point &lambda, const float_point &sv, const int &featureId);
+
+/**
+ * @brief: each thread processes one feature
+ */
 __global__ void FindFeaSplitValue(const int *pnNumofKeyValues, const long long *pnFeaStartPos, const int *pInsId, const float_point *pFeaValue,
 								  const int *pInsIdToNodeId, const float_point *pGD, const float_point *pHess,
 								  nodeStat *pTempRChildStatPerThread, float_point *pLastValuePerThread,
@@ -122,6 +138,77 @@ __global__ void FindFeaSplitValue(const int *pnNumofKeyValues, const long long *
     }
 }
 
+/**
+ * @brief: copy the gd, hess and feaValue for each node based on some features on similar number of values
+ */
+__global__ void ObtainGDEachNode(const int *pnNumofKeyValues, const long long *pnFeaStartPos, const int *pInsId, const float_point *pFeaValue,
+		  const int *pInsIdToNodeId, const float_point *pGD, const float_point *pHess,  int numofSNode, int smallestFeaId, int totalNumofFea, int feaBatch,
+		  float_point *pGDOnEachFeaValue, float_point *pHessOnEachFeaValue, float_point *pValueOneEachFeaValue)
+{
+	//blockIdx.x corresponds to a feature which has multiple values
+	//blockIdx.y corresponds to a feature id
+	//blockIdx.z corresponds to a splittable node id
+	//## global id looks ok, but need to be careful
+	int nGlobalThreadId = (blockIdx.z * gridDim.y * gridDim.x + blockIdx.y * gridDim.x + blockIdx.x) * blockDim.x + threadIdx.x;
+
+	int snId = blockIdx.z;
+	if(snId >= numofSNode)
+		printf("# of block groups is larger than # of splittable nodes: %d v.s. %d\n", snId, numofSNode);
+	int feaId = blockIdx.y + smallestFeaId;//###### need to add a shift here to process only part of the features
+	int numofValuePerFea = gridDim.x * blockDim.x;
+	if(feaId >= totalNumofFea)
+		printf("# of block groups is larger than # of features: %d v.s. %d\n", feaId, totalNumofFea);
+
+	//addresses of instance ids and key-value pairs
+		//compute start position key-value pairs of the current feature
+	long long startPosOfPrevFea = 0;
+	int numofPreFeaKeyValues = 0;
+
+	if(feaId > 0)
+	{
+		//number of key values of the previous feature
+		numofPreFeaKeyValues = pnNumofKeyValues[feaId - 1];
+		//copy value of the start position of the previous feature
+		startPosOfPrevFea = pnFeaStartPos[feaId - 1];
+	}
+	int tidForEachFeaValue = blockIdx.x * blockDim.x + threadIdx.x;
+	if(tidForEachFeaValue >= numofValuePerFea)
+	{
+		printf("numofValuePerFea is smaller than the numof threads!\n");
+	}
+
+	long long startPosOfCurFea = startPosOfPrevFea + numofPreFeaKeyValues;
+	const int *InsIdStartAddress = pInsId + startPosOfCurFea;
+	const float_point *pInsValueStartAddress = pFeaValue + startPosOfCurFea;
+
+	int insId = InsIdStartAddress[tidForEachFeaValue];
+	int nid = pInsIdToNodeId[insId];
+	if(nid < -1)
+	{
+		printf("Error: nid=%d\n", nid);
+		return;
+	}
+	if(nid == -1)
+	{//some leave nodes
+	}
+	else
+	{//some splittable nodes
+		int bufferPos = snId * numofValuePerFea * feaBatch + feaId * numofValuePerFea + tidForEachFeaValue;
+		if(pGDOnEachFeaValue[bufferPos] != 0 || pHessOnEachFeaValue[bufferPos]!= 0 || pValueOneEachFeaValue[bufferPos] != 0)
+			printf("default value of gd/hess/fvalue is incorrect in ObtainGDEachNode.\n");
+		pGDOnEachFeaValue[bufferPos] = pGD[insId];
+		pHessOnEachFeaValue[bufferPos] = pHess[insId];
+		pValueOneEachFeaValue[bufferPos] = pInsValueStartAddress[tidForEachFeaValue];
+	}
+}
+
+/**
+ * @brief: compute the prefix sum for gd and hess
+ */
+__global__ void PrefixSumForEachNode(int feaBatch, float_point *pGDOnEachFeaValue, float_point *pHessOnEachFeaValue, float_point *pValueOneEachFeaValue)
+{
+
+}
 
 
 __device__ double CalGain(const nodeStat &parent, const nodeStat &r_child,

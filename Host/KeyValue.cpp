@@ -86,7 +86,7 @@ void KeyValue::SortFeaValue(int nNumofDim, vector<vector<KeyValue> > &vvInsSpars
  * @pdValue: all the feature values
  * @pNumofKeyValue: number of key-value pairs of each feature
  */
-void KeyValue::VecToArray(vector<vector<KeyValue> > &vvKeyValuePair, int *pId, double *pdValue, int *pNumofKeyValue, long long *plStartPos)
+void KeyValue::VecToArray(vector<vector<KeyValue> > &vvKeyValuePair, int *pId, float_point *pdValue, int *pNumofKeyValue, long long *plStartPos)
 {
 	PROCESS_ERROR(pId != NULL);
 	PROCESS_ERROR(pdValue != NULL);
@@ -117,7 +117,7 @@ void KeyValue::VecToArray(vector<vector<KeyValue> > &vvKeyValuePair, int *pId, d
 /**
  * @brief: a function to test VecToArry
  */
-void KeyValue::TestVecToArray(vector<vector<KeyValue> > &vvFeaInxPair, int *pInsId, double *pdValue, int *pNumofKeyValue)
+void KeyValue::TestVecToArray(vector<vector<KeyValue> > &vvFeaInxPair, int *pInsId, float_point *pdValue, int *pNumofKeyValue)
 {
 	PROCESS_ERROR(pInsId != NULL);
 	PROCESS_ERROR(pdValue != NULL);

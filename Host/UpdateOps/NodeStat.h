@@ -12,14 +12,15 @@
 
 #include <iostream>
 #include "../../DeviceHost/MyAssert.h"
+#include "../../DeviceHost/DefineConst.h"
 
 using std::cout;
 using std::endl;
 
 class nodeStat{
 public:
-	double sum_gd;
-	double sum_hess;
+	float_point sum_gd;
+	float_point sum_hess;
 
 	nodeStat()
 	{
@@ -38,7 +39,7 @@ public:
 		sum_hess = parent.sum_hess - r_child.sum_hess;
 		PROCESS_ERROR(sum_hess >= 0);
 	}
-	void Add(double gd, double hess)
+	void Add(float_point gd, float_point hess)
 	{
 		sum_gd += gd;
 		sum_hess += hess;

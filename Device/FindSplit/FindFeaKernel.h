@@ -28,18 +28,5 @@ __global__ void PickGlobalBestFea(float_point *pLastValuePerThread,
 							SplitPoint *pBestSplitPointPerThread, nodeStat *pRChildStatPerThread, nodeStat *pLChildStatPerThread,
 							const int *pBuffId, int numofSNode, const float_point *pfBestGain, const int *pnBestGainKey, int numofBlockPerNode);
 
-//helper functions on device
-__device__ double CalGain(const nodeStat &parent, const nodeStat &r_child,
-						  const float_point &l_child_GD, const float_point &l_child_Hess, const float_point &lambda);
-
-__device__ bool UpdateSplitPoint(SplitPoint &curBest, double fGain, double fSplitValue, int nFeatureId);
-
-__device__ void UpdateLRStat(nodeStat &RChildStat, nodeStat &LChildStat,
-							 const nodeStat &TempRChildStat, const float_point &grad, const float_point &hess);
-__device__ bool NeedUpdate(float_point &RChildHess, float_point &LChildHess);
-__device__ void UpdateSplitInfo(const nodeStat &snStat, SplitPoint &bestSP, nodeStat &RChildStat, nodeStat &LChildStat,
-								const nodeStat &TempRChildStat, const float_point &tempGD, const float_point &temHess,
-								const float_point &lambda, const float_point &sv, const int &featureId);
-
 
 #endif /* DEVICESPLITTERKERNEL_H_ */

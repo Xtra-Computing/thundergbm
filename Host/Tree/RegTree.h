@@ -12,6 +12,7 @@
 #include <map>
 #include <vector>
 #include "../../DeviceHost/TreeNode.h"
+#include "../../DeviceHost/DefineConst.h"
 
 using std::vector;
 using std::map;
@@ -30,9 +31,9 @@ public:
 	}
 
  public:
-  int GetLeafIndex(vector<double> &ins);
+  int GetLeafIndex(vector<float_point> &ins);
 
-  int GetLeafIdSparseInstance(vector<double> &ins, map<int, int> &fidToDensePos);
+  int GetLeafIdSparseInstance(vector<float_point> &ins, map<int, int> &fidToDensePos);
 
 //  /*!
 //   * \brief get the prediction of regression tree, only accepts dense feature vector

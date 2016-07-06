@@ -31,19 +31,19 @@ public:
 		fidToDensePos.clear();
 		InitDenseInsConverter(vTree);
 	}
-	void SparseToDense(const vector<KeyValue> &sparseIns, vector<double> &denseIns);
+	void SparseToDense(const vector<KeyValue> &sparseIns, vector<float_point> &denseIns);
 	int GetPosofDenseIns(int fid);
 
 private:
 	void InitDenseInsConverter(const vector<RegTree>& vTree);
 	void GetFeatures(const vector<RegTree>& vTree);
 	void GetFidToDensePos();
-	void PushDenseIns(vector<double> &denseIns, int &curDenseTop, double value);
+	void PushDenseIns(vector<float_point> &denseIns, int &curDenseTop, float_point value);
 
 	//for debugging
 public:
 	void PrintFeatureVector();
-	void PrintDenseVec(const vector<double> &vDense);
+	void PrintDenseVec(const vector<float_point> &vDense);
 };
 
 

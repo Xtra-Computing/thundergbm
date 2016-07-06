@@ -19,7 +19,7 @@ using std::vector;
 class HostPredictor: public BasePredictor
 {
 public:
-	virtual void PredictSparseIns(vector<vector<KeyValue> > &v_vInstance, vector<RegTree> &vTree, vector<double> &v_fPredValue);
+	virtual void PredictSparseIns(vector<vector<KeyValue> > &v_vInstance, vector<RegTree> &vTree, vector<float_point> &v_fPredValue);
 };
 
 #endif /* PREDICTOR_H_ */
