@@ -15,10 +15,10 @@
 const float rt_2eps = 2.0 * DeviceSplitter::rt_eps;
 
 //helper functions on device
-__device__ double CalGain(const nodeStat &parent, const nodeStat &r_child,
+__device__ float_point CalGain(const nodeStat &parent, const nodeStat &r_child,
 						  const float_point &l_child_GD, const float_point &l_child_Hess, const float_point &lambda);
 
-__device__ bool UpdateSplitPoint(SplitPoint &curBest, double fGain, double fSplitValue, int nFeatureId);
+__device__ bool UpdateSplitPoint(SplitPoint &curBest, float_point fGain, float_point fSplitValue, int nFeatureId);
 
 __device__ void UpdateLRStat(nodeStat &RChildStat, nodeStat &LChildStat,
 							 const nodeStat &TempRChildStat, const float_point &grad, const float_point &hess);
@@ -73,7 +73,7 @@ __global__ void FindFeaSplitValue(const int *pnNumofKeyValues, const long long *
 			continue;
 
 		// start working
-		double fvalue = pInsValueStartAddress[i];
+		float_point fvalue = pInsValueStartAddress[i];
 
 		// get the buffer id of node nid
 		int hashValue = GetBufferId(pSNIdToBuffId, nid, maxNumofSplittable);
@@ -96,10 +96,10 @@ __global__ void FindFeaSplitValue(const int *pnNumofKeyValues, const long long *
 				bool needUpdate = NeedUpdate(pTempRChildStatPerThread[bufferPos].sum_hess, tempHess);
 				if(needUpdate == true)
 				{
-					double sv = (fvalue + pLastValuePerThread[bufferPos]) * 0.5f;
+					float_point sv = (fvalue + pLastValuePerThread[bufferPos]) * 0.5f;
 					if(hashValue == 1)
 					{
-//						double loss_chg = CalGain(pSNodeStatPerThread[bufferPos], pTempRChildStatPerThread[bufferPos], tempGD, tempHess, lambda);
+//						float_point loss_chg = CalGain(pSNodeStatPerThread[bufferPos], pTempRChildStatPerThread[bufferPos], tempGD, tempHess, lambda);
 //						printf("nid=%d, sv=%f, gain=%f\n", nid, sv, loss_chg);
 					}
 
@@ -205,24 +205,24 @@ __global__ void ObtainGDEachNode(const int *pnNumofKeyValues, const long long *p
 /**
  * @brief: compute the prefix sum for gd and hess
  */
-__global__ void PrefixSumForEachNode(int feaBatch, float_point *pGDOnEachFeaValue, float_point *pHessOnEachFeaValue, float_point *pValueOneEachFeaValue)
+__global__ void PrefixSumForEachNode(int feaBatch, float_point *pGDOnEachFeaValue, float_point *pHessOnEachFeaValue)
 {
 
 }
 
 
-__device__ double CalGain(const nodeStat &parent, const nodeStat &r_child,
+__device__ float_point CalGain(const nodeStat &parent, const nodeStat &r_child,
 						  const float_point &l_child_GD, const float_point &l_child_Hess,
 						  const float_point &lambda)
 {
-	PROCESS_ERROR(abs(parent.sum_gd - l_child_GD - r_child.sum_gd) < 0.0001);
-	PROCESS_ERROR(parent.sum_hess == l_child_Hess + r_child.sum_hess);
+//	PROCESS_ERROR(abs(parent.sum_gd - l_child_GD - r_child.sum_gd) < 0.0001);
+//	PROCESS_ERROR(parent.sum_hess == l_child_Hess + r_child.sum_hess);
 
 //	printf("lgd=%f, lhe=%f, rgd=%f, rhe=%f, pgd=%f, phe=%f, lamb=%f\n", l_child_GD, l_child_Hess,
 //			r_child.sum_gd, r_child.sum_hess, parent.sum_gd, parent.sum_hess, lambda);
 
 	//compute the gain
-	double fGain = (l_child_GD * l_child_GD)/(l_child_Hess + lambda) +
+	float_point fGain = (l_child_GD * l_child_GD)/(l_child_Hess + lambda) +
 				   (r_child.sum_gd * r_child.sum_gd)/(r_child.sum_hess + lambda) -
 				   (parent.sum_gd * parent.sum_gd)/(parent.sum_hess + lambda);
 //	if(fGain > -10)
@@ -236,7 +236,7 @@ __device__ double CalGain(const nodeStat &parent, const nodeStat &r_child,
 }
 
 
- __device__ bool UpdateSplitPoint(SplitPoint &curBest, double fGain, double fSplitValue, int nFeatureId)
+ __device__ bool UpdateSplitPoint(SplitPoint &curBest, float_point fGain, float_point fSplitValue, int nFeatureId)
 {
 	if(fGain > curBest.m_fGain )//|| (fGain == m_fGain && nFeatureId == m_nFeatureId) NOT USE (second condition is for updating to a new split value)
 	{
@@ -267,7 +267,7 @@ __device__ void UpdateSplitInfo(const nodeStat &snStat, SplitPoint &bestSP, node
 								const nodeStat &TempRChildStat, const float_point &tempGD, const float_point &tempHess,
 								const float_point &lambda, const float_point &sv, const int &featureId)
 {
-	double loss_chg = CalGain(snStat, TempRChildStat, tempGD, tempHess, lambda);
+	float_point loss_chg = CalGain(snStat, TempRChildStat, tempGD, tempHess, lambda);
     bool bUpdated = UpdateSplitPoint(bestSP, loss_chg, sv, featureId);
 	if(bUpdated == true)
 	{

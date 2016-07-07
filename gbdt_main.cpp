@@ -28,9 +28,9 @@
 
 int main(int argc, char *argv[])
 {
-//	TestPrefixSum(argc, argv);
-//	return 1;
-	string strFileName = "data/normalized_amz.txt";
+	TestPrefixSum(argc, argv);
+	return 1;
+	string strFileName = "data/abalone.txt";
 
 //	mainPureHost(strFileName);
 //	return 1;
