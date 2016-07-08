@@ -24,7 +24,7 @@
 #include "Host/PureHostGBDTMain.h"
 
 
-#include "Device/prefixSum.h"
+#include "Device/prefix-sum/prefixSum.h"
 
 int main(int argc, char *argv[])
 {

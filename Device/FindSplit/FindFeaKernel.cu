@@ -11,6 +11,7 @@
 #include "FindFeaKernel.h"
 #include "../Splitter/DeviceSplitter.h"
 #include "../DeviceHashing.h"
+#include "../prefix-sum/prefixSum.h"
 
 const float rt_2eps = 2.0 * DeviceSplitter::rt_eps;
 
@@ -196,6 +197,8 @@ __global__ void ObtainGDEachNode(const int *pnNumofKeyValues, const long long *p
 		int bufferPos = snId * numofValuePerFea * feaBatch + feaId * numofValuePerFea + tidForEachFeaValue;
 		if(pGDOnEachFeaValue[bufferPos] != 0 || pHessOnEachFeaValue[bufferPos]!= 0 || pValueOneEachFeaValue[bufferPos] != 0)
 			printf("default value of gd/hess/fvalue is incorrect in ObtainGDEachNode.\n");
+
+		//GD/Hess of the same node is stored consecutively.
 		pGDOnEachFeaValue[bufferPos] = pGD[insId];
 		pHessOnEachFeaValue[bufferPos] = pHess[insId];
 		pValueOneEachFeaValue[bufferPos] = pInsValueStartAddress[tidForEachFeaValue];
@@ -205,9 +208,17 @@ __global__ void ObtainGDEachNode(const int *pnNumofKeyValues, const long long *p
 /**
  * @brief: compute the prefix sum for gd and hess
  */
-__global__ void PrefixSumForEachNode(int feaBatch, float_point *pGDOnEachFeaValue, float_point *pHessOnEachFeaValue)
+void PrefixSumForEachNode(int feaBatch, float_point *pGDOnEachFeaValue_d, float_point *pHessOnEachFeaValue_d,
+						  const int *pnStartPosEachFeaInBatch, const int *pnEachFeaLen)
 {
+	prefixsumForDeviceArray(pGDOnEachFeaValue_d, pnStartPosEachFeaInBatch, pnEachFeaLen, feaBatch);
+	prefixsumForDeviceArray(pHessOnEachFeaValue_d, pnStartPosEachFeaInBatch, pnEachFeaLen, feaBatch);
+}
 
+__global__ void ComputeGain(const nodeStat *pSNodeStatPerThread, int feaBatch, float_point *pGDOnEachFeaValue_d,
+							float_point *pHessOnEachFeaValue_d, const int *pnStartPosEachFeaInBatch, const int *pnEachFeaLen)
+{
+	int nGlobalThreadId = (blockIdx.z * gridDim.y * gridDim.x + blockIdx.y * gridDim.x + blockIdx.x) * blockDim.x + threadIdx.x;
 }
 
 
