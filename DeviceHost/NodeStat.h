@@ -11,8 +11,8 @@
 
 
 #include <iostream>
-#include "../../DeviceHost/MyAssert.h"
-#include "../../DeviceHost/DefineConst.h"
+#include "MyAssert.h"
+#include "DefineConst.h"
 
 using std::cout;
 using std::endl;

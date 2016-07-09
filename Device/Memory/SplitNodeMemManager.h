@@ -9,7 +9,7 @@
 #define SPLITNODEGPUMEMMANAGER_H_
 
 #include "../../DeviceHost/TreeNode.h"
-#include "../../Host/UpdateOps/NodeStat.h"
+#include "../../DeviceHost/NodeStat.h"
 
 class SNGPUManager
 {

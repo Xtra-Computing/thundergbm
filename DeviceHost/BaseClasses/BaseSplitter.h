@@ -17,7 +17,7 @@
 #include "../TreeNode.h"
 #include "../../Host/KeyValue.h"
 #include "../../Host/UpdateOps/SplitPoint.h"
-#include "../../Host/UpdateOps/NodeStat.h"
+#include "../NodeStat.h"
 #include "../../Host/GDPair.h"
 
 using std::vector;

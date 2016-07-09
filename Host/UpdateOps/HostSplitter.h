@@ -16,7 +16,7 @@
 #include "../../DeviceHost/TreeNode.h"
 #include "../KeyValue.h"
 #include "SplitPoint.h"
-#include "NodeStat.h"
+#include "../../DeviceHost/NodeStat.h"
 #include "../GDPair.h"
 #include "../../DeviceHost/BaseClasses/BaseSplitter.h"
 

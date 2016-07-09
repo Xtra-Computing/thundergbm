@@ -6,6 +6,7 @@
  *		@brief: 
  */
 
+#include <stdio.h>
 #include "prefixSum.h"
 
 #define NUM_BANKS 16
@@ -15,11 +16,12 @@
 #define NUM_BLOCKS 511
 #define BLOCK_SIZE 512
 
-
+#define testing true
 /**
  * @brief: compute prefix sum for in_array which contains multiple arrays of similar length
  */
-__global__ void cuda_prefixsum(T *in_array, T *out_array, int *arrayStartPos, int numofBlock, unsigned int *pnThreadLastBlock, unsigned int *pnEltsLastBlock)
+__global__ void cuda_prefixsum(T *in_array, int in_array_size, T *out_array, const int *arrayStartPos,
+							   int numofBlockPerSubArray, unsigned int *pnThreadLastBlock, unsigned int *pnEltsLastBlock)
 {
 	// shared should be sized to blockDim.x
 	extern __shared__ T shared[];
@@ -27,18 +29,18 @@ __global__ void cuda_prefixsum(T *in_array, T *out_array, int *arrayStartPos, in
 	unsigned int array_id = blockIdx.y;	//blockIdx.y corresponds to an array to compute prefix sum
 	int numEltsLastBlock = pnEltsLastBlock[array_id];
 	int numThreadLastBlock = pnThreadLastBlock[array_id];
-	unsigned int array_len = (numofBlock - 1) * blockDim.x + numEltsLastBlock;
+	unsigned int array_len = (numofBlockPerSubArray - 1) * blockDim.x + numEltsLastBlock;
 	unsigned int tid = threadIdx.x;
 	unsigned int b_offset = arrayStartPos[array_id] + blockIdx.x * blockDim.x;//in_array offset due to multi blocks
 	unsigned int offset = 1;
 
 	int numElementInBlock;
-	if(blockIdx.x < numofBlock - 1)//not the last block
+	if(blockIdx.x < numofBlockPerSubArray - 1)//not the last block
 		numElementInBlock = blockDim.x;
 	else//the last block
 		numElementInBlock = numThreadLastBlock * 2;
 
-	if((blockIdx.x == numofBlock - 1) && (tid >= numThreadLastBlock))//skip threads with large indices
+	if((blockIdx.x == numofBlockPerSubArray - 1) && (tid >= numThreadLastBlock))//skip threads with large indices
 		return;
 
 	int i = tid;
@@ -47,11 +49,30 @@ __global__ void cuda_prefixsum(T *in_array, T *out_array, int *arrayStartPos, in
 	int offset_i = CONFLICT_FREE_OFFSET(i);
 	int offset_j = CONFLICT_FREE_OFFSET(j);
 
+#if testing
+	if(i + offset_i >= blockDim.x * 2)
+		printf("index is out of bound of shared memory: i=%d, offset_i=%d\n", i, offset_i);
+	if(i + b_offset >= in_array_size)
+	{
+		printf("index is out of bound of array: i=%d, b_offset=%d, array size=%d\n", i, b_offset, in_array_size);
+	}
+#endif
+
 	shared[i + offset_i] = in_array[i + b_offset];
-	if((blockIdx.x == numofBlock - 1) && j >= numEltsLastBlock)
+	if((blockIdx.x == numofBlockPerSubArray - 1) && j >= numEltsLastBlock)//the last block
 		shared[j + offset_j] = 0;
 	else
+	{
 		shared[j + offset_j] = in_array[j + b_offset];
+#if testing
+	if(j + offset_j >= blockDim.x * 2)
+		printf("index is out of bound of shared memory: j=%d, offset_j=%d\n", j, offset_j);
+	if(j + b_offset >= in_array_size)
+	{
+		printf("index is out of bound of array: j=%d, b_offset=%d, array size=%d\n", j, b_offset, in_array_size);
+	}
+#endif
+	}
 
 	// scan up
 	for (int s = (numElementInBlock >> 1); s > 0; s >>= 1)
@@ -102,7 +123,7 @@ __global__ void cuda_prefixsum(T *in_array, T *out_array, int *arrayStartPos, in
 		{
 			// re-calc the last element, drop it in out array
 			int lastElementPos = numElementInBlock - 1;
-			if((blockIdx.x == numofBlock - 1) && lastElementPos >= numEltsLastBlock)//last block
+			if((blockIdx.x == numofBlockPerSubArray - 1) && lastElementPos >= numEltsLastBlock)//last block
 			{
 				lastElementPos = numEltsLastBlock - 1;
 			}
@@ -111,7 +132,7 @@ __global__ void cuda_prefixsum(T *in_array, T *out_array, int *arrayStartPos, in
 			out_array[blockIdx.x] = in_array[b_offset + lastElementPos];//block sum
 		}
 
-		if (blockIdx.x < numofBlock - 1)//not last block
+		if (blockIdx.x < numofBlockPerSubArray - 1)//not last block
 			in_array[b_offset + j - 1] = shared[j + offset_j];
 		else//last block
 		{
@@ -127,7 +148,7 @@ __global__ void cuda_prefixsum(T *in_array, T *out_array, int *arrayStartPos, in
 /**
  * @brief: post processing of prefix sum for large array
  */
-__global__ void cuda_updatesum(T *array, int *arrayStartPos, T *update_array)
+__global__ void cuda_updatesum(T *array, const int *arrayStartPos, T *update_array)
 {
 	extern __shared__ T shared[];
 
