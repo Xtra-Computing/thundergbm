@@ -19,7 +19,10 @@ __device__ void GetMinValue(float_point*, int*, int);
 __device__ void GetMinValue(float_point*, int);
 
 
-__device__ void GetBigMinValue(float_point*, int*);
-__device__ void GetBigMinValue(float_point*);
+//__device__ void GetBigMinValue(float_point*, int*);
+//__device__ void GetBigMinValue(float_point*);
+
+__device__ void GetGlobalMinPreprocessing(int nArraySize, const float_point *pfBlockMinValue, const int *pnBlockMinKey,
+		  	  	  	  	  	  	  	  	  float_point *pfSharedMinValue, int *pnSharedMinKey);
 
 #endif /* SVM_DEVUTILITY_H_ */
