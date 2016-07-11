@@ -20,7 +20,7 @@
 /**
  * @brief: compute prefix sum for in_array which contains multiple arrays of similar length
  */
-__global__ void cuda_prefixsum(T *in_array, int in_array_size, T *out_array, const int *arrayStartPos,
+__global__ void cuda_prefixsum(T *in_array, int in_array_size, T *out_array, const int *arrayStartPos, const unsigned int *pnEachSubArrayLen,
 							   int numofBlockPerSubArray, unsigned int *pnThreadLastBlock, unsigned int *pnEltsLastBlock)
 {
 	// shared should be sized to blockDim.x
@@ -29,18 +29,28 @@ __global__ void cuda_prefixsum(T *in_array, int in_array_size, T *out_array, con
 	unsigned int array_id = blockIdx.y;	//blockIdx.y corresponds to an array to compute prefix sum
 	int numEltsLastBlock = pnEltsLastBlock[array_id];
 	int numThreadLastBlock = pnThreadLastBlock[array_id];
-	unsigned int array_len = (numofBlockPerSubArray - 1) * blockDim.x + numEltsLastBlock;
+	unsigned int array_len = pnEachSubArrayLen[array_id];
 	unsigned int tid = threadIdx.x;
-	unsigned int b_offset = arrayStartPos[array_id] + blockIdx.x * blockDim.x;//in_array offset due to multi blocks
+	unsigned int b_offset = arrayStartPos[array_id] + blockIdx.x * blockDim.x * 2;//in_array offset due to multi blocks; each thread handles two elements
+	if(blockIdx.x * blockDim.x * 2 >= array_len)//this block is dummy, due to the small subarray size
+	{
+		out_array[blockIdx.y * gridDim.x + blockIdx.x] = 0;
+		return;
+	}
+	//check if it is the last block
+	bool isLastBlock = false;
+	if((blockIdx.x + 1) * blockDim.x * 2 >= array_len)//next block is invalid
+		isLastBlock = true;
+
 	unsigned int offset = 1;
 
 	int numElementInBlock;
-	if(blockIdx.x < numofBlockPerSubArray - 1)//not the last block
-		numElementInBlock = blockDim.x;
+	if(isLastBlock == false)//not the last block
+		numElementInBlock = blockDim.x * 2;
 	else//the last block
-		numElementInBlock = numThreadLastBlock * 2;
+		numElementInBlock = numThreadLastBlock * 2;//last block may process more (or fewer) elements than the rest.
 
-	if((blockIdx.x == numofBlockPerSubArray - 1) && (tid >= numThreadLastBlock))//skip threads with large indices
+	if(true == isLastBlock && (tid >= numThreadLastBlock))//skip threads with large indices
 		return;
 
 	int i = tid;
@@ -59,19 +69,20 @@ __global__ void cuda_prefixsum(T *in_array, int in_array_size, T *out_array, con
 #endif
 
 	shared[i + offset_i] = in_array[i + b_offset];
-	if((blockIdx.x == numofBlockPerSubArray - 1) && j >= numEltsLastBlock)//the last block
+	if(true == isLastBlock && j >= numEltsLastBlock)//the last block
 		shared[j + offset_j] = 0;
 	else
 	{
-		shared[j + offset_j] = in_array[j + b_offset];
 #if testing
-	if(j + offset_j >= blockDim.x * 2)
-		printf("index is out of bound of shared memory: j=%d, offset_j=%d\n", j, offset_j);
-	if(j + b_offset >= in_array_size)
-	{
-		printf("index is out of bound of array: j=%d, b_offset=%d, array size=%d\n", j, b_offset, in_array_size);
-	}
+		if(j + offset_j >= blockDim.x * 2)
+			printf("index is out of bound of shared memory: j=%d, offset_j=%d\n", j, offset_j);
+		if(j + b_offset >= in_array_size)
+		{
+			printf("index is out of bound of array: lastBlock=%d, aid=%d, j=%d, b_offset=%d, array size=%d, numEltsLastBlock=%d\n",
+					isLastBlock, array_id, j, b_offset, in_array_size, numEltsLastBlock);
+		}
 #endif
+		shared[j + offset_j] = in_array[j + b_offset];
 	}
 
 	// scan up
@@ -123,16 +134,16 @@ __global__ void cuda_prefixsum(T *in_array, int in_array_size, T *out_array, con
 		{
 			// re-calc the last element, drop it in out array
 			int lastElementPos = numElementInBlock - 1;
-			if((blockIdx.x == numofBlockPerSubArray - 1) && lastElementPos >= numEltsLastBlock)//last block
+			if(true == isLastBlock && lastElementPos >= numEltsLastBlock)//last block
 			{
 				lastElementPos = numEltsLastBlock - 1;
 			}
 
 			in_array[b_offset + lastElementPos] += shared[lastElementPos + CONFLICT_FREE_OFFSET(lastElementPos)];
-			out_array[blockIdx.x] = in_array[b_offset + lastElementPos];//block sum
+			out_array[blockIdx.y * gridDim.x + blockIdx.x] = in_array[b_offset + lastElementPos];//block sum
 		}
 
-		if (blockIdx.x < numofBlockPerSubArray - 1)//not last block
+		if (false == isLastBlock)//not last block
 			in_array[b_offset + j - 1] = shared[j + offset_j];
 		else//last block
 		{
@@ -148,22 +159,25 @@ __global__ void cuda_prefixsum(T *in_array, int in_array_size, T *out_array, con
 /**
  * @brief: post processing of prefix sum for large array
  */
-__global__ void cuda_updatesum(T *array, const int *arrayStartPos, T *update_array)
+__global__ void cuda_updatesum(T *array, const int *arrayStartPos, const unsigned int *pnEachSubArrayLen, T *update_array)
 {
-	extern __shared__ T shared[];
-
 	unsigned int tid = threadIdx.x;
 	int array_id = blockIdx.y;
 	unsigned int b_offset = arrayStartPos[array_id] + blockIdx.x * blockDim.x;//in_array offset due to multi blocks
-	unsigned int id = b_offset + threadIdx.x;
+	unsigned int id = b_offset + tid;
 	int op = 0;
+	unsigned int array_len = pnEachSubArrayLen[array_id];
+	if(blockIdx.x * blockDim.x + tid >= array_len)//skip this thread, due to the small subarray size
+	{
+		return;
+	}
 
 	if (blockIdx.x > 0)//if it is not the first block
 	{
 		op = update_array[blockIdx.y * gridDim.x + blockIdx.x - 1];
 	}
 
-	shared[tid] = array[id] + op;
-	array[id] = shared[tid];
+	T temp = array[id] + op;
+	array[id] = temp;
 }
 

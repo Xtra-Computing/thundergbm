@@ -151,8 +151,8 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 	int *pnBestGainKey_d;
 	int nBlockEachFea = dimGrid.x;
 	int nElePerBlock = dimBlock.x;
-	checkCudaErrors(cudaMalloc((void**)&pnBestGainKey_d, sizeof(int) * feaBatch * nBlockEachFea));
-	checkCudaErrors(cudaMalloc((void**)&pfBestGain_d, sizeof(float_point) * feaBatch * nBlockEachFea));
+	checkCudaErrors(cudaMalloc((void**)&pnBestGainKey_d, sizeof(int) * feaBatch * nBlockEachFea * numofSNode));
+	checkCudaErrors(cudaMalloc((void**)&pfBestGain_d, sizeof(float_point) * feaBatch * nBlockEachFea * numofSNode));
 	PickLocalBestSplit<<<dimGrid, dimBlock>>>(manager.m_pDNumofKeyValue, manager.m_pFeaStartPos, pGainOnEachFeaValue_d,
 											  manager.m_pBuffIdVec, smallestFeaId, feaBatch,
 											  numofSNode, maxNumofSplittable, pfBestGain_d, pnBestGainKey_d);

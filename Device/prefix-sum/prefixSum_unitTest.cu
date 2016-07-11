@@ -12,6 +12,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <iomanip>
+#include <assert.h>
 
 #include "prefixSum.h"
 
@@ -62,13 +63,23 @@ void elementsLastBlock(unsigned int *pnEltsLastBlock, unsigned int *pnThreadLast
 		unsigned int numEltsPerBlock = numThreads * 2;
 		// if this is a non-power-of-2 array, the last block will be non-full
 		// compute the smallest power of 2 able to compute its scan.
-		unsigned int numEltsLastBlock = pnNumofEltsPerArray[a] - (numBlocks-1) * numEltsPerBlock;
+		int numEltsLastBlock;
+		if(pnNumofEltsPerArray[a] <= numEltsPerBlock)//one block is enough for this array
+			numEltsLastBlock = pnNumofEltsPerArray[a];
+		else//multiple blocks are needed
+		{
+			int tempSubArraySize = pnNumofEltsPerArray[a] - numEltsPerBlock;
+			while(tempSubArraySize > numEltsPerBlock)
+				tempSubArraySize -= numEltsPerBlock;
+			numEltsLastBlock = tempSubArraySize;
+		}
 
 		if (isPowerOfTwo(numEltsLastBlock))
 			pnThreadLastBlock[a] = numEltsLastBlock / 2;
 		else
 			pnThreadLastBlock[a] = floorPow2(numEltsLastBlock);
 
+		assert(numEltsLastBlock > 0);
 		pnEltsLastBlock[a] = numEltsLastBlock;
 	}
 }
@@ -78,8 +89,6 @@ void elementsLastBlock(unsigned int *pnEltsLastBlock, unsigned int *pnThreadLast
  */
 void prefixsumForDeviceArray(T *array_d, const int *pnArrayStartPos_d, const int *pnEachArrayLen_h, int numArray)
 {
-	//###################array of similar size! need to modify to arrays of random size
-
 	//the arrays are ordered by their length in ascending order
 	int numElementsLongestArray = 0;
 	int totalNumofEleInArray = 0;
@@ -89,12 +98,12 @@ void prefixsumForDeviceArray(T *array_d, const int *pnArrayStartPos_d, const int
 			numElementsLongestArray = pnEachArrayLen_h[a];
 		totalNumofEleInArray += pnEachArrayLen_h[a];
 	}
-    unsigned int blockSize = 64; // max size of the thread blocks
+    unsigned int blockSize = 32; // max size of the thread blocks
     unsigned int numBlocksPrescan;
     unsigned int numThreadsPrescan;//one thread processes two elements.
 
     //compute kernel configuration
-    kernelConf(numBlocksPrescan, numThreadsPrescan, numElementsLongestArray, blockSize);
+    kernelConf(numBlocksPrescan, numThreadsPrescan, numElementsLongestArray, blockSize * 2);//each thread process two elements
 	dim3 dim_grid_prescan(numBlocksPrescan, numArray, 1);
 	dim3 dim_block_prescan(numThreadsPrescan, 1, 1);
     unsigned int numEltsPerBlockPrescan = numThreadsPrescan * 2;//for shared memory allocation
@@ -107,19 +116,22 @@ void prefixsumForDeviceArray(T *array_d, const int *pnArrayStartPos_d, const int
 	T *out_array_d;
 	unsigned int *pnEltsLastBlock_d;
 	unsigned int *pnThreadLastBlock_d;
+	unsigned int *pnEachSubArrayLen_d;
 
 	//for prescan allocate temp, block sum, and device arrays
 	cudaMalloc((void **)&out_array_d, numBlocksPrescan * numArray * sizeof(T));
 	cudaMalloc((void**)&pnEltsLastBlock_d, sizeof(unsigned int) * numArray);
 	cudaMalloc((void**)&pnThreadLastBlock_d, sizeof(unsigned int) * numArray);
+	cudaMalloc((void**)&pnEachSubArrayLen_d, sizeof(unsigned int) * numArray);
 
 	cudaMemcpy(pnEltsLastBlock_d, pnEltsLastBlock, sizeof(unsigned int) * numArray, cudaMemcpyHostToDevice);
 	cudaMemcpy(pnThreadLastBlock_d, pnEffectiveThreadLastBlock, sizeof(unsigned int) * numArray, cudaMemcpyHostToDevice);
+	cudaMemcpy(pnEachSubArrayLen_d, pnEachArrayLen_h, sizeof(unsigned int) * numArray, cudaMemcpyHostToDevice);
 
 
 	// do prefix sum for each block
 	cuda_prefixsum <<< dim_grid_prescan, dim_block_prescan, numEltsPerBlockPrescan * sizeof(T) >>>
-			(array_d, totalNumofEleInArray, out_array_d, pnArrayStartPos_d, numBlocksPrescan, pnThreadLastBlock_d, pnEltsLastBlock_d);
+			(array_d, totalNumofEleInArray, out_array_d, pnArrayStartPos_d, pnEachSubArrayLen_d, numBlocksPrescan, pnThreadLastBlock_d, pnEltsLastBlock_d);
 	cudaDeviceSynchronize();
 	if(cudaGetLastError() != cudaSuccess)
 	{
@@ -135,10 +147,12 @@ void prefixsumForDeviceArray(T *array_d, const int *pnArrayStartPos_d, const int
 		unsigned int *pnBlockSumEltsLastBlcok_d;//last block size is the same as the block size, since only one block for each array.
 		unsigned int *pnThreadBlockSum_d;
 		int *pnBlockSumArrayStartPos_d;
+		unsigned int *pn2ndSubArrayLen_d;//sub array len; for satisfying the function called later.
 		cudaMalloc((void **)&tmp_d, numBlockForBlockSum * sizeof(T));
 		cudaMalloc((void**)&pnBlockSumEltsLastBlcok_d, sizeof(unsigned int) * numBlockForBlockSum);
 		cudaMalloc((void**)&pnThreadBlockSum_d, sizeof(unsigned int) * numBlockForBlockSum);//all have same # of threads (arrays have same # of blocks in prescan).
 		cudaMalloc((void**)&pnBlockSumArrayStartPos_d, sizeof(int) * numBlockForBlockSum);
+		cudaMalloc((void**)&pn2ndSubArrayLen_d, sizeof(unsigned int) * numBlockForBlockSum);
 
 		// do prefix sum for block sum
 		//compute kernel configuration
@@ -155,16 +169,19 @@ void prefixsumForDeviceArray(T *array_d, const int *pnArrayStartPos_d, const int
 		unsigned int *pnEffectiveThreadForBlockSum = new unsigned int[numBlockForBlockSum];
 		unsigned int *pnBlockSumEltsLastBlcok = new unsigned int[numBlockForBlockSum];
 		int *pnBlockSumArrayStartPos = new int[numBlockForBlockSum];
+		unsigned int *pn2ndSubArrayLen_h = new unsigned int[numBlockForBlockSum];
 		for(int i = 0; i < numBlockForBlockSum; i++)
 		{
 			pnEffectiveThreadForBlockSum[i] = temNumThreadBlockSum;
 			pnBlockSumEltsLastBlcok[i] = numBlocksPrescan;
 			pnBlockSumArrayStartPos[i] = i * numBlocksPrescan;//start position of the subarray
+			pn2ndSubArrayLen_h[i] = numBlocksPrescan;
 		}
 
 		cudaMemcpy(pnBlockSumEltsLastBlcok_d, pnBlockSumEltsLastBlcok, sizeof(unsigned int) * numBlockForBlockSum, cudaMemcpyHostToDevice);
 		cudaMemcpy(pnThreadBlockSum_d, pnEffectiveThreadForBlockSum, sizeof(unsigned int) * numBlockForBlockSum, cudaMemcpyHostToDevice);
 		cudaMemcpy(pnBlockSumArrayStartPos_d, pnBlockSumArrayStartPos, sizeof(int) * numBlockForBlockSum, cudaMemcpyHostToDevice);
+		cudaMemcpy(pn2ndSubArrayLen_d, pn2ndSubArrayLen_h, sizeof(unsigned int) * numBlockForBlockSum, cudaMemcpyHostToDevice);
 		if(cudaGetLastError() != cudaSuccess)
 		{
 			cout << "error in before second cuda_prefixsum" << endl;
@@ -173,8 +190,9 @@ void prefixsumForDeviceArray(T *array_d, const int *pnArrayStartPos_d, const int
 
 		int numofEleInOutArray = numBlocksPrescan * numBlockForBlockSum;
 		int numofBlockPerSubArray = 1;//only block for each subarray
-		cuda_prefixsum <<<dim_grid_block_sum, dim_block_block_sum, numEltsPerBlockForBlockSum * sizeof(T) >>>
-				(out_array_d, numofEleInOutArray, tmp_d, pnBlockSumArrayStartPos_d, numofBlockPerSubArray, pnThreadBlockSum_d, pnBlockSumEltsLastBlcok_d);
+		cuda_prefixsum <<<dim_grid_block_sum, dim_block_block_sum, numEltsPerBlockForBlockSum * sizeof(T) >>>(
+								out_array_d, numofEleInOutArray, tmp_d, pnBlockSumArrayStartPos_d, pn2ndSubArrayLen_d,
+								numofBlockPerSubArray, pnThreadBlockSum_d, pnBlockSumEltsLastBlcok_d);
 		cudaDeviceSynchronize();
 		if(cudaGetLastError() != cudaSuccess)
 		{
@@ -184,8 +202,11 @@ void prefixsumForDeviceArray(T *array_d, const int *pnArrayStartPos_d, const int
 
 		// update original array using block sum
 		//kernel configuration is the same as prescan, since we need to process all the elements
-		cuda_updatesum <<<dim_grid_prescan, dim_block_prescan, numEltsPerBlockPrescan * sizeof(T) >>>
-				(array_d, pnArrayStartPos_d, out_array_d);
+		dim3 dim_grid_updatesum = dim_grid_prescan;
+		dim3 dim_block_updatesum = dim_block_prescan;
+		dim_block_updatesum.x *= 2;//different from prescan, one thread processes one element here
+		cuda_updatesum <<<dim_grid_updatesum, dim_block_updatesum>>>
+				(array_d, pnArrayStartPos_d, pnEachSubArrayLen_d, out_array_d);
 
 		cudaDeviceSynchronize();
 		if(cudaGetLastError() != cudaSuccess)
@@ -197,10 +218,12 @@ void prefixsumForDeviceArray(T *array_d, const int *pnArrayStartPos_d, const int
 		delete[] pnEffectiveThreadForBlockSum;
 		delete[] pnBlockSumEltsLastBlcok;
 		delete[] pnBlockSumArrayStartPos;
+		delete[] pn2ndSubArrayLen_h;
 		cudaFree(tmp_d);
 		cudaFree(pnBlockSumEltsLastBlcok_d);
 		cudaFree(pnThreadBlockSum_d);
 		cudaFree(pnBlockSumArrayStartPos_d);
+		cudaFree(pn2ndSubArrayLen_d);
 	}
 
 	delete[] pnEltsLastBlock;
@@ -209,6 +232,7 @@ void prefixsumForDeviceArray(T *array_d, const int *pnArrayStartPos_d, const int
 	cudaFree(out_array_d);
 	cudaFree(pnEltsLastBlock_d);
 	cudaFree(pnThreadLastBlock_d);
+	cudaFree(pnEachSubArrayLen_d);
 }
 
 /**
@@ -270,7 +294,7 @@ void print_array(T *array, int *pnCount, int numArray)
 		cout << "the " << a << "th array: " << endl;
 		for (int i = 0; i < pnCount[a]; i++)
 		{
-			cout << array[e] << endl;
+			cout << "i= " << i << " v= " << array[e] << endl;
 			e++;
 		}
 	}
@@ -342,12 +366,18 @@ int TestPrefixSum(int argc, char *argv[])
 	int numArray = 3;
 	int *pnCount = new int[numArray];
 	int *pnArrayStartPos = new int[numArray];
-	for(int a = 0; a < numArray; a++)
-	{
-		pnArrayStartPos[a] = a * max;
-		pnCount[a] = max;
-	}
-	pnCount[numArray - 1] = int(max * 1.5);
+
+
+	pnArrayStartPos[0] = 0;
+	pnCount[0] = 2;
+
+
+	pnArrayStartPos[1] = pnCount[0];
+	pnCount[1] = max;
+
+	pnArrayStartPos[2] = pnCount[0] + pnCount[1];
+	pnCount[2] = int(max * 1.5);
+
 	prepare_numbers(&array, pnCount, numArray);
 
 	if (host_mode) {

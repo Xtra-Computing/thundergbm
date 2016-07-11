@@ -198,18 +198,19 @@ __global__ void PickLocalBestSplit(const int *pnNumofKeyValues, const long long 
 	if(pBuffId[snId] < 0 || pBuffId[snId] >= maxNumofSplittable)
 		printf("Error in PickBestFea\n");
 
-	int numofValueOfThisFea = pnNumofKeyValues[feaId];
+	__shared__ float_point pfGain[BLOCK_SIZE];
+	__shared__ int pnBetterGainKey[BLOCK_SIZE];
+	int localTid = threadIdx.x;
+	pfGain[localTid] = FLT_MAX;//initialise to a large positive number
+	pnBetterGainKey[localTid] = -1;
+
+	int numofValueOfThisFea = pnNumofKeyValues[feaId];//get the number of key-value pairs of this feature
 	int tidForEachFeaValue = blockIdx.x * blockDim.x + threadIdx.x;
 	if(tidForEachFeaValue >= numofValueOfThisFea)
 	{
 		return;
 	}
 
-	__shared__ float_point pfGain[BLOCK_SIZE];
-	__shared__ int pnBetterGainKey[BLOCK_SIZE];
-	int localTid = threadIdx.x;
-	pfGain[localTid] = FLT_MAX;//initialise to a large positive number
-	pnBetterGainKey[localTid] = -1;
 
 	//load gain and entry id to shared memory
 	if(pBuffId[snId] < 0)
@@ -222,7 +223,7 @@ __global__ void PickLocalBestSplit(const int *pnNumofKeyValues, const long long 
 	if(nPos < 0)
 		printf("sp pos is nagative! %d\n", nPos);
 
-	pfGain[localTid] = -pGainOnEachFeaValue[nPos];//change to find min
+	pfGain[localTid] = -pGainOnEachFeaValue[nPos];//change to find min of -gain
 	pnBetterGainKey[localTid] = nPos;
 	__syncthreads();
 
@@ -235,7 +236,7 @@ __global__ void PickLocalBestSplit(const int *pnNumofKeyValues, const long long 
 		pfBestGain[blockId] = pfGain[0];
 		pnBestGainKey[blockId] = pnBetterGainKey[0];
 		if(pnBetterGainKey[0] < 0)
-			printf("the key should never be negative: key=%d\n", pnBetterGainKey[0]);
+			printf("negative key: snId=%d, feaId=%d, blockId=%d, gain=%f, key=%d\n", snId, feaId, blockId, pfGain[0], pnBetterGainKey[0]);
 	}
 }
 
