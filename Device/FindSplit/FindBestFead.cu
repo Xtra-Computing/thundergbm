@@ -10,6 +10,7 @@
 #include <stdio.h>
 #include "FindFeaKernel.h"
 #include "../KernelConst.h"
+#include "../DeviceHashing.h"
 #include "../prefix-sum/prefixSum.h"
 #include "../svm-shared/devUtility.h"
 #include "../../DeviceHost/NodeStat.h"
@@ -28,7 +29,8 @@ __device__ void GetBatchInfo(int feaBatch, int smallestFeaId, int feaId, const i
  * @brief: copy the gd, hess and feaValue for each node based on some features on similar number of values
  */
 __global__ void ObtainGDEachNode(const int *pnNumofKeyValues, const long long *pnFeaStartPos, const int *pInsId, const float_point *pFeaValue,
-		  const int *pInsIdToNodeId, const float_point *pGD, const float_point *pHess,  int numofSNode, int smallestFeaId, int totalNumofFea, int feaBatch,
+		  const int *pInsIdToNodeId, const float_point *pGD, const float_point *pHess, const int *pBuffId, const int *pSNIdToBuffId,
+		  int maxNumofSplittable, int numofSNode, int smallestFeaId, int totalNumofFea, int feaBatch,
 		  float_point *pGDOnEachFeaValue, float_point *pHessOnEachFeaValue, float_point *pValueOneEachFeaValue)
 {
 	//blockIdx.x corresponds to a feature which has multiple values
@@ -41,6 +43,7 @@ __global__ void ObtainGDEachNode(const int *pnNumofKeyValues, const long long *p
 	if(snId >= numofSNode)
 		printf("# of block groups is larger than # of splittable nodes: %d v.s. %d\n", snId, numofSNode);
 
+	int snHashValue = pBuffId[snId];//hash value (buffer position) of the splittable node
 	int feaId = blockIdx.y + smallestFeaId;//add a shift here to process only part of the features
 
 	int curFeaStartPosInBatch;
@@ -75,6 +78,13 @@ __global__ void ObtainGDEachNode(const int *pnNumofKeyValues, const long long *p
 
 	int insId = InsIdStartAddress[tidForEachFeaValue];
 	int nid = pInsIdToNodeId[insId];
+	int hashValue = GetBufferId(pSNIdToBuffId, nid, maxNumofSplittable);
+	if(snHashValue != hashValue)//the instance does not belong to this splittable node
+	{
+		//set GD/Hess to 0 in this position. Since the default value is 0, no action is required.
+		return;
+	}
+
 	if(nid < -1)
 	{
 		printf("Error: nid=%d\n", nid);
@@ -100,7 +110,7 @@ __global__ void ObtainGDEachNode(const int *pnNumofKeyValues, const long long *p
  * @brief: each thread computes the start position in the batch for each feature
  */
 __global__ void GetInfoEachFeaInBatch(const int *pnNumofKeyValues, const long long *pnFeaStartPos, int smallestFeaId,
-									  int totalNumofFea, int feaBatch, int *pStartPosEachFeaInBatch, int *pnEachFeaLen)
+									  int totalNumofFea, int feaBatch, int numofSN, int *pStartPosEachFeaInBatch, int *pnEachFeaLen)
 {
 	int feaId = blockIdx.x * blockDim.x + threadIdx.x + smallestFeaId;//add a shift here to process only part of the features
 	int feaIdInBatch = blockIdx.x * blockDim.x + threadIdx.x;
@@ -108,19 +118,25 @@ __global__ void GetInfoEachFeaInBatch(const int *pnNumofKeyValues, const long lo
 		printf("Error in GetStartPosEachFeaInBatch: feaId=%d, while total numofFea=%d\n", feaId, totalNumofFea);
 
 	int smallestFeaIdStartPos = pnFeaStartPos[smallestFeaId];//first feature start pos of this batch
+	int largestFeaId = smallestFeaId + feaBatch - 1;
+	int largestFeaIdStartPos = pnFeaStartPos[largestFeaId];
+	int oneNodeBatchSize = largestFeaIdStartPos - smallestFeaIdStartPos + pnNumofKeyValues[largestFeaId];
 	int curFeaStartPosInBatch = pnFeaStartPos[feaId] - smallestFeaIdStartPos;
-	pStartPosEachFeaInBatch[feaIdInBatch] = curFeaStartPosInBatch;
-	pnEachFeaLen[feaIdInBatch] = pnNumofKeyValues[feaId];
+	for(int i = 0; i < numofSN; i++)
+	{
+		pStartPosEachFeaInBatch[feaIdInBatch + i * feaBatch] = oneNodeBatchSize * i + curFeaStartPosInBatch;
+		pnEachFeaLen[feaIdInBatch + i * feaBatch] = pnNumofKeyValues[feaId];
+	}
 }
 
 /**
  * @brief: compute the prefix sum for gd and hess
  */
-void PrefixSumForEachNode(int feaBatch, float_point *pGDOnEachFeaValue_d, float_point *pHessOnEachFeaValue_d,
+void PrefixSumForEachNode(int numofSubArray, float_point *pGDOnEachFeaValue_d, float_point *pHessOnEachFeaValue_d,
 						  const int *pnStartPosEachFeaInBatch, const int *pnEachFeaLen)
 {
-	prefixsumForDeviceArray(pGDOnEachFeaValue_d, pnStartPosEachFeaInBatch, pnEachFeaLen, feaBatch);
-	prefixsumForDeviceArray(pHessOnEachFeaValue_d, pnStartPosEachFeaInBatch, pnEachFeaLen, feaBatch);
+	prefixsumForDeviceArray(pGDOnEachFeaValue_d, pnStartPosEachFeaInBatch, pnEachFeaLen, numofSubArray);
+	prefixsumForDeviceArray(pHessOnEachFeaValue_d, pnStartPosEachFeaInBatch, pnEachFeaLen, numofSubArray);
 }
 
 /**
@@ -249,12 +265,11 @@ __global__ void PickFeaLocalBestSplit(const int *pnNumofKeyValues, const long lo
 
 /**
  * @brief: pick best feature of this batch for all the splittable nodes
- * Each block.y processes one node, a thread processes a reduction.
  */
 __global__ void PickFeaGlobalBestSplit(int feaBatch, int numofSNode,
 								   const float_point *pfLocalBestGain, const int *pnLocalBestGainKey,
 								   float_point *pfFeaGlobalBestGain, int *pnFeaGlobalBestGainKey,
-								   int nLocalBlockOfPerFeaInBatch)
+								   int nLocalBlockPerFeaInBatch)
 {
 	//blockIdx.x corresponds to a feature which has multiple values
 	//blockIdx.y corresponds to a feature id
@@ -278,7 +293,7 @@ __global__ void PickFeaGlobalBestSplit(int feaBatch, int numofSNode,
 
 	int posInFeaLocalBest = threadIdx.x;
 
-	if(posInFeaLocalBest >= nLocalBlockOfPerFeaInBatch)//number of threads is larger than the number of blocks
+	if(posInFeaLocalBest >= nLocalBlockPerFeaInBatch)//number of threads is larger than the number of blocks
 	{
 		return;
 	}
@@ -291,7 +306,7 @@ __global__ void PickFeaGlobalBestSplit(int feaBatch, int numofSNode,
 	//if the size of block is larger than the BLOCK_SIZE, we make the size to be not larger than BLOCK_SIZE
 	const float_point *pfGainStartPos = pfLocalBestGain + posOfLocalBest;
 	const int *pnGainKeyStartPos = pnLocalBestGainKey + posOfLocalBest;
-	GetGlobalMinPreprocessing(nLocalBlockOfPerFeaInBatch, pfGainStartPos, pnGainKeyStartPos, pfGain, pnBetterGainKey);
+	GetGlobalMinPreprocessing(nLocalBlockPerFeaInBatch, pfGainStartPos, pnGainKeyStartPos, pfGain, pnBetterGainKey);
 	 __syncthreads();	//wait until the thread within the block
 
 	//find the local best split point
@@ -307,3 +322,46 @@ __global__ void PickFeaGlobalBestSplit(int feaBatch, int numofSNode,
 	}
 }
 
+/**
+ * @brief: pick best feature of this batch for all the splittable nodes
+ */
+__global__ void PickBestFeaBestSplit(int feaBatch, int numofSNode,
+								   const float_point *pfFeaGlobalBestGain, const int *pnFeaGlobalBestGainKey,
+								   float_point *pfBlockBestFea, int *pnBlockBestKey)
+{
+	//blockIdx.y corresponds to a splittable node id
+
+	int nGlobalThreadId = (blockIdx.y * gridDim.x + blockIdx.x) * blockDim.x + threadIdx.x;
+	int blockId = blockIdx.y * gridDim.x + blockIdx.x;
+	int snId = blockIdx.y;
+	if(snId >= numofSNode)
+		printf("Error in PickBestFea: kernel split %d nods, but only %d splittable nodes\n", snId, numofSNode);
+
+	__shared__ float_point pfGain[BLOCK_SIZE];
+	__shared__ int pnBetterGainKey[BLOCK_SIZE];
+	int localTid = threadIdx.x;
+	pfGain[localTid] = FLT_MAX;//initalise to a large positive number
+	pnBetterGainKey[localTid] = -1;
+
+	int feaIdInBatch = blockIdx.x * blockDim.x + threadIdx.x;;
+	if(feaIdInBatch >= feaBatch)
+	{//the number of threads in the block is larger than the number of blocks
+		return;
+	}
+
+	int fFeaBestGainPos = feaIdInBatch + snId * feaBatch;
+	pfGain[localTid] = pfFeaGlobalBestGain[fFeaBestGainPos];
+	pnBetterGainKey[localTid] = pnFeaGlobalBestGainKey[fFeaBestGainPos];
+	__syncthreads();
+
+	//find the local best split point
+	GetMinValue(pfGain, pnBetterGainKey, blockDim.x);
+	__syncthreads();
+	if(localTid == 0)//copy the best gain to global memory
+	{
+		pfBlockBestFea[blockId] = pfGain[0];
+		pnBlockBestKey[blockId] = pnBetterGainKey[0];
+		if(pnBetterGainKey[0] < 0)
+			printf("the key should never be negative!\n");
+	}
+}

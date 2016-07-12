@@ -31,11 +31,12 @@ __global__ void PickGlobalBestFea(float_point *pLastValuePerThread,
 //a thread per gain computation
 __global__ void ObtainGDEachNode(const int *pnNumofKeyValues, const long long *pnFeaStartPos, const int *pInsId,
 								 const float_point *pFeaValue, const int *pInsIdToNodeId, const float_point *pGD,
-								 const float_point *pHess,  int numofSNode, int smallestFeaId, int totalNumofFea,
+								 const float_point *pHess, const int *pBuffId, const int *pSNIdToBuffId, int maxNumofSplittable,
+								 int numofSNode, int smallestFeaId, int totalNumofFea,
 								 int feaBatch, float_point *pGDOnEachFeaValue, float_point *pHessOnEachFeaValue,
 								 float_point *pValueOneEachFeaValue);
 __global__ void GetInfoEachFeaInBatch(const int *pnNumofKeyValues, const long long *pnFeaStartPos, int smallestFeaId,
-									  int totalNumofFea, int feaBatch, int *pStartPosEachFeaInBatch, int *pnEachFeaLen);
+									  int totalNumofFea, int feaBatch, int numofSN, int *pStartPosEachFeaInBatch, int *pnEachFeaLen);
 void PrefixSumForEachNode(int feaBatch, float_point *pGDOnEachFeaValue_d, float_point *pHessOnEachFeaValue_d,
 						  const int *pnStartPosEachFeaInBatch, const int *pnEachFeaLen);
 __global__ void ComputeGain(const int *pnNumofKeyValues, const long long *pnFeaStartPos, const nodeStat *pSNodeStat, int smallestFeaId, int feaBatch,
@@ -50,6 +51,9 @@ __global__ void PickFeaGlobalBestSplit(int feaBatch, int numofSNode,
 								   const float_point *pfLocalBestGain, const int *pnLocalBestGainKey,
 								   float_point *pfFeaGlobalBestGain, int *pnFeaGlobalBestGainKey,
 								   int numofLocalBlockOfAllFeaInBatch);
+__global__ void PickBestFeaBestSplit(int feaBatch, int numofSNode,
+								   const float_point *pfFeaGlobalBestGain, const int *pnFeaGlobalBestGainKey,
+								   float_point *pfBlockBestFea, int *pnBlockBestKey);
 //helper functions
 __device__ bool NeedUpdate(float_point &RChildHess, float_point &LChildHess);
 

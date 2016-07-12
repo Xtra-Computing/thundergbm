@@ -103,7 +103,7 @@ void prefixsumForDeviceArray(T *array_d, const int *pnArrayStartPos_d, const int
     unsigned int numThreadsPrescan;//one thread processes two elements.
 
     //compute kernel configuration
-    kernelConf(numBlocksPrescan, numThreadsPrescan, numElementsLongestArray, blockSize * 2);//each thread process two elements
+    kernelConf(numBlocksPrescan, numThreadsPrescan, numElementsLongestArray, blockSize);//each thread process two elements
 	dim3 dim_grid_prescan(numBlocksPrescan, numArray, 1);
 	dim3 dim_block_prescan(numThreadsPrescan, 1, 1);
     unsigned int numEltsPerBlockPrescan = numThreadsPrescan * 2;//for shared memory allocation
@@ -316,7 +316,7 @@ void prepare_numbers(T **array, int *pnCount, int numArray)
 	{
 		for(int i = 0; i < pnCount[a]; i++)
 		{
-			numbers[e] = i + 1.0;
+			numbers[e] = 1;//i + 1.0;
 			e++;
 		}
 	}
@@ -363,20 +363,25 @@ int TestPrefixSum(int argc, char *argv[])
 	}
 	// pre-init numbers
 	array = NULL;
-	int numArray = 3;
+	int numArray = 16;
 	int *pnCount = new int[numArray];
 	int *pnArrayStartPos = new int[numArray];
 
+	int currentStartPos = 0;
+	for(int i = 0; i < numArray - 2; i++)
+	{
+		pnArrayStartPos[i] = currentStartPos;
+		pnCount[i] = 4176;
+		currentStartPos += pnCount[i];
+	}
 
-	pnArrayStartPos[0] = 0;
-	pnCount[0] = 2;
 
+	pnArrayStartPos[numArray - 2] = currentStartPos;
+	pnCount[numArray - 2] = max;
+	currentStartPos += max;
 
-	pnArrayStartPos[1] = pnCount[0];
-	pnCount[1] = max;
-
-	pnArrayStartPos[2] = pnCount[0] + pnCount[1];
-	pnCount[2] = int(max * 1.5);
+	pnArrayStartPos[numArray - 1] = currentStartPos;
+	pnCount[numArray - 1] = 4177;
 
 	prepare_numbers(&array, pnCount, numArray);
 
