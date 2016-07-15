@@ -39,6 +39,10 @@ void DevicePredictor::PredictSparseIns(vector<vector<KeyValue> > &v_vInstance, v
 	int *pHashUsedFea = NULL;
 	int *pSortedUsedFea = NULL;
 	GetUsedFeature(denseInsConverter.usedFeaSet, pHashUsedFea, pSortedUsedFea);
+	if(pHashUsedFea != NULL)
+		delete []pHashUsedFea;
+	if(pSortedUsedFea != NULL)
+		delete []pSortedUsedFea;
 
 	//for each tree
 	int nNumofIns = v_vInstance.size();

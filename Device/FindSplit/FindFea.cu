@@ -20,6 +20,9 @@ using std::endl;
 using std::make_pair;
 using std::cerr;
 
+#ifdef testing
+#undef testing
+#endif
 
 /**
  * @brief: efficient best feature finder
@@ -54,15 +57,15 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 	int maxNumofValuePerFea = manager.m_numofIns;//maximum number of instances that have non-zero value at the feature
 
 	//gd, hess, and feature values on GPU memory
-	float_point *pGDOnEachFeaValue_d, *pHessOnEachFeaValue_d, *pValueOneEachFeaValue_d;
+	float_point *pGDOnEachFeaValue_d, *pHessOnEachFeaValue_d, *pValueOnEachFeaValue_d;
 	//######### can be more memory efficient by allocating only the total number of feature values in this batch
 	checkCudaErrors(cudaMalloc((void**)&pGDOnEachFeaValue_d, sizeof(float_point) * feaBatch * maxNumofValuePerFea * numofSNode));
 	checkCudaErrors(cudaMalloc((void**)&pHessOnEachFeaValue_d, sizeof(float_point) * feaBatch * maxNumofValuePerFea * numofSNode));
-	checkCudaErrors(cudaMalloc((void**)&pValueOneEachFeaValue_d, sizeof(float_point) * feaBatch * maxNumofValuePerFea * numofSNode));
+	checkCudaErrors(cudaMalloc((void**)&pValueOnEachFeaValue_d, sizeof(float_point) * feaBatch * maxNumofValuePerFea * numofSNode));
 
 	checkCudaErrors(cudaMemset(pGDOnEachFeaValue_d, 0, sizeof(float_point) * feaBatch * maxNumofValuePerFea * numofSNode));
 	checkCudaErrors(cudaMemset(pHessOnEachFeaValue_d, 0, sizeof(float_point) * feaBatch * maxNumofValuePerFea * numofSNode));
-	checkCudaErrors(cudaMemset(pValueOneEachFeaValue_d, 0, sizeof(float_point) * feaBatch * maxNumofValuePerFea * numofSNode));
+	checkCudaErrors(cudaMemset(pValueOnEachFeaValue_d, 0, sizeof(float_point) * feaBatch * maxNumofValuePerFea * numofSNode));
 
 	//kernel configuration
 	int blockSizeFillGD;
@@ -79,7 +82,7 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 											manager.m_pdDFeaValue, manager.m_pInsIdToNodeId,
 											manager.m_pGrad, manager.m_pHess, manager.m_pBuffIdVec, manager.m_pSNIdToBuffId,
 											maxNumofSplittable, numofSNode, smallestFeaId, nNumofFeature, feaBatch,
-											pGDOnEachFeaValue_d, pHessOnEachFeaValue_d, pValueOneEachFeaValue_d);
+											pGDOnEachFeaValue_d, pHessOnEachFeaValue_d, pValueOnEachFeaValue_d);
 	//Note: pGDOnEachFeaValue_d has extra memory at the end. The prefix of the array is fully used.
 	cudaDeviceSynchronize();
 
@@ -133,6 +136,9 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 				int insId = pnInsId[e];
 				float_point gd = pGrad[insId];
 				int nid = pInsToNodeId_h[insId];
+				if(nid == -1)
+					continue;
+
 				int hashValue_buffer = Hashing::HostGetBufferId(pSNIdToBuffId_h, nid, maxNumofSplittable);
 				if(pHessOnEachFeaValue_h[e + n * batchSize] != 0 && pHessOnEachFeaValue_h[e + n * batchSize] != 1)
 				{
@@ -203,8 +209,14 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 
 	//compute prefix sum
 	int *pnEachFeaLen = new int[feaBatch * numofSNode];
+	float_point *pGDPrefixSum_d, *pHessPrefixSum_d;
+	checkCudaErrors(cudaMalloc((void**)&pGDPrefixSum_d, sizeof(float_point) * feaBatch * maxNumofValuePerFea * numofSNode));
+	checkCudaErrors(cudaMalloc((void**)&pHessPrefixSum_d, sizeof(float_point) * feaBatch * maxNumofValuePerFea * numofSNode));
+	manager.MemcpyDeviceToDevice(pGDOnEachFeaValue_d, pGDPrefixSum_d, sizeof(float_point) * feaBatch * maxNumofValuePerFea * numofSNode);
+	manager.MemcpyDeviceToDevice(pHessOnEachFeaValue_d, pHessPrefixSum_d, sizeof(float_point) * feaBatch * maxNumofValuePerFea * numofSNode);
+
 	manager.MemcpyDeviceToHost(pFeaLenInBatch_d, pnEachFeaLen, sizeof(int) * feaBatch * numofSNode);
-	PrefixSumForEachNode(feaBatch * numofSNode, pGDOnEachFeaValue_d, pHessOnEachFeaValue_d, pStartPosEachFeaInBatch_d, pnEachFeaLen);
+	PrefixSumForEachNode(feaBatch * numofSNode, pGDPrefixSum_d, pHessPrefixSum_d, pStartPosEachFeaInBatch_d, pnEachFeaLen);
 
 #if testing
 	if(cudaGetLastError() != cudaSuccess)
@@ -215,9 +227,10 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 
 	float_point *pGDPrefixSumOnEachFeaValue_h = new float_point[feaBatch * maxNumofValuePerFea * numofSNode];
 	float_point *pHessPrefixSumOnEachFeaValue_h = new float_point[feaBatch * maxNumofValuePerFea * numofSNode];
-	manager.MemcpyDeviceToHost(pGDOnEachFeaValue_d, pGDPrefixSumOnEachFeaValue_h, sizeof(float_point) * feaBatch * maxNumofValuePerFea * numofSNode);
-	manager.MemcpyDeviceToHost(pHessOnEachFeaValue_d, pHessPrefixSumOnEachFeaValue_h, sizeof(float_point) * feaBatch * maxNumofValuePerFea * numofSNode);
+	manager.MemcpyDeviceToHost(pGDPrefixSum_d, pGDPrefixSumOnEachFeaValue_h, sizeof(float_point) * feaBatch * maxNumofValuePerFea * numofSNode);
+	manager.MemcpyDeviceToHost(pHessPrefixSum_d, pHessPrefixSumOnEachFeaValue_h, sizeof(float_point) * feaBatch * maxNumofValuePerFea * numofSNode);
 
+	float_point deltaTest = 0.01;
 	for(int n = 0; n < numofSNode; n++)
 	{
 		e = 0;
@@ -230,7 +243,9 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 			{
 				prefixSumGD += pGDOnEachFeaVaue_h[e + n * batchSize];
 				prefixSumHess += pHessOnEachFeaValue_h[e + n * batchSize];
-				if(prefixSumGD != pGDPrefixSumOnEachFeaValue_h[e + n * batchSize] || prefixSumHess != pHessPrefixSumOnEachFeaValue_h[e + n * batchSize])
+				if(
+				   abs(prefixSumGD - pGDPrefixSumOnEachFeaValue_h[e + n * batchSize]) > deltaTest ||
+				   prefixSumHess != pHessPrefixSumOnEachFeaValue_h[e + n * batchSize])
 					cerr << "hessian or gd diff: hess "<< prefixSumHess << " v.s. " << pHessPrefixSumOnEachFeaValue_h[e + n * batchSize]
 						 << "; gd: " << prefixSumGD << " v.s. " << pGDPrefixSumOnEachFeaValue_h[e + n * batchSize] << endl;
 				e++;
@@ -246,8 +261,9 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 	float_point *pGainOnEachFeaValue_d;
 	checkCudaErrors(cudaMalloc((void**)&pGainOnEachFeaValue_d, sizeof(float_point) * feaBatch * maxNumofValuePerFea * numofSNode));
 	ComputeGain<<<dimGrid, dimBlock>>>(manager.m_pDNumofKeyValue, manager.m_pFeaStartPos, manager.m_pSNodeStat, smallestFeaId, feaBatch,
-									   manager.m_pBuffIdVec, numofSNode, DeviceSplitter::m_lambda, pGDOnEachFeaValue_d,
-									   pHessOnEachFeaValue_d, pGainOnEachFeaValue_d);
+									   manager.m_pBuffIdVec, numofSNode, DeviceSplitter::m_lambda, pGDPrefixSum_d,
+									   pHessPrefixSum_d, manager.m_pdDFeaValue, pGainOnEachFeaValue_d);
+
 
 #if testing
 	if(cudaGetLastError() != cudaSuccess)
@@ -261,7 +277,9 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 	manager.MemcpyDeviceToHost(pGainOnEachFeaValue_d, pGainOnEachFeaValue_h, sizeof(float_point) * feaBatch * maxNumofValuePerFea * numofSNode);
 
 	e = 0;
-	for(int f = 0; f < nNumofFeature; f++)
+	float_point *pFeaBestSplit = new float_point[feaBatch * numofSNode];
+	memset(pFeaBestSplit, 0, sizeof(float_point) * feaBatch * numofSNode);
+	for(int f = smallestFeaId; f < feaBatch + smallestFeaId; f++)
 	{
 		int numofKeyValue = pnKeyValue[f];
 		int init = e;
@@ -271,40 +289,80 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 		{
 			int insId = pnInsId[i];
 			int nid = pInsToNodeId_h[insId];
+			if(nid == -1)
+			{
+				e++;
+				continue;
+			}
+
 			for(int n = 0; n < numofSNode; n++)
 			{
 				int hashValue_buffer = Hashing::HostGetBufferId(pSNIdToBuffId_h, nid, maxNumofSplittable);
+				if(hashValue_buffer < 0)
+					cerr << "hash value in host side is negative: " << hashValue_buffer << " for key " << nid << endl;
 				int hashValue = pBuffIdVec_h[n];
+				if(hashValue_buffer != hashValue)
+					continue;
 
 				float_point snGD = pSNodeStat_h[hashValue].sum_gd;
 				float_point snHess = pSNodeStat_h[hashValue].sum_hess;
-				float_point tempGD = pGDPrefixSumOnEachFeaValue_h[i + n * batchSize];
-				float_point tempHess = pHessPrefixSumOnEachFeaValue_h[i + n * batchSize];
-				float_point fLChildGD = snGD - tempGD;
-				float_point fLChildHess = snHess - tempHess;
-				float_point gainOnFeaValue = (tempGD * tempGD)/(tempHess + DeviceSplitter::m_lambda) +
-											 (fLChildGD * fLChildGD)/(fLChildHess + DeviceSplitter::m_lambda) -
-											 (snGD * snGD)/(snHess + DeviceSplitter::m_lambda);
-
-				if(gainOnFeaValue != pGainOnEachFeaValue_h[i + n * batchSize])
+				float_point gainOnFeaValue;
+				if(i == init)
 				{
-					cerr << "gain diff: "<< gainOnFeaValue << " v.s. " << pGainOnEachFeaValue_h[i] << endl;
+					gainOnFeaValue = 0;
 				}
+				else
+				{
+					int exclusiveSumPos = i + n * batchSize - 1;//follow xgboost using exlusive sum on gd and hess
+					float_point tempGD = pGDPrefixSumOnEachFeaValue_h[exclusiveSumPos];
+					float_point tempHess = pHessPrefixSumOnEachFeaValue_h[exclusiveSumPos];
+					float_point fLChildGD = snGD - tempGD;
+					float_point fLChildHess = snHess - tempHess;
+					if(fLChildHess >= DeviceSplitter::min_child_weight && tempHess >= DeviceSplitter::min_child_weight)
+					{
+						gainOnFeaValue = (tempGD * tempGD)/(tempHess + DeviceSplitter::m_lambda) +
+									 (fLChildGD * fLChildGD)/(fLChildHess + DeviceSplitter::m_lambda) -
+									 (snGD * snGD)/(snHess + DeviceSplitter::m_lambda);
+					}
+					else
+						gainOnFeaValue = 0;
+				}
+				if(abs(gainOnFeaValue - pGainOnEachFeaValue_h[i + n * batchSize]) > deltaTest)
+				{
+					cerr << "gain diff: "<< gainOnFeaValue << " v.s. " << pGainOnEachFeaValue_h[i + n * batchSize] << endl;
+				}
+
+				if(pFeaBestSplit[f + feaBatch * n] < gainOnFeaValue)
+					pFeaBestSplit[f + feaBatch * n] = gainOnFeaValue;
 			}
 			e++;
 		}
 	}
 
-	delete []pSNIdToBuffId_h;
+	for(int n = 0; n < numofSNode; n++)
+	{
+		for(int f = 0; f < feaBatch; f++)
+		{
+//			cout << "local best before fixing for " << f << "th here is " << pFeaBestSplit[f + feaBatch * n] << endl;
+		}
+	}
+
+	delete []pFeaBestSplit;
+
 	delete []pInsToNodeId_h;
 	delete []pnInsId;
 	delete []pGDPrefixSumOnEachFeaValue_h;
 	delete []pHessPrefixSumOnEachFeaValue_h;
 
-	delete []pSNodeStat_h;
-	delete []pBuffIdVec_h;
-
+	delete []pSNIdToBuffId_h;
 #endif
+
+	//remove invalid gains. The same value can only have one gain
+	float_point *pLastBiggerValue_d;
+	checkCudaErrors(cudaMalloc((void**)&pLastBiggerValue_d, sizeof(float_point) * feaBatch * maxNumofValuePerFea * numofSNode));
+	checkCudaErrors(cudaMemset(pLastBiggerValue_d, 0, sizeof(float_point) * feaBatch * maxNumofValuePerFea * numofSNode));
+	FixedGain<<<dimGrid, dimBlock>>>(manager.m_pDNumofKeyValue, manager.m_pFeaStartPos,  smallestFeaId, feaBatch, numofSNode,
+									 pHessOnEachFeaValue_d, manager.m_pdDFeaValue, pGainOnEachFeaValue_d, pLastBiggerValue_d);
 
 	//find the local best split in this batch of features
 	float_point *pfFeaLocalBestGain_d;
@@ -342,7 +400,7 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 				if(localBest > temp)
 					localBest = temp;
 			}
-			cout << "local best for " << f << "th fea is " << localBest << " for node " << n << endl;
+//			cout << "local best for " << f << "th fea is " << localBest << " for node " << n << endl;
 			if(pGlobalBest[n] > localBest)
 				pGlobalBest[n] = localBest;
 			pFeaBest[n * feaBatch + f] = localBest;
@@ -350,6 +408,8 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 	}
 
 	//obtain the best for each node
+	//use the fixed gain to compute the best gain
+	manager.MemcpyDeviceToHost(pGainOnEachFeaValue_d, pGainOnEachFeaValue_h, sizeof(float_point) * feaBatch * maxNumofValuePerFea * numofSNode);
 	for(int n = 0; n < numofSNode; n++)
 	{
 		float_point bestGain = -1000000;
@@ -378,7 +438,7 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 				break;
 			}
 		}
-		cout << "snid=" << n << "; best gain = " << bestGain << "; key is " << key << "; f=" << bestFeaId << "; value pos=" << valuePos << endl;
+//		cout << "snid=" << n << "; best gain = " << bestGain << "; key is " << key << "; f=" << bestFeaId << "; value pos=" << valuePos << endl;
 		if(-bestGain != pGlobalBest[n])
 			cerr << "best gain diff: " << bestGain << " v.s. " << pGlobalBest[n] << endl;
 	}
@@ -463,7 +523,7 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 	checkCudaErrors(cudaMalloc((void**)&pfBlockBestFea_d, sizeof(float_point) * nBlockBestFea * numofSNode));
 	checkCudaErrors(cudaMalloc((void**)&pnBlockBestKey_d, sizeof(int) * nBlockBestFea * numofSNode));
 
-	PickBestFeaBestSplit<<<dimGridBestFeaBestSplit, dimBlockSizeBestFeaBestSplit>>>
+	PickLocalBestFeaBestSplit<<<dimGridBestFeaBestSplit, dimBlockSizeBestFeaBestSplit>>>
 											(feaBatch, numofSNode, pfFeaGlobalBestGain_d,
 											 pnFeaGlobalBestGainKey_d, pfBlockBestFea_d, pnBlockBestKey_d);
 
@@ -488,14 +548,104 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 		}
 	}
 
+	delete []pfBlockBestFea_h;
+	delete []pnBlockBestKey_h;
+#endif
+	float_point *pfGlobalBestFea_d;
+	int *pnGlobalBestKey_d;
+	checkCudaErrors(cudaMalloc((void**)&pfGlobalBestFea_d, sizeof(float_point) * numofSNode));
+	checkCudaErrors(cudaMalloc((void**)&pnGlobalBestKey_d, sizeof(int) * numofSNode));
+
+	if(nBlockBestFea > 1)
+	{
+		int threadPerBlockBestFea;
+		dim3 dimNumofBlockBestFea;
+		conf.ConfKernel(nNumofFeature, threadPerBlockBestFea, dimNumofBlockBestFea);
+		PROCESS_ERROR(dimNumofBlockBestFea.x == 1);
+		dimNumofBlockBestFea.x = numofSNode;
+		PickGlobalBestFeaBestSplit<<<dimNumofBlockBestFea, threadPerBlockBestFea>>>(
+													numofSNode, nBlockBestFea, pfBlockBestFea_d,
+													pnBlockBestKey_d, pfGlobalBestFea_d, pnGlobalBestKey_d);
+	}
+	else
+	{//local best fea is the global best fea
+		manager.MemcpyDeviceToDevice(pfBlockBestFea_d, pfGlobalBestFea_d, sizeof(float_point) * numofSNode);
+		manager.MemcpyDeviceToDevice(pnBlockBestKey_d, pnGlobalBestKey_d, sizeof(int) * numofSNode);
+	}
+
+#if testing
+	if(cudaGetLastError() != cudaSuccess)
+	{
+		cerr << "error in PickGlobalBestFeaBestSplit" << endl;
+		exit(0);
+	}
+
+	float_point *pfGlobalBestFea_h = new float_point[numofSNode];
+	int *pnGlobalBestKey_h = new int[numofSNode];
+	manager.MemcpyDeviceToHost(pfGlobalBestFea_d, pfGlobalBestFea_h, sizeof(float_point) * numofSNode);
+	manager.MemcpyDeviceToHost(pnGlobalBestKey_d, pnGlobalBestKey_h, sizeof(int) * numofSNode);
+
+	for(int n = 0; n < numofSNode; n++)
+	{
+
+		if(pfGlobalBestFea_h[n] != pGlobalBest[n])
+			cerr << "best gain diff: " << pfGlobalBestFea_h[n] << " v.s. " << pGlobalBest[n] << endl;
+	}
 	delete []pGlobalBest;
+	delete []pnGlobalBestKey_h;
+	delete []pfGlobalBestFea_h;
 #endif
 
+	//get split point info
+
+	//Memory set for best split points; may not be necessary now.
+	manager.MemcpyHostToDevice(manager.m_pBestPointHost, manager.m_pBestSplitPoint, sizeof(SplitPoint) * maxNumofSplittable);
+
+	FindSplitInfo<<<1, numofSNode>>>(manager.m_pDNumofKeyValue, manager.m_pFeaStartPos, manager.m_pdDFeaValue,
+								  feaBatch, smallestFeaId,
+								  pfGlobalBestFea_d, pnGlobalBestKey_d, manager.m_pBuffIdVec,
+								  manager.m_pSNodeStat, pGDPrefixSum_d, pHessPrefixSum_d,
+								  manager.m_pBestSplitPoint, manager.m_pRChildStat, manager.m_pLChildStat,
+								  manager.m_pLastValue, pGainOnEachFeaValue_d);
+#if testing
+	if(cudaGetLastError() != cudaSuccess)
+	{
+		cerr << "error in PickGlobalBestFeaBestSplit" << endl;
+		exit(0);
+	}
+	SplitPoint *testBestSplitPoint1 = new SplitPoint[maxNumofSplittable];
+	nodeStat *testpRChildStat = new nodeStat[maxNumofSplittable];
+	nodeStat *testpLChildStat = new nodeStat[maxNumofSplittable];
+	manager.MemcpyDeviceToHost(manager.m_pBestSplitPoint, testBestSplitPoint1, sizeof(SplitPoint) * maxNumofSplittable);
+	manager.MemcpyDeviceToHost(manager.m_pRChildStat, testpRChildStat, sizeof(nodeStat) * maxNumofSplittable);
+	manager.MemcpyDeviceToHost(manager.m_pLChildStat, testpLChildStat, sizeof(nodeStat) * maxNumofSplittable);
+
+	for(int n = 0; n < numofSNode; n++)
+	{
+		int buffId = pBuffIdVec_h[n];
+		if(testBestSplitPoint1[buffId].m_fGain != 0)
+		{
+			if(pSNodeStat_h[buffId].sum_hess != testpRChildStat[buffId].sum_hess + testpLChildStat[buffId].sum_hess ||
+			   abs(pSNodeStat_h[buffId].sum_gd - testpRChildStat[buffId].sum_gd - testpLChildStat[buffId].sum_gd) > deltaTest)
+				cerr << "parent node stat != child node stats: "<< pSNodeStat_h[buffId].sum_hess
+					 << " != " << testpRChildStat[buffId].sum_hess << "+" << testpLChildStat[buffId].sum_hess
+					 << "; " << pSNodeStat_h[buffId].sum_gd
+					 << " != " << testpRChildStat[buffId].sum_gd << "+" << testpLChildStat[buffId].sum_gd << endl;
+		}
+	}
+
+	delete []pSNodeStat_h;
+#endif
+
+	checkCudaErrors(cudaFree(pGDPrefixSum_d));
+	checkCudaErrors(cudaFree(pHessPrefixSum_d));
+	checkCudaErrors(cudaFree(pfGlobalBestFea_d));
+	checkCudaErrors(cudaFree(pnGlobalBestKey_d));
 	checkCudaErrors(cudaFree(pfBlockBestFea_d));
 	checkCudaErrors(cudaFree(pnBlockBestKey_d));
 	checkCudaErrors(cudaFree(pGDOnEachFeaValue_d));
 	checkCudaErrors(cudaFree(pHessOnEachFeaValue_d));
-	checkCudaErrors(cudaFree(pValueOneEachFeaValue_d));
+	checkCudaErrors(cudaFree(pValueOnEachFeaValue_d));
 	checkCudaErrors(cudaFree(pStartPosEachFeaInBatch_d));
 	checkCudaErrors(cudaFree(pFeaLenInBatch_d));
 	checkCudaErrors(cudaFree(pGainOnEachFeaValue_d));
@@ -507,6 +657,7 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 
 //####### end testing
 
+#if testing
 
 	int threadPerBlock;
 	dim3 dimNumofBlock;
@@ -527,13 +678,12 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 									  DeviceSplitter::m_lambda, nNumofFeature);
 	cudaDeviceSynchronize();
 	end_per_fea = clock();
-#if testing
 	if(cudaGetLastError() != cudaSuccess)
 	{
 		cout << "error in FindFeaSplitValue" << endl;
 		exit(0);
 	}
-#endif
+
 
 	float_point *pfBestGain;
 	int *pnBestGainKey;
@@ -551,13 +701,13 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 					 manager.m_pBestSplitPointPerThread, manager.m_pBuffIdVec, numofSNode, nNumofFeature,
 					 maxNumofSplittable, pfBestGain, pnBestGainKey);
 	cudaDeviceSynchronize();
-#if testing
+
 	if(cudaGetLastError() != cudaSuccess)
 	{
 		cout << "error in PickLocalBestFea" << endl;
 		exit(0);
 	}
-#endif
+
 
 	int blockSizeBestFea = numofBlockPerNode;
 	if(blockSizeBestFea > conf.m_maxBlockSize)
@@ -566,35 +716,61 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 	PickGlobalBestFea<<<numofSNode, blockSizeBestFea>>>(manager.m_pLastValuePerThread,
 					  manager.m_pBestSplitPointPerThread, manager.m_pRChildStatPerThread, manager.m_pLChildStatPerThread,
 					  manager.m_pBuffIdVec, numofSNode, pfBestGain, pnBestGainKey, numofBlockPerNode);
-#if testing
+
 	if(cudaGetLastError() != cudaSuccess)
 	{
 		cout << "error in PickGlobalBestFea" << endl;
 		exit(0);
 	}
-#endif
+
 
 	//Memory set for best split points; may not be necessary now.
 	manager.MemcpyHostToDevice(manager.m_pBestPointHost, manager.m_pBestSplitPoint, sizeof(SplitPoint) * maxNumofSplittable);
-
 	manager.MemcpyDeviceToDevice(manager.m_pLastValuePerThread, manager.m_pLastValue, sizeof(float_point) * maxNumofSplittable);
-	manager.MemcpyDeviceToDevice(manager.m_pBestSplitPointPerThread, manager.m_pBestSplitPoint, sizeof(SplitPoint) * maxNumofSplittable);
 	manager.MemcpyDeviceToDevice(manager.m_pRChildStatPerThread, manager.m_pRChildStat, sizeof(nodeStat) * maxNumofSplittable);
 	manager.MemcpyDeviceToDevice(manager.m_pLChildStatPerThread, manager.m_pLChildStat, sizeof(nodeStat) * maxNumofSplittable);
+	manager.MemcpyDeviceToDevice(manager.m_pBestSplitPointPerThread, manager.m_pBestSplitPoint, sizeof(SplitPoint) * maxNumofSplittable);
 
-#if true
+
 	//print best split points
-	int *pTestBuffIdVect = new int[numofSNode];
-	manager.MemcpyDeviceToHost(manager.m_pBuffIdVec, pTestBuffIdVect, sizeof(int) * numofSNode);
-	SplitPoint *testBestSplitPoint = new SplitPoint[maxNumofSplittable];
-	manager.MemcpyDeviceToHost(manager.m_pBestSplitPoint, testBestSplitPoint, sizeof(SplitPoint) * maxNumofSplittable);
+	SplitPoint *testBestSplitPoint2 = new SplitPoint[maxNumofSplittable];
+	nodeStat *testpRChildStat2 = new nodeStat[maxNumofSplittable];
+	nodeStat *testpLChildStat2 = new nodeStat[maxNumofSplittable];
+	manager.MemcpyDeviceToHost(manager.m_pBestSplitPoint, testBestSplitPoint2, sizeof(SplitPoint) * maxNumofSplittable);
+	manager.MemcpyDeviceToHost(manager.m_pRChildStat, testpRChildStat2, sizeof(nodeStat) * maxNumofSplittable);
+	manager.MemcpyDeviceToHost(manager.m_pLChildStat, testpLChildStat2, sizeof(nodeStat) * maxNumofSplittable);
 	for(int sn = 0; sn < numofSNode; sn++)
 	{
-		cout << "nid=" << pTestBuffIdVect[sn] << "; snid=" << sn << "; gain=" << testBestSplitPoint[pTestBuffIdVect[sn]].m_fGain << "; fid="
-			 << testBestSplitPoint[pTestBuffIdVect[sn]].m_nFeatureId << "; sv=" << testBestSplitPoint[pTestBuffIdVect[sn]].m_fSplitValue << endl;
+		int buffId = pBuffIdVec_h[sn];
+		if(testBestSplitPoint1[buffId].m_nFeatureId != 0 && testBestSplitPoint2[buffId].m_nFeatureId != -1)
+		{
+		if(testBestSplitPoint1[buffId].m_nFeatureId != testBestSplitPoint2[buffId].m_nFeatureId ||
+		   abs(testBestSplitPoint1[buffId].m_fGain - testBestSplitPoint2[buffId].m_fGain) > deltaTest ||
+		   abs(testpRChildStat[buffId].sum_gd - testpRChildStat2[buffId].sum_gd) > deltaTest ||
+		   testpRChildStat[buffId].sum_hess != testpRChildStat2[buffId].sum_hess ||
+		   abs(testpLChildStat[buffId].sum_gd - testpLChildStat2[buffId].sum_gd) > deltaTest ||
+		   testpLChildStat[buffId].sum_hess != testpLChildStat2[buffId].sum_hess)
+			cerr << "final result diff: " << testBestSplitPoint1[buffId].m_nFeatureId << " v.s. " << testBestSplitPoint2[buffId].m_nFeatureId
+				 << "; " << testBestSplitPoint1[buffId].m_fGain << " v.s. " << testBestSplitPoint2[buffId].m_fGain
+				 << "; " << testBestSplitPoint1[buffId].m_fSplitValue << " v.s. " << testBestSplitPoint2[buffId].m_fSplitValue
+				 << "; r gd: " << testpRChildStat[buffId].sum_gd << " v.s. " << testpRChildStat2[buffId].sum_gd
+				 << "; r hess: " << testpRChildStat[buffId].sum_hess << " v.s. " << testpRChildStat2[buffId].sum_hess
+				 << "; l gd: " << testpLChildStat[buffId].sum_gd << " v.s. " << testpLChildStat2[buffId].sum_gd
+				 << "; l hess: " << testpLChildStat[buffId].sum_hess << " v.s. " << testpLChildStat2[buffId].sum_hess
+				 << endl;
+		}
+
+
+//		cout << "nid=" << pTestBuffIdVect[sn] << "; snid=" << sn << "; gain=" << testBestSplitPoint[pTestBuffIdVect[sn]].m_fGain << "; fid="
+//			 << testBestSplitPoint[pTestBuffIdVect[sn]].m_nFeatureId << "; sv=" << testBestSplitPoint[pTestBuffIdVect[sn]].m_fSplitValue << endl;
 	}
-	delete[] testBestSplitPoint;
-	delete[] pTestBuffIdVect;
+	delete []testpRChildStat;
+	delete []testpLChildStat;
+	delete []testBestSplitPoint1;
+	delete []testpRChildStat2;
+	delete []testpLChildStat2;
+	delete []testBestSplitPoint2;
+	delete []pBuffIdVec_h;
 #endif
 }
 

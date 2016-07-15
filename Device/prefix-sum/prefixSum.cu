@@ -165,13 +165,13 @@ __global__ void cuda_updatesum(T *array, const int *arrayStartPos, const unsigne
 	int array_id = blockIdx.y;
 	unsigned int b_offset = arrayStartPos[array_id] + blockIdx.x * blockDim.x;//in_array offset due to multi blocks
 	unsigned int id = b_offset + tid;
-	int op = 0;
 	unsigned int array_len = pnEachSubArrayLen[array_id];
 	if(blockIdx.x * blockDim.x + tid >= array_len)//skip this thread, due to the small subarray size
 	{
 		return;
 	}
 
+	T op = 0;
 	if (blockIdx.x > 0)//if it is not the first block
 	{
 		op = update_array[blockIdx.y * gridDim.x + blockIdx.x - 1];

@@ -39,4 +39,21 @@ __device__ void GetGlobalMinPreprocessing(int nArraySize, const float_point *pfB
 	}
 }
 
+/**
+ * @brief: load to shared memory
+ */
+__device__ void LoadToSharedMem(int nArraySize, int gainStartPos,
+								const float_point *pfBlockMinValue, const int *pnBlockMinKey,
+		  	  	  	  	  	    float_point *pfSharedMinValue, int *pnSharedMinKey)
+{
+	int localTId = threadIdx.x;
+	int firstElementPos = gainStartPos + localTId;
+	pfSharedMinValue[localTId] = pfBlockMinValue[firstElementPos];
+	pnSharedMinKey[localTId] = pnBlockMinKey[firstElementPos];
+
+	//if the size of block is larger than the BLOCK_SIZE, we make the size to be not larger than BLOCK_SIZE
+	//the thread loads more elements
+	GetGlobalMinPreprocessing(nArraySize, pfBlockMinValue + gainStartPos, pnBlockMinKey + gainStartPos, pfSharedMinValue, pnSharedMinKey);
+}
+
 

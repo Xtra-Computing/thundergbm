@@ -10,6 +10,7 @@
 #define SPLITPOINT_H_
 
 #include <ostream>
+#include "../../DeviceHost/DefineConst.h"
 
 using std::ostream;
 
@@ -18,8 +19,8 @@ using std::ostream;
  */
 class SplitPoint{
 public:
-	double m_fGain;
-	double m_fSplitValue;
+	float_point m_fGain;
+	float_point m_fSplitValue;
 	int m_nFeatureId;
 
 	SplitPoint()
@@ -32,7 +33,7 @@ public:
 	/**
 	 * @brief: return true if values are updated; otherwise false.
 	 */
-	bool UpdateSplitPoint(double fGain, double fSplitValue, int nFeatureId)
+	bool UpdateSplitPoint(float_point fGain, float_point fSplitValue, int nFeatureId)
 	{
 		if(fGain > m_fGain )//|| (fGain == m_fGain && nFeatureId == m_nFeatureId) NOT USE (second condition is for updating to a new split value)
 		{
