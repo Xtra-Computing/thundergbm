@@ -30,7 +30,7 @@ public:
 	static float_point *m_pfFeaLocalBestGain_d;
 	static int *m_pnFeaLocalBestGainKey_d;
 	static float_point *m_pfFeaGlobalBestGain_d;
-	static float_point *m_pnFeaGlobalBestGainKey_d;
+	static int *m_pnFeaGlobalBestGainKey_d;
 	static float_point *m_pLastBiggerValue_d;
 	static int *m_pnEachFeaLen_h;
 

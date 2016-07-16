@@ -27,7 +27,7 @@ float_point *FFMemManager::m_pHessPrefixSum_d = NULL;	//prefix sum of hessian of
 float_point *FFMemManager::m_pfFeaLocalBestGain_d = NULL;	//feature best gain in block
 int *FFMemManager::m_pnFeaLocalBestGainKey_d = NULL;		//feature key of best gain in block
 float_point *FFMemManager::m_pfFeaGlobalBestGain_d = NULL;	//feature global best gain
-float_point *FFMemManager::m_pnFeaGlobalBestGainKey_d = NULL; //feature key of global best gain
+int *FFMemManager::m_pnFeaGlobalBestGainKey_d = NULL; //feature key of global best gain
 
 float_point *FFMemManager::m_pfBlockBestFea_d = NULL;	//block level feature with best split
 int *FFMemManager::m_pnBlockBestKey_d = NULL;			//block level feature key with best split
