@@ -16,8 +16,9 @@
 #include "DeviceHost/MyAssert.h"
 
 #include "Device/Memory/gbdtGPUMemManager.h"
-#include "Device/Memory/SplitNodeMemManager.h"
+#include "Device/Memory/SNMemManager.h"
 #include "Device/Memory/dtMemManager.h"
+#include "Device/Memory/findFeaMemManager.h"
 #include "Device/DeviceTrainer.h"
 #include "Device/DevicePredictor.h"
 #include "Device/initCuda.h"
@@ -31,6 +32,8 @@ int main(int argc, char *argv[])
 //	TestPrefixSum(argc, argv);
 //	return 1;
 	string strFileName = "data/abalone.txt";
+//	string strFileName = "data/normalized_amz.txt";
+//	string strFileName = "data/slice_loc.txt";
 
 //	mainPureHost(strFileName);
 //	return 1;
@@ -97,6 +100,9 @@ int main(int argc, char *argv[])
 	snManger.allocMemForParenChildIdMapping(maxNumofSplittableNode);
 	snManger.allocMemForNewNode(maxNumofSplittableNode);
 	snManger.allocMemForUsedFea(maxNumofUsedFeature);//use in splitting all nodes process
+
+	FFMemManager ffManager;
+	ffManager.allocMemForFindFea(nNumofValue, nNumofExamples, nNumofFeatures, maxNumofSplittableNode);
 
 	begin_whole = clock();
 	cout << "start training..." << endl;
@@ -203,6 +209,7 @@ int main(int argc, char *argv[])
 	trainer.ReleaseTree(v_Tree);
 	memAllocator.releaseHostMemory();
 	memAllocator.freeMemForSNForEachThread();
+	ffManager.freeMemForFindFea();
 
 	ReleaseCuda(context);
 

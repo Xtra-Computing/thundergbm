@@ -11,7 +11,7 @@
 
 #include "../../DeviceHost/MyAssert.h"
 #include "../Memory/gbdtGPUMemManager.h"
-#include "../Memory/SplitNodeMemManager.h"
+#include "../Memory/SNMemManager.h"
 #include "DeviceSplitter.h"
 #include "../Preparator.h"
 #include "../Hashing.h"

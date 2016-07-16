@@ -79,7 +79,7 @@ void elementsLastBlock(unsigned int *pnEltsLastBlock, unsigned int *pnThreadLast
 		else
 			pnThreadLastBlock[a] = floorPow2(numEltsLastBlock);
 
-		assert(numEltsLastBlock > 0);
+		assert(numEltsLastBlock >= 0);
 		pnEltsLastBlock[a] = numEltsLastBlock;
 	}
 }

@@ -106,7 +106,10 @@ __global__ void GetInfoEachFeaInBatch(const int *pnNumofKeyValues, const long lo
 	int feaId = blockIdx.x * blockDim.x + threadIdx.x + smallestFeaId;//add a shift here to process only part of the features
 	int feaIdInBatch = blockIdx.x * blockDim.x + threadIdx.x;
 	if(feaId >= totalNumofFea)
-		printf("Error in GetStartPosEachFeaInBatch: feaId=%d, while total numofFea=%d\n", feaId, totalNumofFea);
+	{
+//		printf("Error in GetStartPosEachFeaInBatch: feaId=%d, while total numofFea=%d\n", feaId, totalNumofFea);
+		return;
+	}
 
 	int oneNodeBatchSize;
 	int curFeaStartPosInBatch;

@@ -6,7 +6,7 @@
  */
 
 #include <helper_cuda.h>
-#include "SplitNodeMemManager.h"
+#include "SNMemManager.h"
 #include "../../DeviceHost/MyAssert.h"
 #include "gpuMemManager.h"
 

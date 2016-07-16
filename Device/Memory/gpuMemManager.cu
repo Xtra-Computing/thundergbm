@@ -15,7 +15,7 @@
 /**
  * @brief: copy data from host to device
  */
-void GPUMemManager::MemcpyHostToDevice(void *hostSrc, void *pDevDst, int numofByte)
+void GPUMemManager::MemcpyHostToDevice(void *hostSrc, void *pDevDst, long long numofByte)
 {
 	PROCESS_ERROR(numofByte > 0);
 	PROCESS_ERROR(hostSrc != NULL);
@@ -27,7 +27,7 @@ void GPUMemManager::MemcpyHostToDevice(void *hostSrc, void *pDevDst, int numofBy
 /**
  * @brief: copy data from device to host
  */
-void GPUMemManager::MemcpyDeviceToHost(void *pDevSrc, void *pHostDst, int numofByte)
+void GPUMemManager::MemcpyDeviceToHost(void *pDevSrc, void *pHostDst, long long numofByte)
 {
 	PROCESS_ERROR(numofByte > 0);
 	PROCESS_ERROR(pDevSrc != NULL);
@@ -38,7 +38,7 @@ void GPUMemManager::MemcpyDeviceToHost(void *pDevSrc, void *pHostDst, int numofB
 /**
  * @brief: copy data from device to device
  */
-void GPUMemManager::MemcpyDeviceToDevice(void *pDevSrc, void *pDevDst, int numofByte)
+void GPUMemManager::MemcpyDeviceToDevice(void *pDevSrc, void *pDevDst, long long numofByte)
 {
 	PROCESS_ERROR(numofByte > 0);
 	PROCESS_ERROR(pDevSrc != NULL);
@@ -49,7 +49,7 @@ void GPUMemManager::MemcpyDeviceToDevice(void *pDevSrc, void *pDevDst, int numof
 /**
  * @brief: set gpu memory
  */
-void GPUMemManager::Memset(void *pDevSrc, int value, int numofByte)
+void GPUMemManager::Memset(void *pDevSrc, int value, long long numofByte)
 {
 	checkCudaErrors(cudaMemset(pDevSrc, value, numofByte));
 }
@@ -57,7 +57,7 @@ void GPUMemManager::Memset(void *pDevSrc, int value, int numofByte)
 /**
  * @brief: copy data from host to device
  */
-void GPUMemManager::TestMemcpyHostToDevice(void *hostSrc, void *pDevDst, int numofByte)
+void GPUMemManager::TestMemcpyHostToDevice(void *hostSrc, void *pDevDst, long long numofByte)
 {//hostSrc and pDevDst have the same values.
 
 	PROCESS_ERROR(numofByte > 0);

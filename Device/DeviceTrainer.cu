@@ -10,7 +10,7 @@
 #include "Splitter/Initiator.h"
 #include "Splitter/DeviceSplitter.h"
 #include "Memory/gbdtGPUMemManager.h"
-#include "Memory/SplitNodeMemManager.h"
+#include "Memory/SNMemManager.h"
 #include "Memory/dtMemManager.h"
 
 /**
