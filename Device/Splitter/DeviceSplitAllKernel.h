@@ -17,14 +17,14 @@
 
 __global__ void ComputeWeight(TreeNode *pAllTreeNode, TreeNode *pSplittableNode, const int *pSNIdToBufferId,
 		  	  	  	  	  	  	  SplitPoint *pBestSplitPoint, nodeStat *pSNodeStat, float_point rt_eps, int flag_LEAFNODE,
-		  	  	  	  	  	  	  float_point lambda, int numofSplittableNode, bool bLastLevel);
+		  	  	  	  	  	  	  float_point lambda, int numofSplittableNode, bool bLastLevel, int maxNumofSplittableNode);
 
 __global__ void CreateNewNode(TreeNode *pAllTreeNode, TreeNode *pSplittableNode, TreeNode *pNewSplittableNode,
 								  const int *pSNIdToBufferId, const SplitPoint *pBestSplitPoint,
 		  	  	  	  	  	  	  int *pParentId, int *pLChildId, int *pRChildId,
 		  	  	  	  	  	  	  const nodeStat *pLChildStat, const nodeStat *pRChildStat, nodeStat *pNewNodeStat,
 		  	  	  	  	  	  	  int *m_nNumofNode, int *pNumofNewNode,
-		  	  	  	  	  	  	  float_point rt_eps, int nNumofSplittableNode, bool bLastLevel);
+		  	  	  	  	  	  	  float_point rt_eps, int nNumofSplittableNode, bool bLastLevel, int maxNumofSplittableNode);
 
 
 __global__ void GetUniqueFid(TreeNode *pAllTreeNode, TreeNode *pSplittableNode, int nNumofSplittableNode,

@@ -97,11 +97,11 @@ __global__ void FindFeaSplitValue(const int *pnNumofKeyValues, const long long *
 				if(needUpdate == true)
 				{
 					float_point sv = (fvalue + pLastValuePerThread[bufferPos]) * 0.5f;
-					if(hashValue == 1)
-					{
-//						float_point loss_chg = CalGain(pSNodeStatPerThread[bufferPos], pTempRChildStatPerThread[bufferPos], tempGD, tempHess, lambda);
-//						printf("nid=%d, sv=%f, gain=%f\n", nid, sv, loss_chg);
-					}
+
+					float_point loss_chg = CalGain(pSNodeStatPerThread[hashValue], pTempRChildStatPerThread[bufferPos], tempGD, tempHess, lambda);
+//					if(loss_chg > 9.69 && loss_chg < 9.7  && feaId == 5)
+//						printf("Here have a look\n");
+
 
 		            UpdateSplitInfo(pSNodeStatPerThread[hashValue], pBestSplitPointPerThread[bufferPos], pRChildStatPerThread[bufferPos],
 		            							  pLChildStatPerThread[bufferPos], pTempRChildStatPerThread[bufferPos], tempGD, tempHess,
@@ -130,7 +130,7 @@ __global__ void FindFeaSplitValue(const int *pnNumofKeyValues, const long long *
         if(needUpdate == true)
         {
             const float delta = fabs(pLastValuePerThread[buffId]) + DeviceSplitter::rt_eps;
-            float_point sv = pLastValuePerThread[buffId] + delta;
+            float_point sv = delta;
 
             UpdateSplitInfo(pSNodeStatPerThread[hashVaue], pBestSplitPointPerThread[buffId], pRChildStatPerThread[buffId], pLChildStatPerThread[buffId],
             							  pTempRChildStatPerThread[buffId], tempGD, tempHess, lambda, sv, feaId);
@@ -197,6 +197,7 @@ __device__ void UpdateSplitInfo(const nodeStat &snStat, SplitPoint &bestSP, node
 								const float_point &lambda, const float_point &sv, const int &featureId)
 {
 	float_point loss_chg = CalGain(snStat, TempRChildStat, tempGD, tempHess, lambda);
+
     bool bUpdated = UpdateSplitPoint(bestSP, loss_chg, sv, featureId);
 	if(bUpdated == true)
 	{

@@ -17,7 +17,7 @@
  */
 __global__ void ComputeWeight(TreeNode *pAllTreeNode, TreeNode *pSplittableNode, const int *pSNIdToBufferId,
 								  SplitPoint *pBestSplitPoint, nodeStat *pSNodeStat, float_point rt_eps, int flag_LEAFNODE,
-								  float_point lambda, int numofSplittableNode, bool bLastLevel)
+								  float_point lambda, int numofSplittableNode, bool bLastLevel, int maxNumofSplittableNode)
 {
 	int nGlobalThreadId = (blockIdx.y * gridDim.x + blockIdx.x) * blockDim.x + threadIdx.x;
 	if(nGlobalThreadId < 0 || nGlobalThreadId >= numofSplittableNode)//one thread per splittable node
@@ -26,7 +26,8 @@ __global__ void ComputeWeight(TreeNode *pAllTreeNode, TreeNode *pSplittableNode,
 	int nid = pSplittableNode[nGlobalThreadId].nodeId;
 	ErrorChecker(nid, __PRETTY_FUNCTION__, "nid");
 
-	int bufferPos = pSNIdToBufferId[nid];//########## here should be using the hash function.
+//	int bufferPos = pSNIdToBufferId[nid];//########## here should be using the hash function.
+	int bufferPos = GetBufferId(pSNIdToBufferId, nid, maxNumofSplittableNode);
 //	printf("node %d needs to split... pos in buff is %d\n", nid, bufferPos);
 	ErrorChecker(bufferPos, __PRETTY_FUNCTION__, "bufferPos");
 
@@ -52,7 +53,7 @@ __global__ void CreateNewNode(TreeNode *pAllTreeNode, TreeNode *pSplittableNode,
 								  int *pParentId, int *pLChildId, int *pRChildId,
 								  const nodeStat *pLChildStat, const nodeStat *pRChildStat, nodeStat *pNewNodeStat,
 								  int *pNumofNode, int *pNumofNewNode,
-								  float_point rt_eps, int nNumofSplittableNode, bool bLastLevel)
+								  float_point rt_eps, int nNumofSplittableNode, bool bLastLevel, int maxNumofSplittableNode)
 {
 	//for each splittable node, assign lchild and rchild ids
 	int nGlobalThreadId = (blockIdx.y * gridDim.x + blockIdx.x) * blockDim.x + threadIdx.x;
@@ -62,8 +63,10 @@ __global__ void CreateNewNode(TreeNode *pAllTreeNode, TreeNode *pSplittableNode,
 	ErrorChecker(*pNumofNewNode == 0, __PRETTY_FUNCTION__, "*pNumofNewNode == 0");
 
 	int nid = pSplittableNode[nGlobalThreadId].nodeId;
+
 	ErrorChecker(nid, __PRETTY_FUNCTION__, "nid");
-	int bufferPos = pSNIdToBufferId[nid];
+//	int bufferPos = pSNIdToBufferId[nid];//#########
+	int bufferPos = GetBufferId(pSNIdToBufferId, nid, maxNumofSplittableNode);
 //	printf("splitting node %d, buffPos is %d, tid=%d\n", nid, bufferPos, nGlobalThreadId);
 	ErrorChecker(bufferPos, __PRETTY_FUNCTION__, "bufferPos");
 

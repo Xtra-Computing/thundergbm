@@ -46,7 +46,7 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 	conf.ConfKernel(manager.m_curNumofSplitable, threadPerBlock, dimNumofBlock);
 	ComputeWeight<<<dimNumofBlock, threadPerBlock>>>(snManager.m_pTreeNode, manager.m_pSplittableNode, manager.m_pSNIdToBuffId,
 			  	  	  	  	  manager.m_pBestSplitPoint, manager.m_pSNodeStat, rt_eps, LEAFNODE,
-			  	  	  	  	  m_lambda, manager.m_curNumofSplitable, bLastLevel);
+			  	  	  	  	  m_lambda, manager.m_curNumofSplitable, bLastLevel, manager.m_maxNumofSplittable);
 #if testing
 	if(cudaGetLastError() != cudaSuccess)
 	{
@@ -62,7 +62,8 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 							manager.m_pSNIdToBuffId, manager.m_pBestSplitPoint,
 							snManager.m_pParentId, snManager.m_pLeftChildId, snManager.m_pRightChildId,
 							manager.m_pLChildStat, manager.m_pRChildStat, snManager.m_pNewNodeStat,
-							snManager.m_pCurNumofNode, snManager.m_pNumofNewNode, rt_eps, manager.m_curNumofSplitable, bLastLevel);
+							snManager.m_pCurNumofNode, snManager.m_pNumofNewNode, rt_eps,
+							manager.m_curNumofSplitable, bLastLevel, manager.m_maxNumofSplittable);
 #if testing
 	if(cudaGetLastError() != cudaSuccess)
 	{

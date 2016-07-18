@@ -176,6 +176,19 @@ __device__ void GetMinValueOriginal(float_point *pfValues, int nNumofBlock)
 
 }
 
+/**
+ * @brief: swap two values if applicable
+ */
+__device__ void Swap(float_point *pfValues, int *pnKey, float_point &fValue1, const int &nTid, const int &compOffset)
+{
+	float_point fValue2 = pfValues[compOffset];
+	if(fValue2 < fValue1 || (fValue2 == fValue1 && pnKey[nTid] > pnKey[compOffset]))
+	{
+		pnKey[nTid] = pnKey[compOffset];
+		pfValues[nTid] = fValue2;
+		fValue1 = fValue2;
+	}
+}
 
 /* *
  /*
@@ -203,13 +216,7 @@ __device__ void GetMinValue(float_point *pfValues, int *pnKey, int nNumofBlock)
 		{
 			if(compOffset < nNumofBlock)
 			{
-				fValue2 = pfValues[compOffset];
-				if(fValue2 < fValue1)
-				{
-					pnKey[nTid] = pnKey[compOffset];
-					pfValues[nTid] = fValue2;
-					fValue1 = fValue2;
-				}
+				Swap(pfValues, pnKey, fValue1, nTid, compOffset);
 			}
 		}
 		//synchronise threads to avoid read dirty value (dirty read may happen if two steps reduction, say 32 and 16, run simultaneously)
@@ -218,13 +225,7 @@ __device__ void GetMinValue(float_point *pfValues, int *pnKey, int nNumofBlock)
 		compOffset = nTid + 32;
 		if(nTid < 32 && (compOffset < nNumofBlock))
 		{
-			fValue2 = pfValues[compOffset];
-			if(fValue2 < fValue1)
-			{
-				pnKey[nTid] = pnKey[compOffset];
-				pfValues[nTid] = fValue2;
-				fValue1 = fValue2;
-			}
+			Swap(pfValues, pnKey, fValue1, nTid, compOffset);
 		}
 		//synchronise threads to avoid read dirty value (dirty read may happen if two steps reduction, say 32 and 16, run simultaneously)
 		__syncthreads();
@@ -232,61 +233,31 @@ __device__ void GetMinValue(float_point *pfValues, int *pnKey, int nNumofBlock)
 		compOffset = nTid + 16;
 		if(nTid < 16 && (compOffset < nNumofBlock))
 		{
-			fValue2 = pfValues[compOffset];
-			if(fValue2 < fValue1)
-			{
-				pnKey[nTid] = pnKey[compOffset];
-				pfValues[nTid] = fValue2;
-				fValue1 = fValue2;
-			}
+			Swap(pfValues, pnKey, fValue1, nTid, compOffset);
 		}
 
 		compOffset = nTid + 8;
 		if(nTid < 8 && (compOffset < nNumofBlock))
 		{
-			fValue2 = pfValues[compOffset];
-			if(fValue2 < fValue1)
-			{
-				pnKey[nTid] = pnKey[compOffset];
-				pfValues[nTid] = fValue2;
-				fValue1 = fValue2;
-			}
+			Swap(pfValues, pnKey, fValue1, nTid, compOffset);
 		}
 
 		compOffset = nTid + 4;
 		if(nTid < 4 && (compOffset < nNumofBlock))
 		{
-			fValue2 = pfValues[compOffset];
-			if(fValue2 < fValue1)
-			{
-				pnKey[nTid] = pnKey[compOffset];
-				pfValues[nTid] = fValue2;
-				fValue1 = fValue2;
-			}
+			Swap(pfValues, pnKey, fValue1, nTid, compOffset);
 		}
 
 		compOffset = nTid + 2;
 		if(nTid < 2 && (compOffset < nNumofBlock))
 		{
-			fValue2 = pfValues[compOffset];
-			if(fValue2 < fValue1)
-			{
-				pnKey[nTid] = pnKey[compOffset];
-				pfValues[nTid] = fValue2;
-				fValue1 = fValue2;
-			}
+			Swap(pfValues, pnKey, fValue1, nTid, compOffset);
 		}
 
 		compOffset = nTid + 1;
 		if(nTid < 1 && (compOffset < nNumofBlock))
 		{
-			fValue2 = pfValues[compOffset];
-			if(fValue2 < fValue1)
-			{
-				pnKey[nTid] = pnKey[compOffset];
-				pfValues[nTid] = fValue2;
-				//fValue1 = fValue2;
-			}
+			Swap(pfValues, pnKey, fValue1, nTid, compOffset);
 		}
 }
 

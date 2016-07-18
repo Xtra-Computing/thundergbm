@@ -41,6 +41,7 @@ __device__ __host__ int AssignHashValue(int *pEntryToHashValue, int origin, int 
 			bool hashValueFound = false;
 			if(pEntryToHashValue[i] == -1)//the entry hasn't been seen before, and now is assigned a hash value.
 			{
+				pEntryToHashValue[i] = origin;//occupy the slot
 				hashValueFound = true;
 				bIsNew = true;
 			}

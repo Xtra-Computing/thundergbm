@@ -260,6 +260,8 @@ __global__ void FindSplitInfo(const int *pnKeyValue, const long long *plFeaStart
 	}
 
 	pBestSplitPoint[buffId].m_fGain = -pfGlobalBestFea[snId];//change the gain back to positive
+//	if(pBestSplitPoint[buffId].m_fGain > 9.69 && pBestSplitPoint[buffId].m_fGain < 9.7  && bestFeaId == 5)
+//		printf("Here have a look\n");
 	if(-pfGlobalBestFea[snId] <= 0)//no gain
 	{
 		return;
@@ -268,7 +270,7 @@ __global__ void FindSplitInfo(const int *pnKeyValue, const long long *plFeaStart
 	int svPos = plFeaStartPos[bestFeaId] + valuePos;
 	if(svPos <= 0)
 		printf("Error in FindSplitInfo: split point is at %d!\n", svPos);
-	pBestSplitPoint[buffId].m_fSplitValue = 0.5 * (pFeaValue[svPos] + pFeaValue[svPos - 1]);
+	pBestSplitPoint[buffId].m_fSplitValue = 0.5f * (pFeaValue[svPos] + pFeaValue[svPos - 1]);
 
 	pLastValue[buffId] = pFeaValue[svPos];
 

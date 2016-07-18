@@ -122,8 +122,14 @@ void DeviceTrainer::GrowTree(RegTree &tree)
 	TreeNode *pAllNode = new TreeNode[numofNode];
 	manager.MemcpyDeviceToHost(snManager.m_pTreeNode, pAllNode, sizeof(TreeNode) * numofNode);
 	TreeNode **ypAllNode = new TreeNode*[numofNode];
+	PROCESS_ERROR(tree.nodes.size() == 0);
 	for(int n = 0; n < numofNode; n++)
 	{
+/*		cout << pAllNode[n].nodeId << ":[f" << pAllNode[n].featureId + 1 << "<";
+		cout.precision(6);
+		cout << pAllNode[n].fSplitValue << "]";
+		cout << " yes=" << pAllNode[n].leftChildId << ",no=" << pAllNode[n].rightChildId << ",missing=" << pAllNode[n].leftChildId << "\n";
+*/
 		ypAllNode[n] = &pAllNode[n];
 		tree.nodes.push_back(&pAllNode[n]);//for getting features of trees
 	}

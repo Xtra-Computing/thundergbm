@@ -172,6 +172,8 @@ __global__ void ComputeGain(const int *pnNumofKeyValues, const long long *pnFeaS
 	}
 
 	int exclusiveSumPos = bufferPos - 1;//following xgboost using exclusive sum on gd and hess
+	if(exclusiveSumPos < 0)
+		printf("Index to get prefix sum is negative: %d\n", exclusiveSumPos);
 	float_point rChildGD = pGDPrefixSumOnEachFeaValue[exclusiveSumPos];
 	float_point rChildHess = pHessPrefixSumOnEachFeaValue[exclusiveSumPos];
 	float_point snGD = pSNodeStat[hashVaue].sum_gd;

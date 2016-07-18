@@ -31,9 +31,33 @@ int main(int argc, char *argv[])
 {
 //	TestPrefixSum(argc, argv);
 //	return 1;
-	string strFileName = "data/abalone.txt";
-//	string strFileName = "data/normalized_amz.txt";
-//	string strFileName = "data/slice_loc.txt";
+
+	string strFileName;
+	int fileOption = 0;
+	if(argc == 2)
+	{
+		string str = argv[1];
+		fileOption = atoi(str.c_str());
+	}
+	switch(fileOption)
+	{
+	case 0:
+		strFileName = "data/abalone.txt";
+		break;
+	case 1:
+		strFileName = "data/normalized_amz.txt";
+		break;
+	case 2:
+		strFileName = "data/slice_loc.txt";
+		break;
+	case 3:
+		strFileName = "data/cadata.txt";
+		break;
+	default:
+		cerr << fileOption << " is an unknown file name option" << endl;
+		return -1;
+	}
+	cout << "processing this file: " << strFileName << endl;
 
 //	mainPureHost(strFileName);
 //	return 1;
@@ -47,7 +71,6 @@ int main(int argc, char *argv[])
 
 	clock_t begin_whole, end_whole;
 	/********* read training instances from a file **************/
-	int maxNumofSplittableNode = 100;
 	int maxNumofUsedFeature = 1000;
 	int maxNumofDenseIns = 1;//###### is later set to the number of instances
 	int maxUsedFeaInTrees = 1000;
@@ -78,6 +101,7 @@ int main(int argc, char *argv[])
 	//allocate memory for trees
 	DTGPUMemManager treeMemManager;
 	int maxNumofNodePerTree = pow(2, nMaxDepth + 1) - 1;
+	int maxNumofSplittableNode = pow(2, nMaxDepth);
 	treeMemManager.allocMemForTrees(nNumofTree, maxNumofNodePerTree, nMaxDepth);
 
 
