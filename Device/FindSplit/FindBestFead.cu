@@ -12,7 +12,7 @@
 #include "../KernelConst.h"
 #include "../DeviceHashing.h"
 #include "../prefix-sum/prefixSum.h"
-#include "../svm-shared/devUtility.h"
+#include "../svm-shared/DeviceUtility.h"
 #include "../../DeviceHost/NodeStat.h"
 
 
@@ -22,7 +22,7 @@
  */
 __global__ void PickFeaLocalBestSplit(const int *pnNumofKeyValues, const long long *pnFeaStartPos, const float_point *pGainOnEachFeaValue,
 								   const int *pBuffId, int smallestFeaId, int feaBatch,
-								   int numofSNode, int maxNumofSplittable,
+								   int numofSNInProgress, int smallestNodeId, int maxNumofSplittable,
 								   float_point *pfBestGain, int *pnBestGainKey)
 {
 	//blockIdx.x corresponds to a feature which has multiple values
@@ -35,9 +35,9 @@ __global__ void PickFeaLocalBestSplit(const int *pnNumofKeyValues, const long lo
 	if(blockIdx.y >= feaBatch)
 		printf("the feaBatch is smaller than blocks for feas: %d v.s. %d\n", feaBatch, blockIdx.y);
 
-	if(snId >= numofSNode)
-		printf("Error in PickBestFea: kernel split %d nods, but only %d splittable nodes\n", snId, numofSNode);
-	if(pBuffId[snId] < 0 || pBuffId[snId] >= maxNumofSplittable)
+	if(snId >= numofSNInProgress)
+		printf("Error in PickBestFea: kernel split %d nods, but only %d splittable nodes\n", snId, numofSNInProgress);
+	if(pBuffId[snId + smallestNodeId] < 0 || pBuffId[snId + smallestNodeId] >= maxNumofSplittable)
 		printf("Error in PickBestFea\n");
 
 	__shared__ float_point pfGain[BLOCK_SIZE];
@@ -61,8 +61,8 @@ __global__ void PickFeaLocalBestSplit(const int *pnNumofKeyValues, const long lo
 
 
 	//load gain and entry id to shared memory
-	if(pBuffId[snId] < 0)
-		printf("pBuffId[snId] < 0! is %d\n", pBuffId[snId]);
+	if(pBuffId[snId + smallestNodeId] < 0)
+		printf("pBuffId[snId] < 0! is %d\n", pBuffId[snId + smallestNodeId]);
 
 	int curFeaStartPosInBatch;
 	int nFeaValueInBatch;
@@ -223,7 +223,7 @@ __global__ void PickGlobalBestFeaBestSplit(int numofSNode, int nBlockPerNode,
 
 
 __global__ void FindSplitInfo(const int *pnKeyValue, const long long *plFeaStartPos, const float_point *pFeaValue,
-							  int feaBatch, int smallestFeaId,
+							  int feaBatch, int smallestFeaId, int smallestNodeId,
 							  const float_point *pfGlobalBestFea, const int *pnGlobalBestKey, const int *pBuffId,
 							  const nodeStat *snNodeStat, const float_point *pPrefixSumGD, const float_point *pPrefixSumHess,
 							  SplitPoint *pBestSplitPoint, nodeStat *pRChildStat, nodeStat *pLChildStat,
@@ -241,7 +241,7 @@ __global__ void FindSplitInfo(const int *pnKeyValue, const long long *plFeaStart
 
 	int snId = threadIdx.x;
 	int key = pnGlobalBestKey[snId];//position in a batch for one node.
-	int buffId = pBuffId[snId];
+	int buffId = pBuffId[snId + smallestNodeId];
 
 	//compute feature id
 	int bestFeaId = -1;
@@ -260,8 +260,6 @@ __global__ void FindSplitInfo(const int *pnKeyValue, const long long *plFeaStart
 	}
 
 	pBestSplitPoint[buffId].m_fGain = -pfGlobalBestFea[snId];//change the gain back to positive
-//	if(pBestSplitPoint[buffId].m_fGain > 9.69 && pBestSplitPoint[buffId].m_fGain < 9.7  && bestFeaId == 5)
-//		printf("Here have a look\n");
 	if(-pfGlobalBestFea[snId] <= 0)//no gain
 	{
 		return;

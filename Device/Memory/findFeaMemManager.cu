@@ -7,10 +7,16 @@
  */
 
 #include <helper_cuda.h>
+#include <iostream>
 
 #include "findFeaMemManager.h"
 #include "../../DeviceHost/MyAssert.h"
 #include "../KernelConf.h"
+#include "../svm-shared/MemInfo.h"
+#include "../svm-shared/HostUtility.h"
+
+using std::cout;
+using std::endl;
 
 float_point *FFMemManager::m_pGDOnEachFeaValue_d = NULL;	//gradient of each feature list (same size of each node)
 float_point *FFMemManager::m_pHessOnEachFeaValue_d = NULL;	//hessian of each feature list (same size of each node)
@@ -37,13 +43,34 @@ int *FFMemManager::m_pnGlobalBestKey_d = NULL;			//global level feature key with
 float_point *FFMemManager::m_pLastBiggerValue_d = NULL;	//unused variable
 
 long long FFMemManager::m_totalEleInWholeBatch = -1; //a private variable
+int FFMemManager::maxNumofSNodeInFF = -1;	//maximum number of splittable nodes in each round of find fea, due to the GPU memory constraint.
+
+/**
+ * @brief: get the maximum number of splittable nodes that can be processed in each round of findFea
+ */
+int FFMemManager::getMaxNumofSN(int numofValuesInABatch, int maxNumofNode)
+{
+	long long nFloatPoint = MemInfo::GetFreeGPUMem();
+
+	int tempMaxNumofSN = nFloatPoint / (numofValuesInABatch * 8);//7 such batches for find fea function, using 8 to reserve extra memory for other usage.
+	PROCESS_ERROR(tempMaxNumofSN > 0);
+	if(tempMaxNumofSN > maxNumofNode)
+		tempMaxNumofSN = maxNumofNode;
+
+	int round = Ceil(maxNumofNode, tempMaxNumofSN);
+	cout << "find fea requires " << round << " round(s) for the last level of " << maxNumofNode << " nodes" << endl;
+	maxNumofSNodeInFF = Ceil(maxNumofNode, round);//take the average number of nodes
+
+	return maxNumofSNodeInFF;
+}
 
 /**
  * @brief: allocate memory for finding best feature
  */
-void FFMemManager::allocMemForFindFea(int numofValuesInABatch, int maxNumofValuePerFea, int maxNumofFea, int maxNumofNode)
+void FFMemManager::allocMemForFindFea(int numofValuesInABatch, int maxNumofValuePerFea, int maxNumofFea)
 {
 	PROCESS_ERROR(numofValuesInABatch > 0);
+	int maxNumofNode = maxNumofSNodeInFF;
 	PROCESS_ERROR(maxNumofNode > 0);
 	long long totalEleInWholeBatch = numofValuesInABatch * maxNumofNode;
 	m_totalEleInWholeBatch = totalEleInWholeBatch;

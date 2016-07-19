@@ -20,7 +20,7 @@ const float rt_2eps = 2.0 * DeviceSplitter::rt_eps;
  */
 __global__ void ObtainGDEachNode(const int *pnNumofKeyValues, const long long *pnFeaStartPos, const int *pInsId, const float_point *pFeaValue,
 		  const int *pInsIdToNodeId, const float_point *pGD, const float_point *pHess, const int *pBuffId, const int *pSNIdToBuffId,
-		  int maxNumofSplittable, int numofSNode, int smallestFeaId, int totalNumofFea, int feaBatch,
+		  int maxNumofSplittable, int numofSNodeInProgress, int smallestNodeId, int smallestFeaId, int totalNumofFea, int feaBatch,
 		  float_point *pGDOnEachFeaValue, float_point *pHessOnEachFeaValue, float_point *pValueOneEachFeaValue)
 {
 	//blockIdx.x corresponds to a feature which has multiple values
@@ -30,10 +30,12 @@ __global__ void ObtainGDEachNode(const int *pnNumofKeyValues, const long long *p
 	int nGlobalThreadId = (blockIdx.z * gridDim.y * gridDim.x + blockIdx.y * gridDim.x + blockIdx.x) * blockDim.x + threadIdx.x;
 
 	int snId = blockIdx.z;
-	if(snId >= numofSNode)
-		printf("# of block groups is larger than # of splittable nodes: %d v.s. %d\n", snId, numofSNode);
+	if(snId >= numofSNodeInProgress)
+		printf("# of block groups is larger than # of splittable nodes: %d v.s. %d\n", snId, numofSNodeInProgress);
 
-	int snHashValue = pBuffId[snId];//hash value (buffer position) of the splittable node
+	int snHashValue = pBuffId[snId + smallestNodeId];//hash value (buffer position) of the splittable node
+	if(snHashValue < 0)
+		printf("node id is incorrect resulting in hash valule of %d\n", snHashValue);
 	int feaId = blockIdx.y + smallestFeaId;//add a shift here to process only part of the features
 
 	int curFeaStartPosInBatch;
@@ -101,7 +103,8 @@ __global__ void ObtainGDEachNode(const int *pnNumofKeyValues, const long long *p
  * @brief: each thread computes the start position in the batch for each feature
  */
 __global__ void GetInfoEachFeaInBatch(const int *pnNumofKeyValues, const long long *pnFeaStartPos, int smallestFeaId,
-									  int totalNumofFea, int feaBatch, int numofSN, int *pStartPosEachFeaInBatch, int *pnEachFeaLen)
+									  int totalNumofFea, int feaBatch, int numofSNInProgress, int smallestNodeId,
+									  int *pStartPosEachFeaInBatch, int *pnEachFeaLen)
 {
 	int feaId = blockIdx.x * blockDim.x + threadIdx.x + smallestFeaId;//add a shift here to process only part of the features
 	int feaIdInBatch = blockIdx.x * blockDim.x + threadIdx.x;
@@ -115,7 +118,7 @@ __global__ void GetInfoEachFeaInBatch(const int *pnNumofKeyValues, const long lo
 	int curFeaStartPosInBatch;
 	GetBatchInfo(feaBatch, smallestFeaId, feaId, pnNumofKeyValues, pnFeaStartPos, curFeaStartPosInBatch, oneNodeBatchSize);
 
-	for(int i = 0; i < numofSN; i++)
+	for(int i = 0; i < numofSNInProgress; i++)
 	{
 		pStartPosEachFeaInBatch[feaIdInBatch + i * feaBatch] = oneNodeBatchSize * i + curFeaStartPosInBatch;
 		pnEachFeaLen[feaIdInBatch + i * feaBatch] = pnNumofKeyValues[feaId];
@@ -136,7 +139,8 @@ void PrefixSumForEachNode(int numofSubArray, float_point *pGDOnEachFeaValue_d, f
  * @brief: compute the gain in parallel, each gain is computed by a thread; kernel have the same configuration as obtainGDEachNode.
  */
 __global__ void ComputeGain(const int *pnNumofKeyValues, const long long *pnFeaStartPos, const nodeStat *pSNodeStat,
-							int smallestFeaId, int feaBatch, const int *pBuffId, int numofSNode, float_point lambda,
+							int smallestFeaId, int feaBatch, const int *pBuffId,
+							int numofSNInProgress, int smallestNodeId, float_point lambda,
 							const float_point *pGDPrefixSumOnEachFeaValue, const float_point *pHessPrefixSumOnEachFeaValue,
 							const float_point *pFeaValue,
 							float_point *pGainOnEachFeaValue)
@@ -147,9 +151,9 @@ __global__ void ComputeGain(const int *pnNumofKeyValues, const long long *pnFeaS
 	int nGlobalThreadId = (blockIdx.z * gridDim.y * gridDim.x + blockIdx.y * gridDim.x + blockIdx.x) * blockDim.x + threadIdx.x;
 
 	int snId = blockIdx.z;
-	int hashVaue = pBuffId[snId];
+	int hashVaue = pBuffId[snId + smallestNodeId];
 	if(hashVaue < 0)
-		printf("Error in ComputeGain: buffer id %d, i=%d, numofSN=%d\n", hashVaue, snId, numofSNode);
+		printf("Error in ComputeGain: buffer id %d, i=%d, numofSN=%d\n", hashVaue, snId, numofSNInProgress);
 
 	int feaId = blockIdx.y + smallestFeaId;//add a shift here to process only part of the features
 	int numofValueOfThisFea = pnNumofKeyValues[feaId];
@@ -185,12 +189,6 @@ __global__ void ComputeGain(const int *pnNumofKeyValues, const long long *pnFeaS
     {
     	pGainOnEachFeaValue[bufferPos] = (tempGD * tempGD)/(tempHess + lambda) +
     									 (rChildGD * rChildGD)/(rChildHess + lambda) - (snGD * snGD)/(snHess + lambda);
-
-    	if(pFeaValue[curFeaStartPosInBatch + tidForEachFeaValue] == pFeaValue[curFeaStartPosInBatch + tidForEachFeaValue - 1] &&
-    	   pHessPrefixSumOnEachFeaValue[bufferPos] == pHessPrefixSumOnEachFeaValue[bufferPos - 1])
-    	{
-//    		pGainOnEachFeaValue[bufferPos] = 0;//########### Try to fix a bug using this
-    	}
     }
     else
     {
@@ -204,7 +202,7 @@ __global__ void ComputeGain(const int *pnNumofKeyValues, const long long *pnFeaS
  * @brief: compute the gain in parallel, each gain is computed by a thread; kernel have the same configuration as obtainGDEachNode.
  */
 __global__ void FixedGain(const int *pnNumofKeyValues, const long long *pnFeaStartPos,
-						  int smallestFeaId, int feaBatch, int numofSNode,
+						  int smallestFeaId, int feaBatch, int numofSNInProgress, int smallestNodeId,
 						  const float_point *pHessOnEachFeaValue, const float_point *pFeaValue,
 						  float_point *pGainOnEachFeaValue, float_point *pLastBiggerValue)
 {
@@ -213,7 +211,7 @@ __global__ void FixedGain(const int *pnNumofKeyValues, const long long *pnFeaSta
 	//blockIdx.z corresponds to a splittable node id
 	int nGlobalThreadId = (blockIdx.z * gridDim.y * gridDim.x + blockIdx.y * gridDim.x + blockIdx.x) * blockDim.x + threadIdx.x;
 	int snId = blockIdx.z;
-	if(snId >= numofSNode)
+	if(snId >= numofSNInProgress)
 		printf("The number of super blocks is larger than the number of splittable nodes.\n");
 
 	int feaId = blockIdx.y + smallestFeaId;//add a shift here to process only part of the features

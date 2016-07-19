@@ -1,4 +1,4 @@
-#include "devUtility.h"
+#include "DeviceUtility.h"
 #include "../KernelConst.h"
 
 __device__ void GetMinValueOriginal(float_point *pfValues, int *pnKey, int nNumofBlock)

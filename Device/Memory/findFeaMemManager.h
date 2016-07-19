@@ -34,11 +34,14 @@ public:
 	static float_point *m_pLastBiggerValue_d;
 	static int *m_pnEachFeaLen_h;
 
+	static int maxNumofSNodeInFF;
+
 private:
 	static long long m_totalEleInWholeBatch;
 
 public:
-	void allocMemForFindFea(int numofValuesInABatch, int maxNumofValuePerFea, int maxNumofFea, int maxNumofNode);
+	int getMaxNumofSN(int numofValuesInABatch, int maxNumofNode);
+	void allocMemForFindFea(int numofValuesInABatch, int maxNumofValuePerFea, int maxNumofFea);
 
 	void resetMemForFindFea();
 	void freeMemForFindFea();

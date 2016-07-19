@@ -9,18 +9,13 @@
 #include <iostream>
 #include "KernelConf.h"
 #include "KernelConst.h"
+#include "../Device/svm-shared/HostUtility.h"
 
 using std::cout;
 using std::endl;
 
 int KernelConf::m_maxBlockSize = -1;
 int KernelConf::m_maxNumofBlockOneDim = -1;
-
-#ifndef max
-template <class T> static inline T max(T x,T y) { return (x>y)?x:y; }
-#endif
-
-#define Ceil(a, b) (a%b!=0)?((a/b)+1):(a/b)
 
 
 KernelConf::KernelConf()

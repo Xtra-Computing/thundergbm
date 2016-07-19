@@ -7,7 +7,7 @@
  */
 
 #include <stdio.h>
-#include "devUtility.h"
+#include "DeviceUtility.h"
 #include "../KernelConst.h"
 
 /**

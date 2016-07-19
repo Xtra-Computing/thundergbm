@@ -48,10 +48,13 @@ int main(int argc, char *argv[])
 		strFileName = "data/normalized_amz.txt";
 		break;
 	case 2:
-		strFileName = "data/slice_loc.txt";
+		strFileName = "data/slice_loc.txt";//385 features and 53,499 instances
 		break;
 	case 3:
 		strFileName = "data/cadata.txt";
+		break;
+	case 4:
+		strFileName = "data/YearPredictionMSD";//90 features and 463,715 instances
 		break;
 	default:
 		cerr << fileOption << " is an unknown file name option" << endl;
@@ -126,7 +129,8 @@ int main(int argc, char *argv[])
 	snManger.allocMemForUsedFea(maxNumofUsedFeature);//use in splitting all nodes process
 
 	FFMemManager ffManager;
-	ffManager.allocMemForFindFea(nNumofValue, nNumofExamples, nNumofFeatures, maxNumofSplittableNode);
+	ffManager.getMaxNumofSN(nNumofValue, maxNumofSplittableNode);
+	ffManager.allocMemForFindFea(nNumofValue, nNumofExamples, nNumofFeatures);
 
 	begin_whole = clock();
 	cout << "start training..." << endl;

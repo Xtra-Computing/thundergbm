@@ -84,7 +84,7 @@ void DeviceTrainer::GrowTree(RegTree &tree)
 	while(manager.m_curNumofSplitable > 0 && nCurDepth <= m_nMaxDepth)
 	{
 		splitter->m_nCurDept = nCurDepth;
-//		cout << "splitting " << nCurDepth << " level..." << endl;
+		cout << "splitting " << nCurDepth << " level..." << endl;
 
 		vector<SplitPoint> vBest;
 		vector<nodeStat> rchildStat, lchildStat;
@@ -125,11 +125,6 @@ void DeviceTrainer::GrowTree(RegTree &tree)
 	PROCESS_ERROR(tree.nodes.size() == 0);
 	for(int n = 0; n < numofNode; n++)
 	{
-/*		cout << pAllNode[n].nodeId << ":[f" << pAllNode[n].featureId + 1 << "<";
-		cout.precision(6);
-		cout << pAllNode[n].fSplitValue << "]";
-		cout << " yes=" << pAllNode[n].leftChildId << ",no=" << pAllNode[n].rightChildId << ",missing=" << pAllNode[n].leftChildId << "\n";
-*/
 		ypAllNode[n] = &pAllNode[n];
 		tree.nodes.push_back(&pAllNode[n]);//for getting features of trees
 	}
