@@ -18,7 +18,7 @@ public:
 	/**
 	 * @brief: return buffer id given a splittable node id
 	 */
-	static int HostGetBufferId(int *pSNIdToBuffId, int snid, int m_maxNumofSplittable);
+	static int HostGetBufferId(const int *pSNIdToBuffId, int snid, int m_maxNumofSplittable);
 };
 
 

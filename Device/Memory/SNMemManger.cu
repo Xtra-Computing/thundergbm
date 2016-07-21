@@ -25,7 +25,7 @@ nodeStat *SNGPUManager::m_pNewNodeStat = NULL;
 TreeNode *SNGPUManager::m_pNewSplittableNode = NULL;
 
 //current numof nodes
-int *SNGPUManager::m_pCurNumofNode = NULL;
+int *SNGPUManager::m_pCurNumofNode_d = NULL;
 int *SNGPUManager::m_pNumofNewNode = NULL;
 
 //for used features
@@ -45,7 +45,7 @@ void SNGPUManager::allocMemForTree(int maxNumofNode)
 	PROCESS_ERROR(maxNumofNode > 0);
 	m_maxNumofNode = maxNumofNode;
 	checkCudaErrors(cudaMalloc((void**)&m_pTreeNode, sizeof(TreeNode) * m_maxNumofNode));
-	checkCudaErrors(cudaMalloc((void**)&m_pCurNumofNode, sizeof(int)));
+	checkCudaErrors(cudaMalloc((void**)&m_pCurNumofNode_d, sizeof(int)));
 	checkCudaErrors(cudaMalloc((void**)&m_pNumofNewNode, sizeof(int)));
 
 	//for reseting memory for the next tree

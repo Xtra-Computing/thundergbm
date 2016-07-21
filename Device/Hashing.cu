@@ -25,7 +25,7 @@ int Hashing::HostAssignHashValue(int *pEntryToHashValue, int origin, int maxHash
 /**
  * @brief: has an identical verion in device
  */
-int Hashing::HostGetBufferId(int *pSNIdToBuffId, int snid, int m_maxNumofSplittable)
+int Hashing::HostGetBufferId(const int *pSNIdToBuffId, int snid, int m_maxNumofSplittable)
 {
 	int buffId = GetBufferId(pSNIdToBuffId, snid, m_maxNumofSplittable);
 

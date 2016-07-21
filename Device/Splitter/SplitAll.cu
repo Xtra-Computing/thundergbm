@@ -62,7 +62,7 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 							manager.m_pSNIdToBuffId, manager.m_pBestSplitPoint,
 							snManager.m_pParentId, snManager.m_pLeftChildId, snManager.m_pRightChildId,
 							manager.m_pLChildStat, manager.m_pRChildStat, snManager.m_pNewNodeStat,
-							snManager.m_pCurNumofNode, snManager.m_pNumofNewNode, rt_eps,
+							snManager.m_pCurNumofNode_d, snManager.m_pNumofNewNode, rt_eps,
 							manager.m_curNumofSplitable, bLastLevel, manager.m_maxNumofSplittable);
 #if testing
 	if(cudaGetLastError() != cudaSuccess)

@@ -13,6 +13,7 @@
 #include "Host/DataReader/LibsvmReaderSparse.h"
 #include "Host/HostTrainer.h"
 #include "Host/Evaluation/RMSE.h"
+#include "Host/PureHostGBDTMain.h"
 #include "DeviceHost/MyAssert.h"
 
 #include "Device/Memory/gbdtGPUMemManager.h"
@@ -22,7 +23,7 @@
 #include "Device/DeviceTrainer.h"
 #include "Device/DevicePredictor.h"
 #include "Device/initCuda.h"
-#include "Host/PureHostGBDTMain.h"
+#include "Device/FindSplit/IndexComputer.h"
 
 
 #include "Device/prefix-sum/prefixSum.h"
@@ -42,7 +43,7 @@ int main(int argc, char *argv[])
 	switch(fileOption)
 	{
 	case 0:
-		strFileName = "data/abalone.txt";
+		strFileName = "data/abalone.txt";//8 features and 4177 instances
 		break;
 	case 1:
 		strFileName = "data/normalized_amz.txt";
@@ -51,7 +52,7 @@ int main(int argc, char *argv[])
 		strFileName = "data/slice_loc.txt";//385 features and 53,499 instances
 		break;
 	case 3:
-		strFileName = "data/cadata.txt";
+		strFileName = "data/cadata.txt";//8 features and 20640 instances
 		break;
 	case 4:
 		strFileName = "data/YearPredictionMSD";//90 features and 463,715 instances
@@ -132,6 +133,7 @@ int main(int argc, char *argv[])
 	ffManager.getMaxNumofSN(nNumofValue, maxNumofSplittableNode);
 	ffManager.allocMemForFindFea(nNumofValue, nNumofExamples, nNumofFeatures);
 
+
 	begin_whole = clock();
 	cout << "start training..." << endl;
 	/********* run the GBDT learning process ******************/
@@ -143,16 +145,28 @@ int main(int argc, char *argv[])
 
 	clock_t start_init = clock();
 	trainer.InitTrainer(nNumofTree, nMaxDepth, fLabda, fGamma, nNumofFeatures);
-	clock_t end_init = clock();
-
 	//store feature key-value into array
 	int *pInsId = new int[memAllocator.m_totalNumofValues];
 	float_point *pdValue = new float_point[memAllocator.m_totalNumofValues];
-	int *pNumofKeyValue = new int[nNumofFeatures];
-	long long *plFeaStartPos = new long long[nNumofFeatures];//get start position of each feature
+	int *pNumofKeyValue = new int[nNumofFeatures];	long long *plFeaStartPos = new long long[nNumofFeatures];//get start position of each feature
 
 	KeyValue::VecToArray(trainer.splitter->m_vvFeaInxPair, pInsId, pdValue, pNumofKeyValue, plFeaStartPos);
 	KeyValue::TestVecToArray(trainer.splitter->m_vvFeaInxPair, pInsId, pdValue, pNumofKeyValue);
+
+	//initialise index computer object
+	IndexComputer indexCom;
+	indexCom.m_pInsId = pInsId;
+	indexCom.m_totalFeaValue = nNumofValue;
+	indexCom.m_pFeaStartPos = plFeaStartPos;
+	indexCom.m_numFea = nNumofFeatures;
+	checkCudaErrors(cudaMallocHost((void**)&indexCom.m_pIndices_dh, sizeof(int) * nNumofValue));
+	checkCudaErrors(cudaMallocHost((void**)&indexCom.m_insIdToNodeId_dh, sizeof(int) * nNumofExamples));
+	checkCudaErrors(cudaMallocHost((void**)&indexCom.m_pNumFeaValueEachNode_dh, sizeof(int) * maxNumofSplittableNode));
+	checkCudaErrors(cudaMallocHost((void**)&indexCom.m_pFeaValueStartPosEachNode_dh, sizeof(int) * maxNumofSplittableNode));
+	checkCudaErrors(cudaMallocHost((void**)&indexCom.m_pEachFeaStartPosEachNode_dh, sizeof(int) * maxNumofSplittableNode * nNumofFeatures));
+	checkCudaErrors(cudaMallocHost((void**)&indexCom.m_pEachFeaLenEachNode_dh, sizeof(int) * maxNumofSplittableNode * nNumofFeatures));
+	clock_t end_init = clock();
+
 
 	//copy feature key-value to device memory
 	memAllocator.MemcpyHostToDevice(pInsId, memAllocator.m_pDInsId, nNumofValue * sizeof(int));
@@ -181,7 +195,6 @@ int main(int argc, char *argv[])
 	memAllocator.MemcpyHostToDevice(plInsStartPos, memAllocator.m_pInsStartPos, nNumofExamples * sizeof(long long));
 
 	//free host memory
-	delete []pInsId;
 	delete []pdValue;
 	delete []pNumofKeyValue;
 	delete []plFeaStartPos;
@@ -240,6 +253,10 @@ int main(int argc, char *argv[])
 	ffManager.freeMemForFindFea();
 
 	ReleaseCuda(context);
+	//free host memory
+	delete []pInsId;
+	cudaFreeHost(indexCom.m_pIndices_dh);
+	cudaFreeHost(indexCom.m_insIdToNodeId_dh);
 
 	return 0;
 }

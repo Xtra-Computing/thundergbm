@@ -70,7 +70,7 @@ void DeviceTrainer::GrowTree(RegTree &tree)
 	SNGPUManager snManager;
 	snManager.resetForNextTree();//reset tree nodes to default value
 
-	InitRootNode<<<1, 1>>>(snManager.m_pTreeNode, snManager.m_pCurNumofNode);
+	InitRootNode<<<1, 1>>>(snManager.m_pTreeNode, snManager.m_pCurNumofNode_d);
 
 	manager.MemcpyDeviceToDevice(snManager.m_pTreeNode, manager.m_pSplittableNode, sizeof(TreeNode));
 
@@ -81,6 +81,11 @@ void DeviceTrainer::GrowTree(RegTree &tree)
 
 	//split node(s)
 	int nCurDepth = 0;
+	((DeviceSplitter*)splitter)->total_scan_t = 0;
+	((DeviceSplitter*)splitter)->total_com_gain_t = 0;
+	((DeviceSplitter*)splitter)->total_fill_gd_t = 0;
+	((DeviceSplitter*)splitter)->total_search_t = 0;
+	((DeviceSplitter*)splitter)->total_fix_gain_t = 0;
 	while(manager.m_curNumofSplitable > 0 && nCurDepth <= m_nMaxDepth)
 	{
 		splitter->m_nCurDept = nCurDepth;
@@ -102,7 +107,7 @@ void DeviceTrainer::GrowTree(RegTree &tree)
 			bLastLevel = true;
 
 		int curNumofNode = -1;
-		manager.MemcpyDeviceToHost(snManager.m_pCurNumofNode, &curNumofNode, sizeof(int));
+		manager.MemcpyDeviceToHost(snManager.m_pCurNumofNode_d, &curNumofNode, sizeof(int));
 		PROCESS_ERROR(curNumofNode > 0);
 		splitter->SplitAll(splittableNode, vBest, tree, curNumofNode, rchildStat, lchildStat, bLastLevel);
 		clock_t end_split_t = clock();
@@ -117,7 +122,7 @@ void DeviceTrainer::GrowTree(RegTree &tree)
 	//copy tree nodes back to host
 	clock_t begin_prune = clock();
 	int numofNode = 0;
-	manager.MemcpyDeviceToHost(snManager.m_pCurNumofNode, &numofNode, sizeof(int));
+	manager.MemcpyDeviceToHost(snManager.m_pCurNumofNode_d, &numofNode, sizeof(int));
 	cout << "number of nodes " << numofNode << endl;
 	TreeNode *pAllNode = new TreeNode[numofNode];
 	manager.MemcpyDeviceToHost(snManager.m_pTreeNode, pAllNode, sizeof(TreeNode) * numofNode);
@@ -136,6 +141,15 @@ void DeviceTrainer::GrowTree(RegTree &tree)
 
 	clock_t end_prune = clock();
 	total_prune_t += (double(end_prune - begin_prune) / CLOCKS_PER_SEC);
+
+	double total_scan = ((DeviceSplitter*)splitter)->total_scan_t;
+	double total_gain = ((DeviceSplitter*)splitter)->total_com_gain_t;
+	double total_fill = ((DeviceSplitter*)splitter)->total_fill_gd_t;
+	double total_search = ((DeviceSplitter*)splitter)->total_search_t;
+	double total_fix = ((DeviceSplitter*)splitter)->total_fix_gain_t;
+	cout << "scan takes " << total_scan/CLOCKS_PER_SEC << "; comp gain takes " << total_gain/CLOCKS_PER_SEC
+		 << "; fix gain takes " << total_fix / CLOCKS_PER_SEC
+		 << "; fill gd takes " << total_fill/CLOCKS_PER_SEC << "; search takes " << total_search/CLOCKS_PER_SEC << endl;
 }
 
 /**

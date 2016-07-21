@@ -18,6 +18,7 @@
 
 using std::cout;
 using std::endl;
+using std::cerr;
 
 inline bool isPowerOfTwo(int n)
 {
@@ -98,7 +99,7 @@ void prefixsumForDeviceArray(T *array_d, const int *pnArrayStartPos_d, const int
 			numElementsLongestArray = pnEachArrayLen_h[a];
 		totalNumofEleInArray += pnEachArrayLen_h[a];
 	}
-    unsigned int blockSize = 32; // max size of the thread blocks
+    unsigned int blockSize = 64; // max size of the thread blocks ############# bugs when 128 for slice_loc.txt
     unsigned int numBlocksPrescan;
     unsigned int numThreadsPrescan;//one thread processes two elements.
 
@@ -161,6 +162,11 @@ void prefixsumForDeviceArray(T *array_d, const int *pnArrayStartPos_d, const int
 			temNumThreadBlockSum = numBlocksPrescan / 2;
 		else
 			temNumThreadBlockSum = floorPow2(numBlocksPrescan);
+		if(temNumThreadBlockSum > 1024)
+		{
+			cerr << "Bug: the number of thread in a block is " << temNumThreadBlockSum << " in prefix sum!" << endl;
+			exit(0);
+		}
 		dim3 dim_grid_block_sum(1, numBlockForBlockSum, 1);//each array only needs one block (i.e. x=1); multiple blocks for multiple arrays.
 		dim3 dim_block_block_sum(temNumThreadBlockSum, 1, 1);
 		int numEltsPerBlockForBlockSum = temNumThreadBlockSum * 2;
@@ -189,7 +195,7 @@ void prefixsumForDeviceArray(T *array_d, const int *pnArrayStartPos_d, const int
 		}
 
 		int numofEleInOutArray = numBlocksPrescan * numBlockForBlockSum;
-		int numofBlockPerSubArray = 1;//only block for each subarray
+		int numofBlockPerSubArray = 1;//only one block for each subarray
 		cuda_prefixsum <<<dim_grid_block_sum, dim_block_block_sum, numEltsPerBlockForBlockSum * sizeof(T) >>>(
 								out_array_d, numofEleInOutArray, tmp_d, pnBlockSumArrayStartPos_d, pn2ndSubArrayLen_d,
 								numofBlockPerSubArray, pnThreadBlockSum_d, pnBlockSumEltsLastBlcok_d);
