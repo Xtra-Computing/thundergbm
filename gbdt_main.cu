@@ -94,8 +94,8 @@ int main(int argc, char *argv[])
 	LibSVMDataReader dataReader;
 	int nNumofFeatures;
 	int nNumofExamples;
-	long long nNumofValue;
-	dataReader.GetDataInfo(strFileName, nNumofFeatures, nNumofExamples, nNumofValue);
+	long long numFeaValue;
+	dataReader.GetDataInfo(strFileName, nNumofFeatures, nNumofExamples, numFeaValue);
 
 	vector<float_point> v_fLabel;
 	vector<vector<KeyValue> > v_vInsSparse;
@@ -111,13 +111,13 @@ int main(int argc, char *argv[])
 
 	//initialise gpu memory allocator
 	GBDTGPUMemManager memAllocator;
-	PROCESS_ERROR(nNumofValue > 0);
-	memAllocator.m_totalNumofValues = nNumofValue;
+	PROCESS_ERROR(numFeaValue > 0);
+	memAllocator.m_totalNumofValues = numFeaValue;
 	memAllocator.maxNumofDenseIns = nNumofExamples;
 	memAllocator.m_maxUsedFeaInTrees = maxUsedFeaInTrees;
 
 	//allocate memory for instances
-	memAllocator.allocMemForIns(nNumofValue, nNumofExamples, nNumofFeatures);
+	memAllocator.allocMemForIns(numFeaValue, nNumofExamples, nNumofFeatures);
 	memAllocator.allocMemForSplittableNode(maxNumofSplittableNode);//use in find features (i.e. best split points) process
 	memAllocator.allocHostMemory();//allocate reusable host memory
 	//allocate numofFeature*numofSplittabeNode
@@ -130,8 +130,9 @@ int main(int argc, char *argv[])
 	snManger.allocMemForUsedFea(maxNumofUsedFeature);//use in splitting all nodes process
 
 	FFMemManager ffManager;
-	ffManager.getMaxNumofSN(nNumofValue, maxNumofSplittableNode);
-	ffManager.allocMemForFindFea(nNumofValue, nNumofExamples, nNumofFeatures);
+	ffManager.m_totalNumFeaValue = numFeaValue;
+	ffManager.getMaxNumofSN(numFeaValue, maxNumofSplittableNode);
+	ffManager.allocMemForFindFea(numFeaValue, nNumofExamples, nNumofFeatures);
 
 
 	begin_whole = clock();
@@ -156,10 +157,10 @@ int main(int argc, char *argv[])
 	//initialise index computer object
 	IndexComputer indexCom;
 	indexCom.m_pInsId = pInsId;
-	indexCom.m_totalFeaValue = nNumofValue;
+	indexCom.m_totalFeaValue = numFeaValue;
 	indexCom.m_pFeaStartPos = plFeaStartPos;
 	indexCom.m_numFea = nNumofFeatures;
-	checkCudaErrors(cudaMallocHost((void**)&indexCom.m_pIndices_dh, sizeof(int) * nNumofValue));
+	checkCudaErrors(cudaMallocHost((void**)&indexCom.m_pIndices_dh, sizeof(int) * numFeaValue));
 	checkCudaErrors(cudaMallocHost((void**)&indexCom.m_insIdToNodeId_dh, sizeof(int) * nNumofExamples));
 	checkCudaErrors(cudaMallocHost((void**)&indexCom.m_pNumFeaValueEachNode_dh, sizeof(int) * maxNumofSplittableNode));
 	checkCudaErrors(cudaMallocHost((void**)&indexCom.m_pFeaValueStartPosEachNode_dh, sizeof(int) * maxNumofSplittableNode));
@@ -169,35 +170,34 @@ int main(int argc, char *argv[])
 
 
 	//copy feature key-value to device memory
-	memAllocator.MemcpyHostToDevice(pInsId, memAllocator.m_pDInsId, nNumofValue * sizeof(int));
-	memAllocator.MemcpyHostToDevice(pdValue, memAllocator.m_pdDFeaValue, nNumofValue * sizeof(float_point));
+	memAllocator.MemcpyHostToDevice(pInsId, memAllocator.m_pDInsId, numFeaValue * sizeof(int));
+	memAllocator.MemcpyHostToDevice(pdValue, memAllocator.m_pdDFeaValue, numFeaValue * sizeof(float_point));
 	memAllocator.MemcpyHostToDevice(pNumofKeyValue, memAllocator.m_pDNumofKeyValue, nNumofFeatures * sizeof(int));
 	memAllocator.MemcpyHostToDevice(plFeaStartPos, memAllocator.m_pFeaStartPos, nNumofFeatures * sizeof(long long));
 
 	memAllocator.TestMemcpyDeviceToHost();
 	memAllocator.TestMemcpyDeviceToDevice();
-	memAllocator.TestMemcpyHostToDevice(pInsId, memAllocator.m_pDInsId, nNumofValue * sizeof(int));
-	memAllocator.TestMemcpyHostToDevice(pdValue, memAllocator.m_pdDFeaValue, nNumofValue * sizeof(float_point));
+	memAllocator.TestMemcpyHostToDevice(pInsId, memAllocator.m_pDInsId, numFeaValue * sizeof(int));
+	memAllocator.TestMemcpyHostToDevice(pdValue, memAllocator.m_pdDFeaValue, numFeaValue * sizeof(float_point));
 	memAllocator.TestMemcpyHostToDevice(pNumofKeyValue, memAllocator.m_pDNumofKeyValue, nNumofFeatures * sizeof(int));
 
 	//store sparse instances to GPU memory
-	int *pFeaId = new int[nNumofValue];
-	float_point *pdFeaValue = new float_point[nNumofValue];
+	int *pFeaId = new int[numFeaValue];
+	float_point *pdFeaValue = new float_point[numFeaValue];
 	int *pNumofFea = new int[nNumofExamples];
 	long long *plInsStartPos = new long long[nNumofExamples];
 	KeyValue::VecToArray(trainer.m_vvInsSparse, pFeaId, pdFeaValue, pNumofFea, plInsStartPos);
 	KeyValue::TestVecToArray(trainer.m_vvInsSparse, pFeaId, pdFeaValue, pNumofFea);
 
 	//copy instance key-value to device memory
-	memAllocator.MemcpyHostToDevice(pFeaId, memAllocator.m_pDFeaId, nNumofValue * sizeof(int));
-	memAllocator.MemcpyHostToDevice(pdFeaValue, memAllocator.m_pdDInsValue, nNumofValue * sizeof(float_point));
+	memAllocator.MemcpyHostToDevice(pFeaId, memAllocator.m_pDFeaId, numFeaValue * sizeof(int));
+	memAllocator.MemcpyHostToDevice(pdFeaValue, memAllocator.m_pdDInsValue, numFeaValue * sizeof(float_point));
 	memAllocator.MemcpyHostToDevice(pNumofFea, memAllocator.m_pDNumofFea, nNumofExamples * sizeof(int));
 	memAllocator.MemcpyHostToDevice(plInsStartPos, memAllocator.m_pInsStartPos, nNumofExamples * sizeof(long long));
 
 	//free host memory
 	delete []pdValue;
 	delete []pNumofKeyValue;
-	delete []plFeaStartPos;
 	delete []pFeaId;
 	delete []pdFeaValue;
 	delete []pNumofFea;
@@ -255,6 +255,7 @@ int main(int argc, char *argv[])
 	ReleaseCuda(context);
 	//free host memory
 	delete []pInsId;
+	delete []plFeaStartPos;
 	cudaFreeHost(indexCom.m_pIndices_dh);
 	cudaFreeHost(indexCom.m_insIdToNodeId_dh);
 

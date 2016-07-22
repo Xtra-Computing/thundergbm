@@ -191,11 +191,11 @@ __global__ void ComputeGain(const int *pnNumofKeyValues, const long long *pnFeaS
     	float_point fvalue = pFeaValue[elePos];
     	int previousElePos = elePos - 1;
     	int previousBufferPos = bufferPos - 1;
-    	if(fabs(pFeaValue[previousElePos] - fvalue) <= rt_2eps && pHessOnEachFeaValue[previousBufferPos] == 1)
-    	{//if the previous fea value is the same as the current fea value, gain is 0 for the current fea value.
-    		pGainOnEachFeaValue[bufferPos] = 0;
-    	}
-    	else
+//    	if(fabs(pFeaValue[previousElePos] - fvalue) <= rt_2eps && pHessOnEachFeaValue[previousBufferPos] == 1)
+//    	{//if the previous fea value is the same as the current fea value, gain is 0 for the current fea value.
+//    		pGainOnEachFeaValue[bufferPos] = 0;
+//    	}
+//    	else
     		pGainOnEachFeaValue[bufferPos] = (tempGD * tempGD)/(tempHess + lambda) +
     									 	 (rChildGD * rChildGD)/(rChildHess + lambda) -
     									 	 (snGD * snGD)/(snHess + lambda);

@@ -14,6 +14,24 @@
 #include "../../DeviceHost/DefineConst.h"
 #include "../../DeviceHost/NodeStat.h"
 
+//dense array
+__global__ void LoadGDHess(const float_point *pInsGD, const float_point *pInsHess, int numIns,
+						   const int *pInsId, const int *pDstIndexEachFeaValue, int numFeaValue,
+						   float_point *pGDEachFeaValue, float_point *pHessEachFeaValue);
+__global__ void ComputeGainDense(const nodeStat *pSNodeStat, const int *pFeaValueStartPosEachNode, int numSN,
+							const int *pBuffId,	float_point lambda,
+							const float_point *pGDPrefixSumOnEachFeaValue, const float_point *pHessPrefixSumOnEachFeaValue,
+							int numofDenseValue, float_point *pGainOnEachFeaValue);
+__global__ void FirstFeaGain(const int *pEachFeaStartPosEachNode, int numFeaStartPos, float_point *pGainOnEachFeaValue);
+__global__ void PickLocalBestSplitEachNode(const int *pnNumFeaValueEachNode, const int *pFeaStartPosEachNode,
+										   const float_point *pGainOnEachFeaValue,
+								   	   	   float_point *pfLocalBestGain, int *pnLocalBestGainKey);
+__global__ void PickGlobalBestSplitEachNode(const float_point *pfLocalBestGain, const int *pnLocalBestGainKey,
+								   	   	    float_point *pfGlobalBestGain, int *pnGlobalBestGainKey,
+								   	   	    int numBlockPerNode, int numofSNode);
+
+
+//early
 __global__ void FindFeaSplitValue(const int *pnNumofKeyValues, const long long *pnFeaStartPos, const int *pInsId, const float_point *pFeaValue,
 								  const int *pInsIdToNodeId, const float_point *pGD, const float_point *pHess,
 								  nodeStat *pTempRChildStatPerThread, float_point *pLastValuePerThread,

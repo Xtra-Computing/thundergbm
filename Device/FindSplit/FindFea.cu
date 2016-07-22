@@ -25,7 +25,7 @@ using std::make_pair;
 using std::cerr;
 
 #ifdef testing
-#undef testing
+//#undef testing
 #endif
 
 /**
@@ -61,8 +61,72 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 	manager.MemcpyDeviceToHost(manager.m_pSNIdToBuffId, pSNIdToBuffId_h, sizeof(int) * maxNumofSplittable);
 	IndexComputer indexComp;
 	manager.MemcpyDeviceToHost(manager.m_pInsIdToNodeId, indexComp.m_insIdToNodeId_dh, sizeof(int) * manager.m_numofIns);
-
+	//compute indices
 	indexComp.ComputeIndex(numofSNode, pSNIdToBuffId_h, maxNumofSplittable, pBuffIdVec_h);
+
+	//load gd and hessian to a dense array in device memory
+	KernelConf conf;
+	int blockSizeLoadGD;
+	dim3 dimNumofBlockToLoadGD;
+	conf.ConfKernel(indexComp.m_totalFeaValue, blockSizeLoadGD, dimNumofBlockToLoadGD);
+	LoadGDHess<<<dimNumofBlockToLoadGD, blockSizeLoadGD>>>(manager.m_pGrad, manager.m_pHess, manager.m_numofIns,
+														   manager.m_pDInsId, indexComp.m_pIndices_dh, indexComp.m_totalFeaValue,
+														   ffManager.pGDEachFeaValue, ffManager.pHessEachFeaValue);
+	cudaDeviceSynchronize();
+
+	//compute prefix sum for gd and hess
+	PrefixSumForEachNode(indexComp.m_numFea * numofSNode, ffManager.pGDEachFeaValue, ffManager.pHessEachFeaValue,
+						 indexComp.m_pEachFeaStartPosEachNode_dh, indexComp.m_pEachFeaLenEachNode_dh);
+	cudaDeviceSynchronize();
+
+	//compute gain
+	int numofDenseValue = indexComp.m_pEachFeaStartPosEachNode_dh[numofSNode - 1] + indexComp.m_pEachFeaLenEachNode_dh[numofSNode - 1];
+	int blockSizeComGain;
+	dim3 dimNumofBlockToComGain;
+	conf.ConfKernel(numofDenseValue, blockSizeComGain, dimNumofBlockToComGain);
+	ComputeGainDense<<<dimNumofBlockToComGain, blockSizeComGain>>>(
+											manager.m_pSNodeStat, indexComp.m_pFeaValueStartPosEachNode_dh, numofSNode,
+											manager.m_pBuffIdVec, DeviceSplitter::m_lambda, ffManager.pGDEachFeaValue,
+											ffManager.pHessEachFeaValue, numofDenseValue, ffManager.pGainEachFeaValue);
+	cudaDeviceSynchronize();
+
+	//change the gain of the first feature value to 0
+	int numFeaStartPos = indexComp.m_numFea * numofSNode;
+	int blockSizeFirstGain;
+	dim3 dimNumofBlockFirstGain;
+	conf.ConfKernel(numFeaStartPos, blockSizeFirstGain, dimNumofBlockFirstGain);
+	FirstFeaGain<<<dimNumofBlockFirstGain, blockSizeFirstGain>>>(indexComp.m_pEachFeaStartPosEachNode_dh, numFeaStartPos, ffManager.pGainEachFeaValue);
+	cudaDeviceSynchronize();
+
+	//find the block level best gain for each node
+	int maxNumFeaValueOneNode = -1;
+	for(int n = 0; n < numofSNode; n++)
+	{//find the node with the max number of element
+		if(maxNumFeaValueOneNode < indexComp.m_pNumFeaValueEachNode_dh[n])
+			maxNumFeaValueOneNode = indexComp.m_pNumFeaValueEachNode_dh[n];
+	}
+	PROCESS_ERROR(maxNumFeaValueOneNode > 0);
+	int blockSizeLocalBestGain;
+	dim3 dimNumofBlockLocalBestGain;
+	conf.ConfKernel(maxNumFeaValueOneNode, blockSizeLocalBestGain, dimNumofBlockLocalBestGain);
+	PROCESS_ERROR(dimNumofBlockLocalBestGain.z == 1);
+	dimNumofBlockLocalBestGain.z = numofSNode;//each node per super block
+	int numBlockPerNode = dimNumofBlockLocalBestGain.x * dimNumofBlockLocalBestGain.y;
+	PickLocalBestSplitEachNode<<<dimNumofBlockLocalBestGain, blockSizeLocalBestGain>>>(
+								indexComp.m_pNumFeaValueEachNode_dh, indexComp.m_pFeaValueStartPosEachNode_dh,
+								ffManager.pGainEachFeaValue, ffManager.pfLocalBestGain_d, ffManager.pnLocalBestGainKey_d);
+	cudaDeviceSynchronize();
+
+	//find the global best gain for each node
+	int blockSizeBestGain;
+	dim3 dimNumofBlockDummy;
+	conf.ConfKernel(numBlockPerNode, blockSizeBestGain, dimNumofBlockDummy);
+	PickGlobalBestSplitEachNode<<<numofSNode, blockSizeBestGain>>>(
+								ffManager.pfLocalBestGain_d, ffManager.pnLocalBestGainKey_d,
+								ffManager.pfGlobalBestGain_d, ffManager.pnGlobalBestGainKey_d,
+							    numBlockPerNode, numofSNode);
+	cudaDeviceSynchronize();
+	//end using dense array
 
 	//start find split points
 	for(int r = 0; r < numRound; r++)
@@ -84,7 +148,6 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 		//kernel configuration
 		int blockSizeFillGD;
 		dim3 dimNumofBlockToFillGD;
-		KernelConf conf;
 		conf.ConfKernel(maxNumofValuePerFea, blockSizeFillGD, dimNumofBlockToFillGD);
 		PROCESS_ERROR(dimNumofBlockToFillGD.y == 1 && dimNumofBlockToFillGD.z == 1);//must be one dimensional block
 		int numofBlockFillGD = dimNumofBlockToFillGD.x;
@@ -671,7 +734,6 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 #if testing
 	int threadPerBlock;
 	dim3 dimNumofBlock;
-	KernelConf conf;
 	conf.ConfKernel(nNumofFeature, threadPerBlock, dimNumofBlock);
 
 	clock_t begin_per_fea, begin_best;
@@ -750,6 +812,16 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 	manager.MemcpyDeviceToHost(manager.m_pBestSplitPoint, testBestSplitPoint2, sizeof(SplitPoint) * maxNumofSplittable);
 	manager.MemcpyDeviceToHost(manager.m_pRChildStat, testpRChildStat2, sizeof(nodeStat) * maxNumofSplittable);
 	manager.MemcpyDeviceToHost(manager.m_pLChildStat, testpLChildStat2, sizeof(nodeStat) * maxNumofSplittable);
+
+	//dense array
+	float_point *pBestGainEachNode_h = new float_point[maxNumofSplittable];
+	manager.MemcpyDeviceToHost(ffManager.pfGlobalBestGain_d, pBestGainEachNode_h, sizeof(float_point) * maxNumofSplittable);
+	for(int sn = 0; sn < numofSNode; sn++)
+	{
+		int buffId = pBuffIdVec_h[sn];
+		cout << testBestSplitPoint1[buffId].m_fGain << " v.s. " << pBestGainEachNode_h[sn] << endl;
+	}
+
 	for(int sn = 0; sn < maxNumofSplittable; sn++)
 	{
 		int buffId = sn;//pBuffIdVec_h[sn];
@@ -776,6 +848,7 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 //		cout << "nid=" << pTestBuffIdVect[sn] << "; snid=" << sn << "; gain=" << testBestSplitPoint[pTestBuffIdVect[sn]].m_fGain << "; fid="
 //			 << testBestSplitPoint[pTestBuffIdVect[sn]].m_nFeatureId << "; sv=" << testBestSplitPoint[pTestBuffIdVect[sn]].m_fSplitValue << endl;
 	}
+	delete []pBestGainEachNode_h;
 	delete []testpRChildStat2;
 	delete []testpLChildStat2;
 	delete []testBestSplitPoint2;

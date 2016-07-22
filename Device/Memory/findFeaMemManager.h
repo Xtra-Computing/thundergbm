@@ -36,6 +36,15 @@ public:
 
 	static int maxNumofSNodeInFF;
 
+	//for dense array
+	static float_point *pGDEachFeaValue, *pHessEachFeaValue;
+	static float_point *pGainEachFeaValue;
+	static int m_totalNumFeaValue;
+	static float_point *pfLocalBestGain_d;
+	static int *pnLocalBestGainKey_d;
+	static float_point *pfGlobalBestGain_d;
+	static int *pnGlobalBestGainKey_d;
+
 private:
 	static long long m_totalEleInWholeBatch;
 

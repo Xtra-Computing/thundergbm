@@ -45,6 +45,16 @@ float_point *FFMemManager::m_pLastBiggerValue_d = NULL;	//unused variable
 long long FFMemManager::m_totalEleInWholeBatch = -1; //a private variable
 int FFMemManager::maxNumofSNodeInFF = -1;	//maximum number of splittable nodes in each round of find fea, due to the GPU memory constraint.
 
+//for dense array
+float_point *FFMemManager::pGDEachFeaValue = NULL;
+float_point *FFMemManager::pHessEachFeaValue = NULL;
+float_point *FFMemManager::pGainEachFeaValue = NULL;
+int FFMemManager::m_totalNumFeaValue = -1;
+float_point *FFMemManager::pfLocalBestGain_d = NULL;
+int *FFMemManager::pnLocalBestGainKey_d = NULL;
+float_point *FFMemManager::pfGlobalBestGain_d = NULL;
+int *FFMemManager::pnGlobalBestGainKey_d = NULL;
+
 /**
  * @brief: get the maximum number of splittable nodes that can be processed in each round of findFea
  */
@@ -118,6 +128,20 @@ void FFMemManager::allocMemForFindFea(int numofValuesInABatch, int maxNumofValue
 	checkCudaErrors(cudaMemset(m_pLastBiggerValue_d, 0, sizeof(float_point) * totalEleInWholeBatch));
 
 	m_pnEachFeaLen_h = new int[maxNumofFea * maxNumofNode];
+
+	//for dense array
+	PROCESS_ERROR(m_totalNumFeaValue > 0);
+	checkCudaErrors(cudaMalloc((void**)&pGDEachFeaValue, sizeof(float_point) * m_totalNumFeaValue));
+	checkCudaErrors(cudaMalloc((void**)&pHessEachFeaValue, sizeof(float_point) * m_totalNumFeaValue));
+	checkCudaErrors(cudaMalloc((void**)&pGainEachFeaValue, sizeof(float_point) * m_totalNumFeaValue));
+	int blockSizeLocalBest;
+	dim3 tempNumofBlockLocalBest;
+	conf.ConfKernel(m_totalNumFeaValue, blockSizeLocalBest, tempNumofBlockLocalBest);
+	int maxNumofBlockPerNode = tempNumofBlockLocalBest.x * tempNumofBlockLocalBest.y;
+	checkCudaErrors(cudaMalloc((void**)&pfLocalBestGain_d, sizeof(float_point) * maxNumofBlockPerNode * maxNumofNode));
+	checkCudaErrors(cudaMalloc((void**)&pnLocalBestGainKey_d, sizeof(int) * maxNumofBlockPerNode * maxNumofNode));
+	checkCudaErrors(cudaMalloc((void**)&pfGlobalBestGain_d, sizeof(float_point) * maxNumofNode));
+	checkCudaErrors(cudaMalloc((void**)&pnGlobalBestGainKey_d, sizeof(int) * maxNumofNode));
 }
 
 /**

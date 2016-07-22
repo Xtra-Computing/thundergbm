@@ -23,8 +23,8 @@ public:
 	//pinned memory
 	static int *m_insIdToNodeId_dh;
 	static int *m_pIndices_dh;
-	static int *m_pNumFeaValueEachNode_dh;
 	static int *m_pFeaValueStartPosEachNode_dh;
+	static int *m_pNumFeaValueEachNode_dh;
 	static int *m_pEachFeaStartPosEachNode_dh;
 	static int *m_pEachFeaLenEachNode_dh;
 
