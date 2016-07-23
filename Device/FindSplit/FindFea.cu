@@ -44,11 +44,11 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 	ffManager.resetMemForFindFea();
 
 	//process in a few rounds each of which has a subset of splittable nodes
+#if testing
 	int numRound = Ceil(numofSNode, ffManager.maxNumofSNodeInFF);
 	if(numRound > 1)
 		cout << "FindFea in " << numRound << " rounds." << endl;
 
-#if testing
 	float_point deltaTest = 0.01;
 	SplitPoint *testBestSplitPoint1 = new SplitPoint[maxNumofSplittable];
 	nodeStat *testpRChildStat = new nodeStat[maxNumofSplittable];
@@ -58,10 +58,10 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 	nodeStat *testpLChildStat3 = new nodeStat[maxNumofSplittable];
 #endif
 
-	clock_t comIdx_start = clock();
 	//compute index for each feature value
 	int *pBuffIdVec_h = new int[numofSNode];//all splittable node buffer index should be copied
 	int *pSNIdToBuffId_h = new int[maxNumofSplittable];
+	clock_t comIdx_start = clock();
 	manager.MemcpyDeviceToHost(manager.m_pBuffIdVec, pBuffIdVec_h, sizeof(int) * numofSNode);
 	manager.MemcpyDeviceToHost(manager.m_pSNIdToBuffId, pSNIdToBuffId_h, sizeof(int) * maxNumofSplittable);
 	IndexComputer indexComp;
@@ -70,6 +70,12 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 	indexComp.ComputeIndex(numofSNode, pSNIdToBuffId_h, maxNumofSplittable, pBuffIdVec_h);
 	clock_t comIdx_end = clock();
 	total_com_idx_t += (comIdx_end - comIdx_start);
+	//copy index info to device memory
+	manager.MemcpyHostToDevice(indexComp.m_pIndices_dh, ffManager.m_pIndices_d, sizeof(int) * ffManager.m_totalNumFeaValue);
+	manager.MemcpyHostToDevice(indexComp.m_pNumFeaValueEachNode_dh, ffManager.m_pNumFeaValueEachNode_d, sizeof(int) * maxNumofSplittable);
+	manager.MemcpyHostToDevice(indexComp.m_pFeaValueStartPosEachNode_dh, ffManager.m_pFeaValueStartPosEachNode_d, sizeof(int) * maxNumofSplittable);
+	manager.MemcpyHostToDevice(indexComp.m_pEachFeaStartPosEachNode_dh, ffManager.m_pEachFeaStartPosEachNode_d, sizeof(int) * maxNumofSplittable * nNumofFeature);
+	manager.MemcpyHostToDevice(indexComp.m_pEachFeaLenEachNode_dh, ffManager.m_pEachFeaLenEachNode_d, sizeof(int) * maxNumofSplittable * nNumofFeature);
 
 	//load gd and hessian to a dense array in device memory
 	KernelConf conf;
@@ -78,7 +84,7 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 	conf.ConfKernel(indexComp.m_totalFeaValue, blockSizeLoadGD, dimNumofBlockToLoadGD);
 	clock_t start_gd = clock();
 	LoadGDHessFvalue<<<dimNumofBlockToLoadGD, blockSizeLoadGD>>>(manager.m_pGrad, manager.m_pHess, manager.m_numofIns,
-														   manager.m_pDInsId, manager.m_pdDFeaValue, indexComp.m_pIndices_dh, indexComp.m_totalFeaValue,
+														   manager.m_pDInsId, manager.m_pdDFeaValue, ffManager.m_pIndices_d, indexComp.m_totalFeaValue,
 														   ffManager.pGDEachFeaValue, ffManager.pHessEachFeaValue, ffManager.pDenseFeaValue);
 	cudaDeviceSynchronize();
 	clock_t end_gd = clock();
@@ -96,7 +102,7 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 	clock_t start_scan = clock();
 	//compute prefix sum for gd and hess
 	PrefixSumForEachNode(indexComp.m_numFea * numofSNode, ffManager.pGDPrefixSum, ffManager.pHessPrefixSum,
-						 indexComp.m_pEachFeaStartPosEachNode_dh, indexComp.m_pEachFeaLenEachNode_dh);
+						 ffManager.m_pEachFeaStartPosEachNode_d, indexComp.m_pEachFeaLenEachNode_dh);//last parameter is a host variable
 	cudaDeviceSynchronize();
 	clock_t end_scan = clock();
 	total_scan_t += (end_scan - start_scan);
@@ -139,8 +145,8 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 	dim3 dimNumofBlockToComGain;
 	conf.ConfKernel(numofDenseValue, blockSizeComGain, dimNumofBlockToComGain);
 	ComputeGainDense<<<dimNumofBlockToComGain, blockSizeComGain>>>(
-											manager.m_pSNodeStat, indexComp.m_pFeaValueStartPosEachNode_dh, numofSNode,
-											manager.m_pBuffIdVec, indexComp.m_pBuffIdToPos_dh, indexComp.m_pPosToBuffId_dh,
+											manager.m_pSNodeStat, ffManager.m_pFeaValueStartPosEachNode_d, numofSNode,
+											manager.m_pBuffIdVec,
 											DeviceSplitter::m_lambda, ffManager.pGDPrefixSum, ffManager.pHessPrefixSum,
 											ffManager.pDenseFeaValue, numofDenseValue, ffManager.pGainEachFeaValue);
 	cudaDeviceSynchronize();
@@ -163,7 +169,7 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 	int blockSizeFirstGain;
 	dim3 dimNumofBlockFirstGain;
 	conf.ConfKernel(numFeaStartPos, blockSizeFirstGain, dimNumofBlockFirstGain);
-	FirstFeaGain<<<dimNumofBlockFirstGain, blockSizeFirstGain>>>(indexComp.m_pEachFeaStartPosEachNode_dh, numFeaStartPos, ffManager.pGainEachFeaValue);
+	FirstFeaGain<<<dimNumofBlockFirstGain, blockSizeFirstGain>>>(ffManager.m_pEachFeaStartPosEachNode_d, numFeaStartPos, ffManager.pGainEachFeaValue);
 	cudaDeviceSynchronize();
 	clock_t end_comp_gain = clock();
 	total_com_gain_t += (end_comp_gain - start_comp_gain);
@@ -195,7 +201,7 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 	dimNumofBlockLocalBestGain.z = numofSNode;//each node per super block
 	int numBlockPerNode = dimNumofBlockLocalBestGain.x * dimNumofBlockLocalBestGain.y;
 	PickLocalBestSplitEachNode<<<dimNumofBlockLocalBestGain, blockSizeLocalBestGain>>>(
-								indexComp.m_pNumFeaValueEachNode_dh, indexComp.m_pFeaValueStartPosEachNode_dh,
+								ffManager.m_pNumFeaValueEachNode_d, ffManager.m_pFeaValueStartPosEachNode_d,
 								ffManager.pGainEachFeaValue, ffManager.pfLocalBestGain_d, ffManager.pnLocalBestGainKey_d);
 	cudaDeviceSynchronize();
 
@@ -213,9 +219,9 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 
 	//construct split points
 	manager.MemcpyHostToDevice(manager.m_pBestPointHost, manager.m_pBestSplitPoint, sizeof(SplitPoint) * maxNumofSplittable);
-	FindSplitInfo<<<1, numofSNode>>>(indexComp.m_pEachFeaStartPosEachNode_dh, indexComp.m_pEachFeaLenEachNode_dh,
+	FindSplitInfo<<<1, numofSNode>>>(ffManager.m_pEachFeaStartPosEachNode_d, ffManager.m_pEachFeaLenEachNode_d,
 				  	  	  	  	  	 ffManager.pDenseFeaValue, ffManager.pfGlobalBestGain_d, ffManager.pnGlobalBestGainKey_d,
-				  	  	  	  	  	 indexComp.m_pPosToBuffId_dh, nNumofFeature,
+				  	  	  	  	  	 manager.m_pBuffIdVec, nNumofFeature,
 				  	  	  	  	  	 manager.m_pSNodeStat, ffManager.pGDPrefixSum, ffManager.pHessPrefixSum,
 				  	  	  	  	  	 manager.m_pBestSplitPoint, manager.m_pRChildStat, manager.m_pLChildStat);
 	cudaDeviceSynchronize();

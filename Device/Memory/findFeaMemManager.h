@@ -45,13 +45,19 @@ public:
 	static int *pnLocalBestGainKey_d;
 	static float_point *pfGlobalBestGain_d;
 	static int *pnGlobalBestGainKey_d;
+	//corresponding to pinned memory
+	static int *m_pIndices_d;
+	static int *m_pFeaValueStartPosEachNode_d;
+	static int *m_pNumFeaValueEachNode_d;
+	static int *m_pEachFeaStartPosEachNode_d;
+	static int *m_pEachFeaLenEachNode_d;
 
 private:
 	static long long m_totalEleInWholeBatch;
 
 public:
 	int getMaxNumofSN(int numofValuesInABatch, int maxNumofNode);
-	void allocMemForFindFea(int numofValuesInABatch, int maxNumofValuePerFea, int maxNumofFea);
+	void allocMemForFindFea(int numofValuesInABatch, int maxNumofValuePerFea, int maxNumofFea, int maxNumofSN);
 
 	void resetMemForFindFea();
 	void freeMemForFindFea();

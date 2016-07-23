@@ -19,7 +19,7 @@ __global__ void LoadGDHessFvalue(const float_point *pInsGD, const float_point *p
 						   const int *pInsId, const float_point *pAllFeaValue, const int *pDstIndexEachFeaValue, int numFeaValue,
 						   float_point *pGDEachFeaValue, float_point *pHessEachFeaValue, float_point *pDenseFeaValue);
 __global__ void ComputeGainDense(const nodeStat *pSNodeStat, const int *pFeaValueStartPosEachNode, int numSN,
-							const int *pBuffId,	const int *pBuffIdToPos, const int *pPosToBuffId, float_point lambda,
+							const int *pBuffId,	float_point lambda,
 							const float_point *pGDPrefixSumOnEachFeaValue, const float_point *pHessPrefixSumOnEachFeaValue,
 							const float_point *pDenseFeaValue, int numofDenseValue, float_point *pGainOnEachFeaValue);
 __global__ void FirstFeaGain(const int *pEachFeaStartPosEachNode, int numFeaStartPos, float_point *pGainOnEachFeaValue);

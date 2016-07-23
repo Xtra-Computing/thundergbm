@@ -52,7 +52,7 @@ __global__ void LoadGDHessFvalue(const float_point *pInsGD, const float_point *p
  * @brief: compute the gain in parallel, each gain is computed by a thread.
  */
 __global__ void ComputeGainDense(const nodeStat *pSNodeStat, const int *pFeaValueStartPosEachNode, int numSN,
-							const int *pBuffId, const int *pBuffIdToPos, const int *pPosToBuffId, float_point lambda,
+							const int *pBuffId, float_point lambda,
 							const float_point *pGDPrefixSumOnEachFeaValue, const float_point *pHessPrefixSumOnEachFeaValue,
 							const float_point *pDenseFeaValue, int numofDenseValue, float_point *pGainOnEachFeaValue)
 {
@@ -74,8 +74,7 @@ __global__ void ComputeGainDense(const nodeStat *pSNodeStat, const int *pFeaValu
 			break;
 		}
 	}
-	int hashVaue = pPosToBuffId[densePos];
-//	int hashVaue = pBuffId[buffId];
+	int hashVaue = pBuffId[densePos];
 	if(hashVaue < 0)
 		printf("Error in ComputeGain: buffer id %d, i=%d\n", hashVaue, densePos);
 

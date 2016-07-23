@@ -33,9 +33,6 @@ public:
 public:
 	//compute indices for each feature value in feature lists
 	static void ComputeIndex(int numNode, const int *pSNIdToBuffId, int maxNumSN, const int *pBuffVec);
-
-private:
-	static int MapBuffIdToPos(int buffId, const int *pBuffIdToPos);
 };
 
 

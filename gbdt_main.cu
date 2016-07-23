@@ -132,7 +132,7 @@ int main(int argc, char *argv[])
 	FFMemManager ffManager;
 	ffManager.m_totalNumFeaValue = numFeaValue;
 	ffManager.getMaxNumofSN(numFeaValue, maxNumofSplittableNode);
-	ffManager.allocMemForFindFea(numFeaValue, nNumofExamples, nNumofFeatures);
+	ffManager.allocMemForFindFea(numFeaValue, nNumofExamples, nNumofFeatures, maxNumofSplittableNode);
 
 
 	begin_whole = clock();
@@ -164,7 +164,6 @@ int main(int argc, char *argv[])
 	checkCudaErrors(cudaMallocHost((void**)&indexCom.m_insIdToNodeId_dh, sizeof(int) * nNumofExamples));
 	checkCudaErrors(cudaMallocHost((void**)&indexCom.m_pNumFeaValueEachNode_dh, sizeof(int) * maxNumofSplittableNode));
 	checkCudaErrors(cudaMallocHost((void**)&indexCom.m_pBuffIdToPos_dh, sizeof(int) * maxNumofSplittableNode));
-	checkCudaErrors(cudaMallocHost((void**)&indexCom.m_pPosToBuffId_dh, sizeof(int) * maxNumofSplittableNode));
 	checkCudaErrors(cudaMallocHost((void**)&indexCom.m_pFeaValueStartPosEachNode_dh, sizeof(int) * maxNumofSplittableNode));
 	checkCudaErrors(cudaMallocHost((void**)&indexCom.m_pEachFeaStartPosEachNode_dh, sizeof(int) * maxNumofSplittableNode * nNumofFeatures));
 	checkCudaErrors(cudaMallocHost((void**)&indexCom.m_pEachFeaLenEachNode_dh, sizeof(int) * maxNumofSplittableNode * nNumofFeatures));
