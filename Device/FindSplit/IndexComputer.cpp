@@ -25,13 +25,13 @@ int *IndexComputer::m_pNumFeaValueEachNode_dh = NULL;	//# of feature values of e
 int *IndexComputer::m_pFeaValueStartPosEachNode_dh = NULL;//start positions to feature value of each node
 int *IndexComputer::m_pEachFeaStartPosEachNode_dh = NULL;//each feature start position in each node
 int *IndexComputer::m_pEachFeaLenEachNode_dh = NULL;//each feature value length in each node
+int *IndexComputer::m_pBuffIdToPos_dh = NULL;//map buff id to dense pos id; not all elements in this array are used, due to not continuous buffid.
+int *IndexComputer::m_pPosToBuffId_dh = NULL;//map dense pos id to buff id
 
 
-int IndexComputer::MapBuffIdToPos(int buffId, int minBuffId, const int *pBuffIdToPos)
+int IndexComputer::MapBuffIdToPos(int buffId, const int *pBuffIdToPos)
 {
-	PROCESS_ERROR(buffId >= minBuffId && minBuffId >= 0);
-	int truncatedBuffId = buffId - minBuffId;
-	int pos = pBuffIdToPos[truncatedBuffId];
+	int pos = pBuffIdToPos[buffId];
 	PROCESS_ERROR(pos >= 0);
 	return pos;
 }
@@ -53,13 +53,12 @@ void IndexComputer::ComputeIndex(int numSNode, const int *pSNIdToBuffId, int max
 	}
 	sort(buffIdToDensePos.begin(), buffIdToDensePos.end());
 	//construct a mapping
-	int minBuffId = buffIdToDensePos[0];
-	int maxBuffId = buffIdToDensePos[numSNode - 1];
-	int *pBuffIdToPos = new int[maxBuffId - minBuffId + 1];//map buff id to dense pos id; not all elements in this array are used, due to not continuous buffid.
+
 	for(int b = 0; b < numSNode; b++)
 	{
-		int truncatedBuffId = buffIdToDensePos[b] - minBuffId;
-		pBuffIdToPos[truncatedBuffId] = b;
+		int truncatedBuffId = buffIdToDensePos[b];
+		m_pBuffIdToPos_dh[truncatedBuffId] = b;
+		m_pPosToBuffId_dh[b] = truncatedBuffId;
 		m_pNumFeaValueEachNode_dh[b] = 0;//initialise the number of feature values of each node to 0
 	}
 
@@ -73,7 +72,7 @@ void IndexComputer::ComputeIndex(int numSNode, const int *pSNIdToBuffId, int max
 			continue;
 		}
 		int buffId = Hashing::HostGetBufferId(pSNIdToBuffId, nid, maxNumSN);
-		int densePos = MapBuffIdToPos(buffId, minBuffId, pBuffIdToPos);
+		int densePos = MapBuffIdToPos(buffId, m_pBuffIdToPos_dh);
 
 		//increase the number of fea values of this node by 1
 		m_pNumFeaValueEachNode_dh[densePos]++;
@@ -100,7 +99,7 @@ void IndexComputer::ComputeIndex(int numSNode, const int *pSNIdToBuffId, int max
 	int feaId = -1;
 	for(int fv = 0; fv < m_totalFeaValue; fv++)
 	{
-		if(m_numFea >= feaId + 1 && fv == m_pFeaStartPos[feaId + 1])
+		if(m_numFea > feaId + 1 && fv == m_pFeaStartPos[feaId + 1])
 		{
 			feaId++;//next feature starts
 			for(int n = 0; n < numSNode; n++)
@@ -119,7 +118,7 @@ void IndexComputer::ComputeIndex(int numSNode, const int *pSNIdToBuffId, int max
 			continue;
 		}
 		int buffId = Hashing::HostGetBufferId(pSNIdToBuffId, nid, maxNumSN);
-		int snDensePos = MapBuffIdToPos(buffId, minBuffId, pBuffIdToPos);
+		int snDensePos = MapBuffIdToPos(buffId, m_pBuffIdToPos_dh);
 
 		//compute index in the out array
 		int index = pIndexCounter[snDensePos];
@@ -130,6 +129,5 @@ void IndexComputer::ComputeIndex(int numSNode, const int *pSNIdToBuffId, int max
 		m_pEachFeaLenEachNode_dh[feaId + snDensePos * m_numFea]++;//increase the feature value length
 	}
 
-	delete[] pBuffIdToPos;
 	delete[] pIndexCounter;
 }

@@ -48,6 +48,9 @@ int FFMemManager::maxNumofSNodeInFF = -1;	//maximum number of splittable nodes i
 //for dense array
 float_point *FFMemManager::pGDEachFeaValue = NULL;
 float_point *FFMemManager::pHessEachFeaValue = NULL;
+float_point *FFMemManager::pDenseFeaValue = NULL;	//feature values of consideration
+float_point *FFMemManager::pGDPrefixSum = NULL;
+float_point *FFMemManager::pHessPrefixSum = NULL;
 float_point *FFMemManager::pGainEachFeaValue = NULL;
 int FFMemManager::m_totalNumFeaValue = -1;
 float_point *FFMemManager::pfLocalBestGain_d = NULL;
@@ -133,6 +136,10 @@ void FFMemManager::allocMemForFindFea(int numofValuesInABatch, int maxNumofValue
 	PROCESS_ERROR(m_totalNumFeaValue > 0);
 	checkCudaErrors(cudaMalloc((void**)&pGDEachFeaValue, sizeof(float_point) * m_totalNumFeaValue));
 	checkCudaErrors(cudaMalloc((void**)&pHessEachFeaValue, sizeof(float_point) * m_totalNumFeaValue));
+	checkCudaErrors(cudaMalloc((void**)&pDenseFeaValue, sizeof(float_point) * m_totalNumFeaValue));
+
+	checkCudaErrors(cudaMalloc((void**)&pGDPrefixSum, sizeof(float_point) * m_totalNumFeaValue));
+	checkCudaErrors(cudaMalloc((void**)&pHessPrefixSum, sizeof(float_point) * m_totalNumFeaValue));
 	checkCudaErrors(cudaMalloc((void**)&pGainEachFeaValue, sizeof(float_point) * m_totalNumFeaValue));
 	int blockSizeLocalBest;
 	dim3 tempNumofBlockLocalBest;
@@ -142,6 +149,7 @@ void FFMemManager::allocMemForFindFea(int numofValuesInABatch, int maxNumofValue
 	checkCudaErrors(cudaMalloc((void**)&pnLocalBestGainKey_d, sizeof(int) * maxNumofBlockPerNode * maxNumofNode));
 	checkCudaErrors(cudaMalloc((void**)&pfGlobalBestGain_d, sizeof(float_point) * maxNumofNode));
 	checkCudaErrors(cudaMalloc((void**)&pnGlobalBestGainKey_d, sizeof(int) * maxNumofNode));
+
 }
 
 /**
@@ -154,6 +162,15 @@ void FFMemManager::resetMemForFindFea()
 	checkCudaErrors(cudaMemset(m_pValueOnEachFeaValue_d, 0, sizeof(float_point) * m_totalEleInWholeBatch));
 
 	checkCudaErrors(cudaMemset(m_pLastBiggerValue_d, 0, sizeof(float_point) * m_totalEleInWholeBatch));
+
+	//for dense array
+	checkCudaErrors(cudaMemset(pGDEachFeaValue, 0, sizeof(float_point) * m_totalNumFeaValue));
+	checkCudaErrors(cudaMemset(pHessEachFeaValue, 0, sizeof(float_point) * m_totalNumFeaValue));
+	checkCudaErrors(cudaMemset(pDenseFeaValue, 0, sizeof(float_point) * m_totalNumFeaValue));
+
+	checkCudaErrors(cudaMemset(pGDPrefixSum, 0, sizeof(float_point) * m_totalNumFeaValue));
+	checkCudaErrors(cudaMemset(pHessPrefixSum, 0, sizeof(float_point) * m_totalNumFeaValue));
+	checkCudaErrors(cudaMemset(pGainEachFeaValue, 0, sizeof(float_point) * m_totalNumFeaValue));
 }
 
 /**

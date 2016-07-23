@@ -11,13 +11,16 @@
 #include "FindFeaKernel.h"
 #include "../KernelConst.h"
 #include "../svm-shared/DeviceUtility.h"
+#include "../Splitter/DeviceSplitter.h"
+
+const float rt_2eps = 2.0 * DeviceSplitter::rt_eps;
 
 /**
  * @brief: copy the gd, hess and feaValue for each node based on some features on similar number of values
  */
-__global__ void LoadGDHess(const float_point *pInsGD, const float_point *pInsHess, int numIns,
-						   const int *pInsId, const int *pDstIndexEachFeaValue, int numFeaValue,
-						   float_point *pGDEachFeaValue, float_point *pHessEachFeaValue)
+__global__ void LoadGDHessFvalue(const float_point *pInsGD, const float_point *pInsHess, int numIns,
+						   const int *pInsId, const float_point *pAllFeaValue, const int *pDstIndexEachFeaValue, int numFeaValue,
+						   float_point *pGDEachFeaValue, float_point *pHessEachFeaValue, float_point *pDenseFeaValue)
 {
 	//one thread loads one value
 	//## global id looks ok, but need to be careful
@@ -42,38 +45,39 @@ __global__ void LoadGDHess(const float_point *pInsGD, const float_point *pInsHes
 	//store GD and Hess.
 	pGDEachFeaValue[idx] = pInsGD[insId];
 	pHessEachFeaValue[idx] = pInsHess[insId];
+	pDenseFeaValue[idx] = pAllFeaValue[gTid];
 }
 
 /**
  * @brief: compute the gain in parallel, each gain is computed by a thread.
  */
 __global__ void ComputeGainDense(const nodeStat *pSNodeStat, const int *pFeaValueStartPosEachNode, int numSN,
-							const int *pBuffId,	float_point lambda,
+							const int *pBuffId, const int *pBuffIdToPos, const int *pPosToBuffId, float_point lambda,
 							const float_point *pGDPrefixSumOnEachFeaValue, const float_point *pHessPrefixSumOnEachFeaValue,
-							int numofDenseValue, float_point *pGainOnEachFeaValue)
+							const float_point *pDenseFeaValue, int numofDenseValue, float_point *pGainOnEachFeaValue)
 {
 	//one thread loads one value
 	int gTid = (blockIdx.y * gridDim.x + blockIdx.x) * blockDim.x + threadIdx.x;
 
 	//compute node id
-	int snId = -1;
+	int densePos = -1;
 	for(int i = 0; i < numSN; i++)
 	{
 		if(i == numSN - 1)
 		{
-			snId = i;
+			densePos = i;
 			break;
 		}
 		else if(gTid >= pFeaValueStartPosEachNode[i] && gTid < pFeaValueStartPosEachNode[i + 1])
 		{
-			snId = i;
+			densePos = i;
 			break;
 		}
 	}
-
-	int hashVaue = pBuffId[snId];
+	int hashVaue = pPosToBuffId[densePos];
+//	int hashVaue = pBuffId[buffId];
 	if(hashVaue < 0)
-		printf("Error in ComputeGain: buffer id %d, i=%d\n", hashVaue, snId);
+		printf("Error in ComputeGain: buffer id %d, i=%d\n", hashVaue, densePos);
 
 	if(gTid >= numofDenseValue)//the thread has no gain to compute
 	{
@@ -84,6 +88,12 @@ __global__ void ComputeGainDense(const nodeStat *pSNodeStat, const int *pFeaValu
 	{
 		//assign gain to 0
     	pGainOnEachFeaValue[gTid] = 0;
+		return;
+	}
+
+	if(fabs(pDenseFeaValue[gTid - 1] - pDenseFeaValue[gTid]) <= rt_2eps)
+	{//if the previous fea value is the same as the current fea value, gain is 0 for the current fea value.
+		pGainOnEachFeaValue[gTid] = 0;
 		return;
 	}
 
@@ -122,6 +132,7 @@ __global__ void FirstFeaGain(const int *pEachFeaStartPosEachNode, int numFeaStar
 		return;
 	}
 	int gainPos = pEachFeaStartPosEachNode[gTid];
+//	printf("change %f to 0 pos at %d\n", pGainOnEachFeaValue[gainPos], pEachFeaStartPosEachNode[gTid]);
 	pGainOnEachFeaValue[gainPos] = 0;
 }
 
@@ -222,3 +233,58 @@ __global__ void PickGlobalBestSplitEachNode(const float_point *pfLocalBestGain, 
 			printf("negative key: snId=%d, gain=%f, key=%d\n", snId, pfGain[0], pnBetterGainKey[0]);
 	}
 }
+
+/**
+ * @brief: find split points
+ */
+__global__ void FindSplitInfo(const int *pEachFeaStartPosEachNode, const int *pEachFeaLenEachNode,
+							  const float_point *pDenseFeaValue, const float_point *pfGlobalBestGain, const int *pnGlobalBestGainKey,
+							  const int *pPosToBuffId, const int numFea,
+							  const nodeStat *snNodeStat, const float_point *pPrefixSumGD, const float_point *pPrefixSumHess,
+							  SplitPoint *pBestSplitPoint, nodeStat *pRChildStat, nodeStat *pLChildStat)
+{
+	//a thread for constructing a split point
+	int densePos = threadIdx.x;//position in the dense array of nodes
+	int key = pnGlobalBestGainKey[densePos];//position in the dense array
+
+	//compute feature id
+	int bestFeaId = -1;
+	for(int f = 0; f < numFea; f++)
+	{
+		int feaPos = f + densePos * numFea;
+		int numofFValue = pEachFeaLenEachNode[feaPos];
+		if(pEachFeaStartPosEachNode[feaPos] + numofFValue < key)
+			continue;
+		else
+		{
+			bestFeaId = f;
+			break;
+		}
+	}
+
+	if(bestFeaId == -1)
+		printf("Error: bestFeaId=%d\n", bestFeaId);
+
+	int buffId = pPosToBuffId[densePos];//dense pos to buffer id (i.e. hash value)
+
+	pBestSplitPoint[buffId].m_fGain = pfGlobalBestGain[densePos];//change the gain back to positive
+	if(pfGlobalBestGain[densePos] <= 0)//no gain
+	{
+		return;
+	}
+
+	pBestSplitPoint[buffId].m_nFeatureId = bestFeaId;
+	if(key < 1)
+		printf("Error: best key=%d, is < 1\n", key);
+	pBestSplitPoint[buffId].m_fSplitValue = 0.5f * (pDenseFeaValue[key] + pDenseFeaValue[key - 1]);
+
+	//child node stat
+	int idxPreSum = key - 1;//follow xgboost using exclusive
+	pLChildStat[buffId].sum_gd = snNodeStat[buffId].sum_gd - pPrefixSumGD[idxPreSum];
+	pLChildStat[buffId].sum_hess = snNodeStat[buffId].sum_hess - pPrefixSumHess[idxPreSum];
+	pRChildStat[buffId].sum_gd = pPrefixSumGD[idxPreSum];
+	pRChildStat[buffId].sum_hess = pPrefixSumHess[idxPreSum];
+	if(pLChildStat[buffId].sum_hess < 0 || pRChildStat[buffId].sum_hess < 0)
+		printf("Error: hess is negative l hess=%d, r hess=%d\n", pLChildStat[buffId].sum_hess, pRChildStat[buffId].sum_hess);
+}
+

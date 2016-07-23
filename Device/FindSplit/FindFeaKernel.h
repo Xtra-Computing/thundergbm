@@ -15,13 +15,13 @@
 #include "../../DeviceHost/NodeStat.h"
 
 //dense array
-__global__ void LoadGDHess(const float_point *pInsGD, const float_point *pInsHess, int numIns,
-						   const int *pInsId, const int *pDstIndexEachFeaValue, int numFeaValue,
-						   float_point *pGDEachFeaValue, float_point *pHessEachFeaValue);
+__global__ void LoadGDHessFvalue(const float_point *pInsGD, const float_point *pInsHess, int numIns,
+						   const int *pInsId, const float_point *pAllFeaValue, const int *pDstIndexEachFeaValue, int numFeaValue,
+						   float_point *pGDEachFeaValue, float_point *pHessEachFeaValue, float_point *pDenseFeaValue);
 __global__ void ComputeGainDense(const nodeStat *pSNodeStat, const int *pFeaValueStartPosEachNode, int numSN,
-							const int *pBuffId,	float_point lambda,
+							const int *pBuffId,	const int *pBuffIdToPos, const int *pPosToBuffId, float_point lambda,
 							const float_point *pGDPrefixSumOnEachFeaValue, const float_point *pHessPrefixSumOnEachFeaValue,
-							int numofDenseValue, float_point *pGainOnEachFeaValue);
+							const float_point *pDenseFeaValue, int numofDenseValue, float_point *pGainOnEachFeaValue);
 __global__ void FirstFeaGain(const int *pEachFeaStartPosEachNode, int numFeaStartPos, float_point *pGainOnEachFeaValue);
 __global__ void PickLocalBestSplitEachNode(const int *pnNumFeaValueEachNode, const int *pFeaStartPosEachNode,
 										   const float_point *pGainOnEachFeaValue,
@@ -29,7 +29,11 @@ __global__ void PickLocalBestSplitEachNode(const int *pnNumFeaValueEachNode, con
 __global__ void PickGlobalBestSplitEachNode(const float_point *pfLocalBestGain, const int *pnLocalBestGainKey,
 								   	   	    float_point *pfGlobalBestGain, int *pnGlobalBestGainKey,
 								   	   	    int numBlockPerNode, int numofSNode);
-
+__global__ void FindSplitInfo(const int *pEachFeaStartPosEachNode, const int *pEachFeaLenEachNode,
+							  const float_point *pDenseFeaValue, const float_point *pfGlobalBestGain, const int *pnGlobalBestGainKey,
+							  const int *pPosToBuffId, const int numFea,
+							  const nodeStat *snNodeStat, const float_point *pPrefixSumGD, const float_point *pPrefixSumHess,
+							  SplitPoint *pBestSplitPoint, nodeStat *pRChildStat, nodeStat *pLChildStat);
 
 //early
 __global__ void FindFeaSplitValue(const int *pnNumofKeyValues, const long long *pnFeaStartPos, const int *pInsId, const float_point *pFeaValue,

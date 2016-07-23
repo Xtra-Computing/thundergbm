@@ -163,6 +163,8 @@ int main(int argc, char *argv[])
 	checkCudaErrors(cudaMallocHost((void**)&indexCom.m_pIndices_dh, sizeof(int) * numFeaValue));
 	checkCudaErrors(cudaMallocHost((void**)&indexCom.m_insIdToNodeId_dh, sizeof(int) * nNumofExamples));
 	checkCudaErrors(cudaMallocHost((void**)&indexCom.m_pNumFeaValueEachNode_dh, sizeof(int) * maxNumofSplittableNode));
+	checkCudaErrors(cudaMallocHost((void**)&indexCom.m_pBuffIdToPos_dh, sizeof(int) * maxNumofSplittableNode));
+	checkCudaErrors(cudaMallocHost((void**)&indexCom.m_pPosToBuffId_dh, sizeof(int) * maxNumofSplittableNode));
 	checkCudaErrors(cudaMallocHost((void**)&indexCom.m_pFeaValueStartPosEachNode_dh, sizeof(int) * maxNumofSplittableNode));
 	checkCudaErrors(cudaMallocHost((void**)&indexCom.m_pEachFeaStartPosEachNode_dh, sizeof(int) * maxNumofSplittableNode * nNumofFeatures));
 	checkCudaErrors(cudaMallocHost((void**)&indexCom.m_pEachFeaLenEachNode_dh, sizeof(int) * maxNumofSplittableNode * nNumofFeatures));

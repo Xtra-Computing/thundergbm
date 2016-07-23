@@ -86,6 +86,7 @@ void DeviceTrainer::GrowTree(RegTree &tree)
 	((DeviceSplitter*)splitter)->total_fill_gd_t = 0;
 	((DeviceSplitter*)splitter)->total_search_t = 0;
 	((DeviceSplitter*)splitter)->total_fix_gain_t = 0;
+	((DeviceSplitter*)splitter)->total_com_idx_t = 0;
 	while(manager.m_curNumofSplitable > 0 && nCurDepth <= m_nMaxDepth)
 	{
 		splitter->m_nCurDept = nCurDepth;
@@ -147,7 +148,9 @@ void DeviceTrainer::GrowTree(RegTree &tree)
 	double total_fill = ((DeviceSplitter*)splitter)->total_fill_gd_t;
 	double total_search = ((DeviceSplitter*)splitter)->total_search_t;
 	double total_fix = ((DeviceSplitter*)splitter)->total_fix_gain_t;
-	cout << "scan takes " << total_scan/CLOCKS_PER_SEC << "; comp gain takes " << total_gain/CLOCKS_PER_SEC
+	double total_com_idx = ((DeviceSplitter*)splitter)->total_com_idx_t;
+	cout << "com idx " << total_com_idx/CLOCKS_PER_SEC
+		 << "; scan takes " << total_scan/CLOCKS_PER_SEC << "; comp gain takes " << total_gain/CLOCKS_PER_SEC
 		 << "; fix gain takes " << total_fix / CLOCKS_PER_SEC
 		 << "; fill gd takes " << total_fill/CLOCKS_PER_SEC << "; search takes " << total_search/CLOCKS_PER_SEC << endl;
 }

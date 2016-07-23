@@ -27,13 +27,15 @@ public:
 	static int *m_pNumFeaValueEachNode_dh;
 	static int *m_pEachFeaStartPosEachNode_dh;
 	static int *m_pEachFeaLenEachNode_dh;
+	static int *m_pBuffIdToPos_dh;
+	static int *m_pPosToBuffId_dh;
 
 public:
 	//compute indices for each feature value in feature lists
 	static void ComputeIndex(int numNode, const int *pSNIdToBuffId, int maxNumSN, const int *pBuffVec);
 
 private:
-	static int MapBuffIdToPos(int buffId, int minBuffId, const int *pBuffIdToPos);
+	static int MapBuffIdToPos(int buffId, const int *pBuffIdToPos);
 };
 
 

@@ -25,6 +25,7 @@ public:
 	double total_com_gain_t;
 	double total_fix_gain_t;
 	double total_fill_gd_t;
+	double total_com_idx_t;
 	double total_search_t;
 public:
 	virtual string SpliterType(){return "device";}
