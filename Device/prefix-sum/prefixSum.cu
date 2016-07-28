@@ -13,9 +13,6 @@
 #define LOG_NUM_BANKS 4
 #define CONFLICT_FREE_OFFSET(n) ((n) >> NUM_BANKS + (n) >> (2 * LOG_NUM_BANKS))
 
-#define NUM_BLOCKS 511
-#define BLOCK_SIZE 512
-
 #define testing true
 /**
  * @brief: compute prefix sum for in_array which contains multiple arrays of similar length
@@ -143,6 +140,7 @@ __global__ void cuda_prefixsum(T *in_array, int in_array_size, T *out_array, con
 			out_array[blockIdx.y * gridDim.x + blockIdx.x] = in_array[b_offset + lastElementPos];//block sum
 		}
 
+		__syncthreads();
 		if (false == isLastBlock)//not last block
 			in_array[b_offset + j - 1] = shared[j + offset_j];
 		else//last block

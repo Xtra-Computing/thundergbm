@@ -7,11 +7,13 @@
  */
 
 #include <stdio.h>
+#include <iomanip>
 #include "FindFeaKernel.h"
 #include "../KernelConst.h"
 #include "../DeviceHashing.h"
 #include "../prefix-sum/prefixSum.h"
 #include "../Splitter/DeviceSplitter.h"
+#include "../Memory/gpuMemManager.h"
 
 const float rt_2eps = 2.0 * DeviceSplitter::rt_eps;
 
@@ -131,8 +133,68 @@ __global__ void GetInfoEachFeaInBatch(const int *pnNumofKeyValues, const long lo
 void PrefixSumForEachNode(int numofSubArray, float_point *pGDOnEachFeaValue_d, float_point *pHessOnEachFeaValue_d,
 						  const int *pnStartPosEachFeaInBatch, const int *pnEachFeaLen)
 {
+#if false
+	int total_ele = 0;
+	for(int i = 0; i < numofSubArray; i++)
+	{
+		total_ele += pnEachFeaLen[i];
+	}
+	float_point *pHessEachFeaValue_h = new float_point[total_ele];
+	float_point *pGDEachFeaValue_h = new float_point[total_ele];
+	GPUMemManager manager;
+	manager.MemcpyDeviceToHost(pHessOnEachFeaValue_d, pHessEachFeaValue_h, sizeof(float_point) * total_ele);
+	manager.MemcpyDeviceToHost(pGDOnEachFeaValue_d, pGDEachFeaValue_h, sizeof(float_point) * total_ele);
+#endif
+
 	prefixsumForDeviceArray(pGDOnEachFeaValue_d, pnStartPosEachFeaInBatch, pnEachFeaLen, numofSubArray);
 	prefixsumForDeviceArray(pHessOnEachFeaValue_d, pnStartPosEachFeaInBatch, pnEachFeaLen, numofSubArray);
+
+#if false
+	float_point *pHessPrefixSum_h = new float_point[total_ele];
+	float_point *pGDPrefixSum_h = new float_point[total_ele];
+	manager.MemcpyDeviceToHost(pHessOnEachFeaValue_d, pHessPrefixSum_h, sizeof(float_point) * total_ele);
+	manager.MemcpyDeviceToHost(pGDOnEachFeaValue_d, pGDPrefixSum_h, sizeof(float_point) * total_ele);
+	int counter = 0;
+	for(int i = 0; i < numofSubArray; i++)
+	{
+		float_point sumHess = 0;
+		float_point sumGD = 0;
+		float_point prefix_block_sum = 0;
+		for(int j = 0; j < pnEachFeaLen[i]; j++)
+		{
+			if(j != 0 && j % 512 == 0)
+			{
+				cout.precision(10);
+//				cout << j/512 << " block sum is " << prefix_block_sum << "; prefix sum is " << sumGD << endl;
+				prefix_block_sum = 0;
+			}
+			sumHess += pHessEachFeaValue_h[counter];
+			sumGD += pGDEachFeaValue_h[counter];
+			prefix_block_sum += pGDEachFeaValue_h[counter];
+			if(pHessPrefixSum_h[counter] != sumHess)
+			{
+//				cout << "have a look here" << endl;
+			}
+			if(pGDPrefixSum_h[counter] != sumGD)
+			{
+//				cout << "have a look here too" << endl;
+			}
+			if(counter == 8378)
+			{
+				cout << sumGD << " + " << pGDEachFeaValue_h[counter + 1] << " is " << sumGD + pGDEachFeaValue_h[counter + 1] << endl;
+				cout << "have a look" << endl;
+			}
+			counter++;
+		}
+	}
+//	cout << pGDPrefixSum_h[36169768] << endl;
+	//36169768
+
+	delete[] pHessEachFeaValue_h;
+	delete[] pHessPrefixSum_h;
+	delete[] pGDEachFeaValue_h;
+	delete[] pGDPrefixSum_h;
+#endif
 }
 
 /**

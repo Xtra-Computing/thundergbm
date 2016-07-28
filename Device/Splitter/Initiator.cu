@@ -16,6 +16,9 @@ __global__ void ComputeGDKernel(int numofIns, const float_point *pfPredValue, co
 	for(int i = 0; i < numofIns; i++)
 	{
 		pGrad[i] = pfPredValue[i] - pfTrueValue[i];
+//		if(pGrad[i] < -2016 || pGrad[i] > -1920)
+//			printf("pGrad is too small: %f\n", pGrad[i]);
+
 		pHess[i] = 1;
 	}
 

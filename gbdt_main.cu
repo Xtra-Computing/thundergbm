@@ -47,7 +47,7 @@ int main(int argc, char *argv[])
 		strFileName = "data/abalone.txt";//8 features and 4177 instances
 		break;
 	case 1:
-		strFileName = "data/normalized_amz.txt";//19998 features and 30000 instances
+		strFileName = "data/normalized_amz.txt";//19,998 features and 30,000 instances
 		break;
 	case 2:
 		strFileName = "data/slice_loc.txt";//385 features and 53,499 instances
@@ -297,8 +297,8 @@ int main(int argc, char *argv[])
 	delete []pInsId;
 	delete []plFeaStartPos;
 	delete []indexCom.m_pIndexCounterEachNode;
-	cudaFreeHost(indexCom.m_pIndices_dh);
-	cudaFreeHost(indexCom.m_insIdToNodeId_dh);
+//	cudaFreeHost(indexCom.m_pIndices_dh);
+//	cudaFreeHost(indexCom.m_insIdToNodeId_dh);
 
 	return 0;
 }

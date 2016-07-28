@@ -283,6 +283,8 @@ __global__ void FindSplitInfo(const int *pEachFeaStartPosEachNode, const int *pE
 	int idxPreSum = key - 1;//follow xgboost using exclusive
 	pLChildStat[buffId].sum_gd = snNodeStat[buffId].sum_gd - pPrefixSumGD[idxPreSum];
 	pLChildStat[buffId].sum_hess = snNodeStat[buffId].sum_hess - pPrefixSumHess[idxPreSum];
+//	if(pLChildStat[buffId].sum_hess == 1)
+//		printf("Have a look at here\n");
 	pRChildStat[buffId].sum_gd = pPrefixSumGD[idxPreSum];
 	pRChildStat[buffId].sum_hess = pPrefixSumHess[idxPreSum];
 	if(pLChildStat[buffId].sum_hess < 0 || pRChildStat[buffId].sum_hess < 0)
