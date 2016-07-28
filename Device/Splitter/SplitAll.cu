@@ -19,6 +19,7 @@
 #include "../KernelConf.h"
 
 using std::cout;
+using std::cerr;
 using std::endl;
 using std::pair;
 using std::make_pair;
@@ -40,6 +41,7 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 	SNGPUManager snManager;//splittable node memory manager
 
 	//compute the base_weight of tree node, also determines if a node is a leaf.
+//	cout << "compute weight" << endl;
 	KernelConf conf;
 	int threadPerBlock;
 	dim3 dimNumofBlock;
@@ -55,6 +57,7 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 	}
 #endif
 
+//	cout << "create new nodes" << endl;
 	//copy the number of nodes in the tree to the GPU memory
 	manager.Memset(snManager.m_pNumofNewNode, 0, sizeof(int));
 	CreateNewNode<<<dimNumofBlock, threadPerBlock>>>(
@@ -64,6 +67,11 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 							manager.m_pLChildStat, manager.m_pRChildStat, snManager.m_pNewNodeStat,
 							snManager.m_pCurNumofNode_d, snManager.m_pNumofNewNode, rt_eps,
 							manager.m_curNumofSplitable, bLastLevel, manager.m_maxNumofSplittable);
+	int newNode = -1;
+	manager.MemcpyDeviceToHost(snManager.m_pNumofNewNode, &newNode, sizeof(int));
+	if(newNode == 0)//not new nodes are constructed
+		return;
+
 #if testing
 	if(cudaGetLastError() != cudaSuccess)
 	{
@@ -71,13 +79,22 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 		exit(0);
 	}
 #endif
+
+//	cout << "get unique fid" << endl;
+//	cout << "lock value is: " << lockValue << endl;
 	//find all used unique feature ids. We will use these features to organise instances into new nodes.
 	manager.Memset(snManager.m_pFeaIdToBuffId, -1, sizeof(int) * snManager.m_maxNumofUsedFea);
 	manager.Memset(snManager.m_pUniqueFeaIdVec, -1, sizeof(int) * snManager.m_maxNumofUsedFea);
 	manager.Memset(snManager.m_pNumofUniqueFeaId, 0, sizeof(int));
-	GetUniqueFid<<<dimNumofBlock, threadPerBlock>>>(snManager.m_pTreeNode, manager.m_pSplittableNode, manager.m_curNumofSplitable,
+	if(dimNumofBlock.x > 1 || dimNumofBlock.y > 1 || dimNumofBlock.z > 1)
+	{
+		cerr << "Bug: block for get uniqueFid is too large " << dimNumofBlock.x << endl;
+		exit(0);
+	}
+	GetUniqueFid<<<threadPerBlock, 1>>>(snManager.m_pTreeNode, manager.m_pSplittableNode, manager.m_curNumofSplitable,
 							 snManager.m_pFeaIdToBuffId, snManager.m_pUniqueFeaIdVec, snManager.m_pNumofUniqueFeaId,
 			 	 	 	 	 snManager.m_maxNumofUsedFea, LEAFNODE, manager.m_nSNLock);
+	cudaDeviceSynchronize();
 #if testing
 	if(cudaGetLastError() != cudaSuccess)
 	{
@@ -100,6 +117,7 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 		PROCESS_ERROR(bLastLevel == true);
 	if(numofUniqueFea > 0)//need to move instances to new nodes if there are new nodes.
 	{
+//		cout << "ins to new nodes" << endl;
 		dim3 dimGridThreadForEachUsedFea;
 		conf.ComputeBlock(numofUniqueFea, dimGridThreadForEachUsedFea);
 		int sharedMemSizeUsedFea = 1;
@@ -119,6 +137,7 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 	}
 #endif
 
+//	cout << "ins to new node by default" << endl;
 	//for those instances of unknown feature values.
 	int threadPerBlockEachIns;
 	dim3 dimNumofBlockEachIns;
@@ -147,6 +166,7 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 		conf.ComputeBlock(numofNewSplittableNode, dimGridThreadForEachNewSN);
 		int sharedMemSizeNSN = 1;
 
+//		cout << "update new splittable" << endl;
 		//reset nodeId to bufferId
 		manager.Memset(manager.m_pSNIdToBuffId, -1, sizeof(int) * manager.m_maxNumofSplittable);
 		manager.Memset(manager.m_pNumofBuffId, 0, sizeof(int));
@@ -166,4 +186,5 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 
 		manager.MemcpyDeviceToDevice(snManager.m_pNewSplittableNode, manager.m_pSplittableNode, sizeof(TreeNode) * manager.m_maxNumofSplittable);
 	}
+//	cout << "Done split all" << endl;
 }

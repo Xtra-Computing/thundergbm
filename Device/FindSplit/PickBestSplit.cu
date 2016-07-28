@@ -10,7 +10,7 @@
 #include <stdio.h>
 #include "FindFeaKernel.h"
 #include "../KernelConst.h"
-#include "../svm-shared/DeviceUtility.h"
+#include "../../DeviceHost/svm-shared/DeviceUtility.h"
 
 __device__ void CopyNodeStat(nodeStat *pDest, const nodeStat *pSrc)
 {

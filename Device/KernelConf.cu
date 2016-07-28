@@ -9,7 +9,7 @@
 #include <iostream>
 #include "KernelConf.h"
 #include "KernelConst.h"
-#include "../Device/svm-shared/HostUtility.h"
+#include "../DeviceHost/svm-shared/HostUtility.h"
 
 using std::cout;
 using std::endl;

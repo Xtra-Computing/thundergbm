@@ -12,8 +12,8 @@
 #include "findFeaMemManager.h"
 #include "../../DeviceHost/MyAssert.h"
 #include "../KernelConf.h"
-#include "../svm-shared/MemInfo.h"
-#include "../svm-shared/HostUtility.h"
+#include "../../DeviceHost/svm-shared/MemInfo.h"
+#include "../../DeviceHost/svm-shared/HostUtility.h"
 
 using std::cout;
 using std::endl;

@@ -10,7 +10,7 @@
 #include <float.h>
 #include "FindFeaKernel.h"
 #include "../KernelConst.h"
-#include "../svm-shared/DeviceUtility.h"
+#include "../../DeviceHost/svm-shared/DeviceUtility.h"
 #include "../Splitter/DeviceSplitter.h"
 
 const float rt_2eps = 2.0 * DeviceSplitter::rt_eps;
@@ -110,6 +110,8 @@ __global__ void ComputeGainDense(const nodeStat *pSNodeStat, const int *pFeaValu
     	pGainOnEachFeaValue[gTid] = (tempGD * tempGD)/(tempHess + lambda) +
     									 	 (rChildGD * rChildGD)/(rChildHess + lambda) -
     									 	 (snGD * snGD)/(snHess + lambda);
+//    	if(pGainOnEachFeaValue[gTid] > 0 && ((rChildHess == 463714 && tempHess == 1) || (rChildHess == 1 && tempHess == 463714)))
+ //   		printf("gain=%f, gid=%d, rhess=%f, lhess=%f\n", pGainOnEachFeaValue[gTid], gTid, rChildHess, tempHess);
     }
     else
     {

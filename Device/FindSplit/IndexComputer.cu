@@ -8,6 +8,8 @@
 
 #include <vector>
 #include <algorithm>
+#include <cuda.h>
+#include <helper_cuda.h>
 #include "IndexComputer.h"
 #include "../../DeviceHost/MyAssert.h"
 #include "../Hashing.h"
@@ -18,6 +20,9 @@ int *IndexComputer::m_pInsId = NULL;	//instance id for each feature value in the
 int IndexComputer::m_totalFeaValue = -1;//total number of feature values in the whole dataset
 long long *IndexComputer::m_pFeaStartPos = NULL;//each feature start position
 int IndexComputer::m_numFea = -1;	//number of features
+int IndexComputer::m_maxNumofSN = -1;
+int *IndexComputer::m_pIndexCounterEachNode = NULL;
+long long IndexComputer::m_total_copy = -1;
 
 int *IndexComputer::m_insIdToNodeId_dh = NULL;//instance id to node id
 int *IndexComputer::m_pIndices_dh = NULL;	//index for each node
@@ -36,32 +41,36 @@ void IndexComputer::ComputeIndex(int numSNode, const int *pSNIdToBuffId, int max
 //	PROCESS_ERROR(numSNode > 0 && m_pIndices_dh != NULL);
 //	PROCESS_ERROR(maxNumSN >= 0);
 
+	//initialise length of each feature in each node
+	memset(m_pEachFeaLenEachNode_dh, 0, sizeof(int) * m_numFea * m_maxNumofSN);
+
 	//construct a mapping
 	for(int b = 0; b < numSNode; b++)
 	{
-		int truncatedBuffId = pBuffVec[b];
-		m_pBuffIdToPos_dh[truncatedBuffId] = b;
+		int buffId = pBuffVec[b];
+		m_pBuffIdToPos_dh[buffId] = b;
 		m_pNumFeaValueEachNode_dh[b] = 0;//initialise the number of feature values of each node to 0
 	}
 
 	//compute fea value info for each node
+	clock_t start_nodeFeaValue = clock();
 	for(int fv = 0; fv < m_totalFeaValue; fv++)
 	{
 		int insId = m_pInsId[fv];
 		int nid = m_insIdToNodeId_dh[insId];
-		if(nid == -1)
+		if(nid < 0)
 		{
 			continue;
 		}
-		int buffId = pSNIdToBuffId[nid % maxNumSN];//Hashing::HostGetBufferId(pSNIdToBuffId, nid, maxNumSN);
+		int buffId = nid % maxNumSN;//pSNIdToBuffId[remain];//Hashing::HostGetBufferId(pSNIdToBuffId, nid, maxNumSN);
 		int densePos = m_pBuffIdToPos_dh[buffId];
 
 		//increase the number of fea values of this node by 1
 		m_pNumFeaValueEachNode_dh[densePos]++;
 	}
+	clock_t end_nodeFeaValue = clock();
+	m_total_copy += (end_nodeFeaValue - start_nodeFeaValue);
 
-	//create counter for each node
-	int *pIndexCounter = new int[numSNode];
 	//compute fea value start pos of each node
 	for(int n = 0; n < numSNode; n++)
 	{
@@ -74,7 +83,7 @@ void IndexComputer::ComputeIndex(int numSNode, const int *pSNIdToBuffId, int max
 			m_pFeaValueStartPosEachNode_dh[n] = m_pFeaValueStartPosEachNode_dh[n - 1] + m_pNumFeaValueEachNode_dh[n - 1];
 		}
 		//initialise start index
-		pIndexCounter[n] = m_pFeaValueStartPosEachNode_dh[n];
+		m_pIndexCounterEachNode[n] = m_pFeaValueStartPosEachNode_dh[n];//counter for each node
 	}
 
 	//compute indices
@@ -84,32 +93,49 @@ void IndexComputer::ComputeIndex(int numSNode, const int *pSNIdToBuffId, int max
 		if(m_numFea > feaId + 1 && fv == m_pFeaStartPos[feaId + 1])
 		{
 			feaId++;//next feature starts
+			clock_t start_copy = clock();
 			for(int n = 0; n < numSNode; n++)
 			{//initialise each feature start position and length
-				m_pEachFeaStartPosEachNode_dh[feaId + n * m_numFea] = pIndexCounter[n];
-				m_pEachFeaLenEachNode_dh[feaId + n * m_numFea] = 0;
+				m_pEachFeaStartPosEachNode_dh[feaId + n * m_numFea] = m_pIndexCounterEachNode[n];
 			}
+			clock_t end_copy = clock();
+			m_total_copy += (end_copy - start_copy);
 		}
 
 		int insId = m_pInsId[fv];
 		int nid = m_insIdToNodeId_dh[insId];
-		if(nid == -1)
+		if(nid < 0)
 		{
 			//mark the position as dummy
 			m_pIndices_dh[fv] = -1;
 			continue;
 		}
-		int buffId = pSNIdToBuffId[nid % maxNumSN];//Hashing::HostGetBufferId(pSNIdToBuffId, nid, maxNumSN);
+		int buffId = nid % maxNumSN;//pSNIdToBuffId[remain];//Hashing::HostGetBufferId(pSNIdToBuffId, nid, maxNumSN);
 		int snDensePos = m_pBuffIdToPos_dh[buffId];
 
 		//compute index in the out array
-		int index = pIndexCounter[snDensePos];
-		m_pIndices_dh[fv] = index;
+		m_pIndices_dh[fv] = m_pIndexCounterEachNode[snDensePos];
 //		PROCESS_ERROR(pIndexCounter[snDensePos] - m_pFeaValueStartPosEachNode_dh[snDensePos] < m_pNumFeaValueEachNode_dh[snDensePos]);
 
-		pIndexCounter[snDensePos]++;//increase the index counter
+		m_pIndexCounterEachNode[snDensePos]++;//increase the index counter
 		m_pEachFeaLenEachNode_dh[feaId + snDensePos * m_numFea]++;//increase the feature value length
 	}
+}
 
-	delete[] pIndexCounter;
+/**
+ * @brief: allocate reusable memory
+ */
+void IndexComputer::AllocMem(int nNumofExamples, int nNumofFeatures, int maxNumofSplittableNode)
+{
+	m_numFea = nNumofFeatures;
+	m_maxNumofSN = maxNumofSplittableNode;
+
+	m_pIndexCounterEachNode = new int[m_maxNumofSN];
+	checkCudaErrors(cudaMallocHost((void**)&m_pIndices_dh, sizeof(int) * m_totalFeaValue));
+	checkCudaErrors(cudaMallocHost((void**)&m_insIdToNodeId_dh, sizeof(int) * nNumofExamples));
+	checkCudaErrors(cudaMallocHost((void**)&m_pNumFeaValueEachNode_dh, sizeof(int) * m_maxNumofSN));
+	checkCudaErrors(cudaMallocHost((void**)&m_pBuffIdToPos_dh, sizeof(int) * m_maxNumofSN));
+	checkCudaErrors(cudaMallocHost((void**)&m_pFeaValueStartPosEachNode_dh, sizeof(int) * m_maxNumofSN));
+	checkCudaErrors(cudaMallocHost((void**)&m_pEachFeaStartPosEachNode_dh, sizeof(int) * m_maxNumofSN * m_numFea));
+	checkCudaErrors(cudaMallocHost((void**)&m_pEachFeaLenEachNode_dh, sizeof(int) * m_maxNumofSN * m_numFea));
 }

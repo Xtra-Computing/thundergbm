@@ -43,7 +43,7 @@ public:
 public:
 	BaseTrainer(BaseSplitter *pSplitter){splitter = pSplitter;}
 	virtual ~BaseTrainer(){}
-	void InitTrainer(int nNumofTree, int nMaxDepth, double fLabda, double fGamma, int nNumofFea);
+	void InitTrainer(int nNumofTree, int nMaxDepth, double fLabda, double fGamma, int nNumofFea, bool usedBuffer);
 	void TrainGBDT(vector<RegTree> &v_Tree);
 	void SaveModel(string fileName, const vector<RegTree> &v_Tree);
 

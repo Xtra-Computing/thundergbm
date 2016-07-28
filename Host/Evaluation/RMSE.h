@@ -20,7 +20,7 @@ public:
   char *Name(void);
   float EvalRow(float_point label, float_point pred);
   float GetFinal(float_point esum, float_point wsum);
-  float Eval(const vector<float_point> &preds, const vector<float_point> &labels);
+  float Eval(const vector<float_point> &preds, float_point *labels, int numofIns);
 };
 
 

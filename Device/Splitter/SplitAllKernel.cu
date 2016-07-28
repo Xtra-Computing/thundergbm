@@ -149,6 +149,7 @@ __global__ void GetUniqueFid(TreeNode *pAllTreeNode, TreeNode *pSplittableNode, 
 	while(bLeaveLoop == false)
 	{
 		//critical region when assigning hash value
+//		printf("lock is %d\n", *pnLock);
 		if(atomicExch(pnLock, 1) == 0)
 		{
 			bool bIsNew = false;

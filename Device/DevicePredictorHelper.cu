@@ -91,7 +91,7 @@ __global__ void FillDense(const float_point *pdSparseInsValue, const int *pnSpar
 }
 
 __global__ void PredMultiTarget(float_point *pdTargetValue, int numofDenseIns, const TreeNode *pAllTreeNode,
-								const float_point *pDenseIns, int numofFea,
+								const float_point *pDenseIns, int numofUsedFea,
 								const int *pnHashFeaIdToPos, int maxDepth)
 {
 	int nGlobalThreadId = (blockIdx.y * gridDim.x + blockIdx.x) * blockDim.x + threadIdx.x;
@@ -112,12 +112,12 @@ __global__ void PredMultiTarget(float_point *pdTargetValue, int numofDenseIns, c
 		int fid = curNode->featureId;
 		ErrorChecker(fid, __PRETTY_FUNCTION__, "fid < 0");
 
-		int maxNumofUsedFea = numofFea;
+		int maxNumofUsedFea = numofUsedFea;
 		int pos = GetBufferId(pnHashFeaIdToPos, fid, maxNumofUsedFea);
 //		printf("%d hash to %d: fea v=%f\n", fid, pos, pDenseIns[pos]);
 
-		if(pos < numofFea)//feature value is available in the dense vector
-			pid = GetNext(curNode, pDenseIns[targetId * numofFea + pos]);
+		if(pos < numofUsedFea)//feature value is available in the dense vector
+			pid = GetNext(curNode, pDenseIns[targetId * numofUsedFea + pos]);
 		else//feature value is stored in the dense vector (due to truncating)
 			pid = GetNext(curNode, 0);
 		curNode = pAllTreeNode + pid;

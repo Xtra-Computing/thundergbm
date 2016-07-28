@@ -110,7 +110,9 @@ void DeviceTrainer::GrowTree(RegTree &tree)
 		int curNumofNode = -1;
 		manager.MemcpyDeviceToHost(snManager.m_pCurNumofNode_d, &curNumofNode, sizeof(int));
 		PROCESS_ERROR(curNumofNode > 0);
+//		cout << "splitting" << endl;
 		splitter->SplitAll(splittableNode, vBest, tree, curNumofNode, rchildStat, lchildStat, bLastLevel);
+//		cout << "done splitting" << endl;
 		clock_t end_split_t = clock();
 		total_split_t += (double(end_split_t - start_split_t) / CLOCKS_PER_SEC);
 

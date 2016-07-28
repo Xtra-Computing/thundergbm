@@ -12,7 +12,7 @@
 #include "../KernelConst.h"
 #include "../DeviceHashing.h"
 #include "../prefix-sum/prefixSum.h"
-#include "../svm-shared/DeviceUtility.h"
+#include "../../DeviceHost/svm-shared/DeviceUtility.h"
 #include "../../DeviceHost/NodeStat.h"
 
 

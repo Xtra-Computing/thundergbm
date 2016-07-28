@@ -54,7 +54,7 @@ int mainPureHost(string strFileName)
 	Pruner::min_loss = fGamma;
 
 	clock_t start_init = clock();
-	trainer.InitTrainer(nNumofTree, nMaxDepth, fLabda, fGamma, nNumofFeatures);
+	trainer.InitTrainer(nNumofTree, nMaxDepth, fLabda, fGamma, nNumofFeatures, false);
 	clock_t end_init = clock();
 
 	clock_t start_train_time = clock();
@@ -87,7 +87,7 @@ int mainPureHost(string strFileName)
 	cout << "prediction sec = " << prediction_time << endl;
 
 	EvalRMSE rmse;
-	float_point fRMSE = rmse.Eval(v_fPredValue, v_fLabel);
+	float_point fRMSE = rmse.Eval(v_fPredValue, &v_fLabel[0], v_fLabel.size());
 	cout << "rmse=" << fRMSE << endl;
 
 	trainer.ReleaseTree(v_Tree);

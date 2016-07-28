@@ -10,7 +10,6 @@
 #define SPLITTER_H_
 
 #include <vector>
-#include <map>
 
 #include "../Tree/RegTree.h"
 #include "../../DeviceHost/TreeNode.h"

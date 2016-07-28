@@ -8,7 +8,7 @@
 
 #include <stdio.h>
 #include "DeviceUtility.h"
-#include "../KernelConst.h"
+#include "../../Device/KernelConst.h"
 
 /**
  * @brief: when the array is too large to store in shared memory, one thread loads multiple values

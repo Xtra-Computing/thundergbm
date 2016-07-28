@@ -20,7 +20,7 @@
 /*
  * @brief: initialise constants of a trainer
  */
-void BaseTrainer::InitTrainer(int nNumofTree, int nMaxDepth, double fLabda, double fGamma, int nNumofFea)
+void BaseTrainer::InitTrainer(int nNumofTree, int nMaxDepth, double fLabda, double fGamma, int nNumofFea, bool usedBuffer)
 {
 	m_nMaxNumofTree = nNumofTree;
 	m_nMaxDepth = nMaxDepth;
@@ -35,7 +35,8 @@ void BaseTrainer::InitTrainer(int nNumofTree, int nMaxDepth, double fLabda, doub
 		splitter->m_vGDPair_fixedPos.push_back(gd);
 	}
 
-	KeyValue::SortFeaValue(nNumofFea, m_vvInsSparse, splitter->m_vvFeaInxPair);
+	if(usedBuffer == false)
+		KeyValue::SortFeaValue(nNumofFea, m_vvInsSparse, splitter->m_vvFeaInxPair);
 }
 
 /**

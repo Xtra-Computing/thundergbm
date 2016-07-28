@@ -19,6 +19,9 @@ public:
 	static int m_totalFeaValue;
 	static long long *m_pFeaStartPos;
 	static int m_numFea;
+	static int m_maxNumofSN;
+	static int *m_pIndexCounterEachNode;
+	static long long m_total_copy;
 
 	//pinned memory
 	static int *m_insIdToNodeId_dh;
@@ -33,6 +36,8 @@ public:
 public:
 	//compute indices for each feature value in feature lists
 	static void ComputeIndex(int numNode, const int *pSNIdToBuffId, int maxNumSN, const int *pBuffVec);
+
+	static void AllocMem(int nNumofExamples, int nNumofFeatures, int maxNumofSpittableNode);
 };
 
 

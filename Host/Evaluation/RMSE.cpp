@@ -27,10 +27,10 @@ float EvalRMSE::GetFinal(float_point esum, float_point wsum)
     return sqrt(esum / wsum);
 }
 
-float EvalRMSE::Eval(const vector<float_point> &preds, const vector<float_point> &labels)
+float EvalRMSE::Eval(const vector<float_point> &preds, float_point *labels, int numofIns)
 {
 	float_point sum = 0.0, wsum = 0.0;
-	int ndata = labels.size();
+	int ndata = numofIns;
 	for (int i = 0; i < ndata; ++i)
 	{
 		sum += EvalRow(labels[i], preds[i]);

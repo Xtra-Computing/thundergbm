@@ -8,7 +8,7 @@
 
 #include <algorithm>
 #include <math.h>
-#include <map>
+#include <unordered_map>
 #include <iostream>
 
 #include "../Evaluation/RMSE.h"
@@ -17,7 +17,7 @@
 #include "SplitPoint.h"
 #include "../../DeviceHost/MyAssert.h"
 
-using std::map;
+using std::unordered_map;
 using std::pair;
 using std::make_pair;
 using std::cout;
@@ -66,7 +66,7 @@ void HostSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat> 
 
 			// get the statistics of nid node
 			// test if first hit, this is fine, because we set 0 during init
-			map<int, int>::iterator it = mapNodeIdToBufferPos.find(nid);
+			unordered_map<int, int>::iterator it = mapNodeIdToBufferPos.find(nid);
 			PROCESS_ERROR(it != mapNodeIdToBufferPos.end());
 			int bufferPos = it->second;
 			if(tempStat[bufferPos].IsEmpty())
@@ -108,7 +108,7 @@ void HostSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat> 
 		}
 
 	    // finish updating all statistics, check if it is possible to include all sum statistics
-	    for(map<int, int>::iterator it = mapNodeIdToBufferPos.begin(); it != mapNodeIdToBufferPos.end(); it++)
+	    for(unordered_map<int, int>::iterator it = mapNodeIdToBufferPos.begin(); it != mapNodeIdToBufferPos.end(); it++)
 	    {
 	    	const int nid = it->first;
             nodeStat lTempStat;
@@ -154,7 +154,7 @@ void HostSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Spli
 		int nid = splittableNode[n]->nodeId;
 //		cout << "node " << nid << " needs to split..." << endl;
 		int bufferPos = mapNodeIdToBufferPos[nid];
-		map<int, int>::iterator itBufferPos = mapNodeIdToBufferPos.find(nid);
+		unordered_map<int, int>::iterator itBufferPos = mapNodeIdToBufferPos.find(nid);
 //		cout << itBufferPos->first << " v.s. " << itBufferPos->second << endl;
 		PROCESS_ERROR(itBufferPos != mapNodeIdToBufferPos.end() && bufferPos == itBufferPos->second);
 		PROCESS_ERROR(bufferPos < vBest.size());
@@ -251,7 +251,7 @@ void HostSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Spli
 
 			PROCESS_ERROR(nid >= 0);
 			int bufferPos = mapNodeIdToBufferPos[nid];
-			map<int, int>::iterator itBufferPos = mapNodeIdToBufferPos.find(nid);
+			unordered_map<int, int>::iterator itBufferPos = mapNodeIdToBufferPos.find(nid);
 			PROCESS_ERROR(itBufferPos != mapNodeIdToBufferPos.end() && bufferPos == itBufferPos->second);
 			int fid = vBest[bufferPos].m_nFeatureId;
 			if(fid != ufid)//this feature is not the splitting feature for the instance.
@@ -328,7 +328,7 @@ void HostSplitter::ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> > &
 	{
 		//run the GBDT prediction process
 		EvalRMSE rmse;
-		float_point fRMSE = rmse.Eval(v_fPredValue, m_vTrueValue);
+		float_point fRMSE = rmse.Eval(v_fPredValue, &m_vTrueValue[0], m_vTrueValue.size());
 		cout << "rmse=" << fRMSE << endl;
 	}
 

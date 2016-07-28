@@ -99,7 +99,7 @@ void prefixsumForDeviceArray(T *array_d, const int *pnArrayStartPos_d, const int
 			numElementsLongestArray = pnEachArrayLen_h[a];
 		totalNumofEleInArray += pnEachArrayLen_h[a];
 	}
-    unsigned int blockSize = 64; // max size of the thread blocks ############# bugs when 128 for slice_loc.txt
+    unsigned int blockSize = 256; // max size of the thread blocks ############# bugs when 128 for slice_loc.txt (sparse) and YearPredictionMSD (dense)
     unsigned int numBlocksPrescan;
     unsigned int numThreadsPrescan;//one thread processes two elements.
 

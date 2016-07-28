@@ -10,20 +10,21 @@
 #include <algorithm>
 #include <math.h>
 #include <map>
+#include <unordered_map>
 #include <iostream>
 
 #include "../../Host/UpdateOps/SplitPoint.h"
 #include "../../DeviceHost/MyAssert.h"
 #include "BaseSplitter.h"
 
-using std::map;
+using std::unordered_map;
 using std::pair;
 using std::make_pair;
 using std::cout;
 using std::endl;
 
 vector<vector<KeyValue> > BaseSplitter::m_vvFeaInxPair; //value is feature value (sorted in a descendant order); id (or key) is instance id
-map<int, int> BaseSplitter::mapNodeIdToBufferPos;
+unordered_map<int, int> BaseSplitter::mapNodeIdToBufferPos;
 vector<int> BaseSplitter::m_nodeIds; //instance id to node id
 vector<gdpair> BaseSplitter::m_vGDPair_fixedPos;
 vector<nodeStat> BaseSplitter::m_nodeStat; //all the constructed tree nodes

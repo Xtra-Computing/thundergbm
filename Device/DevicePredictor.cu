@@ -45,7 +45,7 @@ void DevicePredictor::PredictSparseIns(vector<vector<KeyValue> > &v_vInstance, v
 		delete []pSortedUsedFea;
 
 	//for each tree
-	int nNumofIns = v_vInstance.size();
+	int nNumofIns = manager.m_numofIns;
 	int nNumofTree = treeManager.m_numofTreeLearnt;
 	PROCESS_ERROR(treeManager.m_numofTree == treeManager.m_numofTreeLearnt);
 	PROCESS_ERROR(nNumofTree > 0);
@@ -62,15 +62,19 @@ void DevicePredictor::PredictSparseIns(vector<vector<KeyValue> > &v_vInstance, v
 	int *pDevFeaId = manager.m_pDFeaId + startPos;
 	int *pNumofFea = manager.m_pDNumofFea + startInsId;
 	int numofInsToFill = nNumofIns;
+
 	KernelConf conf;
 	int threadPerBlock;
 	dim3 dimNumofBlock;
 	conf.ConfKernel(numofInsToFill, threadPerBlock, dimNumofBlock);
 
-	FillMultiDense<<<dimNumofBlock, threadPerBlock>>>(
-										  pDevInsValue, pInsStartPos, pDevFeaId, pNumofFea, manager.m_pdDenseIns,
-										  manager.m_pSortedUsedFeaId, manager.m_pHashFeaIdToDenseInsPos,
-										  numofUsedFea, startInsId, numofInsToFill);
+	if(numofUsedFea > 0)
+	{
+		FillMultiDense<<<dimNumofBlock, threadPerBlock>>>(
+											  pDevInsValue, pInsStartPos, pDevFeaId, pNumofFea, manager.m_pdDenseIns,
+											  manager.m_pSortedUsedFeaId, manager.m_pHashFeaIdToDenseInsPos,
+											  numofUsedFea, startInsId, numofInsToFill);
+	}
 
 #if testing
 		if(cudaGetLastError() != cudaSuccess)

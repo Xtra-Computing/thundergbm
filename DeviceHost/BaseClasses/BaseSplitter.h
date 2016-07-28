@@ -10,7 +10,7 @@
 #define BASESPLITTER_H_
 
 #include <vector>
-#include <map>
+#include <unordered_map>
 #include <string>
 
 #include "../../Host/Tree/RegTree.h"
@@ -21,14 +21,14 @@
 #include "../../Host/GDPair.h"
 
 using std::vector;
-using std::map;
+using std::unordered_map;
 using std::string;
 
 class BaseSplitter
 {
 public:
 	static vector<vector<KeyValue> > m_vvFeaInxPair; //value is feature value (sorted in a descendant order); id is instance id
-	static map<int, int> mapNodeIdToBufferPos;
+	static unordered_map<int, int> mapNodeIdToBufferPos;
 	static vector<int> m_nodeIds; //instance id to node id
 	static vector<gdpair> m_vGDPair_fixedPos;
 	static vector<nodeStat> m_nodeStat; //all the constructed tree nodes
@@ -57,8 +57,8 @@ public:
 
 	const static int LEAFNODE = -2;
 
-	const static float rt_eps = 1e-5;
-	const static double min_child_weight = 1.0;//follow xgboost
+	static constexpr float rt_eps = 1e-5;
+	static constexpr double min_child_weight = 1.0;//follow xgboost
 
 public:
 	//for debugging

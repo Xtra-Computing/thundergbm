@@ -25,8 +25,9 @@
 #include "Device/initCuda.h"
 #include "Device/FindSplit/IndexComputer.h"
 
-
 #include "Device/prefix-sum/prefixSum.h"
+#include "DeviceHost/svm-shared/fileOps.h"
+#include "Device/FileBuffer/FileBuffer.h"
 
 int main(int argc, char *argv[])
 {
@@ -46,7 +47,7 @@ int main(int argc, char *argv[])
 		strFileName = "data/abalone.txt";//8 features and 4177 instances
 		break;
 	case 1:
-		strFileName = "data/normalized_amz.txt";
+		strFileName = "data/normalized_amz.txt";//19998 features and 30000 instances
 		break;
 	case 2:
 		strFileName = "data/slice_loc.txt";//385 features and 53,499 instances
@@ -95,19 +96,91 @@ int main(int argc, char *argv[])
 	int nNumofFeatures;
 	int nNumofExamples;
 	long long numFeaValue;
-	dataReader.GetDataInfo(strFileName, nNumofFeatures, nNumofExamples, numFeaValue);
+
+	string strFolder = strFileName + "-folder/";
+	string bufferFileName = strFolder + "data-info.buffer";
+	bool bBufferFileExist = CFileOps::IsFileExist(bufferFileName);
+	bool bUsedBuffer = bBufferFileExist;
 
 	vector<float_point> v_fLabel;
 	vector<vector<KeyValue> > v_vInsSparse;
-	dataReader.ReadLibSVMFormatSparse(v_vInsSparse, v_fLabel, strFileName, nNumofFeatures, nNumofExamples);
-	cout << "data has " << nNumofFeatures << " features and " << nNumofExamples << " instances" << endl;
+	clock_t start_init, end_init;
+	//read the file the first time
+	if(bBufferFileExist == false)
+	{
+		dataReader.GetDataInfo(strFileName, nNumofFeatures, nNumofExamples, numFeaValue);
+		dataReader.ReadLibSVMFormatSparse(v_vInsSparse, v_fLabel, strFileName, nNumofFeatures, nNumofExamples);
+		trainer.m_vvInsSparse = v_vInsSparse;//later used in sorting values for each feature
+		trainer.m_vTrueValue = v_fLabel;
+	}
+	else
+	{
+		//read data set info
+		FileBuffer::ReadDataInfo(strFolder, nNumofFeatures, nNumofExamples, numFeaValue);
+	}
+	cout << "data has " << nNumofFeatures << " features, " << nNumofExamples << " instances and, " << numFeaValue << " fea values" << endl;
+
+	start_init = clock();
+	trainer.InitTrainer(nNumofTree, nMaxDepth, fLabda, fGamma, nNumofFeatures, bUsedBuffer);
+	end_init = clock();
+
+	//store feature key-value into array
+	int *pInsId = new int[numFeaValue];
+	float_point *pdValue = new float_point[numFeaValue];
+	int *pNumofKeyValue = new int[nNumofFeatures];
+	long long *plFeaStartPos = new long long[nNumofFeatures];//get start position of each feature
+
+	//instances for prediction
+	int *pFeaId = new int[numFeaValue];
+	float_point *pfFeaValue = new float_point[numFeaValue];
+	int *pNumofFea = new int[nNumofExamples];
+	long long *plInsStartPos = new long long[nNumofExamples];
+
+	float_point *pTrueLabel = new float_point[nNumofExamples];
+
+	if(bBufferFileExist == false)
+	{
+		KeyValue::VecToArray(trainer.splitter->m_vvFeaInxPair, pInsId, pdValue, pNumofKeyValue, plFeaStartPos);
+//		KeyValue::TestVecToArray(trainer.splitter->m_vvFeaInxPair, pInsId, pdValue, pNumofKeyValue);
+		//store sparse instances to GPU memory for prediction
+		KeyValue::VecToArray(trainer.m_vvInsSparse, pFeaId, pfFeaValue, pNumofFea, plInsStartPos);
+	//	KeyValue::TestVecToArray(trainer.m_vvInsSparse, pFeaId, pdFeaValue, pNumofFea);
+
+		for(int i = 0; i < nNumofExamples; i++)
+		{
+			pTrueLabel[i] = v_fLabel[i];
+		}
+
+		//saved to buffer file
+		FileBuffer::SetMembers(pInsId, pdValue, pNumofKeyValue, plFeaStartPos,
+							   pFeaId, pfFeaValue, pNumofFea, plInsStartPos,
+							   pTrueLabel,
+							   nNumofFeatures, nNumofExamples, numFeaValue);
+		FileBuffer::WriteBufferFile(strFolder);
+	}
+	else//read the arrays from buffer
+	{
+		cout << "read from buffer file: " << bufferFileName << endl;
+		FileBuffer::ReadBufferFile(strFolder, pInsId, pdValue, pNumofKeyValue, plFeaStartPos,
+								   pFeaId, pfFeaValue, pNumofFea, plInsStartPos,
+								   pTrueLabel,
+								   nNumofFeatures, nNumofExamples, numFeaValue);
+
+#if false
+		KeyValue::TestVecToArray(trainer.splitter->m_vvFeaInxPair, pInsId, pdValue, pNumofKeyValue);
+		KeyValue::TestVecToArray(trainer.m_vvInsSparse, pFeaId, pfFeaValue, pNumofFea);
+		for(int i = 0; i < nNumofExamples; i++)
+		{
+			PROCESS_ERROR(pTrueLabel[i] == v_fLabel[i]);
+		}
+#endif
+	}
 
 	//allocate memory for trees
 	DTGPUMemManager treeMemManager;
 	int maxNumofNodePerTree = pow(2, nMaxDepth + 1) - 1;
 	int maxNumofSplittableNode = pow(2, nMaxDepth);
 	treeMemManager.allocMemForTrees(nNumofTree, maxNumofNodePerTree, nMaxDepth);
-
 
 	//initialise gpu memory allocator
 	GBDTGPUMemManager memAllocator;
@@ -134,41 +207,18 @@ int main(int argc, char *argv[])
 	ffManager.getMaxNumofSN(numFeaValue, maxNumofSplittableNode);
 	ffManager.allocMemForFindFea(numFeaValue, nNumofExamples, nNumofFeatures, maxNumofSplittableNode);
 
-
 	begin_whole = clock();
 	cout << "start training..." << endl;
 	/********* run the GBDT learning process ******************/
-
-	trainer.m_vvInsSparse = v_vInsSparse;
-	trainer.m_vTrueValue = v_fLabel;
-
 	Pruner::min_loss = fGamma;
-
-	clock_t start_init = clock();
-	trainer.InitTrainer(nNumofTree, nMaxDepth, fLabda, fGamma, nNumofFeatures);
-	//store feature key-value into array
-	int *pInsId = new int[memAllocator.m_totalNumofValues];
-	float_point *pdValue = new float_point[memAllocator.m_totalNumofValues];
-	int *pNumofKeyValue = new int[nNumofFeatures];	long long *plFeaStartPos = new long long[nNumofFeatures];//get start position of each feature
-
-	KeyValue::VecToArray(trainer.splitter->m_vvFeaInxPair, pInsId, pdValue, pNumofKeyValue, plFeaStartPos);
-	KeyValue::TestVecToArray(trainer.splitter->m_vvFeaInxPair, pInsId, pdValue, pNumofKeyValue);
 
 	//initialise index computer object
 	IndexComputer indexCom;
 	indexCom.m_pInsId = pInsId;
 	indexCom.m_totalFeaValue = numFeaValue;
 	indexCom.m_pFeaStartPos = plFeaStartPos;
-	indexCom.m_numFea = nNumofFeatures;
-	checkCudaErrors(cudaMallocHost((void**)&indexCom.m_pIndices_dh, sizeof(int) * numFeaValue));
-	checkCudaErrors(cudaMallocHost((void**)&indexCom.m_insIdToNodeId_dh, sizeof(int) * nNumofExamples));
-	checkCudaErrors(cudaMallocHost((void**)&indexCom.m_pNumFeaValueEachNode_dh, sizeof(int) * maxNumofSplittableNode));
-	checkCudaErrors(cudaMallocHost((void**)&indexCom.m_pBuffIdToPos_dh, sizeof(int) * maxNumofSplittableNode));
-	checkCudaErrors(cudaMallocHost((void**)&indexCom.m_pFeaValueStartPosEachNode_dh, sizeof(int) * maxNumofSplittableNode));
-	checkCudaErrors(cudaMallocHost((void**)&indexCom.m_pEachFeaStartPosEachNode_dh, sizeof(int) * maxNumofSplittableNode * nNumofFeatures));
-	checkCudaErrors(cudaMallocHost((void**)&indexCom.m_pEachFeaLenEachNode_dh, sizeof(int) * maxNumofSplittableNode * nNumofFeatures));
-	clock_t end_init = clock();
-
+	indexCom.m_total_copy = 0;
+	indexCom.AllocMem(nNumofExamples, nNumofFeatures, maxNumofSplittableNode);
 
 	//copy feature key-value to device memory
 	memAllocator.MemcpyHostToDevice(pInsId, memAllocator.m_pDInsId, numFeaValue * sizeof(int));
@@ -176,23 +226,15 @@ int main(int argc, char *argv[])
 	memAllocator.MemcpyHostToDevice(pNumofKeyValue, memAllocator.m_pDNumofKeyValue, nNumofFeatures * sizeof(int));
 	memAllocator.MemcpyHostToDevice(plFeaStartPos, memAllocator.m_pFeaStartPos, nNumofFeatures * sizeof(long long));
 
-	memAllocator.TestMemcpyDeviceToHost();
-	memAllocator.TestMemcpyDeviceToDevice();
-	memAllocator.TestMemcpyHostToDevice(pInsId, memAllocator.m_pDInsId, numFeaValue * sizeof(int));
-	memAllocator.TestMemcpyHostToDevice(pdValue, memAllocator.m_pdDFeaValue, numFeaValue * sizeof(float_point));
-	memAllocator.TestMemcpyHostToDevice(pNumofKeyValue, memAllocator.m_pDNumofKeyValue, nNumofFeatures * sizeof(int));
+//	memAllocator.TestMemcpyDeviceToHost();
+//	memAllocator.TestMemcpyDeviceToDevice();
+//	memAllocator.TestMemcpyHostToDevice(pInsId, memAllocator.m_pDInsId, numFeaValue * sizeof(int));
+//	memAllocator.TestMemcpyHostToDevice(pdValue, memAllocator.m_pdDFeaValue, numFeaValue * sizeof(float_point));
+//	memAllocator.TestMemcpyHostToDevice(pNumofKeyValue, memAllocator.m_pDNumofKeyValue, nNumofFeatures * sizeof(int));
 
-	//store sparse instances to GPU memory
-	int *pFeaId = new int[numFeaValue];
-	float_point *pdFeaValue = new float_point[numFeaValue];
-	int *pNumofFea = new int[nNumofExamples];
-	long long *plInsStartPos = new long long[nNumofExamples];
-	KeyValue::VecToArray(trainer.m_vvInsSparse, pFeaId, pdFeaValue, pNumofFea, plInsStartPos);
-	KeyValue::TestVecToArray(trainer.m_vvInsSparse, pFeaId, pdFeaValue, pNumofFea);
-
-	//copy instance key-value to device memory
+	//copy instance key-value to device memory for prediction
 	memAllocator.MemcpyHostToDevice(pFeaId, memAllocator.m_pDFeaId, numFeaValue * sizeof(int));
-	memAllocator.MemcpyHostToDevice(pdFeaValue, memAllocator.m_pdDInsValue, numFeaValue * sizeof(float_point));
+	memAllocator.MemcpyHostToDevice(pfFeaValue, memAllocator.m_pdDInsValue, numFeaValue * sizeof(float_point));
 	memAllocator.MemcpyHostToDevice(pNumofFea, memAllocator.m_pDNumofFea, nNumofExamples * sizeof(int));
 	memAllocator.MemcpyHostToDevice(plInsStartPos, memAllocator.m_pInsStartPos, nNumofExamples * sizeof(long long));
 
@@ -200,18 +242,12 @@ int main(int argc, char *argv[])
 	delete []pdValue;
 	delete []pNumofKeyValue;
 	delete []pFeaId;
-	delete []pdFeaValue;
+	delete []pfFeaValue;
 	delete []pNumofFea;
 	delete []plInsStartPos;
 
-	float_point *pTrueLabel = new float_point[nNumofExamples];
-	for(int i = 0; i < nNumofExamples; i++)
-	{
-		pTrueLabel[i] = v_fLabel[i];
-	}
 	//copy true labels to gpu memory
 	memAllocator.MemcpyHostToDevice(pTrueLabel, memAllocator.m_pdTrueTargetValue, nNumofExamples * sizeof(float_point));
-	delete[] pTrueLabel;
 
 	//training trees
 	vector<RegTree> v_Tree;
@@ -224,10 +260,12 @@ int main(int argc, char *argv[])
 	cout << "saved to file" << endl;
 	trainer.SaveModel("tree.txt", v_Tree);
 
+	double total_copy_indexCom = (double(indexCom.m_total_copy)) / CLOCKS_PER_SEC;
+	cout << "total copy time = " << total_copy_indexCom << endl;
 	double total_init = (double(end_init - start_init) / CLOCKS_PER_SEC);
 	cout << "total init time = " << total_init << endl;
 	double total_train = (double(end_train_time - start_train_time) / CLOCKS_PER_SEC);
-	cout << "total training time = " << total_train << endl;
+	cout << "total training time (-extra idx comp) = " << total_train - total_copy_indexCom << endl;
 	double total_all = (double(end_whole - begin_whole) / CLOCKS_PER_SEC);
 	cout << "all sec = " << total_all << endl;
 
@@ -245,7 +283,8 @@ int main(int argc, char *argv[])
 	cout << "prediction sec = " << prediction_time << endl;
 
 	EvalRMSE rmse;
-	float fRMSE = rmse.Eval(v_fPredValue, v_fLabel);
+	float fRMSE = rmse.Eval(v_fPredValue, pTrueLabel, nNumofExamples);
+	delete[] pTrueLabel;
 	cout << "rmse=" << fRMSE << endl;
 
 	trainer.ReleaseTree(v_Tree);
@@ -257,6 +296,7 @@ int main(int argc, char *argv[])
 	//free host memory
 	delete []pInsId;
 	delete []plFeaStartPos;
+	delete []indexCom.m_pIndexCounterEachNode;
 	cudaFreeHost(indexCom.m_pIndices_dh);
 	cudaFreeHost(indexCom.m_insIdToNodeId_dh);
 
