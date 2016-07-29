@@ -92,12 +92,15 @@ void IndexComputer::ComputeIndex(int numSNode, const int *pSNIdToBuffId, int max
 	{
 		if(m_numFea > feaId + 1 && fv == m_pFeaStartPos[feaId + 1])
 		{
-			feaId++;//next feature starts
 			clock_t start_copy = clock();
-			for(int n = 0; n < numSNode; n++)
-			{//initialise each feature start position and length
-				m_pEachFeaStartPosEachNode_dh[feaId + n * m_numFea] = m_pIndexCounterEachNode[n];
-			}
+			do{
+				feaId++;//next feature starts
+
+				for(int n = 0; n < numSNode; n++)
+				{//initialise each feature start position and length
+					m_pEachFeaStartPosEachNode_dh[feaId + n * m_numFea] = m_pIndexCounterEachNode[n];
+				}
+			}while(m_numFea > feaId + 1 && fv == m_pFeaStartPos[feaId + 1]);//skip features having no values
 			clock_t end_copy = clock();
 			m_total_copy += (end_copy - start_copy);
 		}

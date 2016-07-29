@@ -92,7 +92,7 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 	manager.MemcpyDeviceToHost(ffManager.pGDEachFeaValue, ffManager.pGDPrefixSum, sizeof(float_point) * manager.m_totalNumofValues);
 	manager.MemcpyDeviceToHost(ffManager.pHessEachFeaValue, ffManager.pHessPrefixSum, sizeof(float_point) * manager.m_totalNumofValues);
 
-#if testing
+#if true
 	float_point deltaTest = 0.01;
 	float_point *pfGDEachFeaValue_h = new float_point[manager.m_totalNumofValues];
 	float_point *pfHessEachFeaValue_h = new float_point[manager.m_totalNumofValues];
@@ -109,7 +109,7 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 	clock_t end_scan = clock();
 	total_scan_t += (end_scan - start_scan);
 
-#if testing
+#if true
 	float_point *pfGDScanEachFeaValue_h = new float_point[manager.m_totalNumofValues];
 	float_point *pfHessScanEachFeaValue_h = new float_point[manager.m_totalNumofValues];
 	manager.MemcpyDeviceToHost(ffManager.pGDPrefixSum, pfGDScanEachFeaValue_h, sizeof(float_point) * manager.m_totalNumofValues);
@@ -126,10 +126,10 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 				int pos = nodeStartPos + fv;
 				fGDScan += pfGDEachFeaValue_h[pos];
 				fHessScan += pfHessEachFeaValue_h[pos];
-//				if(abs(pfGDScanEachFeaValue_h[pos] - fGDScan) > deltaTest)
-//				{
-//					cout << "scan gd diff " << pfGDScanEachFeaValue_h[pos] << " v.s. " << fGDScan << endl;
-//				}
+				if(abs(pfGDScanEachFeaValue_h[pos] - fGDScan) > deltaTest)
+				{
+					cout << "scan gd diff " << pfGDScanEachFeaValue_h[pos] << " v.s. " << fGDScan << endl;
+				}
 				if(abs(pfHessScanEachFeaValue_h[pos] - fHessScan) > deltaTest)
 				{
 					cout << "scan hess diff " << pfHessScanEachFeaValue_h[pos] << " v.s. " << fHessScan << endl;

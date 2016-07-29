@@ -15,8 +15,8 @@
 #define T float_point
 
 __global__ void cuda_prefixsum(T *in_array, int in_array_size, T *out_array, const int *arrayStartPos, const unsigned int *pnEachSubArrayLen,
-							   int numofBlockPerSubArray, unsigned int *pnThreadLastBlock, unsigned int *pnEltsLastBlock);
-__global__ void cuda_updatesum(T *array, const int *arrayStartPos, const unsigned int *pnEachSubArrayLen, T *update_array);
+							   int numArray, int numofBlockPerSubArray, unsigned int *pnThreadLastBlock, unsigned int *pnEltsLastBlock);
+__global__ void cuda_updatesum(T *array, const int *arrayStartPos, const unsigned int *pnEachSubArrayLen, int numArray, T *update_array);
 
 //for testing
 void prefixsumForDeviceArray(T *array_d, const int *pnArrayStartPos_d, const int *pnEachArrayLen_h, int numArray);
