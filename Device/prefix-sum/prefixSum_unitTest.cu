@@ -88,7 +88,7 @@ void elementsLastBlock(unsigned int *pnEltsLastBlock, unsigned int *pnThreadLast
 /**
  * @brief: prefix sum for an array in device memory
  */
-void prefixsumForDeviceArray(T *array_d, const int *pnArrayStartPos_d, const int *pnEachArrayLen_h, int numArray)
+void prefixsumForDeviceArray(T *array_d, const long long *pnArrayStartPos_d, const int *pnEachArrayLen_h, int numArray)
 {
 	//the arrays are ordered by their length in ascending order
 	int numElementsLongestArray = 0;
@@ -153,12 +153,12 @@ void prefixsumForDeviceArray(T *array_d, const int *pnArrayStartPos_d, const int
 		unsigned int numBlockForBlockSum = numArray;//one array may have one or more blocks in prescan; one block for each array for block sum.
 		unsigned int *pnBlockSumEltsLastBlcok_d;//last block size is the same as the block size, since only one block for each array.
 		unsigned int *pnThreadBlockSum_d;
-		int *pnBlockSumArrayStartPos_d;
+		long long *pnBlockSumArrayStartPos_d;
 		unsigned int *pn2ndSubArrayLen_d;//sub array len; for satisfying the function called later.
 		cudaMalloc((void **)&tmp_d, numBlockForBlockSum * sizeof(T));
 		cudaMalloc((void**)&pnBlockSumEltsLastBlcok_d, sizeof(unsigned int) * numBlockForBlockSum);
 		cudaMalloc((void**)&pnThreadBlockSum_d, sizeof(unsigned int) * numBlockForBlockSum);//all have same # of threads (arrays have same # of blocks in prescan).
-		cudaMalloc((void**)&pnBlockSumArrayStartPos_d, sizeof(int) * numBlockForBlockSum);
+		cudaMalloc((void**)&pnBlockSumArrayStartPos_d, sizeof(long long) * numBlockForBlockSum);
 		cudaMalloc((void**)&pn2ndSubArrayLen_d, sizeof(unsigned int) * numBlockForBlockSum);
 
 		// do prefix sum for block sum
@@ -180,7 +180,7 @@ void prefixsumForDeviceArray(T *array_d, const int *pnArrayStartPos_d, const int
 		//don't need to get info of the last block, since all of the (last) blocks are the same.
 		unsigned int *pnEffectiveThreadForBlockSum = new unsigned int[numBlockForBlockSum];
 		unsigned int *pnBlockSumEltsLastBlcok = new unsigned int[numBlockForBlockSum];
-		int *pnBlockSumArrayStartPos = new int[numBlockForBlockSum];
+		long long *pnBlockSumArrayStartPos = new long long[numBlockForBlockSum];
 		unsigned int *pn2ndSubArrayLen_h = new unsigned int[numBlockForBlockSum];
 		for(int i = 0; i < numBlockForBlockSum; i++)
 		{
@@ -192,7 +192,7 @@ void prefixsumForDeviceArray(T *array_d, const int *pnArrayStartPos_d, const int
 
 		cudaMemcpy(pnBlockSumEltsLastBlcok_d, pnBlockSumEltsLastBlcok, sizeof(unsigned int) * numBlockForBlockSum, cudaMemcpyHostToDevice);
 		cudaMemcpy(pnThreadBlockSum_d, pnEffectiveThreadForBlockSum, sizeof(unsigned int) * numBlockForBlockSum, cudaMemcpyHostToDevice);
-		cudaMemcpy(pnBlockSumArrayStartPos_d, pnBlockSumArrayStartPos, sizeof(int) * numBlockForBlockSum, cudaMemcpyHostToDevice);
+		cudaMemcpy(pnBlockSumArrayStartPos_d, pnBlockSumArrayStartPos, sizeof(long long) * numBlockForBlockSum, cudaMemcpyHostToDevice);
 		cudaMemcpy(pn2ndSubArrayLen_d, pn2ndSubArrayLen_h, sizeof(unsigned int) * numBlockForBlockSum, cudaMemcpyHostToDevice);
 		if(cudaGetLastError() != cudaSuccess)
 		{
@@ -250,31 +250,32 @@ void prefixsumForDeviceArray(T *array_d, const int *pnArrayStartPos_d, const int
 /**
  * @brief: prefix sum for an array in host memory
  */
-void prefixsumForHostArray(T *array_h, int *pnArrayStartPos, int *pNumofElePerArray, int numArray)
-{
-	T *array_d;
-	int *pnArrayStartPos_d;
-
-	int totalEle = 0;
-	for(int a = 0; a < numArray; a++)
-	{
-		totalEle += pNumofElePerArray[a];
-	}
-	// allocate temp, block sum, and device arrays
-	cudaMalloc((void **)&array_d, totalEle * sizeof(T));
-	cudaMalloc((void**)&pnArrayStartPos_d, sizeof(int) * numArray);
-
-	cudaMemcpy(array_d, array_h, totalEle * sizeof(T), cudaMemcpyHostToDevice);
-	cudaMemcpy(pnArrayStartPos_d, pnArrayStartPos, sizeof(int) * numArray, cudaMemcpyHostToDevice);
-
-	prefixsumForDeviceArray(array_d, pnArrayStartPos_d, pNumofElePerArray, numArray);
-
-	// copy resulting array back to host
-	cudaMemcpy(array_h, array_d, totalEle * sizeof(T), cudaMemcpyDeviceToHost);
-
-	cudaFree(array_d);
-	cudaFree(pnArrayStartPos_d);
-}
+//void prefixsumForHostArray(T *array_h, int *pnArrayStartPos, int *pNumofElePerArray, int numArray)
+//{
+//	T *array_d;
+//	int *pnArrayStartPos_d;
+//
+//	int totalEle = 0;
+//	for(int a = 0; a < numArray; a++)
+//	{
+//		totalEle += pNumofElePerArray[a];
+//	}
+//	// allocate temp, block sum, and device arrays
+//	cudaMalloc((void **)&array_d, totalEle * sizeof(T));
+//	cudaMalloc((void**)&pnArrayStartPos_d, sizeof(int) * numArray);
+//
+//	cudaMemcpy(array_d, array_h, totalEle * sizeof(T), cudaMemcpyHostToDevice);
+//	cudaMemcpy(pnArrayStartPos_d, pnArrayStartPos, sizeof(int) * numArray, cudaMemcpyHostToDevice);
+//
+//  //############ having issues after change position to long long
+//	prefixsumForDeviceArray(array_d, pnArrayStartPos_d, pNumofElePerArray, numArray);
+//
+//	// copy resulting array back to host
+//	cudaMemcpy(array_h, array_d, totalEle * sizeof(T), cudaMemcpyDeviceToHost);
+//
+//	cudaFree(array_d);
+//	cudaFree(pnArrayStartPos_d);
+//}
 
 ///////////////// for testing
 void prefixsum_host(T *array_h, int size)
@@ -402,7 +403,7 @@ int TestPrefixSum(int argc, char *argv[])
 		prefixsum_host(array, max);
 	} else {
 		printf("prefix sum using CUDA\n");
-		prefixsumForHostArray(array, pnArrayStartPos, pnCount, numArray);
+//		prefixsumForHostArray(array, pnArrayStartPos, numArray);//deleted each array size on Jul 30 2016
 	}
 
 	// print array

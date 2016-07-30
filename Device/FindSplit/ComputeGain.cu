@@ -131,7 +131,7 @@ __global__ void GetInfoEachFeaInBatch(const int *pnNumofKeyValues, const long lo
  * @brief: compute the prefix sum for gd and hess
  */
 void PrefixSumForEachNode(int numofSubArray, float_point *pGDOnEachFeaValue_d, float_point *pHessOnEachFeaValue_d,
-						  const int *pnStartPosEachFeaInBatch, const int *pnEachFeaLen)
+						  const long long *pnStartPosEachFeaInBatch, const int *pnEachFeaLen)
 {
 #if false
 	int total_ele = 0;

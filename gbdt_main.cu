@@ -81,8 +81,8 @@ int main(int argc, char *argv[])
 	int maxUsedFeaInTrees = 1000;
 
 	//for training
-	int nNumofTree = 2;
-	int nMaxDepth = 5;
+	int nNumofTree = 5;
+	int nMaxDepth = 1;
 	double fLabda = 1;//this one is constant in xgboost
 	double fGamma = 1;//minimum loss
 

@@ -61,20 +61,41 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 	int *pBuffIdVec_h = new int[numofSNode];//all splittable node buffer index should be copied
 	int *pSNIdToBuffId_h = new int[maxNumofSplittable];
 	clock_t comIdx_start = clock();
-	manager.MemcpyDeviceToHost(manager.m_pBuffIdVec, pBuffIdVec_h, sizeof(int) * numofSNode);
-	manager.MemcpyDeviceToHost(manager.m_pSNIdToBuffId, pSNIdToBuffId_h, sizeof(int) * maxNumofSplittable);
 	IndexComputer indexComp;
-	manager.MemcpyDeviceToHost(manager.m_pInsIdToNodeId, indexComp.m_insIdToNodeId_dh, sizeof(int) * manager.m_numofIns);
-	//compute indices
-	indexComp.ComputeIndex(numofSNode, pSNIdToBuffId_h, maxNumofSplittable, pBuffIdVec_h);
-	clock_t comIdx_end = clock();
-	total_com_idx_t += (comIdx_end - comIdx_start);
-	//copy index info to device memory
-	manager.MemcpyHostToDevice(indexComp.m_pIndices_dh, ffManager.m_pIndices_d, sizeof(int) * ffManager.m_totalNumFeaValue);
-	manager.MemcpyHostToDevice(indexComp.m_pNumFeaValueEachNode_dh, ffManager.m_pNumFeaValueEachNode_d, sizeof(int) * maxNumofSplittable);
-	manager.MemcpyHostToDevice(indexComp.m_pFeaValueStartPosEachNode_dh, ffManager.m_pFeaValueStartPosEachNode_d, sizeof(int) * maxNumofSplittable);
-	manager.MemcpyHostToDevice(indexComp.m_pEachFeaStartPosEachNode_dh, ffManager.m_pEachFeaStartPosEachNode_d, sizeof(int) * maxNumofSplittable * nNumofFeature);
-	manager.MemcpyHostToDevice(indexComp.m_pEachFeaLenEachNode_dh, ffManager.m_pEachFeaLenEachNode_d, sizeof(int) * maxNumofSplittable * nNumofFeature);
+	if(numofSNode > 1)
+	{
+		manager.MemcpyDeviceToHost(manager.m_pBuffIdVec, pBuffIdVec_h, sizeof(int) * numofSNode);
+		manager.MemcpyDeviceToHost(manager.m_pSNIdToBuffId, pSNIdToBuffId_h, sizeof(int) * maxNumofSplittable);
+		manager.MemcpyDeviceToHost(manager.m_pInsIdToNodeId, indexComp.m_insIdToNodeId_dh, sizeof(int) * manager.m_numofIns);
+		//compute indices
+		indexComp.ComputeIndex(numofSNode, pSNIdToBuffId_h, maxNumofSplittable, pBuffIdVec_h);
+		clock_t comIdx_end = clock();
+		total_com_idx_t += (comIdx_end - comIdx_start);
+		//copy index info to device memory
+		manager.MemcpyHostToDevice(indexComp.m_pIndices_dh, ffManager.m_pIndices_d, sizeof(int) * ffManager.m_totalNumFeaValue);
+		manager.MemcpyHostToDevice(indexComp.m_pNumFeaValueEachNode_dh, ffManager.m_pNumFeaValueEachNode_d, sizeof(long long) * maxNumofSplittable);
+		manager.MemcpyHostToDevice(indexComp.m_pFeaValueStartPosEachNode_dh, ffManager.m_pFeaValueStartPosEachNode_d, sizeof(long long) * maxNumofSplittable);
+		manager.MemcpyHostToDevice(indexComp.m_pEachFeaStartPosEachNode_dh, ffManager.m_pEachFeaStartPosEachNode_d, sizeof(long long) * maxNumofSplittable * nNumofFeature);
+		manager.MemcpyHostToDevice(indexComp.m_pEachFeaLenEachNode_dh, ffManager.m_pEachFeaLenEachNode_d, sizeof(int) * maxNumofSplittable * nNumofFeature);
+	}
+	else
+	{
+		int blockSizeCompIdx;
+		dim3 dimNumofBlockToComIdx;
+		KernelConf conf;
+		conf.ConfKernel(manager.m_totalNumofValues, blockSizeCompIdx, dimNumofBlockToComIdx);
+		ComputeIndex<<<dimNumofBlockToComIdx, blockSizeCompIdx>>>(ffManager.m_pIndices_d, manager.m_totalNumofValues);
+
+		manager.MemcpyHostToDevice(&manager.m_totalNumofValues, ffManager.m_pNumFeaValueEachNode_d, sizeof(long long));
+		manager.MemcpyDeviceToDevice(manager.m_pFeaStartPos, ffManager.m_pFeaValueStartPosEachNode_d, sizeof(long long));
+		manager.MemcpyDeviceToDevice(manager.m_pFeaStartPos, ffManager.m_pEachFeaStartPosEachNode_d, sizeof(long long) * nNumofFeature);
+		manager.MemcpyDeviceToDevice(manager.m_pDNumofKeyValue, ffManager.m_pEachFeaLenEachNode_d, sizeof(int) * nNumofFeature);
+
+		//initialise indexComp
+		manager.MemcpyDeviceToHost(ffManager.m_pEachFeaLenEachNode_d, indexComp.m_pEachFeaLenEachNode_dh, sizeof(int) * nNumofFeature);
+		indexComp.m_pFeaValueStartPosEachNode_dh[0] = 0;
+		indexComp.m_pNumFeaValueEachNode_dh[0] = manager.m_totalNumofValues;
+	}
 
 	//load gd and hessian to a dense array in device memory
 //	cout << "load gd" << endl;
@@ -109,7 +130,7 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 	clock_t end_scan = clock();
 	total_scan_t += (end_scan - start_scan);
 
-#if true
+#if testing
 	float_point *pfGDScanEachFeaValue_h = new float_point[manager.m_totalNumofValues];
 	float_point *pfHessScanEachFeaValue_h = new float_point[manager.m_totalNumofValues];
 	manager.MemcpyDeviceToHost(ffManager.pGDPrefixSum, pfGDScanEachFeaValue_h, sizeof(float_point) * manager.m_totalNumofValues);
@@ -154,7 +175,7 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 											ffManager.pDenseFeaValue, numofDenseValue, ffManager.pGainEachFeaValue);
 	cudaDeviceSynchronize();
 
-#if true
+#if testing
 	float_point *pGainDense = new float_point[manager.m_totalNumofValues];
 	memset(pGainDense, 0, sizeof(float_point) * manager.m_totalNumofValues);
 	manager.MemcpyDeviceToHost(ffManager.pGainEachFeaValue, pGainDense, sizeof(float_point) * manager.m_totalNumofValues);
@@ -181,7 +202,7 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 	cudaDeviceSynchronize();
 	clock_t end_comp_gain = clock();
 	total_com_gain_t += (end_comp_gain - start_comp_gain);
-#if true
+#if testing
 	manager.MemcpyDeviceToHost(ffManager.pGainEachFeaValue, pGainDense, sizeof(float_point) * manager.m_totalNumofValues);
 	maxGain = -1;
 	for(int i = 0; i < manager.m_totalNumofValues; i++)

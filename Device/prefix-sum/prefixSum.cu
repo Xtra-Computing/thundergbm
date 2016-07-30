@@ -17,7 +17,7 @@
 /**
  * @brief: compute prefix sum for in_array which contains multiple arrays of similar length
  */
-__global__ void cuda_prefixsum(T *in_array, int in_array_size, T *out_array, const int *arrayStartPos, const unsigned int *pnEachSubArrayLen,
+__global__ void cuda_prefixsum(T *in_array, int in_array_size, T *out_array, const long long *arrayStartPos, const unsigned int *pnEachSubArrayLen,
 							   int numArray, int numofBlockPerSubArray, unsigned int *pnThreadLastBlock, unsigned int *pnEltsLastBlock)
 {
 	// shared should be sized to blockDim.x
@@ -31,6 +31,7 @@ __global__ void cuda_prefixsum(T *in_array, int in_array_size, T *out_array, con
 	int numThreadLastBlock = pnThreadLastBlock[array_id];
 	unsigned int array_len = pnEachSubArrayLen[array_id];
 	unsigned int tid = threadIdx.x;
+	//####### long long to unsigned int here
 	unsigned int b_offset = arrayStartPos[array_id] + blockIdx.x * blockDim.x * 2;//in_array offset due to multi blocks; each thread handles two elements
 	if(blockIdx.x * blockDim.x * 2 >= array_len)//this block is dummy, due to the small subarray size
 	{
@@ -160,13 +161,14 @@ __global__ void cuda_prefixsum(T *in_array, int in_array_size, T *out_array, con
 /**
  * @brief: post processing of prefix sum for large array
  */
-__global__ void cuda_updatesum(T *array, const int *arrayStartPos, const unsigned int *pnEachSubArrayLen, int numArray, T *update_array)
+__global__ void cuda_updatesum(T *array, const long long *arrayStartPos, const unsigned int *pnEachSubArrayLen, int numArray, T *update_array)
 {
 	int blockIdAllArray = (blockIdx.z * gridDim.y + blockIdx.y);//blockIdAllArray corresponds to an array to compute prefix sum
 	if(blockIdAllArray >= numArray)
 		return;
 	unsigned int tid = threadIdx.x;
 	int array_id = blockIdAllArray;
+	//##### long long to unsigned int here
 	unsigned int b_offset = arrayStartPos[array_id] + blockIdx.x * blockDim.x;//in_array offset due to multi blocks
 	unsigned int id = b_offset + tid;
 	unsigned int array_len = pnEachSubArrayLen[array_id];

@@ -59,9 +59,9 @@ float_point *FFMemManager::pfGlobalBestGain_d = NULL;
 int *FFMemManager::pnGlobalBestGainKey_d = NULL;
 //corresponding to pinned memory
 int *FFMemManager::m_pIndices_d = NULL;
-int *FFMemManager::m_pFeaValueStartPosEachNode_d = NULL;
-int *FFMemManager::m_pNumFeaValueEachNode_d = NULL;
-int *FFMemManager::m_pEachFeaStartPosEachNode_d = NULL;
+long long *FFMemManager::m_pFeaValueStartPosEachNode_d = NULL;
+long long *FFMemManager::m_pNumFeaValueEachNode_d = NULL;
+long long *FFMemManager::m_pEachFeaStartPosEachNode_d = NULL;
 int *FFMemManager::m_pEachFeaLenEachNode_d = NULL;
 
 /**
@@ -157,9 +157,9 @@ void FFMemManager::allocMemForFindFea(int numofValuesInABatch, int maxNumofValue
 	checkCudaErrors(cudaMalloc((void**)&pnGlobalBestGainKey_d, sizeof(int) * maxNumofSN));
 	//corresponding to pinned memory
 	checkCudaErrors(cudaMalloc((void**)&m_pIndices_d, sizeof(int) * m_totalNumFeaValue));
-	checkCudaErrors(cudaMalloc((void**)&m_pNumFeaValueEachNode_d, sizeof(int) * maxNumofSN));
-	checkCudaErrors(cudaMalloc((void**)&m_pFeaValueStartPosEachNode_d, sizeof(int) * maxNumofSN));
-	checkCudaErrors(cudaMalloc((void**)&m_pEachFeaStartPosEachNode_d, sizeof(int) * maxNumofSN * maxNumofFea));
+	checkCudaErrors(cudaMalloc((void**)&m_pNumFeaValueEachNode_d, sizeof(long long) * maxNumofSN));
+	checkCudaErrors(cudaMalloc((void**)&m_pFeaValueStartPosEachNode_d, sizeof(long long) * maxNumofSN));
+	checkCudaErrors(cudaMalloc((void**)&m_pEachFeaStartPosEachNode_d, sizeof(long long) * maxNumofSN * maxNumofFea));
 	checkCudaErrors(cudaMalloc((void**)&m_pEachFeaLenEachNode_d, sizeof(int) * maxNumofSN * maxNumofFea));
 }
 

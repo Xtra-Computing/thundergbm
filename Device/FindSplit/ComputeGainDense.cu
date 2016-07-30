@@ -15,6 +15,14 @@
 
 const float rt_2eps = 2.0 * DeviceSplitter::rt_eps;
 
+__global__ void ComputeIndex(int *pDstIndexEachFeaValue, long long totalFeaValue)
+{
+	long long gTid = (blockIdx.y * gridDim.x + blockIdx.x) * blockDim.x + threadIdx.x;
+	if(gTid >= totalFeaValue)
+		return;
+	pDstIndexEachFeaValue[gTid] = gTid;
+}
+
 /**
  * @brief: copy the gd, hess and feaValue for each node based on some features on similar number of values
  */
@@ -51,13 +59,13 @@ __global__ void LoadGDHessFvalue(const float_point *pInsGD, const float_point *p
 /**
  * @brief: compute the gain in parallel, each gain is computed by a thread.
  */
-__global__ void ComputeGainDense(const nodeStat *pSNodeStat, const int *pFeaValueStartPosEachNode, int numSN,
+__global__ void ComputeGainDense(const nodeStat *pSNodeStat, const long long *pFeaValueStartPosEachNode, int numSN,
 							const int *pBuffId, float_point lambda,
 							const float_point *pGDPrefixSumOnEachFeaValue, const float_point *pHessPrefixSumOnEachFeaValue,
 							const float_point *pDenseFeaValue, int numofDenseValue, float_point *pGainOnEachFeaValue)
 {
 	//one thread loads one value
-	int gTid = (blockIdx.y * gridDim.x + blockIdx.x) * blockDim.x + threadIdx.x;
+	long long gTid = (blockIdx.y * gridDim.x + blockIdx.x) * blockDim.x + threadIdx.x;
 
 	//compute node id
 	int densePos = -1;
@@ -124,7 +132,7 @@ __global__ void ComputeGainDense(const nodeStat *pSNodeStat, const int *pFeaValu
 /**
  * @brief: change the gain of the first value of each feature to 0
  */
-__global__ void FirstFeaGain(const int *pEachFeaStartPosEachNode, int numFeaStartPos, float_point *pGainOnEachFeaValue)
+__global__ void FirstFeaGain(const long long *pEachFeaStartPosEachNode, int numFeaStartPos, float_point *pGainOnEachFeaValue)
 {
 	int gTid = (blockIdx.y * gridDim.x + blockIdx.x) * blockDim.x + threadIdx.x;
 
@@ -132,7 +140,7 @@ __global__ void FirstFeaGain(const int *pEachFeaStartPosEachNode, int numFeaStar
 	{
 		return;
 	}
-	int gainPos = pEachFeaStartPosEachNode[gTid];
+	long long gainPos = pEachFeaStartPosEachNode[gTid];
 //	printf("change %f to 0 pos at %d\n", pGainOnEachFeaValue[gainPos], pEachFeaStartPosEachNode[gTid]);
 	pGainOnEachFeaValue[gainPos] = 0;
 }
@@ -141,7 +149,7 @@ __global__ void FirstFeaGain(const int *pEachFeaStartPosEachNode, int numFeaStar
  * @brief: pick best feature of this batch for all the splittable nodes
  * Each block.y processes one node, a thread processes a reduction.
  */
-__global__ void PickLocalBestSplitEachNode(const int *pnNumFeaValueEachNode, const int *pFeaStartPosEachNode,
+__global__ void PickLocalBestSplitEachNode(const long long *pnNumFeaValueEachNode, const long long *pFeaStartPosEachNode,
 										   const float_point *pGainOnEachFeaValue,
 								   	   	   float_point *pfLocalBestGain, int *pnLocalBestGainKey)
 {
@@ -161,20 +169,20 @@ __global__ void PickLocalBestSplitEachNode(const int *pnNumFeaValueEachNode, con
 		pnLocalBestGainKey[blockId] = -1;
 	}
 
-	int numValueThisNode = pnNumFeaValueEachNode[snId];//get the number of feature value of this node
-	int tidForEachNode = (blockIdx.y * gridDim.x + blockIdx.x) * blockDim.x + threadIdx.x;
+	long long numValueThisNode = pnNumFeaValueEachNode[snId];//get the number of feature value of this node
+	long long tidForEachNode = (blockIdx.y * gridDim.x + blockIdx.x) * blockDim.x + threadIdx.x;
 
 	if(tidForEachNode >= numValueThisNode)//no gain to load
 	{
 		return;
 	}
 
-	int nPos = pFeaStartPosEachNode[snId] + tidForEachNode;//feature value gain position
+	long long nPos = pFeaStartPosEachNode[snId] + tidForEachNode;//feature value gain position
 	if(nPos < 0)
 		printf("sp pos is nagative! %d\n", nPos);
 
 	pfGain[localTid] = -pGainOnEachFeaValue[nPos];//change to find min of -gain
-	pnBetterGainKey[localTid] = nPos;//############ need to be the key in the whole fea value array
+	pnBetterGainKey[localTid] = nPos;//############ need to be long long
 	__syncthreads();
 
 	//find the local best split point
@@ -238,7 +246,7 @@ __global__ void PickGlobalBestSplitEachNode(const float_point *pfLocalBestGain, 
 /**
  * @brief: find split points
  */
-__global__ void FindSplitInfo(const int *pEachFeaStartPosEachNode, const int *pEachFeaLenEachNode,
+__global__ void FindSplitInfo(const long long *pEachFeaStartPosEachNode, const int *pEachFeaLenEachNode,
 							  const float_point *pDenseFeaValue, const float_point *pfGlobalBestGain, const int *pnGlobalBestGainKey,
 							  const int *pPosToBuffId, const int numFea,
 							  const nodeStat *snNodeStat, const float_point *pPrefixSumGD, const float_point *pPrefixSumHess,
@@ -254,7 +262,7 @@ __global__ void FindSplitInfo(const int *pEachFeaStartPosEachNode, const int *pE
 	{
 		int feaPos = f + densePos * numFea;
 		int numofFValue = pEachFeaLenEachNode[feaPos];
-		if(pEachFeaStartPosEachNode[feaPos] + numofFValue < key)
+		if(pEachFeaStartPosEachNode[feaPos] + numofFValue < key)//####### key should be represented using long long
 			continue;
 		else
 		{

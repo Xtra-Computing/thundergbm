@@ -47,9 +47,9 @@ public:
 	static int *pnGlobalBestGainKey_d;
 	//corresponding to pinned memory
 	static int *m_pIndices_d;
-	static int *m_pFeaValueStartPosEachNode_d;
-	static int *m_pNumFeaValueEachNode_d;
-	static int *m_pEachFeaStartPosEachNode_d;
+	static long long *m_pFeaValueStartPosEachNode_d;
+	static long long *m_pNumFeaValueEachNode_d;
+	static long long *m_pEachFeaStartPosEachNode_d;
 	static int *m_pEachFeaLenEachNode_d;
 
 private:

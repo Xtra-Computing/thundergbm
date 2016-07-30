@@ -15,21 +15,22 @@
 #include "../../DeviceHost/NodeStat.h"
 
 //dense array
+__global__ void ComputeIndex(int *pDstIndexEachFeaValue, long long totalFeaValue);
 __global__ void LoadGDHessFvalue(const float_point *pInsGD, const float_point *pInsHess, int numIns,
 						   const int *pInsId, const float_point *pAllFeaValue, const int *pDstIndexEachFeaValue, int numFeaValue,
 						   float_point *pGDEachFeaValue, float_point *pHessEachFeaValue, float_point *pDenseFeaValue);
-__global__ void ComputeGainDense(const nodeStat *pSNodeStat, const int *pFeaValueStartPosEachNode, int numSN,
+__global__ void ComputeGainDense(const nodeStat *pSNodeStat, const long long *pFeaValueStartPosEachNode, int numSN,
 							const int *pBuffId,	float_point lambda,
 							const float_point *pGDPrefixSumOnEachFeaValue, const float_point *pHessPrefixSumOnEachFeaValue,
 							const float_point *pDenseFeaValue, int numofDenseValue, float_point *pGainOnEachFeaValue);
-__global__ void FirstFeaGain(const int *pEachFeaStartPosEachNode, int numFeaStartPos, float_point *pGainOnEachFeaValue);
-__global__ void PickLocalBestSplitEachNode(const int *pnNumFeaValueEachNode, const int *pFeaStartPosEachNode,
+__global__ void FirstFeaGain(const long long *pEachFeaStartPosEachNode, int numFeaStartPos, float_point *pGainOnEachFeaValue);
+__global__ void PickLocalBestSplitEachNode(const long long *pnNumFeaValueEachNode, const long long *pFeaStartPosEachNode,
 										   const float_point *pGainOnEachFeaValue,
 								   	   	   float_point *pfLocalBestGain, int *pnLocalBestGainKey);
 __global__ void PickGlobalBestSplitEachNode(const float_point *pfLocalBestGain, const int *pnLocalBestGainKey,
 								   	   	    float_point *pfGlobalBestGain, int *pnGlobalBestGainKey,
 								   	   	    int numBlockPerNode, int numofSNode);
-__global__ void FindSplitInfo(const int *pEachFeaStartPosEachNode, const int *pEachFeaLenEachNode,
+__global__ void FindSplitInfo(const long long *pEachFeaStartPosEachNode, const int *pEachFeaLenEachNode,
 							  const float_point *pDenseFeaValue, const float_point *pfGlobalBestGain, const int *pnGlobalBestGainKey,
 							  const int *pPosToBuffId, const int numFea,
 							  const nodeStat *snNodeStat, const float_point *pPrefixSumGD, const float_point *pPrefixSumHess,
@@ -61,7 +62,7 @@ __global__ void GetInfoEachFeaInBatch(const int *pnNumofKeyValues, const long lo
 									  int totalNumofFea, int feaBatch, int numofSNInProgress, int smallestNodeId,
 									  int *pStartPosEachFeaInBatch, int *pnEachFeaLen);
 void PrefixSumForEachNode(int feaBatch, float_point *pGDOnEachFeaValue_d, float_point *pHessOnEachFeaValue_d,
-						  const int *pnStartPosEachFeaInBatch, const int *pnEachFeaLen);
+						  const long long *pnStartPosEachFeaInBatch, const int *pnEachFeaLen);
 __global__ void ComputeGain(const int *pnNumofKeyValues, const long long *pnFeaStartPos, const nodeStat *pSNodeStat, int smallestFeaId, int feaBatch,
 							const int *pBuffId, int numofSNInProgress, int smallestNodeId, float_point lambda,
 							const float_point *pGDPrefixSumOnEachFeaValue, const float_point *pHessPrefixSumOnEachFeaValue,

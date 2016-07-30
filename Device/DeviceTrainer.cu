@@ -90,13 +90,14 @@ void DeviceTrainer::GrowTree(RegTree &tree)
 	while(manager.m_curNumofSplitable > 0 && nCurDepth <= m_nMaxDepth)
 	{
 		splitter->m_nCurDept = nCurDepth;
-		cout << "splitting " << nCurDepth << " level..." << endl;
+//		cout << "splitting " << nCurDepth << " level..." << endl;
 
 		vector<SplitPoint> vBest;
 		vector<nodeStat> rchildStat, lchildStat;
 		clock_t begin_find_fea = clock();
 
-		splitter->FeaFinderAllNode(vBest, rchildStat, lchildStat);
+		if(nCurDepth < m_nMaxDepth)//don't need to find split for the last level
+			splitter->FeaFinderAllNode(vBest, rchildStat, lchildStat);
 
 		clock_t end_find_fea = clock();
 		total_find_fea_t += (double(end_find_fea - begin_find_fea) / CLOCKS_PER_SEC);

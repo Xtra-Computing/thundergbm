@@ -96,8 +96,14 @@ void DeviceSplitter::ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> >
 			exit(0);
 		}
 #endif
+		//save to buffer
+		int threadPerBlock;
+		dim3 dimGridThread;
+		conf.ConfKernel(nNumofIns, threadPerBlock, dimGridThread);
+		SaveToPredBuffer<<<dimGridThread, threadPerBlock>>>(manager.m_pTargetValue, nNumofIns, manager.m_pPredBuffer);
+		//update the final prediction
+		manager.MemcpyDeviceToDevice(manager.m_pPredBuffer, manager.m_pTargetValue, sizeof(float_point) * nNumofIns);
 	}
-	manager.MemcpyDeviceToDevice(manager.m_pTargetValue, manager.m_pPredBuffer, sizeof(float_point) * nNumofIns);
 
 	if(pHashUsedFea != NULL)
 		delete []pHashUsedFea;

@@ -56,6 +56,8 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 		exit(0);
 	}
 #endif
+	if(bLastLevel == true)//don't need to do the rest?
+		return;
 
 //	cout << "create new nodes" << endl;
 	//copy the number of nodes in the tree to the GPU memory

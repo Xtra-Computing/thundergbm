@@ -26,9 +26,9 @@ long long IndexComputer::m_total_copy = -1;
 
 int *IndexComputer::m_insIdToNodeId_dh = NULL;//instance id to node id
 int *IndexComputer::m_pIndices_dh = NULL;	//index for each node
-int *IndexComputer::m_pNumFeaValueEachNode_dh = NULL;	//# of feature values of each node
-int *IndexComputer::m_pFeaValueStartPosEachNode_dh = NULL;//start positions to feature value of each node
-int *IndexComputer::m_pEachFeaStartPosEachNode_dh = NULL;//each feature start position in each node
+long long *IndexComputer::m_pNumFeaValueEachNode_dh = NULL;	//# of feature values of each node
+long long *IndexComputer::m_pFeaValueStartPosEachNode_dh = NULL;//start positions to feature value of each node
+long long *IndexComputer::m_pEachFeaStartPosEachNode_dh = NULL;//each feature start position in each node
 int *IndexComputer::m_pEachFeaLenEachNode_dh = NULL;//each feature value length in each node
 int *IndexComputer::m_pBuffIdToPos_dh = NULL;//map buff id to dense pos id; not all elements in this array are used, due to not continuous buffid.
 
@@ -136,9 +136,9 @@ void IndexComputer::AllocMem(int nNumofExamples, int nNumofFeatures, int maxNumo
 	m_pIndexCounterEachNode = new int[m_maxNumofSN];
 	checkCudaErrors(cudaMallocHost((void**)&m_pIndices_dh, sizeof(int) * m_totalFeaValue));
 	checkCudaErrors(cudaMallocHost((void**)&m_insIdToNodeId_dh, sizeof(int) * nNumofExamples));
-	checkCudaErrors(cudaMallocHost((void**)&m_pNumFeaValueEachNode_dh, sizeof(int) * m_maxNumofSN));
+	checkCudaErrors(cudaMallocHost((void**)&m_pNumFeaValueEachNode_dh, sizeof(long long) * m_maxNumofSN));
 	checkCudaErrors(cudaMallocHost((void**)&m_pBuffIdToPos_dh, sizeof(int) * m_maxNumofSN));
-	checkCudaErrors(cudaMallocHost((void**)&m_pFeaValueStartPosEachNode_dh, sizeof(int) * m_maxNumofSN));
-	checkCudaErrors(cudaMallocHost((void**)&m_pEachFeaStartPosEachNode_dh, sizeof(int) * m_maxNumofSN * m_numFea));
+	checkCudaErrors(cudaMallocHost((void**)&m_pFeaValueStartPosEachNode_dh, sizeof(long long) * m_maxNumofSN));
+	checkCudaErrors(cudaMallocHost((void**)&m_pEachFeaStartPosEachNode_dh, sizeof(long long) * m_maxNumofSN * m_numFea));
 	checkCudaErrors(cudaMallocHost((void**)&m_pEachFeaLenEachNode_dh, sizeof(int) * m_maxNumofSN * m_numFea));
 }

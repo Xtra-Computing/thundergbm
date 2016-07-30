@@ -11,6 +11,15 @@
 #include "../ErrorChecker.h"
 #include "../DeviceHashing.h"
 
+__global__ void SaveToPredBuffer(const float_point *pfCurTreePredValue, int numPredIns, float_point *pfPreTreePredValue)
+{
+
+	int gTid = (blockIdx.y * gridDim.x + blockIdx.x) * blockDim.x + threadIdx.x;
+	if(gTid >= numPredIns)
+		return;
+	pfPreTreePredValue[gTid] += pfCurTreePredValue[gTid];//accumulate the current prediction to the buffer
+}
+
 __global__ void ComputeGDKernel(int numofIns, const float_point *pfPredValue, const float_point *pfTrueValue, float_point *pGrad, float_point *pHess)
 {
 	for(int i = 0; i < numofIns; i++)
