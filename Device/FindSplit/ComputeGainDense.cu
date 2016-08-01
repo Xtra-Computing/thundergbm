@@ -15,12 +15,42 @@
 
 const float rt_2eps = 2.0 * DeviceSplitter::rt_eps;
 
+#define testing
+
+
 __global__ void ComputeIndex(int *pDstIndexEachFeaValue, long long totalFeaValue)
 {
 	long long gTid = (blockIdx.y * gridDim.x + blockIdx.x) * blockDim.x + threadIdx.x;
 	if(gTid >= totalFeaValue)
 		return;
 	pDstIndexEachFeaValue[gTid] = gTid;
+}
+
+/**
+ * @brief: copy the gd, hess and feaValue for each node based on some features on similar number of values
+ */
+__global__ void LoadGDHessFvalueRoot(const float_point *pInsGD, const float_point *pInsHess, int numIns,
+						   const int *pInsId, const float_point *pAllFeaValue, int numFeaValue,
+						   float_point *pGDEachFeaValue, float_point *pHessEachFeaValue, float_point *pDenseFeaValue)
+{
+	//one thread loads one value
+	//## global id looks ok, but need to be careful
+	int gTid = (blockIdx.y * gridDim.x + blockIdx.x) * blockDim.x + threadIdx.x;
+
+	if(gTid >= numFeaValue)//thread has nothing to load
+		return;
+
+	int insId = pInsId[gTid];//instance id
+
+#ifdef testing
+	if(insId >= numIns)
+		printf("Instance id is larger than the number of instances!\n");
+#endif
+
+	//store GD and Hess.
+	pGDEachFeaValue[gTid] = pInsGD[insId];
+	pHessEachFeaValue[gTid] = pInsHess[insId];
+	pDenseFeaValue[gTid] = pAllFeaValue[gTid];
 }
 
 /**
@@ -38,17 +68,22 @@ __global__ void LoadGDHessFvalue(const float_point *pInsGD, const float_point *p
 		return;
 
 	int insId = pInsId[gTid];//instance id
+
+#ifdef testing
 	if(insId >= numIns)
 		printf("Instance id is larger than the number of instances!\n");
+#endif
 
 	int idx = pDstIndexEachFeaValue[gTid];
 	if(idx == -1)//instance is in a leaf node
 		return;
 
+#ifdef testing
 	if(idx < 0)
 		printf("index to out array is negative!\n");
 	if(idx >= numFeaValue)
 		printf("index to out array is too large!\n");
+#endif
 
 	//store GD and Hess.
 	pGDEachFeaValue[idx] = pInsGD[insId];

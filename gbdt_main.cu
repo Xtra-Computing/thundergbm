@@ -85,10 +85,13 @@ int main(int argc, char *argv[])
 	int nMaxDepth = 1;
 	double fLabda = 1;//this one is constant in xgboost
 	double fGamma = 1;//minimum loss
+	int maxNumofNodePerTree = pow(2, nMaxDepth + 1) - 1;
+	int maxNumofSplittableNode = pow(2, nMaxDepth);
 
 	DevicePredictor pred;
 
 	DeviceSplitter splitter;
+	splitter.InitDeviceSplitter(maxNumofNodePerTree);
 	DeviceTrainer trainer(&splitter);
 
 	cout << "reading data..." << endl;
@@ -178,8 +181,6 @@ int main(int argc, char *argv[])
 
 	//allocate memory for trees
 	DTGPUMemManager treeMemManager;
-	int maxNumofNodePerTree = pow(2, nMaxDepth + 1) - 1;
-	int maxNumofSplittableNode = pow(2, nMaxDepth);
 	treeMemManager.allocMemForTrees(nNumofTree, maxNumofNodePerTree, nMaxDepth);
 
 	//initialise gpu memory allocator

@@ -13,6 +13,10 @@
 #include "Memory/SNMemManager.h"
 #include "Memory/dtMemManager.h"
 
+#define testing
+//#undef testing
+//#endif
+
 /**
  * @brief: initialise tree
  */
@@ -65,14 +69,17 @@ void DeviceTrainer::GrowTree(RegTree &tree)
 {
 	int nNumofSplittableNode = 0;
 
+	clock_t init_start = clock();
 	//copy the root node to GPU
 	GBDTGPUMemManager manager;
 	SNGPUManager snManager;
-	snManager.resetForNextTree();//reset tree nodes to default value
+//	snManager.resetForNextTree();//reset tree nodes to default value
 
 	InitRootNode<<<1, 1>>>(snManager.m_pTreeNode, snManager.m_pCurNumofNode_d);
 
 	manager.MemcpyDeviceToDevice(snManager.m_pTreeNode, manager.m_pSplittableNode, sizeof(TreeNode));
+	clock_t init_end = clock();
+	total_init_t += (init_end - init_start);
 
 	nNumofSplittableNode++;
 	manager.m_curNumofSplitable = 1;
@@ -81,12 +88,20 @@ void DeviceTrainer::GrowTree(RegTree &tree)
 
 	//split node(s)
 	int nCurDepth = 0;
+#ifdef testing
 	((DeviceSplitter*)splitter)->total_scan_t = 0;
 	((DeviceSplitter*)splitter)->total_com_gain_t = 0;
 	((DeviceSplitter*)splitter)->total_fill_gd_t = 0;
 	((DeviceSplitter*)splitter)->total_search_t = 0;
 	((DeviceSplitter*)splitter)->total_fix_gain_t = 0;
 	((DeviceSplitter*)splitter)->total_com_idx_t = 0;
+	((DeviceSplitter*)splitter)->total_weight_t = 0;
+	((DeviceSplitter*)splitter)->total_create_node_t = 0;
+	((DeviceSplitter*)splitter)->total_unique_id_t = 0;
+	((DeviceSplitter*)splitter)->total_ins2node_t = 0;
+	((DeviceSplitter*)splitter)->total_ins2default_t = 0;
+	((DeviceSplitter*)splitter)->total_update_new_splittable_t = 0;
+#endif
 	while(manager.m_curNumofSplitable > 0 && nCurDepth <= m_nMaxDepth)
 	{
 		splitter->m_nCurDept = nCurDepth;
@@ -94,6 +109,7 @@ void DeviceTrainer::GrowTree(RegTree &tree)
 
 		vector<SplitPoint> vBest;
 		vector<nodeStat> rchildStat, lchildStat;
+		cudaDeviceSynchronize();
 		clock_t begin_find_fea = clock();
 
 		if(nCurDepth < m_nMaxDepth)//don't need to find split for the last level
@@ -114,10 +130,10 @@ void DeviceTrainer::GrowTree(RegTree &tree)
 //		cout << "splitting" << endl;
 		splitter->SplitAll(splittableNode, vBest, tree, curNumofNode, rchildStat, lchildStat, bLastLevel);
 //		cout << "done splitting" << endl;
-		clock_t end_split_t = clock();
-		total_split_t += (double(end_split_t - start_split_t) / CLOCKS_PER_SEC);
 
 		manager.MemcpyDeviceToHost(snManager.m_pNumofNewNode, &manager.m_curNumofSplitable, sizeof(int));
+		clock_t end_split_t = clock();
+		total_split_t += (double(end_split_t - start_split_t) / CLOCKS_PER_SEC);
 //		cout << "number of new/splittable nodes is " << manager.m_curNumofSplitable << endl;
 
 		nCurDepth++;
@@ -143,6 +159,7 @@ void DeviceTrainer::GrowTree(RegTree &tree)
 
 	StoreFinalTree(pAllNode, numofNode);
 
+#ifdef testing
 	clock_t end_prune = clock();
 	total_prune_t += (double(end_prune - begin_prune) / CLOCKS_PER_SEC);
 
@@ -156,6 +173,21 @@ void DeviceTrainer::GrowTree(RegTree &tree)
 		 << "; scan takes " << total_scan/CLOCKS_PER_SEC << "; comp gain takes " << total_gain/CLOCKS_PER_SEC
 		 << "; fix gain takes " << total_fix / CLOCKS_PER_SEC
 		 << "; fill gd takes " << total_fill/CLOCKS_PER_SEC << "; search takes " << total_search/CLOCKS_PER_SEC << endl;
+
+	//split
+	double total_weight = ((DeviceSplitter*)splitter)->total_weight_t;
+	double total_create_node = ((DeviceSplitter*)splitter)->total_create_node_t;
+	double total_unique_id = ((DeviceSplitter*)splitter)->total_unique_id_t;
+	double total_ins2node = ((DeviceSplitter*)splitter)->total_ins2node_t;
+	double total_ins2default = ((DeviceSplitter*)splitter)->total_ins2default_t;
+	double total_update_new_sp = ((DeviceSplitter*)splitter)->total_update_new_splittable_t;
+	cout << "comp weight " << total_weight/CLOCKS_PER_SEC
+		 << "; create node " << total_create_node/CLOCKS_PER_SEC
+		 << "; unique id " << total_unique_id/CLOCKS_PER_SEC
+		 << "; ins2node " << total_ins2node/CLOCKS_PER_SEC
+		 << "; ins2default " << total_ins2default/CLOCKS_PER_SEC
+		 << "; update new splittable " << total_update_new_sp/CLOCKS_PER_SEC << endl;
+#endif
 }
 
 /**

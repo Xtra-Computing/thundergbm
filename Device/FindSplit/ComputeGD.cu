@@ -15,6 +15,7 @@
 #include "../Memory/gbdtGPUMemManager.h"
 #include "../Memory/dtMemManager.h"
 #include "../../DeviceHost/SparsePred/DenseInstance.h"
+#include "../prefix-sum/partialSum.h"
 
 /**
  * @brief: prediction and compute gradient descent
@@ -46,6 +47,7 @@ void DeviceSplitter::ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> >
 	int treeId = numofTreeLearnt - 1;
 	pred.GetTreeInfo(pLastTree, numofNodeOfLastTree, treeId);
 
+	KernelConf conf;
 	//start prediction
 	checkCudaErrors(cudaMemset(manager.m_pTargetValue, 0, sizeof(float_point) * nNumofIns));
 	if(nNumofTree > 0 && numofUsedFea >0)//numofUsedFea > 0 means the tree has more than one node.
@@ -59,7 +61,7 @@ void DeviceSplitter::ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> >
 		int *pDevFeaId = manager.m_pDFeaId + startPos;
 		int *pNumofFea = manager.m_pDNumofFea + startInsId;
 		int numofInsToFill = nNumofIns;
-		KernelConf conf;
+
 		dim3 dimGridThreadForEachIns;
 		conf.ComputeBlock(numofInsToFill, dimGridThreadForEachIns);
 		int sharedMemSizeEachIns = 1;
@@ -82,7 +84,6 @@ void DeviceSplitter::ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> >
 	{
 		assert(pLastTree != NULL);
 		int numofInsToPre = nNumofIns;
-		KernelConf conf;
 		dim3 dimGridThreadForEachIns;
 		conf.ComputeBlock(numofInsToPre, dimGridThreadForEachIns);
 		int sharedMemSizeEachIns = 1;
@@ -111,7 +112,12 @@ void DeviceSplitter::ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> >
 		delete []pSortedUsedFea;
 
 	//compute GD
-	ComputeGDKernel<<<1, 1>>>(nNumofIns, manager.m_pTargetValue, manager.m_pdTrueTargetValue, manager.m_pGrad, manager.m_pHess);
+	int blockSizeCompGD;
+	dim3 dimNumBlockComGD;
+	conf.ConfKernel(nNumofIns, blockSizeCompGD, dimNumBlockComGD);
+	ComputeGDKernel<<<dimNumBlockComGD, blockSizeCompGD>>>(
+								nNumofIns, manager.m_pTargetValue, manager.m_pdTrueTargetValue,
+								manager.m_pGrad, manager.m_pHess);
 
 	//copy splittable nodes to GPU memory
 		//SNodeStat, SNIdToBuffId, pBuffIdVec need to be reset.
@@ -119,9 +125,33 @@ void DeviceSplitter::ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> >
 	manager.Memset(manager.m_pSNIdToBuffId, -1, sizeof(int) * manager.m_maxNumofSplittable);
 	manager.Memset(manager.m_pBuffIdVec, -1, sizeof(int) * manager.m_maxNumofSplittable);
 	manager.Memset(manager.m_pNumofBuffId, 0, sizeof(int));
-	InitNodeStat<<<1, 1>>>(nNumofIns, manager.m_pGrad, manager.m_pHess,
+
+	//compute number of blocks
+	int thdPerBlockSum;
+	dim3 dimNumBlockSum;
+	conf.ConfKernel(ceil(nNumofIns/2.0), thdPerBlockSum, dimNumBlockSum);//one thread adds two values
+	blockSum<<<dimNumBlockSum, thdPerBlockSum, thdPerBlockSum * 2 * sizeof(float_point)>>>(
+												manager.m_pGrad, manager.m_pGDBlockSum, nNumofIns, false);
+	int numBlockForBlockSum = dimNumBlockSum.x * dimNumBlockSum.y;
+	int numThdFinalSum = ceil(numBlockForBlockSum/2.0);
+	if(numThdFinalSum > conf.m_maxBlockSize)
+		numThdFinalSum = conf.m_maxBlockSize;
+	blockSum<<<1, numThdFinalSum, numThdFinalSum * 2 * sizeof(float_point)>>>(
+												manager.m_pGDBlockSum, manager.m_pGDBlockSum, numBlockForBlockSum, true);
+
+	//compute hessian block sum and final sum
+	blockSum<<<dimNumBlockSum, thdPerBlockSum, thdPerBlockSum * 2 * sizeof(float_point)>>>(
+												manager.m_pHess, manager.m_pHessBlockSum, nNumofIns, false);
+	blockSum<<<1, numThdFinalSum, numThdFinalSum * 2 * sizeof(float_point)>>>(
+												manager.m_pHessBlockSum, manager.m_pHessBlockSum, numBlockForBlockSum, true);
+	InitNodeStat<<<1, 1>>>(manager.m_pGDBlockSum, manager.m_pHessBlockSum,
 						   manager.m_pSNodeStat, manager.m_pSNIdToBuffId, manager.m_maxNumofSplittable,
 						   manager.m_pBuffIdVec, manager.m_pNumofBuffId);
+
+//	InitNodeStat<<<1, 1>>>(nNumofIns, manager.m_pGrad, manager.m_pHess,
+//						   manager.m_pSNodeStat, manager.m_pSNIdToBuffId, manager.m_maxNumofSplittable,
+//						   manager.m_pBuffIdVec, manager.m_pNumofBuffId);
+	cudaDeviceSynchronize();
 #if testing
 	if(cudaGetLastError() != cudaSuccess)
 	{

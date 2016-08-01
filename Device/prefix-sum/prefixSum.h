@@ -19,7 +19,7 @@ __global__ void cuda_prefixsum(T *in_array, int in_array_size, T *out_array, con
 __global__ void cuda_updatesum(T *array, const long long *arrayStartPos, const unsigned int *pnEachSubArrayLen, int numArray, T *update_array);
 
 //for testing
-void prefixsumForDeviceArray(T *array_d, const long long *pnArrayStartPos_d, const int *pnEachArrayLen_h, int numArray);
+void prefixsumForDeviceArray(T *array_d, const long long *pnArrayStartPos_d, const int *pnEachArrayLen_h, int numArray, int numElementsLongestArray);
 //void prefixsumForHostArray(T *array_h, int *pnArrayStartPos, int size);
 int TestPrefixSum(int argc, char *argv[]);
 

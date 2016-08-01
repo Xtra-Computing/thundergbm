@@ -17,6 +17,9 @@ __global__ void SaveToPredBuffer(const float_point *pfCurTreePredValue, int numI
 
 __global__ void ComputeGDKernel(int numofIns, const float_point *pfPredValue, const float_point *pfTrueValue,
 								float_point *pGrad, float_point *pHess);
+__global__ void InitNodeStat(const float_point *root_sum_gd, const float_point *root_sum_hess,
+							 nodeStat *pSNodeStat, int *pSNIdToBuffId, int maxNumofSplittable,
+							 int *pBuffId, int *pNumofBuffId);
 __global__ void InitNodeStat(int numofIns, const float_point *pGrad, const float_point *pHess,
 							 nodeStat *pSNodeStat, int *pSNIdToBuffId, int maxNumofSplittable, int *pBuffId, int *pNumofBuffId);
 __global__ void InitRootNode(TreeNode *pAllTreeNode, int *pCurNumofNode);

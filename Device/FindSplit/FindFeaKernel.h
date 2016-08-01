@@ -16,6 +16,9 @@
 
 //dense array
 __global__ void ComputeIndex(int *pDstIndexEachFeaValue, long long totalFeaValue);
+__global__ void LoadGDHessFvalueRoot(const float_point *pInsGD, const float_point *pInsHess, int numIns,
+						   const int *pInsId, const float_point *pAllFeaValue, int numFeaValue,
+						   float_point *pGDEachFeaValue, float_point *pHessEachFeaValue, float_point *pDenseFeaValue);
 __global__ void LoadGDHessFvalue(const float_point *pInsGD, const float_point *pInsHess, int numIns,
 						   const int *pInsId, const float_point *pAllFeaValue, const int *pDstIndexEachFeaValue, int numFeaValue,
 						   float_point *pGDEachFeaValue, float_point *pHessEachFeaValue, float_point *pDenseFeaValue);
@@ -62,7 +65,7 @@ __global__ void GetInfoEachFeaInBatch(const int *pnNumofKeyValues, const long lo
 									  int totalNumofFea, int feaBatch, int numofSNInProgress, int smallestNodeId,
 									  int *pStartPosEachFeaInBatch, int *pnEachFeaLen);
 void PrefixSumForEachNode(int feaBatch, float_point *pGDOnEachFeaValue_d, float_point *pHessOnEachFeaValue_d,
-						  const long long *pnStartPosEachFeaInBatch, const int *pnEachFeaLen);
+						  const long long *pnStartPosEachFeaInBatch, const int *pnEachFeaLen, int maxNumValuePerFea);
 __global__ void ComputeGain(const int *pnNumofKeyValues, const long long *pnFeaStartPos, const nodeStat *pSNodeStat, int smallestFeaId, int feaBatch,
 							const int *pBuffId, int numofSNInProgress, int smallestNodeId, float_point lambda,
 							const float_point *pGDPrefixSumOnEachFeaValue, const float_point *pHessPrefixSumOnEachFeaValue,

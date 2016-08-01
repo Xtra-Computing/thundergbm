@@ -15,6 +15,10 @@
 #include "../../DeviceHost/svm-shared/MemInfo.h"
 #include "../../DeviceHost/svm-shared/HostUtility.h"
 
+#ifdef testing
+#undef testing
+#endif
+
 using std::cout;
 using std::endl;
 
@@ -168,11 +172,13 @@ void FFMemManager::allocMemForFindFea(int numofValuesInABatch, int maxNumofValue
  */
 void FFMemManager::resetMemForFindFea()
 {
+#ifdef testing
 	checkCudaErrors(cudaMemset(m_pGDOnEachFeaValue_d, 0, sizeof(float_point) * m_totalEleInWholeBatch));
 	checkCudaErrors(cudaMemset(m_pHessOnEachFeaValue_d, 0, sizeof(float_point) * m_totalEleInWholeBatch));
 	checkCudaErrors(cudaMemset(m_pValueOnEachFeaValue_d, 0, sizeof(float_point) * m_totalEleInWholeBatch));
 
 	checkCudaErrors(cudaMemset(m_pLastBiggerValue_d, 0, sizeof(float_point) * m_totalEleInWholeBatch));
+#endif
 
 	//for dense array
 	checkCudaErrors(cudaMemset(pGDEachFeaValue, 0, sizeof(float_point) * m_totalNumFeaValue));

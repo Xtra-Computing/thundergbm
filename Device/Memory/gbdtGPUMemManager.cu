@@ -41,6 +41,10 @@ int GBDTGPUMemManager::m_numofFea = -1;
 float_point *GBDTGPUMemManager::m_pGrad = NULL;
 float_point *GBDTGPUMemManager::m_pHess = NULL;
 
+//memory for initialisation
+float_point *GBDTGPUMemManager::m_pGDBlockSum = NULL;
+float_point *GBDTGPUMemManager::m_pHessBlockSum = NULL;
+
 //memory for splittable nodes
 int GBDTGPUMemManager::m_maxNumofSplittable = -1;
 int GBDTGPUMemManager::m_curNumofSplitable = -1;
@@ -107,6 +111,9 @@ void GBDTGPUMemManager::allocMemForIns(int nTotalNumofValue, int numofIns, int n
 	//gradient and hessian
 	checkCudaErrors(cudaMalloc((void**)&m_pGrad, sizeof(float_point) * m_numofIns));
 	checkCudaErrors(cudaMalloc((void**)&m_pHess, sizeof(float_point) * m_numofIns));
+
+	checkCudaErrors(cudaMalloc((void**)&m_pGDBlockSum, sizeof(float_point) * ceil(m_numofIns / 64.0)));//64 is the minimum number of elements for a block sum
+	checkCudaErrors(cudaMalloc((void**)&m_pHessBlockSum, sizeof(float_point) * ceil(m_numofIns / 64.0)));
 }
 
 /**

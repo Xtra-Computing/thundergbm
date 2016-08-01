@@ -12,6 +12,10 @@
 #include "../DeviceHashing.h"
 #include "../ErrorChecker.h"
 
+#ifndef testing
+#define testing
+#endif
+
 /**
  * @brief: compute the base_weight of tree node, also determines if a node is a leaf.
  */
@@ -104,6 +108,18 @@ __global__ void CreateNewNode(TreeNode *pAllTreeNode, TreeNode *pSplittableNode,
 		rightChild.parentId = nid;
 		rightChild.level = nLevel + 1;
 
+		//init the nodes
+		leftChild.featureId = -1;
+		leftChild.fSplitValue = -1;
+		leftChild.leftChildId = -1;
+		leftChild.rightChildId = -1;
+		leftChild.loss = -1.0;
+		rightChild.featureId = -1;
+		rightChild.fSplitValue = -1;
+		rightChild.leftChildId = -1;
+		rightChild.rightChildId = -1;
+		rightChild.loss = -1.0;
+
 		//they should just be pointers, not new content
 		pNewSplittableNode[leftNewNodeId] = leftChild;
 		pNewSplittableNode[rightNewNodeId] = rightChild;
@@ -177,58 +193,78 @@ __global__ void InsToNewNode(TreeNode *pAllTreeNode, float_point *pdFeaValue, in
 								 int preMaxNodeId, int numofFea, int numofIns, int flag_LEAFNODE)
 {
 	int numofUniqueFid = *pNumofUniqueFid;
+	int feaId = blockIdx.z;
+#ifdef testing
+	ErrorCond(feaId < numofUniqueFid, __PRETTY_FUNCTION__, "ufid");
+#endif
+	int ufid = pUniqueFidVec[feaId];
 
-	int nGlobalThreadId = (blockIdx.y * gridDim.x + blockIdx.x) * blockDim.x + threadIdx.x;
-	if(nGlobalThreadId < 0 || nGlobalThreadId >= numofUniqueFid)//one thread per splittable node
-		printf("Error in InsToNewNode function, thread id=%d\n", nGlobalThreadId);
-
-	int ufid = pUniqueFidVec[nGlobalThreadId];
+#ifdef testing
 	ErrorChecker(ufid, __PRETTY_FUNCTION__, "ufid");
 	ErrorChecker(numofFea - ufid, __PRETTY_FUNCTION__, "numofFea - ufid");
+#endif
+
+	int nNumofPair = pNumofKeyValue[ufid];//number of feature values in the form of (ins_id, fvalue)
+	int perFeaTid = (blockIdx.y * gridDim.x + blockIdx.x) * blockDim.x + threadIdx.x;
+	if(perFeaTid >= nNumofPair)//one thread per feaValue
+		return;
 
 	//for each instance that has value on the feature
 	long long curFeaStartPos = pFeaStartPos[ufid];
-	float_point *pdCurFeaValue = pdFeaValue + curFeaStartPos;
-	int *pCurFeaInsId = pInsId + curFeaStartPos;
-	int nNumofPair = pNumofKeyValue[ufid];
-	for(int i = 0; i < nNumofPair; i++)
+	float_point *pdCurFeaValue = pdFeaValue + curFeaStartPos;//fvalue start pos in the global memory
+	int *pCurFeaInsId = pInsId + curFeaStartPos;//ins_id of this fea start pos in the global memory
+//	for(int i = 0; i < nNumofPair; i++)
 	{
-		int insId = pCurFeaInsId[i];
+		int insId = pCurFeaInsId[perFeaTid];
+
+#ifdef testing
 		ErrorChecker(insId, __PRETTY_FUNCTION__, "insId");
 		ErrorChecker(numofIns - insId, __PRETTY_FUNCTION__, "numofIns - insId");
+#endif
 		int nid = pInsIdToNodeId[insId];
 
 		if(nid < 0)//leaf node
-			continue;
+			return;
 
 		if(nid > preMaxNodeId)//new node ids
-			continue;
+			return;
 
+#ifdef testing
 		ErrorChecker(nid, __PRETTY_FUNCTION__, "nid");
+#endif
 		int bufferPos = pSNIdToBuffId[nid];
+
+#ifdef testing
 		ErrorChecker(bufferPos, __PRETTY_FUNCTION__, "bufferPos");
+#endif
 		int fid = pBestSplitPoint[bufferPos].m_nFeatureId;
 		if(fid != ufid)//this feature is not the splitting feature for the instance.
-			continue;
+			return;
 
 
 		if(nid != pParentId[bufferPos])//node doesn't need to split (leaf node or new node)
 		{
 			if(pAllTreeNode[nid].rightChildId != flag_LEAFNODE)
 			{
+#ifdef testing
 				ErrorChecker(preMaxNodeId - nid, __PRETTY_FUNCTION__, "preMaxNodeId - nid");
-				continue;
+#endif
+				return;
 			}
+#ifdef testing
 			ErrorCond(pAllTreeNode[nid].rightChildId == flag_LEAFNODE, __PRETTY_FUNCTION__, "pAllTreeNode[nid].rightChildId == flag_LEAFNODE");
-			continue;
+#endif
+			return;
 		}
 
 		if(nid == pParentId[bufferPos])
 		{//internal node (needs to split)
+#ifdef testing
 			ErrorCond(pRChildId[bufferPos] == pLChildId[bufferPos] + 1, __PRETTY_FUNCTION__, "rChild=lChild+1");//right child id > than left child id
+#endif
 
 			double fPivot = pBestSplitPoint[bufferPos].m_fSplitValue;
-			double fvalue = pdCurFeaValue[i];
+			double fvalue = pdCurFeaValue[perFeaTid];
 			if(fvalue >= fPivot)
 			{
 				pInsIdToNodeId[insId] = pRChildId[bufferPos];//right child id

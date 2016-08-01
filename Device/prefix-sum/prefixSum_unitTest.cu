@@ -88,15 +88,12 @@ void elementsLastBlock(unsigned int *pnEltsLastBlock, unsigned int *pnThreadLast
 /**
  * @brief: prefix sum for an array in device memory
  */
-void prefixsumForDeviceArray(T *array_d, const long long *pnArrayStartPos_d, const int *pnEachArrayLen_h, int numArray)
+void prefixsumForDeviceArray(T *array_d, const long long *pnArrayStartPos_d, const int *pnEachArrayLen_h, int numArray, int numElementsLongestArray)
 {
 	//the arrays are ordered by their length in ascending order
-	int numElementsLongestArray = 0;
 	int totalNumofEleInArray = 0;
 	for(int a = 0; a < numArray; a++)
 	{
-		if(numElementsLongestArray < pnEachArrayLen_h[a])
-			numElementsLongestArray = pnEachArrayLen_h[a];
 		totalNumofEleInArray += pnEachArrayLen_h[a];
 	}
     unsigned int blockSize = 256; // max size of the thread blocks ############# bugs when 128 for slice_loc.txt (sparse) and YearPredictionMSD (dense)

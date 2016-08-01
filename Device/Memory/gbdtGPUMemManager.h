@@ -44,6 +44,9 @@ public:
 	//memory for gradient and hessian
 	static float_point *m_pGrad, *m_pHess;
 
+	//memory for initialisation
+	static float_point *m_pGDBlockSum, *m_pHessBlockSum;
+
 	//memory for splittable nodes
 	static int m_maxNumofSplittable;
 	static int m_curNumofSplitable;
@@ -67,6 +70,7 @@ public:
 	//for host memory (use to reset GPU memory)
 	static SplitPoint *m_pBestPointHost;
 	static SplitPoint *m_pBestPointHostPerThread;
+
 
 public:
 	void allocMemForIns(int nTotalNumofValue, int numofIns, int numofFeature);

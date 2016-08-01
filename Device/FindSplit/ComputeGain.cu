@@ -131,7 +131,7 @@ __global__ void GetInfoEachFeaInBatch(const int *pnNumofKeyValues, const long lo
  * @brief: compute the prefix sum for gd and hess
  */
 void PrefixSumForEachNode(int numofSubArray, float_point *pGDOnEachFeaValue_d, float_point *pHessOnEachFeaValue_d,
-						  const long long *pnStartPosEachFeaInBatch, const int *pnEachFeaLen)
+						  const long long *pnStartPosEachFeaInBatch, const int *pnEachFeaLen, int maxNumValuePerFea)
 {
 #if false
 	int total_ele = 0;
@@ -146,8 +146,8 @@ void PrefixSumForEachNode(int numofSubArray, float_point *pGDOnEachFeaValue_d, f
 	manager.MemcpyDeviceToHost(pGDOnEachFeaValue_d, pGDEachFeaValue_h, sizeof(float_point) * total_ele);
 #endif
 
-	prefixsumForDeviceArray(pGDOnEachFeaValue_d, pnStartPosEachFeaInBatch, pnEachFeaLen, numofSubArray);
-	prefixsumForDeviceArray(pHessOnEachFeaValue_d, pnStartPosEachFeaInBatch, pnEachFeaLen, numofSubArray);
+	prefixsumForDeviceArray(pGDOnEachFeaValue_d, pnStartPosEachFeaInBatch, pnEachFeaLen, numofSubArray, maxNumValuePerFea);
+	prefixsumForDeviceArray(pHessOnEachFeaValue_d, pnStartPosEachFeaInBatch, pnEachFeaLen, numofSubArray, maxNumValuePerFea);
 
 #if false
 	float_point *pHessPrefixSum_h = new float_point[total_ele];

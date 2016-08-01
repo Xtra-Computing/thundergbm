@@ -59,6 +59,7 @@ private:
 	void PrintPrediction(const vector<float_point> &vPred);
 
 public:
+	double total_init_t;
 	double total_find_fea_t;
 	double total_split_t;
 	double total_prune_t;

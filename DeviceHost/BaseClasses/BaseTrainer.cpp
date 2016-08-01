@@ -48,6 +48,8 @@ void BaseTrainer::TrainGBDT(vector<RegTree> & vTree)
 	clock_t end_gd, end_grow;
 	double total_gd = 0, total_grow = 0, total_find_fea = 0, total_split = 0;
 
+	total_init_t = 0;
+
 	HostPredictor pred;
 	HostSplitter hsplit;
 	for(int i = 0; i < m_nMaxNumofTree; i++)
@@ -94,6 +96,7 @@ void BaseTrainer::TrainGBDT(vector<RegTree> & vTree)
 
 	cout << "total: comp gd = " << total_gd << "; grow = " << total_grow << "; find fea = " << total_find_fea
 		 << "; split = " << total_split << endl;
+	cout << "total init for grow tree = " << total_init_t/ CLOCKS_PER_SEC << endl;
 
 }
 
