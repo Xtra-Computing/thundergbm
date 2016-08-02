@@ -87,28 +87,29 @@ void DevicePredictor::PredictSparseIns(vector<vector<KeyValue> > &v_vInstance, v
 
 //		FillDenseIns(i, numofUsedFea);
 		//prediction using the last tree
-		for(int t = 0; t < nNumofTree; t++)
-		{
-			int numofNodeOfTheTree = 0;
-			TreeNode *pTree = NULL;
+	for(int t = 0; t < nNumofTree; t++)
+	{
+		int numofNodeOfTheTree = 0;
+		TreeNode *pTree = NULL;
 
-			int treeId = t;
-			GetTreeInfo(pTree, numofNodeOfTheTree, treeId);
-			PROCESS_ERROR(pTree != NULL);
-			PredMultiTarget<<<dimNumofBlock, threadPerBlock>>>(
-														manager.m_pTargetValue, numofInsToFill, pTree,
-														manager.m_pdDenseIns, numofUsedFea,
-														manager.m_pHashFeaIdToDenseInsPos, treeManager.m_maxTreeDepth);
-			cudaDeviceSynchronize();
-		}
+		int treeId = t;
+		GetTreeInfo(pTree, numofNodeOfTheTree, treeId);
+		PROCESS_ERROR(pTree != NULL);
+		PredMultiTarget<<<dimNumofBlock, threadPerBlock>>>(
+													manager.m_pTargetValue, numofInsToFill, pTree,
+													manager.m_pdDenseIns, numofUsedFea,
+													manager.m_pHashFeaIdToDenseInsPos, treeManager.m_maxTreeDepth);
+		cudaDeviceSynchronize();
+	}
+
+	float_point *pTempTarget = new float_point[nNumofIns];
+	manager.MemcpyDeviceToHost(manager.m_pTargetValue, pTempTarget, sizeof(float_point) * nNumofIns);
 
 	for(int i = 0; i < nNumofIns; i++)
 	{
-		float_point fTarget = 0;
-		manager.MemcpyDeviceToHost(manager.m_pTargetValue + i, &fTarget, sizeof(float_point));
-
-		v_fPredValue.push_back(fTarget);
+		v_fPredValue.push_back(pTempTarget[i]);
 	}
+	delete []pTempTarget;
 }
 
 /**
