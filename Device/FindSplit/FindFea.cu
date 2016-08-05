@@ -99,14 +99,7 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 		clock_t end_gd = clock();
 		total_fill_gd_t += (end_gd - start_gd);
 
-//		int blockSizeCompIdx;
-//		dim3 dimNumofBlockToComIdx;
-//		KernelConf conf;
-//		conf.ConfKernel(manager.m_totalNumofValues, blockSizeCompIdx, dimNumofBlockToComIdx);
-//		ComputeIndex<<<dimNumofBlockToComIdx, blockSizeCompIdx>>>(ffManager.m_pIndices_d, manager.m_totalNumofValues);
-//		cudaDeviceSynchronize();
 		clock_t comIdx_start = clock();
-
 		manager.MemcpyHostToDevice(&manager.m_totalNumofValues, ffManager.m_pNumFeaValueEachNode_d, sizeof(long long));
 		manager.MemcpyDeviceToDevice(manager.m_pFeaStartPos, ffManager.m_pFeaValueStartPosEachNode_d, sizeof(long long));
 		manager.MemcpyDeviceToDevice(manager.m_pFeaStartPos, ffManager.m_pEachFeaStartPosEachNode_d, sizeof(long long) * nNumofFeature);
@@ -289,6 +282,7 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 	manager.MemcpyDeviceToHost(manager.m_pBestSplitPoint, testBestSplitPoint3, sizeof(SplitPoint) * maxNumofSplittable);
 	manager.MemcpyDeviceToHost(manager.m_pRChildStat, testpRChildStat3, sizeof(nodeStat) * maxNumofSplittable);
 	manager.MemcpyDeviceToHost(manager.m_pLChildStat, testpLChildStat3, sizeof(nodeStat) * maxNumofSplittable);
+
 //#endif
 	//end using dense array
 
@@ -463,7 +457,6 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 
 	delete []pStartPosEachFeaInBatch_h;
 	delete []pFeaLenInBatch_h;
-//#endif
 
 	//compute prefix sum
 	manager.MemcpyDeviceToDevice(ffManager.m_pGDOnEachFeaValue_d, ffManager.m_pGDPrefixSum_d, sizeof(float_point) * totalEleInWholeBatch);

@@ -15,30 +15,11 @@
 #include <assert.h>
 
 #include "prefixSum.h"
+#include "powerOfTwo.h"
 
 using std::cout;
 using std::endl;
 using std::cerr;
-
-inline bool isPowerOfTwo(int n)
-{
-    return ((n&(n-1))==0) ;
-}
-
-inline int floorPow2(int n)
-{
-#ifdef WIN32
-    // method 2
-    return 1 << (int)logb((float)n);
-#else
-    // method 1
-    // float nf = (float)n;
-    // return 1 << (((*(int*)&nf) >> 23) - 127);
-    int exp;
-    frexp((float)n, &exp);
-    return 1 << (exp - 1);
-#endif
-}
 
 /**
  * @brief: compute block size and the number of blocks
@@ -50,10 +31,16 @@ void kernelConf(unsigned int &numBlocks, unsigned int &numThreads, int numElemen
 
     if (numBlocks > 1)
         numThreads = blockSize;
-    else if (isPowerOfTwo(numElementsLargestArray))
-        numThreads = numElementsLargestArray / 2;//only one block and
     else
-        numThreads = floorPow2(numElementsLargestArray);//a few threads only have one element to process.
+    {
+    	smallReductionKernelConf(numThreads, numElementsLargestArray);
+    	/*
+    	if (isPowerOfTwo(numElementsLargestArray))
+    		numThreads = numElementsLargestArray / 2;//only one block and
+    	else
+    		numThreads = floorPow2(numElementsLargestArray);//a few threads only have one element to process.
+    		*/
+    }
 }
 
 void elementsLastBlock(unsigned int *pnEltsLastBlock, unsigned int *pnThreadLastBlock, unsigned int numBlocks,

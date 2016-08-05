@@ -172,7 +172,7 @@ void FFMemManager::allocMemForFindFea(int numofValuesInABatch, int maxNumofValue
  */
 void FFMemManager::resetMemForFindFea()
 {
-#ifdef testing
+#if true
 	checkCudaErrors(cudaMemset(m_pGDOnEachFeaValue_d, 0, sizeof(float_point) * m_totalEleInWholeBatch));
 	checkCudaErrors(cudaMemset(m_pHessOnEachFeaValue_d, 0, sizeof(float_point) * m_totalEleInWholeBatch));
 	checkCudaErrors(cudaMemset(m_pValueOnEachFeaValue_d, 0, sizeof(float_point) * m_totalEleInWholeBatch));

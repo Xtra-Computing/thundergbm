@@ -6,6 +6,8 @@
  *		@brief: 
  */
 
+#include <iostream>
+
 #include "FindFeaKernel.h"
 #include "../KernelConf.h"
 #include "../DevicePredictor.h"
@@ -16,6 +18,10 @@
 #include "../Memory/dtMemManager.h"
 #include "../../DeviceHost/SparsePred/DenseInstance.h"
 #include "../prefix-sum/partialSum.h"
+#include "../prefix-sum/powerOfTwo.h"
+
+using std::cerr;
+using std::endl;
 
 /**
  * @brief: prediction and compute gradient descent
@@ -133,24 +139,70 @@ void DeviceSplitter::ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> >
 	blockSum<<<dimNumBlockSum, thdPerBlockSum, thdPerBlockSum * 2 * sizeof(float_point)>>>(
 												manager.m_pGrad, manager.m_pGDBlockSum, nNumofIns, false);
 	int numBlockForBlockSum = dimNumBlockSum.x * dimNumBlockSum.y;
-	int numThdFinalSum = ceil(numBlockForBlockSum/2.0);
-	if(numThdFinalSum > conf.m_maxBlockSize)
+	int numThdFinalSum;
+	dim3 dimDummy;
+	conf.ConfKernel(ceil(numBlockForBlockSum/2.0), numThdFinalSum, dimDummy);//one thread adds two values
+	if(numThdFinalSum >= conf.m_maxBlockSize)
 		numThdFinalSum = conf.m_maxBlockSize;
+	else
+	{
+		unsigned int tempNumThd;
+		smallReductionKernelConf(tempNumThd, numBlockForBlockSum);
+		numThdFinalSum = tempNumThd;
+	}
+#if false
+	float_point *pGDBlockSum_d = new float_point[numBlockForBlockSum];
+	manager.MemcpyDeviceToHost(manager.m_pGDBlockSum, pGDBlockSum_d, sizeof(float_point) * numBlockForBlockSum);
+	float_point totalBlockSum = 0;
+	for(int b = 0; b < numBlockForBlockSum; b++)
+	{
+		totalBlockSum +=pGDBlockSum_d[b];
+	}
+	cerr << "total gd block sum is " << totalBlockSum << endl;
+#endif
+
 	blockSum<<<1, numThdFinalSum, numThdFinalSum * 2 * sizeof(float_point)>>>(
 												manager.m_pGDBlockSum, manager.m_pGDBlockSum, numBlockForBlockSum, true);
+
 
 	//compute hessian block sum and final sum
 	blockSum<<<dimNumBlockSum, thdPerBlockSum, thdPerBlockSum * 2 * sizeof(float_point)>>>(
 												manager.m_pHess, manager.m_pHessBlockSum, nNumofIns, false);
 	blockSum<<<1, numThdFinalSum, numThdFinalSum * 2 * sizeof(float_point)>>>(
 												manager.m_pHessBlockSum, manager.m_pHessBlockSum, numBlockForBlockSum, true);
+
+#if false
+	float_point *pGD_h = new float_point[nNumofIns];
+	float_point *pHess_h = new float_point[nNumofIns];
+
+	manager.MemcpyDeviceToHost(manager.m_pGrad, pGD_h, sizeof(float_point) * nNumofIns);
+	manager.MemcpyDeviceToHost(manager.m_pHess, pHess_h, sizeof(float_point) * nNumofIns);
+
+	float_point sumGD_h = 0;
+	float_point sumHess_h = 0;
+	for(int i = 0; i < nNumofIns; i++)
+	{
+		sumGD_h += pGD_h[i];
+		sumHess_h += pHess_h[i];
+	}
+
+	float_point sumGD_d, sumHess_d;
+	manager.MemcpyDeviceToHost(manager.m_pGDBlockSum, &sumGD_d, sizeof(float_point));
+	manager.MemcpyDeviceToHost(manager.m_pHessBlockSum, &sumHess_d, sizeof(float_point));
+
+	if(sumGD_d != sumGD_h || sumHess_d != sumHess_h)
+	{
+		cerr << "host and device have different results: " << sumGD_d << " v.s. " << sumGD_h << "; " << sumHess_d << " v.s. " << sumHess_h << endl;
+	}
+
+	delete []pGD_h;
+	delete []pHess_h;
+#endif
+
 	InitNodeStat<<<1, 1>>>(manager.m_pGDBlockSum, manager.m_pHessBlockSum,
 						   manager.m_pSNodeStat, manager.m_pSNIdToBuffId, manager.m_maxNumofSplittable,
 						   manager.m_pBuffIdVec, manager.m_pNumofBuffId);
 
-//	InitNodeStat<<<1, 1>>>(nNumofIns, manager.m_pGrad, manager.m_pHess,
-//						   manager.m_pSNodeStat, manager.m_pSNIdToBuffId, manager.m_maxNumofSplittable,
-//						   manager.m_pBuffIdVec, manager.m_pNumofBuffId);
 	cudaDeviceSynchronize();
 #if testing
 	if(cudaGetLastError() != cudaSuccess)

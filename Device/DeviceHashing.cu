@@ -36,7 +36,7 @@ __device__ __host__ int AssignHashValue(int *pEntryToHashValue, int origin, int 
 	else//the hash value is used for other entry
 	{
 		//Hash conflict
-		for(int i = maxHashValue - 1; i > 0; i--)
+		for(int i = maxHashValue - 1; i >= 0; i--)
 		{
 			bool hashValueFound = false;
 			if(pEntryToHashValue[i] == -1)//the entry hasn't been seen before, and now is assigned a hash value.
@@ -75,7 +75,7 @@ __device__ __host__ int GetBufferId(const int *pEntryToHashValue, int entry, int
 	else
 	{
 		//Hash conflict
-		for(int i = maxHashValue - 1; i > 0; i--)
+		for(int i = maxHashValue - 1; i >= 0; i--)
 		{
 			if(pEntryToHashValue[i] == entry)
 				buffId = i;

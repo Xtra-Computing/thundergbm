@@ -29,7 +29,6 @@
 #include "DeviceHost/svm-shared/fileOps.h"
 #include "Device/FileBuffer/FileBuffer.h"
 
-
 int main(int argc, char *argv[])
 {
 
@@ -84,7 +83,7 @@ int main(int argc, char *argv[])
 
 	//for training
 	int nNumofTree = 5;
-	int nMaxDepth = 1;
+	int nMaxDepth = 2;
 	double fLabda = 1;//this one is constant in xgboost
 	double fGamma = 1;//minimum loss
 	int maxNumofNodePerTree = pow(2, nMaxDepth + 1) - 1;
