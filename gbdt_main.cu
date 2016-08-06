@@ -59,6 +59,15 @@ int main(int argc, char *argv[])
 	case 4:
 		strFileName = "data/YearPredictionMSD";//90 features and 463,715 instances
 		break;
+	case 5:
+		strFileName = "data/mnist-large/mnist0.5m01.scale";
+		break;
+	case 6:
+		strFileName = "data/epsilon_normalized_50k";
+		break;
+	case 7:
+		strFileName = "data/SUSY";//Bug: two many instances for the prefix sum
+		break;
 	default:
 		cerr << fileOption << " is an unknown file name option" << endl;
 		return -1;
@@ -83,7 +92,7 @@ int main(int argc, char *argv[])
 
 	//for training
 	int nNumofTree = 5;
-	int nMaxDepth = 2;
+	int nMaxDepth = 1;
 	double fLabda = 1;//this one is constant in xgboost
 	double fGamma = 1;//minimum loss
 	int maxNumofNodePerTree = pow(2, nMaxDepth + 1) - 1;
@@ -122,7 +131,7 @@ int main(int argc, char *argv[])
 		//read data set info
 		FileBuffer::ReadDataInfo(strFolder, nNumofFeatures, nNumofExamples, numFeaValue);
 	}
-	cout << "data has " << nNumofFeatures << " features, " << nNumofExamples << " instances and, " << numFeaValue << " fea values" << endl;
+	cout << "data has " << nNumofFeatures << " features, " << nNumofExamples << " instances, and " << numFeaValue << " fea values" << endl;
 
 	start_init = clock();
 	trainer.InitTrainer(nNumofTree, nMaxDepth, fLabda, fGamma, nNumofFeatures, bUsedBuffer);
