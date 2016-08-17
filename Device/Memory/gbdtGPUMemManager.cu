@@ -57,20 +57,12 @@ nodeStat *GBDTGPUMemManager::m_pTempRChildStat = NULL;//(require memset!) store 
 float_point *GBDTGPUMemManager::m_pLastValue = NULL;//store the last processed value (for computing split point)
 int *GBDTGPUMemManager::m_nSNLock = NULL;
 
-//memory for finding best split for each feature on each node
-nodeStat *GBDTGPUMemManager::m_pRChildStatPerThread = NULL;
-nodeStat *GBDTGPUMemManager::m_pLChildStatPerThread = NULL;
-nodeStat *GBDTGPUMemManager::m_pTempRChildStatPerThread = NULL;
-float_point *GBDTGPUMemManager::m_pLastValuePerThread = NULL;
-SplitPoint *GBDTGPUMemManager::m_pBestSplitPointPerThread = NULL;
-
 int *GBDTGPUMemManager::m_pSNIdToBuffId = NULL;	//(require memset!) map splittable node id to buffer position
 int *GBDTGPUMemManager::m_pBuffIdVec = NULL;	//store all the buffer ids for splittable nodes
 int *GBDTGPUMemManager::m_pNumofBuffId = NULL;	//the total number of buffer ids in the current round.
 
 //host memory for GPU memory reset
 SplitPoint *GBDTGPUMemManager::m_pBestPointHost = NULL;//best split points
-SplitPoint *GBDTGPUMemManager::m_pBestPointHostPerThread = NULL;
 
 
 /**
@@ -150,34 +142,6 @@ void GBDTGPUMemManager::allocMemForSplittableNode(int nMaxNumofSplittableNode)
 
 	checkCudaErrors(cudaMemset(m_pBuffIdVec, -1, sizeof(int) * m_maxNumofSplittable));
 	checkCudaErrors(cudaMemset(m_pNumofBuffId, 0, sizeof(int)));
-}
-
-/**
- * @brief: allocate memory for splittable nodes.
- */
-void GBDTGPUMemManager::allocMemForSNForEachThread(int maxNumofThread, int maxNumofSplittable)
-{
-	int numofElement = maxNumofThread * maxNumofSplittable;
-	PROCESS_ERROR(numofElement > 0);
-	checkCudaErrors(cudaMalloc((void**)&m_pRChildStatPerThread, sizeof(nodeStat) * numofElement));
-	checkCudaErrors(cudaMalloc((void**)&m_pLChildStatPerThread, sizeof(nodeStat) * numofElement));
-	checkCudaErrors(cudaMalloc((void**)&m_pTempRChildStatPerThread, sizeof(nodeStat) * numofElement));
-	checkCudaErrors(cudaMalloc((void**)&m_pLastValuePerThread, sizeof(float_point) * numofElement));
-	checkCudaErrors(cudaMalloc((void**)&m_pBestSplitPointPerThread, sizeof(SplitPoint) * numofElement));
-	m_pBestPointHostPerThread = new SplitPoint[numofElement];
-}
-
-/**
- * @brief: allocate memory for splittable nodes.
- */
-void GBDTGPUMemManager::freeMemForSNForEachThread()
-{
-	checkCudaErrors(cudaFree(m_pRChildStatPerThread));
-	checkCudaErrors(cudaFree(m_pLChildStatPerThread));
-	checkCudaErrors(cudaFree(m_pTempRChildStatPerThread));
-	checkCudaErrors(cudaFree(m_pLastValuePerThread));
-	checkCudaErrors(cudaFree(m_pBestSplitPointPerThread));
-	delete[] m_pBestPointHostPerThread;
 }
 
 /**
