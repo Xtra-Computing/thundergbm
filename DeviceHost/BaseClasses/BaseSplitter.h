@@ -45,7 +45,7 @@ public:
 	//a function for computing the gain of a feature
 	virtual void FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat> &tempStat, vector<nodeStat> &lchildStat) = 0;
 	//predict the value for each instance and compute their gradient
-	virtual void ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> > & vvInsSparse) = 0;
+	virtual void ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> > & vvInsSparse, void *stream) = 0;
 
 	double ComputeWeightSparseData(int bufferPos);
 

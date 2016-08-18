@@ -17,6 +17,9 @@
 #include "../../Host/Evaluation/RMSE.h"
 #include "../../Device/Splitter/DeviceSplitter.h"
 
+int BaseTrainer::m_nMaxNumofTree = -1;
+int BaseTrainer::m_nMaxDepth = -1;
+
 /*
  * @brief: initialise constants of a trainer
  */
@@ -42,7 +45,7 @@ void BaseTrainer::InitTrainer(int nNumofTree, int nMaxDepth, double fLabda, doub
 /**
  * @brief: training GBDTs
  */
-void BaseTrainer::TrainGBDT(vector<RegTree> & vTree)
+void BaseTrainer::TrainGBDT(vector<RegTree> & vTree, void *pStream)
 {
 	clock_t begin_gd, begin_grow;
 	clock_t end_gd, end_grow;
@@ -67,11 +70,11 @@ void BaseTrainer::TrainGBDT(vector<RegTree> & vTree)
 		{
 			((HostSplitter*)splitter)->m_vPredBuffer = m_vPredBuffer;
 			((HostSplitter*)splitter)->m_vTrueValue = m_vTrueValue;
-			splitter->ComputeGD(vTree, m_vvInsSparse);
+			splitter->ComputeGD(vTree, m_vvInsSparse, NULL);
 			m_vPredBuffer = ((HostSplitter*)splitter)->m_vPredBuffer;
 		}
 		else
-			splitter->ComputeGD(vTree, m_vvInsSparse);
+			splitter->ComputeGD(vTree, m_vvInsSparse, pStream);
 		end_gd = clock();
 		total_gd += (double(end_gd - begin_gd) / CLOCKS_PER_SEC);
 

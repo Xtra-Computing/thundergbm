@@ -24,8 +24,8 @@ using std::vector;
 class BaseTrainer
 {
 public:
-	int m_nMaxNumofTree;
-	int m_nMaxDepth;
+	static int m_nMaxNumofTree;
+	static int m_nMaxDepth;
 
 //	vector<vector<double> > m_vvInstance;
 	vector<float_point> m_vTrueValue;
@@ -44,7 +44,7 @@ public:
 	BaseTrainer(BaseSplitter *pSplitter){splitter = pSplitter;}
 	virtual ~BaseTrainer(){}
 	void InitTrainer(int nNumofTree, int nMaxDepth, double fLabda, double fGamma, int nNumofFea, bool usedBuffer);
-	void TrainGBDT(vector<RegTree> &v_Tree);
+	void TrainGBDT(vector<RegTree> &v_Tree, void *pStream);
 	void SaveModel(string fileName, const vector<RegTree> &v_Tree);
 
 

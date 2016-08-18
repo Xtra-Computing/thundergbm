@@ -22,6 +22,7 @@
 #include "Device/Memory/dtMemManager.h"
 #include "Device/Memory/findFeaMemManager.h"
 #include "Device/Bagging/BagManager.h"
+#include "Device/GPUTask/GBDTTask.h"
 #include "Device/DeviceTrainer.h"
 #include "Device/DevicePredictor.h"
 #include "Device/initCuda.h"
@@ -90,7 +91,7 @@ int main(int argc, char *argv[])
 	int maxNumofUsedFeature = 1000;
 	int maxNumofDenseIns = 1;//###### is later set to the number of instances
 	int maxUsedFeaInTrees = 1000;
-	int numBag = 2;//number of bags for bagging
+	int numBag = 1;//number of bags for bagging
 
 	//for training
 	int nNumofTree = 5;
@@ -265,7 +266,46 @@ int main(int argc, char *argv[])
 	//training trees
 	vector<RegTree> v_Tree;
 	clock_t start_train_time = clock();
-	trainer.TrainGBDT(v_Tree);
+
+	//using multiple CPU threads
+	GBDTTask gbdtTask;
+	ThreadParam *thdInput = new ThreadParam[numBag];
+	TaskParam *taskParam = new TaskParam[numBag];
+	cudaStream_t *pStream = new cudaStream_t[numBag];
+	int *pThreadStatus = new int[numBag];
+	vector<pthread_t> vTid;
+	for(int bag = 0; bag < numBag; bag++)
+	{
+		pThreadStatus[bag] = 1;//it is not used
+		checkCudaErrors(cudaStreamCreate(&pStream[bag]));
+		taskParam[bag].pCudaStream = &pStream[bag];
+		taskParam[bag].thread_status = &pThreadStatus[bag];
+
+		taskParam[bag].pDataPack = NULL;
+		taskParam[bag].pCudaContext = &context;
+
+		taskParam[bag].pResult = NULL;
+		thdInput[bag].pObj = &gbdtTask;
+		thdInput[bag].pThdParam = &taskParam[bag];
+
+		pthread_attr_t attr;
+		pthread_t tid = -1;//cpu thread id
+		pthread_attr_init(&attr);
+//		pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);//PTHREAD_CREATE_DETACHED
+		int nCreateTd = pthread_create(&tid, &attr, gbdtTask.Process, (void*) &thdInput[bag]);
+		pthread_attr_destroy(&attr);
+		cout << "thread id " << tid << endl;
+		if(nCreateTd != 0)
+			cerr << "creating thread failed" << endl;
+		vTid.push_back(tid);
+//		trainer.TrainGBDT(v_Tree);
+	}
+	//synchronise threads
+	for(int i = 0; i < numBag; i++)
+	{
+		cout << "join thread id " << vTid[i] << endl;
+		pthread_join(vTid[i], NULL);
+	}
 	clock_t end_train_time = clock();
 
 	//save the trees to a file

@@ -26,7 +26,7 @@ using std::endl;
 /**
  * @brief: prediction and compute gradient descent
  */
-void DeviceSplitter::ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> > &vvInsSparse)
+void DeviceSplitter::ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> > &vvInsSparse, void *pStream)
 {
 	GBDTGPUMemManager manager;
 	DevicePredictor pred;
@@ -55,7 +55,9 @@ void DeviceSplitter::ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> >
 
 	KernelConf conf;
 	//start prediction
-	checkCudaErrors(cudaMemset(manager.m_pTargetValue, 0, sizeof(float_point) * nNumofIns));
+	cudaStream_t *tempStream = (cudaStream_t*)pStream;
+	cout << "numIns=" << nNumofIns << "; target value = " << manager.m_pTargetValue << endl;
+	checkCudaErrors(cudaMemsetAsync(manager.m_pTargetValue, 0, sizeof(float_point) * nNumofIns, *tempStream));
 	if(nNumofTree > 0 && numofUsedFea >0)//numofUsedFea > 0 means the tree has more than one node.
 	{
 		long long startPos = 0;
