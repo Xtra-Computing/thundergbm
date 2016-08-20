@@ -97,6 +97,9 @@ public:
 	static int *m_pNumofUniqueFeaIdEachBag;
 	static int m_maxNumUsedFeaATree;
 
+	//temp memory
+	static float_point *m_pTrueLabel_h;
+
 public:
 	static void InitBagManager(int numIns, int numFea, int numTree, int numBag, int maxNumSN,
 							   int maxNumNode, long long numFeaValue, int maxNumUsedFeaInATree);

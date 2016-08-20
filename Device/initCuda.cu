@@ -43,7 +43,7 @@ bool InitCUDA(char gpuType, CUcontext &context)
         	{
         		cout << "Using " << prop.name << endl;
        			bUseTesla = true;
-//        		checkCudaErrors(cudaSetDevice(i));
+        		checkCudaErrors(cudaSetDevice(i));
         		cuDeviceGet(&device, i);
         		cuCtxCreate(&context, CU_CTX_SCHED_AUTO, device);
         		break;

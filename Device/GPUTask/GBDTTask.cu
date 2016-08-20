@@ -15,6 +15,9 @@
 
 #include "GBDTTask.h"
 #include "../DeviceTrainer.h"
+#include "../DevicePredictor.h"
+#include "../../Host/Evaluation/RMSE.h"
+#include "../Bagging/BagManager.h"
 
 using std::cout;
 using std::endl;
@@ -49,6 +52,27 @@ void* GBDTTask::ProcessTask(void* pInputParam)
 	DeviceTrainer trainer(&splitter);
 	vector<RegTree> v_Tree;
 	trainer.TrainGBDT(v_Tree, pStream_gbdt);
+
+	cout << "saved to file" << endl;
+	trainer.SaveModel("tree.txt", v_Tree);
+
+	//run the GBDT prediction process
+	DevicePredictor pred;
+	clock_t begin_pre, end_pre;
+	vector<float_point> v_fPredValue;
+
+	begin_pre = clock();
+	vector<vector<KeyValue> > dummy;
+	pred.PredictSparseIns(dummy, v_Tree, v_fPredValue);
+	end_pre = clock();
+	double prediction_time = (double(end_pre - begin_pre) / CLOCKS_PER_SEC);
+	cout << "prediction sec = " << prediction_time << endl;
+
+	EvalRMSE rmse;
+	float fRMSE = rmse.Eval(v_fPredValue, BagManager::m_pTrueLabel_h, v_fPredValue.size());
+	cout << "rmse=" << fRMSE << endl;
+
+	trainer.ReleaseTree(v_Tree);
 
 	pTaskParam->pResult = NULL;
 	cudaStreamSynchronize(*pStream_gbdt);

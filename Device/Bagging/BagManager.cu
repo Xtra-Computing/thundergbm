@@ -90,6 +90,9 @@ int *BagManager::m_pUniqueFeaIdVecEachBag = NULL;	//store all the used feature i
 int *BagManager::m_pNumofUniqueFeaIdEachBag = NULL;//(require memset!)store the number of unique feature ids
 int BagManager::m_maxNumUsedFeaATree = -1;	//for reserving GPU memory; maximum number of used features in a tree
 
+//temp host variable
+float_point *BagManager::m_pTrueLabel_h = NULL;
+
 /**
  * @brief: initialise bag manager
  */

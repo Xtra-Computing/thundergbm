@@ -198,6 +198,7 @@ int main(int argc, char *argv[])
 		}
 #endif
 	}
+	bagManager.m_pTrueLabel_h = pTrueLabel;
 
 	//allocate memory for trees
 	DTGPUMemManager treeMemManager;
@@ -310,8 +311,6 @@ int main(int argc, char *argv[])
 
 	//save the trees to a file
 	end_whole = clock();
-	cout << "saved to file" << endl;
-	trainer.SaveModel("tree.txt", v_Tree);
 
 	double total_copy_indexCom = (double(indexCom.m_total_copy)) / CLOCKS_PER_SEC;
 	cout << "total copy time = " << total_copy_indexCom << endl;
@@ -322,25 +321,7 @@ int main(int argc, char *argv[])
 	double total_all = (double(end_whole - begin_whole) / CLOCKS_PER_SEC);
 	cout << "all sec = " << total_all << endl;
 
-	//read testing instances from a file
 
-
-	//run the GBDT prediction process
-	clock_t begin_pre, end_pre;
-	vector<float_point> v_fPredValue;
-
-	begin_pre = clock();
-	pred.PredictSparseIns(v_vInsSparse, v_Tree, v_fPredValue);
-	end_pre = clock();
-	double prediction_time = (double(end_pre - begin_pre) / CLOCKS_PER_SEC);
-	cout << "prediction sec = " << prediction_time << endl;
-
-	EvalRMSE rmse;
-	float fRMSE = rmse.Eval(v_fPredValue, pTrueLabel, numIns);
-	delete[] pTrueLabel;
-	cout << "rmse=" << fRMSE << endl;
-
-	trainer.ReleaseTree(v_Tree);
 	memAllocator.releaseHostMemory();
 	ffManager.freeMemForFindFea();
 
