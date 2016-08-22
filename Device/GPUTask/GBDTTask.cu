@@ -34,9 +34,9 @@ int GBDTTask::ReleaseResources()
 	return 0;
 }
 
-void UnpackData(DataPack *pDataPack, string &strFileNames)
+void UnpackData(DataPack *pDataPack, int &bagId)
 {
-	strFileNames = pDataPack->ypData[1];
+	bagId = *((int*)pDataPack->ypData[0]);
 }
 
 void* GBDTTask::ProcessTask(void* pInputParam)
@@ -45,13 +45,15 @@ void* GBDTTask::ProcessTask(void* pInputParam)
 	TaskParam *pTaskParam = (TaskParam*)pInputParam;
 	cudaStream_t *pStream_gbdt = pTaskParam->pCudaStream;
 	CUcontext *context = pTaskParam->pCudaContext;
+	int bagId;
+	UnpackData(pTaskParam->pDataPack, bagId);
 	cuCtxSetCurrent(*context);
 	cudaStreamSynchronize(*pStream_gbdt);
 
 	DeviceSplitter splitter;
 	DeviceTrainer trainer(&splitter);
 	vector<RegTree> v_Tree;
-	trainer.TrainGBDT(v_Tree, pStream_gbdt);
+	trainer.TrainGBDT(v_Tree, pStream_gbdt, bagId);
 
 	cout << "saved to file" << endl;
 	trainer.SaveModel("tree.txt", v_Tree);

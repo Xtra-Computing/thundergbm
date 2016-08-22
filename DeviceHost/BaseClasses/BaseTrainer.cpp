@@ -45,7 +45,7 @@ void BaseTrainer::InitTrainer(int nNumofTree, int nMaxDepth, double fLabda, doub
 /**
  * @brief: training GBDTs
  */
-void BaseTrainer::TrainGBDT(vector<RegTree> & vTree, void *pStream)
+void BaseTrainer::TrainGBDT(vector<RegTree> & vTree, void *pStream, int bagId)
 {
 	clock_t begin_gd, begin_grow;
 	clock_t end_gd, end_grow;
@@ -70,11 +70,11 @@ void BaseTrainer::TrainGBDT(vector<RegTree> & vTree, void *pStream)
 		{
 			((HostSplitter*)splitter)->m_vPredBuffer = m_vPredBuffer;
 			((HostSplitter*)splitter)->m_vTrueValue = m_vTrueValue;
-			splitter->ComputeGD(vTree, m_vvInsSparse, NULL);
+			splitter->ComputeGD(vTree, m_vvInsSparse, NULL, 0);
 			m_vPredBuffer = ((HostSplitter*)splitter)->m_vPredBuffer;
 		}
 		else
-			splitter->ComputeGD(vTree, m_vvInsSparse, pStream);
+			splitter->ComputeGD(vTree, m_vvInsSparse, pStream, bagId);
 		end_gd = clock();
 		total_gd += (double(end_gd - begin_gd) / CLOCKS_PER_SEC);
 

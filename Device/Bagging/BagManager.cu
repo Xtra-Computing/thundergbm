@@ -30,7 +30,14 @@ int *BagManager::m_pInsIdToNodeId = NULL;
 int *BagManager::m_pInsWeight_d = NULL;
 TreeNode *BagManager::m_pAllTreeEachBag = NULL;
 
-float_point *BagManager::m_pTargetValueEachBag = NULL;
+//for gd/hessian computation
+//memory for initialisation
+float_point *BagManager::m_pGDBlockSumEachBag = NULL;	//for initialising root node
+float_point *BagManager::m_pHessBlockSumEachBag = NULL;//for initialising root node
+float_point *BagManager::m_pPredBufferEachBag = NULL;
+float_point *BagManager::m_pdDenseInsEachBag = NULL;
+float_point *BagManager::m_pdTrueTargetValueEachBag = NULL;	//true target value of each instance
+float_point *BagManager::m_pTargetValueEachBag = NULL;	//predicted target value of each instance
 float_point *BagManager::m_pInsGradEachBag = NULL;
 float_point *BagManager::m_pInsHessEachBag = NULL;
 float_point *BagManager::m_pGDEachFvalueEachBag = NULL;		//gd of each feature value
@@ -93,6 +100,9 @@ int BagManager::m_maxNumUsedFeaATree = -1;	//for reserving GPU memory; maximum n
 //temp host variable
 float_point *BagManager::m_pTrueLabel_h = NULL;
 
+int *BagManager::m_pHashFeaIdToDenseInsPosBag = NULL;	//hash map for used feature ids of all trees to the dense instance position
+int *BagManager::m_pSortedUsedFeaIdBag = NULL;			//sorted used feature ids
+
 /**
  * @brief: initialise bag manager
  */
@@ -151,9 +161,15 @@ void BagManager::AllocMem()
 
 	/******* memory for find split ******/
 	//predicted value, gradient, hessian
+	checkCudaErrors(cudaMalloc((void**)&m_pPredBufferEachBag, sizeof(float_point) * m_numIns * m_numBag));
+	checkCudaErrors(cudaMemset(m_pPredBufferEachBag, 0, sizeof(float_point) * m_numIns * m_numBag));
+	checkCudaErrors(cudaMalloc((void**)&m_pdDenseInsEachBag, sizeof(float_point) * m_maxNumUsedFeaATree * m_numIns * m_numBag));
 	checkCudaErrors(cudaMalloc((void**)&m_pTargetValueEachBag, sizeof(float_point) * m_numIns * m_numBag));
+	checkCudaErrors(cudaMalloc((void**)&m_pdTrueTargetValueEachBag, sizeof(float_point) * m_numIns * m_numBag));
 	checkCudaErrors(cudaMalloc((void**)&m_pInsGradEachBag, sizeof(float_point) * m_numIns * m_numBag));
 	checkCudaErrors(cudaMalloc((void**)&m_pInsHessEachBag, sizeof(float_point) * m_numIns * m_numBag));
+	checkCudaErrors(cudaMalloc((void**)&m_pGDBlockSumEachBag, sizeof(float_point) * ceil(m_numIns / 64.0)  * m_numBag));//64 is the min # of elements for a block sum
+	checkCudaErrors(cudaMalloc((void**)&m_pHessBlockSumEachBag, sizeof(float_point) * ceil(m_numIns / 64.0)  * m_numBag));
 
 	//gradient and hessian prefix sum
 	checkCudaErrors(cudaMalloc((void**)&m_pGDEachFvalueEachBag, sizeof(float_point) * m_numFeaValue * m_numBag));
@@ -225,6 +241,11 @@ void BagManager::AllocMem()
 	m_pNodeTreeOnTrainingEachBagHost = new TreeNode[m_maxNumNode * m_numBag];
 	//for final trees
 	checkCudaErrors(cudaMalloc((void**)&m_pAllTreeEachBag, sizeof(TreeNode) * m_maxNumNode * m_numBag));
+
+	//for the currently constructed tree
+	checkCudaErrors(cudaMalloc((void**)&m_pHashFeaIdToDenseInsPosBag, sizeof(int) * m_maxNumUsedFeaATree * m_numBag));
+	checkCudaErrors(cudaMemset(m_pHashFeaIdToDenseInsPosBag, -1, sizeof(int) * m_maxNumUsedFeaATree * m_numBag));
+	checkCudaErrors(cudaMalloc((void**)&m_pSortedUsedFeaIdBag, sizeof(int) * m_maxNumUsedFeaATree * m_numBag));
 
 	/***** memory for others******/
 	checkCudaErrors(cudaMalloc((void**)&m_pSNBufferEachBag, sizeof(TreeNode) * m_maxNumSplittable * m_numBag));

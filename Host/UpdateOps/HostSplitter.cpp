@@ -317,7 +317,7 @@ void HostSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Spli
 /**
  * @brief: predict the value for each instance and compute the gradient for each instance
  */
-void HostSplitter::ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> > & vvInsSparse, void *non)
+void HostSplitter::ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> > & vvInsSparse, void *non, int bagIdZero)
 {
 	vector<float_point> v_fPredValue;
 

@@ -90,7 +90,6 @@ int main(int argc, char *argv[])
 	/********* read training instances from a file **************/
 	int maxNumofUsedFeature = 1000;
 	int maxNumofDenseIns = 1;//###### is later set to the number of instances
-	int maxUsedFeaInTrees = 1000;
 	int numBag = 1;//number of bags for bagging
 
 	//for training
@@ -209,7 +208,7 @@ int main(int argc, char *argv[])
 	PROCESS_ERROR(numFeaValue > 0);
 	memAllocator.m_totalNumofValues = numFeaValue;
 	memAllocator.maxNumofDenseIns = numIns;
-	memAllocator.m_maxUsedFeaInTrees = maxUsedFeaInTrees;
+	memAllocator.m_maxUsedFeaInTrees = maxNumofUsedFeature;
 
 	//allocate memory for instances
 	memAllocator.allocMemForIns(numFeaValue, numIns, numFea);
@@ -273,6 +272,7 @@ int main(int argc, char *argv[])
 	ThreadParam *thdInput = new ThreadParam[numBag];
 	TaskParam *taskParam = new TaskParam[numBag];
 	cudaStream_t *pStream = new cudaStream_t[numBag];
+	DataPack *pDataPack = new DataPack[numBag];
 	int *pThreadStatus = new int[numBag];
 	vector<pthread_t> vTid;
 	for(int bag = 0; bag < numBag; bag++)
@@ -288,6 +288,13 @@ int main(int argc, char *argv[])
 		taskParam[bag].pResult = NULL;
 		thdInput[bag].pObj = &gbdtTask;
 		thdInput[bag].pThdParam = &taskParam[bag];
+		pDataPack[bag].nNumofSeg = 1;
+		pDataPack[bag].pnSizeofSeg = new int[1];
+		pDataPack[bag].pnSizeofSeg[0] = 1;
+		pDataPack[bag].ypData = new char*[1];
+		pDataPack[bag].ypData[0] = new char[4];
+		memcpy(pDataPack[bag].ypData[0], &bag, sizeof(int));
+		taskParam[bag].pDataPack = &pDataPack[bag];
 
 		pthread_attr_t attr;
 		pthread_t tid = -1;//cpu thread id
@@ -320,6 +327,7 @@ int main(int argc, char *argv[])
 	cout << "total training time (-extra idx comp) = " << total_train - total_copy_indexCom << endl;
 	double total_all = (double(end_whole - begin_whole) / CLOCKS_PER_SEC);
 	cout << "all sec = " << total_all << endl;
+	cout << "Done" << endl;
 
 
 	memAllocator.releaseHostMemory();

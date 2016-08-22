@@ -40,7 +40,11 @@ public:
 	static TreeNode *m_pAllTreeEachBag;
 
 	//for gradient and hessian
+	static float_point *m_pGDBlockSumEachBag, *m_pHessBlockSumEachBag;//memory for initialisation the root node
+	static float_point *m_pPredBufferEachBag;
+	static float_point *m_pdDenseInsEachBag;
 	static float_point *m_pTargetValueEachBag;
+	static float_point *m_pdTrueTargetValueEachBag;
 	static float_point *m_pInsGradEachBag, *m_pInsHessEachBag;
 	static float_point *m_pGDEachFvalueEachBag, *m_pHessEachFvalueEachBag;
 	static float_point *m_pGDPrefixSumEachBag, *m_pHessPrefixSumEachBag;
@@ -96,6 +100,10 @@ public:
 	static int *m_pUniqueFeaIdVecEachBag;
 	static int *m_pNumofUniqueFeaIdEachBag;
 	static int m_maxNumUsedFeaATree;
+
+	//for used features of the currently constructed tree
+	static int *m_pHashFeaIdToDenseInsPosBag;
+	static int *m_pSortedUsedFeaIdBag;
 
 	//temp memory
 	static float_point *m_pTrueLabel_h;

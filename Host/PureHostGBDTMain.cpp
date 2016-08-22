@@ -58,7 +58,7 @@ int mainPureHost(string strFileName)
 	clock_t end_init = clock();
 
 	clock_t start_train_time = clock();
-	trainer.TrainGBDT(v_Tree, NULL);
+	trainer.TrainGBDT(v_Tree, NULL, 0);
 	clock_t end_train_time = clock();
 
 	end_whole = clock();

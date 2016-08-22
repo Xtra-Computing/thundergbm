@@ -35,7 +35,7 @@ public:
 	virtual void FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat> &tempStat, vector<nodeStat> &lchildStat);
 	virtual void SplitAll(vector<TreeNode*> &splittableNode, const vector<SplitPoint> &vBest, RegTree &tree, int &m_nNumofNode,
 				  	  	  const vector<nodeStat> &rchildStat, const vector<nodeStat> &lchildStat, bool bLastLevel);
-	virtual void ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> > &vvInsSparse, void *);
+	virtual void ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> > &vvInsSparse, void *, int bagId);
 	void ComputeGDSparse(vector<float_point> &v_fPredValue, vector<float_point> &m_vTrueValue_fixedPos);
 };
 
