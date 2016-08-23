@@ -34,7 +34,7 @@ public:
 	//device memory
 	static cudaStream_t *m_pStream;
 	static TreeNode *m_pSNBufferEachBag;
-	static int *m_pInsIdToNodeId;
+	static int *m_pInsIdToNodeIdEachBag;
 	static int *m_pInsWeight_d;
 
 	static TreeNode *m_pAllTreeEachBag;

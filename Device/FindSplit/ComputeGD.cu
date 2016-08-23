@@ -40,7 +40,7 @@ void DeviceSplitter::ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> >
 	PROCESS_ERROR(numofUsedFea <= manager.m_maxUsedFeaInTrees);
 	int *pHashUsedFea = NULL;
 	int *pSortedUsedFea = NULL;
-	pred.GetUsedFeature(denseInsConverter.usedFeaSet, pHashUsedFea, pSortedUsedFea);
+	pred.GetUsedFeature(denseInsConverter.usedFeaSet, pHashUsedFea, pSortedUsedFea, bagId);
 
 	//for each tree
 	int nNumofTree = vTree.size();

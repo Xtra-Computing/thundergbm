@@ -26,7 +26,7 @@ int BagManager::m_maxNumSplittable = -1;
 //device memory
 cudaStream_t *BagManager::m_pStream = NULL;
 TreeNode *BagManager::m_pSNBufferEachBag = NULL;
-int *BagManager::m_pInsIdToNodeId = NULL;
+int *BagManager::m_pInsIdToNodeIdEachBag = NULL;	//instance to node id
 int *BagManager::m_pInsWeight_d = NULL;
 TreeNode *BagManager::m_pAllTreeEachBag = NULL;
 
@@ -147,7 +147,7 @@ void BagManager::InitBagManager(int numIns, int numFea, int numTree, int numBag,
 	//initialise device memory
 	GPUMemManager manager;
 	manager.MemcpyHostToDevice(m_pInsWeight, m_pInsWeight_d, sizeof(int) * m_numIns * m_numBag);
-	manager.Memset(m_pInsIdToNodeId, 0, sizeof(int) * m_numIns * m_numBag);
+	manager.Memset(m_pInsIdToNodeIdEachBag, 0, sizeof(int) * m_numIns * m_numBag);
 }
 
 /**
@@ -156,7 +156,7 @@ void BagManager::InitBagManager(int numIns, int numFea, int numTree, int numBag,
 void BagManager::AllocMem()
 {
 	//instance information for each bag
-	checkCudaErrors(cudaMalloc((void**)&m_pInsIdToNodeId, sizeof(int) * m_numIns * m_numBag));
+	checkCudaErrors(cudaMalloc((void**)&m_pInsIdToNodeIdEachBag, sizeof(int) * m_numIns * m_numBag));
 	checkCudaErrors(cudaMalloc((void**)&m_pInsWeight_d, sizeof(int) * m_numIns * m_numBag));
 
 	/******* memory for find split ******/
@@ -254,7 +254,7 @@ void BagManager::AllocMem()
 void BagManager::FreeMem()
 {
 	cudaFree(m_pSNBufferEachBag);
-	cudaFree(m_pInsIdToNodeId);
+	cudaFree(m_pInsIdToNodeIdEachBag);
 	cudaFree(m_pInsWeight_d);
 	cudaFree(m_pAllTreeEachBag);
 	cudaFree(m_pTargetValueEachBag);

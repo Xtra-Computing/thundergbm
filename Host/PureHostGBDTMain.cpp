@@ -81,7 +81,7 @@ int mainPureHost(string strFileName)
 	vector<float_point> v_fPredValue;
 
 	begin_pre = clock();
-	pred.PredictSparseIns(v_vInsSparse, v_Tree, v_fPredValue);
+	pred.PredictSparseIns(v_vInsSparse, v_Tree, v_fPredValue, -1);
 	end_pre = clock();
 	double prediction_time = (double(end_pre - begin_pre) / CLOCKS_PER_SEC);
 	cout << "prediction sec = " << prediction_time << endl;

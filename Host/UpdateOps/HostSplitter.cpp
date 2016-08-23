@@ -26,7 +26,7 @@ using std::endl;
 /**
  * @brief: efficient best feature finder
  */
-void HostSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat> &rchildStat, vector<nodeStat> &lchildStat)
+void HostSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat> &rchildStat, vector<nodeStat> &lchildStat, void *pStream, int bagId)
 {
 	const float rt_2eps = 2.0 * rt_eps;
 	double min_child_weight = 1.0;//follow xgboost
@@ -135,7 +135,7 @@ void HostSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat> 
  * @brief: split all splittable nodes of the current level
  */
 void HostSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<SplitPoint> &vBest, RegTree &tree, int &m_nNumofNode,
-		 	 	 	    const vector<nodeStat> &rchildStat, const vector<nodeStat> &lchildStat, bool bLastLevel)
+		 	 	 	    const vector<nodeStat> &rchildStat, const vector<nodeStat> &lchildStat, bool bLastLevel, void *pStream, int bagId)
 {
 	int preMaxNodeId = m_nNumofNode - 1;
 

@@ -12,6 +12,7 @@
 #include "Memory/gbdtGPUMemManager.h"
 #include "Memory/SNMemManager.h"
 #include "Memory/dtMemManager.h"
+#include "Bagging/BagManager.h"
 
 #define testing
 //#undef testing
@@ -47,6 +48,8 @@ void DeviceTrainer::InitTree(RegTree &tree)
 	//all instances belong to the root node
 	GBDTGPUMemManager manager;
 	cudaMemset(manager.m_pInsIdToNodeId, 0, sizeof(int) * manager.m_numofIns);
+	BagManager bagManager;
+	cudaMemset(bagManager.m_pInsIdToNodeIdEachBag, 0, sizeof(int) * manager.m_numofIns);
 }
 
 /**
@@ -65,19 +68,21 @@ void DeviceTrainer::ReleaseTree(vector<RegTree> &v_Tree)
 /**
  * @brief: grow the tree by splitting nodes to the full extend
  */
-void DeviceTrainer::GrowTree(RegTree &tree)
+void DeviceTrainer::GrowTree(RegTree &tree, void *pStream, int bagId)
 {
 	int nNumofSplittableNode = 0;
 
 	clock_t init_start = clock();
 	//copy the root node to GPU
+	BagManager bagManager;
 	GBDTGPUMemManager manager;
 	SNGPUManager snManager;
 //	snManager.resetForNextTree();//reset tree nodes to default value
 
 	InitRootNode<<<1, 1>>>(snManager.m_pTreeNode, snManager.m_pCurNumofNode_d);
 
-	manager.MemcpyDeviceToDevice(snManager.m_pTreeNode, manager.m_pSplittableNode, sizeof(TreeNode));
+	//manager.MemcpyDeviceToDevice(snManager.m_pTreeNode, manager.m_pSplittableNode, sizeof(TreeNode));
+	manager.MemcpyDeviceToDevice(snManager.m_pTreeNode, bagManager.m_pSplittableNodeEachBag + bagId, sizeof(TreeNode));
 	clock_t init_end = clock();
 	total_init_t += (init_end - init_start);
 
@@ -113,7 +118,7 @@ void DeviceTrainer::GrowTree(RegTree &tree)
 		clock_t begin_find_fea = clock();
 
 		if(nCurDepth < m_nMaxDepth)//don't need to find split for the last level
-			splitter->FeaFinderAllNode(vBest, rchildStat, lchildStat);
+			splitter->FeaFinderAllNode(vBest, rchildStat, lchildStat, pStream, bagId);
 
 		clock_t end_find_fea = clock();
 		total_find_fea_t += (double(end_find_fea - begin_find_fea) / CLOCKS_PER_SEC);
@@ -128,7 +133,7 @@ void DeviceTrainer::GrowTree(RegTree &tree)
 		manager.MemcpyDeviceToHost(snManager.m_pCurNumofNode_d, &curNumofNode, sizeof(int));
 		PROCESS_ERROR(curNumofNode > 0);
 //		cout << "splitting" << endl;
-		splitter->SplitAll(splittableNode, vBest, tree, curNumofNode, rchildStat, lchildStat, bLastLevel);
+		splitter->SplitAll(splittableNode, vBest, tree, curNumofNode, rchildStat, lchildStat, bLastLevel, pStream, bagId);
 //		cout << "done splitting" << endl;
 
 		manager.MemcpyDeviceToHost(snManager.m_pNumofNewNode, &manager.m_curNumofSplitable, sizeof(int));

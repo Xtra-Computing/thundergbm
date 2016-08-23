@@ -20,7 +20,7 @@ public:
 	virtual void ReleaseTree(vector<RegTree> &v_Tree);
 protected:
 	virtual void InitTree(RegTree &tree);
-	virtual void GrowTree(RegTree &tree);
+	virtual void GrowTree(RegTree &tree, void *pStream, int bagId);
 };
 
 

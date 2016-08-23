@@ -261,7 +261,8 @@ int main(int argc, char *argv[])
 	delete []plInsStartPos;
 
 	//copy true labels to gpu memory
-	memAllocator.MemcpyHostToDevice(pTrueLabel, memAllocator.m_pdTrueTargetValue, numIns * sizeof(float_point));
+//	memAllocator.MemcpyHostToDevice(pTrueLabel, memAllocator.m_pdTrueTargetValue, numIns * sizeof(float_point));//###should be removed
+	memAllocator.MemcpyHostToDevice(pTrueLabel, bagManager.m_pdTrueTargetValueEachBag, numIns * sizeof(float_point));
 
 	//training trees
 	vector<RegTree> v_Tree;

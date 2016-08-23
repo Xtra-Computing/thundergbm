@@ -80,7 +80,7 @@ void BaseTrainer::TrainGBDT(vector<RegTree> & vTree, void *pStream, int bagId)
 
 		//grow the tree
 		begin_grow = clock();
-		GrowTree(tree);
+		GrowTree(tree, pStream, bagId);
 		end_grow = clock();
 		total_grow += (double(end_grow - begin_grow) / CLOCKS_PER_SEC);
 

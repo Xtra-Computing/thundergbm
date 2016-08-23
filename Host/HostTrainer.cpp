@@ -11,7 +11,7 @@
 /**
  * @brief: grow the tree by splitting nodes to the full extend
  */
-void HostTrainer::GrowTree(RegTree &tree)
+void HostTrainer::GrowTree(RegTree &tree, void *pStream, int bagId)
 {
 	//start splitting this tree from the root node
 	vector<TreeNode*> splittableNode;
@@ -36,7 +36,7 @@ void HostTrainer::GrowTree(RegTree &tree)
 
 		//efficient way to find the best split
 		clock_t begin_find_fea = clock();
-		splitter->FeaFinderAllNode(vBest, rchildStat, lchildStat);
+		splitter->FeaFinderAllNode(vBest, rchildStat, lchildStat, pStream, bagId);
 
 		clock_t end_find_fea = clock();
 		total_find_fea_t += (double(end_find_fea - begin_find_fea) / CLOCKS_PER_SEC);
@@ -46,7 +46,7 @@ void HostTrainer::GrowTree(RegTree &tree)
 		bool bLastLevel = false;
 		if(nCurDepth == m_nMaxDepth)
 			bLastLevel = true;
-		splitter->SplitAll(splittableNode, vBest, tree, m_nNumofNode, rchildStat, lchildStat, bLastLevel);
+		splitter->SplitAll(splittableNode, vBest, tree, m_nNumofNode, rchildStat, lchildStat, bLastLevel, pStream, bagId);
 		clock_t end_split_t = clock();
 		total_split_t += (double(end_split_t - start_split_t) / CLOCKS_PER_SEC);
 
