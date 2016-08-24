@@ -64,7 +64,7 @@ void HostTrainer::GrowTree(RegTree &tree, void *pStream, int bagId)
 /**
  * @brief: initialise tree
  */
-void HostTrainer::InitTree(RegTree &tree)
+void HostTrainer::InitTree(RegTree &tree, int bagId)
 {
 	TreeNode *root = new TreeNode[1];
 	m_nNumofNode = 1;

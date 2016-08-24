@@ -21,7 +21,7 @@
 /**
  * @brief: initialise tree
  */
-void DeviceTrainer::InitTree(RegTree &tree)
+void DeviceTrainer::InitTree(RegTree &tree, int bagId)
 {
 	#ifdef _COMPARE_HOST
 	TreeNode *root = new TreeNode[1];
@@ -49,7 +49,7 @@ void DeviceTrainer::InitTree(RegTree &tree)
 	GBDTGPUMemManager manager;
 	cudaMemset(manager.m_pInsIdToNodeId, 0, sizeof(int) * manager.m_numofIns);
 	BagManager bagManager;
-	cudaMemset(bagManager.m_pInsIdToNodeIdEachBag, 0, sizeof(int) * manager.m_numofIns);
+	cudaMemset(bagManager.m_pInsIdToNodeIdEachBag + bagId, 0, sizeof(int) * manager.m_numofIns);
 }
 
 /**
@@ -76,18 +76,20 @@ void DeviceTrainer::GrowTree(RegTree &tree, void *pStream, int bagId)
 	//copy the root node to GPU
 	BagManager bagManager;
 	GBDTGPUMemManager manager;
-	SNGPUManager snManager;
+//	SNGPUManager snManager;
 //	snManager.resetForNextTree();//reset tree nodes to default value
 
-	InitRootNode<<<1, 1>>>(snManager.m_pTreeNode, snManager.m_pCurNumofNode_d);
+	InitRootNode<<<1, 1>>>(//snManager.m_pTreeNode, snManager.m_pCurNumofNode_d);
+							bagManager.m_pNodeTreeOnTrainingEachBag + bagId, bagManager.m_pCurNumofNodeTreeOnTrainingEachBag_d + bagId);
 
 	//manager.MemcpyDeviceToDevice(snManager.m_pTreeNode, manager.m_pSplittableNode, sizeof(TreeNode));
-	manager.MemcpyDeviceToDevice(snManager.m_pTreeNode, bagManager.m_pSplittableNodeEachBag + bagId, sizeof(TreeNode));
+	manager.MemcpyDeviceToDevice(bagManager.m_pNodeTreeOnTrainingEachBag + bagId, bagManager.m_pSplittableNodeEachBag + bagId, sizeof(TreeNode));
 	clock_t init_end = clock();
 	total_init_t += (init_end - init_start);
 
 	nNumofSplittableNode++;
-	manager.m_curNumofSplitable = 1;
+	//manager.m_curNumofSplitable = 1;
+	bagManager.m_curNumofSplitableEachBag_h[bagId] = 1;
 
 	vector<TreeNode*> splittableNode;
 
@@ -107,7 +109,7 @@ void DeviceTrainer::GrowTree(RegTree &tree, void *pStream, int bagId)
 	((DeviceSplitter*)splitter)->total_ins2default_t = 0;
 	((DeviceSplitter*)splitter)->total_update_new_splittable_t = 0;
 #endif
-	while(manager.m_curNumofSplitable > 0 && nCurDepth <= m_nMaxDepth)
+	while(bagManager.m_curNumofSplitableEachBag_h[bagId] > 0 && nCurDepth <= m_nMaxDepth)
 	{
 		splitter->m_nCurDept = nCurDepth;
 //		cout << "splitting " << nCurDepth << " level..." << endl;
@@ -130,13 +132,15 @@ void DeviceTrainer::GrowTree(RegTree &tree, void *pStream, int bagId)
 			bLastLevel = true;
 
 		int curNumofNode = -1;
-		manager.MemcpyDeviceToHost(snManager.m_pCurNumofNode_d, &curNumofNode, sizeof(int));
+		//manager.MemcpyDeviceToHost(snManager.m_pCurNumofNode_d, &curNumofNode, sizeof(int));
+		manager.MemcpyDeviceToHost(bagManager.m_pCurNumofNodeTreeOnTrainingEachBag_d + bagId, &curNumofNode, sizeof(int));
 		PROCESS_ERROR(curNumofNode > 0);
 //		cout << "splitting" << endl;
 		splitter->SplitAll(splittableNode, vBest, tree, curNumofNode, rchildStat, lchildStat, bLastLevel, pStream, bagId);
 //		cout << "done splitting" << endl;
 
-		manager.MemcpyDeviceToHost(snManager.m_pNumofNewNode, &manager.m_curNumofSplitable, sizeof(int));
+		//manager.MemcpyDeviceToHost(snManager.m_pNumofNewNode, &manager.m_curNumofSplitable, sizeof(int));
+		manager.MemcpyDeviceToHost(bagManager.m_pNumofNewNodeTreeOnTrainingEachBag + bagId, bagManager.m_curNumofSplitableEachBag_h + bagId, sizeof(int));
 		clock_t end_split_t = clock();
 		total_split_t += (double(end_split_t - start_split_t) / CLOCKS_PER_SEC);
 //		cout << "number of new/splittable nodes is " << manager.m_curNumofSplitable << endl;
@@ -147,10 +151,12 @@ void DeviceTrainer::GrowTree(RegTree &tree, void *pStream, int bagId)
 	//copy tree nodes back to host
 	clock_t begin_prune = clock();
 	int numofNode = 0;
-	manager.MemcpyDeviceToHost(snManager.m_pCurNumofNode_d, &numofNode, sizeof(int));
+	//manager.MemcpyDeviceToHost(snManager.m_pCurNumofNode_d, &numofNode, sizeof(int));
+	manager.MemcpyDeviceToHost(bagManager.m_pCurNumofNodeTreeOnTrainingEachBag_d + bagId, &numofNode, sizeof(int));
 	cout << "number of nodes " << numofNode << endl;
 	TreeNode *pAllNode = new TreeNode[numofNode];
-	manager.MemcpyDeviceToHost(snManager.m_pTreeNode, pAllNode, sizeof(TreeNode) * numofNode);
+	//manager.MemcpyDeviceToHost(snManager.m_pTreeNode, pAllNode, sizeof(TreeNode) * numofNode);
+	manager.MemcpyDeviceToHost(bagManager.m_pNodeTreeOnTrainingEachBag + bagId, pAllNode, sizeof(TreeNode) * numofNode);
 	TreeNode **ypAllNode = new TreeNode*[numofNode];
 	PROCESS_ERROR(tree.nodes.size() == 0);
 	for(int n = 0; n < numofNode; n++)

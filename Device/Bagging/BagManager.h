@@ -72,6 +72,7 @@ public:
 	static nodeStat *m_pTempRChildStatEachBag;
 	static float_point *m_pLastValueEachBag;
 	static int *m_nSNLockEachBag;//a lock for critical region
+	static int *m_curNumofSplitableEachBag_h;
 	//map splittable node to buffer id
 	static int *m_pSNIdToBuffIdEachBag;
 	static int *m_pBuffIdVecEachBag;

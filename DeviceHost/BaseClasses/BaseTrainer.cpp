@@ -62,7 +62,7 @@ void BaseTrainer::TrainGBDT(vector<RegTree> & vTree, void *pStream, int bagId)
 		clock_t start_round = clock();
 		//initialise a tree
 		RegTree tree;
-		InitTree(tree);
+		InitTree(tree, bagId);
 
 		//predict the data by the existing trees
 		begin_gd = clock();

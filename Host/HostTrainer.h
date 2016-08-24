@@ -19,7 +19,7 @@ public:
 	virtual ~HostTrainer(){}
 	virtual void ReleaseTree(vector<RegTree> &v_Tree);
 protected:
-	virtual void InitTree(RegTree &tree);
+	virtual void InitTree(RegTree &tree, int bagId);
 	virtual void GrowTree(RegTree &tree, void *pStream, int bagId);
 };
 

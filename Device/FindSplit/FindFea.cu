@@ -35,11 +35,12 @@ using std::cerr;
 void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat> &rchildStat, vector<nodeStat> &lchildStat, void *pStream, int bagId)
 {
 	GBDTGPUMemManager manager;
-	SNGPUManager snManager;
+//	SNGPUManager snManager;
 	BagManager bagManager;
-	int numofSNode = manager.m_curNumofSplitable;
+//	int numofSNode = manager.m_curNumofSplitable;
+	int numofSNode = bagManager.m_curNumofSplitableEachBag_h[bagId];
 	int maxNumofSplittable = manager.m_maxNumofSplittable;
-	cout << bagManager.m_maxNumSplittable << endl;
+//	cout << bagManager.m_maxNumSplittable << endl;
 	int nNumofFeature = manager.m_numofFea;
 	PROCESS_ERROR(nNumofFeature > 0);
 
