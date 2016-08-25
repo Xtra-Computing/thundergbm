@@ -22,6 +22,7 @@ long long BagManager::m_numFeaValue = -1;
 int BagManager::m_numTreeEachBag = -1;
 int BagManager::m_maxNumNode = -1;
 int BagManager::m_maxNumSplittable = -1;
+int BagManager::m_maxTreeDepth = -1;
 
 //device memory
 cudaStream_t *BagManager::m_pStream = NULL;
@@ -43,12 +44,14 @@ float_point *BagManager::m_pInsGradEachBag = NULL;
 float_point *BagManager::m_pInsHessEachBag = NULL;
 float_point *BagManager::m_pGDEachFvalueEachBag = NULL;		//gd of each feature value
 float_point *BagManager::m_pHessEachFvalueEachBag = NULL;	//hessian of each feature value
+float_point *BagManager::m_pDenseFValueEachBag = NULL;		//feature values of consideration (use for computing the split?)
 float_point *BagManager::m_pGDPrefixSumEachBag = NULL;		//gd prefix sum for each feature
 float_point *BagManager::m_pHessPrefixSumEachBag = NULL;	//hessian prefix sum for each feature
 float_point *BagManager::m_pGainEachFvalueEachBag = NULL;	//gain for each feature value of each bag
 //for finding the best split
 float_point *BagManager::m_pfLocalBestGainEachBag_d = NULL;	//local best gain of each bag
 int *BagManager::m_pnLocalBestGainKeyEachBag_d = NULL;		//local best gain key of each bag
+int BagManager::m_maxNumofBlockPerNode = -1;				//number of blocks
 float_point *BagManager::m_pfGlobalBestGainEachBag_d = NULL;//global best gain of each bag
 int *BagManager::m_pnGlobalBestGainKeyEachBag_d = NULL;		//global best gain key of each bag
 
@@ -109,7 +112,7 @@ int *BagManager::m_pSortedUsedFeaIdBag = NULL;			//sorted used feature ids
  * @brief: initialise bag manager
  */
 void BagManager::InitBagManager(int numIns, int numFea, int numTree, int numBag, int maxNumSN, int maxNumNode, long long numFeaValue,
-								int maxNumUsedFeaInATree)
+								int maxNumUsedFeaInATree, int maxTreeDepth)
 {
 	PROCESS_ERROR(numIns > 0 && numBag > 0 && maxNumSN > 0 && maxNumNode > 0);
 	m_numIns = numIns;
@@ -121,6 +124,7 @@ void BagManager::InitBagManager(int numIns, int numFea, int numTree, int numBag,
 	m_numTreeEachBag = numTree;
 	m_maxNumSplittable = maxNumSN;
 	m_maxNumNode = maxNumNode;
+	m_maxTreeDepth = maxTreeDepth;
 
 	m_maxNumUsedFeaATree = maxNumUsedFeaInATree;
 
@@ -176,6 +180,7 @@ void BagManager::AllocMem()
 	//gradient and hessian prefix sum
 	checkCudaErrors(cudaMalloc((void**)&m_pGDEachFvalueEachBag, sizeof(float_point) * m_numFeaValue * m_numBag));
 	checkCudaErrors(cudaMalloc((void**)&m_pHessEachFvalueEachBag, sizeof(float_point) * m_numFeaValue * m_numBag));
+	checkCudaErrors(cudaMalloc((void**)&m_pDenseFValueEachBag, sizeof(float_point) * m_numFeaValue * m_numBag));
 	checkCudaErrors(cudaMalloc((void**)&m_pGDPrefixSumEachBag, sizeof(float_point) * m_numFeaValue * m_numBag));
 	checkCudaErrors(cudaMalloc((void**)&m_pHessPrefixSumEachBag, sizeof(float_point) * m_numFeaValue * m_numBag));
 	checkCudaErrors(cudaMalloc((void**)&m_pGainEachFvalueEachBag, sizeof(float_point) * m_numFeaValue * m_numBag));
@@ -184,11 +189,11 @@ void BagManager::AllocMem()
 	dim3 tempNumofBlockLocalBest;
 	KernelConf conf;
 	conf.ConfKernel(m_numFeaValue, blockSizeLocalBest, tempNumofBlockLocalBest);
-	int maxNumofBlockPerNode = tempNumofBlockLocalBest.x * tempNumofBlockLocalBest.y;
-	checkCudaErrors(cudaMalloc((void**)&m_pfLocalBestGainEachBag_d, sizeof(float_point) * maxNumofBlockPerNode * m_maxNumSplittable));
-	checkCudaErrors(cudaMalloc((void**)&m_pnLocalBestGainKeyEachBag_d, sizeof(int) * maxNumofBlockPerNode * m_maxNumSplittable));
-	checkCudaErrors(cudaMalloc((void**)&m_pfGlobalBestGainEachBag_d, sizeof(float_point) * m_maxNumSplittable));
-	checkCudaErrors(cudaMalloc((void**)&m_pnGlobalBestGainKeyEachBag_d, sizeof(int) * m_maxNumSplittable));
+	m_maxNumofBlockPerNode = tempNumofBlockLocalBest.x * tempNumofBlockLocalBest.y;
+	checkCudaErrors(cudaMalloc((void**)&m_pfLocalBestGainEachBag_d, sizeof(float_point) * m_maxNumofBlockPerNode * m_maxNumSplittable * m_numBag));
+	checkCudaErrors(cudaMalloc((void**)&m_pnLocalBestGainKeyEachBag_d, sizeof(int) * m_maxNumofBlockPerNode * m_maxNumSplittable * m_numBag));
+	checkCudaErrors(cudaMalloc((void**)&m_pfGlobalBestGainEachBag_d, sizeof(float_point) * m_maxNumSplittable * m_numBag));
+	checkCudaErrors(cudaMalloc((void**)&m_pnGlobalBestGainKeyEachBag_d, sizeof(int) * m_maxNumSplittable * m_numBag));
 
 	//corresponding to pinned memory; for computing indices of more than one level trees
 	checkCudaErrors(cudaMalloc((void**)&m_pIndicesEachBag_d, sizeof(int) * m_numFeaValue * m_numBag));

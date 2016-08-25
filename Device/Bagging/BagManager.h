@@ -30,6 +30,7 @@ public:
 	static int m_numTreeEachBag;
 	static int m_maxNumNode;
 	static int m_maxNumSplittable;
+	static int m_maxTreeDepth;
 
 	//device memory
 	static cudaStream_t *m_pStream;
@@ -47,11 +48,12 @@ public:
 	static float_point *m_pTargetValueEachBag;
 	static float_point *m_pdTrueTargetValueEachBag;
 	static float_point *m_pInsGradEachBag, *m_pInsHessEachBag;
-	static float_point *m_pGDEachFvalueEachBag, *m_pHessEachFvalueEachBag;
+	static float_point *m_pGDEachFvalueEachBag, *m_pHessEachFvalueEachBag, *m_pDenseFValueEachBag;
 	static float_point *m_pGDPrefixSumEachBag, *m_pHessPrefixSumEachBag;
 	static float_point *m_pGainEachFvalueEachBag;
 	//for finding the best split
 	static float_point *m_pfLocalBestGainEachBag_d;
+	static int m_maxNumofBlockPerNode;
 	static int *m_pnLocalBestGainKeyEachBag_d;
 	static float_point *m_pfGlobalBestGainEachBag_d;
 	static int *m_pnGlobalBestGainKeyEachBag_d;
@@ -112,7 +114,7 @@ public:
 
 public:
 	static void InitBagManager(int numIns, int numFea, int numTree, int numBag, int maxNumSN,
-							   int maxNumNode, long long numFeaValue, int maxNumUsedFeaInATree);
+							   int maxNumNode, long long numFeaValue, int maxNumUsedFeaInATree, int maxTreeDepth);
 
 	static void FreeMem();
 private:

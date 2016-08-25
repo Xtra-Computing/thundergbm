@@ -140,7 +140,7 @@ int main(int argc, char *argv[])
 	//fill the bags
 	BagManager bagManager;
 	bagManager.InitBagManager(numIns, numFea, nNumofTree, numBag, maxNumofSplittableNode,
-							  maxNumofNodePerTree, numFeaValue, maxNumofUsedFeature);
+							  maxNumofNodePerTree, numFeaValue, maxNumofUsedFeature, nMaxDepth);
 
 	start_init = clock();
 	trainer.InitTrainer(nNumofTree, nMaxDepth, fLabda, fGamma, numFea, bUsedBuffer);
@@ -200,8 +200,8 @@ int main(int argc, char *argv[])
 	bagManager.m_pTrueLabel_h = pTrueLabel;
 
 	//allocate memory for trees
-	DTGPUMemManager treeMemManager;
-	treeMemManager.allocMemForTrees(nNumofTree, maxNumofNodePerTree, nMaxDepth);
+	//DTGPUMemManager treeMemManager;
+	//treeMemManager.allocMemForTrees(nNumofTree, maxNumofNodePerTree, nMaxDepth);
 
 	//initialise gpu memory allocator
 	GBDTGPUMemManager memAllocator;
@@ -216,11 +216,11 @@ int main(int argc, char *argv[])
 	memAllocator.allocHostMemory();//allocate reusable host memory
 	//allocate numofFeature*numofSplittabeNode
 
-	SNGPUManager snManger;
-	snManger.allocMemForTree(maxNumofNodePerTree);//reserve memory for the tree
-	snManger.allocMemForParenChildIdMapping(maxNumofSplittableNode);
-	snManger.allocMemForNewNode(maxNumofSplittableNode);
-	snManger.allocMemForUsedFea(maxNumofUsedFeature);//use in splitting all nodes process
+	//SNGPUManager snManger;
+	//snManger.allocMemForTree(maxNumofNodePerTree);//reserve memory for the tree
+	//snManger.allocMemForParenChildIdMapping(maxNumofSplittableNode);
+	//snManger.allocMemForNewNode(maxNumofSplittableNode);
+	//snManger.allocMemForUsedFea(maxNumofUsedFeature);//use in splitting all nodes process
 
 	FFMemManager ffManager;
 	ffManager.m_totalNumFeaValue = numFeaValue;

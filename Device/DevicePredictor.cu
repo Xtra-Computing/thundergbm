@@ -27,7 +27,7 @@ void DevicePredictor::PredictSparseIns(vector<vector<KeyValue> > &v_vInstance, v
 {
 	BagManager bagManager;
 	GBDTGPUMemManager manager;
-	DTGPUMemManager treeManager;
+	//DTGPUMemManager treeManager;
 	DenseInsConverter denseInsConverter(vTree);
 	int numofUsedFea = denseInsConverter.usedFeaSet.size();
 
@@ -107,7 +107,7 @@ void DevicePredictor::PredictSparseIns(vector<vector<KeyValue> > &v_vInstance, v
 													//manager.m_pdDenseIns, numofUsedFea,
 													bagManager.m_pdDenseInsEachBag + bagId, numofUsedFea,
 													//manager.m_pHashFeaIdToDenseInsPos, treeManager.m_maxTreeDepth);
-													bagManager.m_pHashFeaIdToDenseInsPosBag + bagId, treeManager.m_maxTreeDepth);
+													bagManager.m_pHashFeaIdToDenseInsPosBag + bagId, bagManager.m_maxTreeDepth);
 		cudaDeviceSynchronize();
 	}
 

@@ -50,7 +50,7 @@ void DeviceSplitter::ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> >
 	//the last learned tree
 	int numofNodeOfLastTree = 0;
 	TreeNode *pLastTree = NULL;
-	DTGPUMemManager treeManager;
+	//DTGPUMemManager treeManager;
 	//int numofTreeLearnt = treeManager.m_numofTreeLearnt;
 	int numofTreeLearnt = bagManager.m_pNumofTreeLearntEachBag_h[bagId];
 	int treeId = numofTreeLearnt - 1;
@@ -102,7 +102,7 @@ void DeviceSplitter::ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> >
 		int sharedMemSizeEachIns = 1;
 		PredMultiTarget<<<dimGridThreadForEachIns, sharedMemSizeEachIns>>>(
 											  bagManager.m_pTargetValueEachBag + bagId, numofInsToPre, pLastTree, bagManager.m_pdDenseInsEachBag + bagId,
-											  numofUsedFea, bagManager.m_pHashFeaIdToDenseInsPosBag + bagId, treeManager.m_maxTreeDepth);
+											  numofUsedFea, bagManager.m_pHashFeaIdToDenseInsPosBag + bagId, bagManager.m_maxTreeDepth);
 											  //manager.m_pTargetValue, numofInsToPre, pLastTree, manager.m_pdDenseIns,
 											  //numofUsedFea, manager.m_pHashFeaIdToDenseInsPos, treeManager.m_maxTreeDepth);
 #if testing
