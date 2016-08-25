@@ -22,43 +22,6 @@ __device__ int GetNext(const TreeNode *pNode, float_point feaValue)
     }
 }
 
-__global__ void PredTarget(TreeNode *pAllTreeNode, int totalNode, float_point *pDenseIns, int nNumofFea,
-									   int *pnHashFeaIdToPos, float_point *pdTargetValue, int maxDepth)
-{
-	int pid = 0; //node id
-	TreeNode *curNode = pAllTreeNode + pid;
-	if(curNode->nodeId != 0)
-	{
-		printf("id of root node is %d should be 0\n", curNode->nodeId);
-		return;
-	}
-	int counter = 0;
-	while(curNode->featureId != -1)//!curNode->isLeaf()
-	{
-		int fid = curNode->featureId;
-		ErrorChecker(fid, __PRETTY_FUNCTION__, "fid < 0");
-
-		int maxNumofUsedFea = nNumofFea;
-		int pos = GetBufferId(pnHashFeaIdToPos, fid, maxNumofUsedFea);
-//		printf("%d hash to %d: fea v=%f\n", fid, pos, pDenseIns[pos]);
-
-		if(pos < nNumofFea)//feature value is available in the dense vector
-			pid = GetNext(curNode, pDenseIns[pos]);
-		else//feature value is stored in the dense vector (due to truncating)
-			pid = GetNext(curNode, 0);
-		curNode = pAllTreeNode + pid;
-
-		counter++;
-		if(counter > maxDepth)//for skipping from deadlock
-		{
-			printf("%s has bugs\n", __PRETTY_FUNCTION__);
-			break;
-		}
-	}
-
-	pdTargetValue[0] += pAllTreeNode[pid].predValue;
-}
-
 __global__ void FillDense(const float_point *pdSparseInsValue, const int *pnSpareInsFeaId, int numofFeaValue,
 						  float_point *pdDenseIns, const int *pSortedUsedFea, const int *pHashFeaIdToDenseInsPos, int totalUsedFea)
 {

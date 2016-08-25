@@ -13,7 +13,7 @@
 /**
  * @brief: prediction function for sparse instances
  */
-void HostPredictor::PredictSparseIns(vector<vector<KeyValue> > &v_vInstance, vector<RegTree> &vTree, vector<float_point> &v_fPredValue, int bagId)
+void HostPredictor::PredictSparseIns(vector<vector<KeyValue> > &v_vInstance, vector<RegTree> &vTree, vector<float_point> &v_fPredValue, void *pStream, int bagId)
 {
 	DenseInsConverter denseInsConverter(vTree);
 	//for each tree

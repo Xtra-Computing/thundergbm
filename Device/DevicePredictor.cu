@@ -23,7 +23,7 @@
 /**
  * @brief: prediction function for sparse instances
  */
-void DevicePredictor::PredictSparseIns(vector<vector<KeyValue> > &v_vInstance, vector<RegTree> &vTree, vector<float_point> &v_fPredValue, int bagId)
+void DevicePredictor::PredictSparseIns(vector<vector<KeyValue> > &v_vInstance, vector<RegTree> &vTree, vector<float_point> &v_fPredValue, void *pStream, int bagId)
 {
 	BagManager bagManager;
 	GBDTGPUMemManager manager;
@@ -48,8 +48,9 @@ void DevicePredictor::PredictSparseIns(vector<vector<KeyValue> > &v_vInstance, v
 
 	//for each tree
 	int nNumofIns = manager.m_numofIns;
-	int nNumofTree = treeManager.m_numofTreeLearnt;
-	PROCESS_ERROR(treeManager.m_numofTree == treeManager.m_numofTreeLearnt);
+	//int nNumofTree = treeManager.m_numofTreeLearnt;
+	int nNumofTree = bagManager.m_pNumofTreeLearntEachBag_h[bagId];
+	//PROCESS_ERROR(treeManager.m_numofTree == treeManager.m_numofTreeLearnt);
 	PROCESS_ERROR(nNumofTree > 0);
 
 	//start prediction
@@ -98,7 +99,7 @@ void DevicePredictor::PredictSparseIns(vector<vector<KeyValue> > &v_vInstance, v
 		TreeNode *pTree = NULL;
 
 		int treeId = t;
-		GetTreeInfo(pTree, numofNodeOfTheTree, treeId);
+		GetTreeInfo(pTree, numofNodeOfTheTree, treeId, pStream, bagId);
 		PROCESS_ERROR(pTree != NULL);
 		PredMultiTarget<<<dimNumofBlock, threadPerBlock>>>(
 													//manager.m_pTargetValue, numofInsToFill, pTree,
@@ -160,15 +161,19 @@ void DevicePredictor::GetUsedFeature(vector<int> &v_usedFeaSortedId, int *&pHash
 /**
  * @brief: get the pointer to the tree and its number of nodes
  */
-void DevicePredictor::GetTreeInfo(TreeNode *&pTree, int &numofNodeOfTheTree, int treeId)
+void DevicePredictor::GetTreeInfo(TreeNode *&pTree, int &numofNodeOfTheTree, int treeId, void *pStream, int bagId)
 {
 	if(treeId < 0)
 		return;
-	DTGPUMemManager treeManager;
+	//DTGPUMemManager treeManager;
 	GBDTGPUMemManager manager;
-	manager.MemcpyDeviceToHost(treeManager.m_pNumofNodeEachTree + treeId, &numofNodeOfTheTree, sizeof(int));
+	BagManager bagManager;
+	//manager.MemcpyDeviceToHost(treeManager.m_pNumofNodeEachTree + treeId, &numofNodeOfTheTree, sizeof(int));
+	manager.MemcpyDeviceToHost(bagManager.m_pNumofNodeEachTreeEachBag + bagId * bagManager.m_numTreeEachBag + treeId, &numofNodeOfTheTree, sizeof(int));
 	int startPosOfLastTree = -1;
-	manager.MemcpyDeviceToHost(treeManager.m_pStartPosOfEachTree + treeId, &startPosOfLastTree, sizeof(int));
-	pTree = treeManager.m_pAllTree + startPosOfLastTree;
+	//manager.MemcpyDeviceToHost(treeManager.m_pStartPosOfEachTree + treeId, &startPosOfLastTree, sizeof(int));
+	manager.MemcpyDeviceToHost(bagManager.m_pStartPosOfEachTreeEachBag + bagId * bagManager.m_numTreeEachBag + treeId, &startPosOfLastTree, sizeof(int));
+	//pTree = treeManager.m_pAllTree + startPosOfLastTree;
+	pTree = bagManager.m_pAllTreeEachBag + startPosOfLastTree;
 
 }

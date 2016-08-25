@@ -37,6 +37,7 @@ public:
 	static int *m_pInsIdToNodeIdEachBag;
 	static int *m_pInsWeight_d;
 
+	static int *m_pNumofTreeLearntEachBag_h;
 	static TreeNode *m_pAllTreeEachBag;
 
 	//for gradient and hessian

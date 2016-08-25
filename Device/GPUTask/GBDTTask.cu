@@ -65,7 +65,7 @@ void* GBDTTask::ProcessTask(void* pInputParam)
 
 	begin_pre = clock();
 	vector<vector<KeyValue> > dummy;
-	pred.PredictSparseIns(dummy, v_Tree, v_fPredValue, bagId);
+	pred.PredictSparseIns(dummy, v_Tree, v_fPredValue, pStream_gbdt, bagId);
 	end_pre = clock();
 	double prediction_time = (double(end_pre - begin_pre) / CLOCKS_PER_SEC);
 	cout << "prediction sec = " << prediction_time << endl;

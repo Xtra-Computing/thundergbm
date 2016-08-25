@@ -168,7 +168,7 @@ void DeviceTrainer::GrowTree(RegTree &tree, void *pStream, int bagId)
 	delete []ypAllNode;
 	//########### can be improved by storing only the valid nodes afterwards
 
-	StoreFinalTree(pAllNode, numofNode);
+	StoreFinalTree(pAllNode, numofNode, pStream, bagId);
 
 #ifdef testing
 	clock_t end_prune = clock();
@@ -204,28 +204,37 @@ void DeviceTrainer::GrowTree(RegTree &tree, void *pStream, int bagId)
 /**
  * @brief: store the tree learned at this round to GPU memory
  */
-void DeviceTrainer::StoreFinalTree(TreeNode *pAllNode, int numofNode)
+void DeviceTrainer::StoreFinalTree(TreeNode *pAllNode, int numofNode, void *pStream, int bagId)
 {
+	BagManager bagManager;
 	GBDTGPUMemManager manager;
-	SNGPUManager snManager;
+	//SNGPUManager snManager;
 	//copy the final tree to GPU memory
-	manager.MemcpyHostToDevice(pAllNode, snManager.m_pTreeNode, sizeof(TreeNode) * numofNode);
+	//manager.MemcpyHostToDevice(pAllNode, snManager.m_pTreeNode, sizeof(TreeNode) * numofNode);
+	manager.MemcpyHostToDevice(pAllNode, bagManager.m_pNodeTreeOnTrainingEachBag + bagId, sizeof(TreeNode) * numofNode);
 
 	//copy the final tree for ensembling
-	DTGPUMemManager treeManager;
-	int numofTreeLearnt = treeManager.m_numofTreeLearnt;
+	//DTGPUMemManager treeManager;
+	int numofTreeLearnt = bagManager.m_pNumofTreeLearntEachBag_h[bagId];
 	int curLearningTreeId = numofTreeLearnt;
-	manager.MemcpyHostToDevice(&numofNode, treeManager.m_pNumofNodeEachTree + curLearningTreeId, sizeof(int));
+	//manager.MemcpyHostToDevice(&numofNode, treeManager.m_pNumofNodeEachTree + curLearningTreeId, sizeof(int));
+	manager.MemcpyHostToDevice(&numofNode, bagManager.m_pNumofNodeEachTreeEachBag + bagId * bagManager.m_numTreeEachBag + curLearningTreeId, sizeof(int));
 	int numofNodePreviousTree = 0;
 	int previousStartPos = 0;
 	if(numofTreeLearnt > 0)
 	{
 		int lastLearntTreeId = numofTreeLearnt - 1;
-		manager.MemcpyDeviceToHost(treeManager.m_pNumofNodeEachTree + lastLearntTreeId, &numofNodePreviousTree, sizeof(int));
-		manager.MemcpyDeviceToHost(treeManager.m_pStartPosOfEachTree + lastLearntTreeId, &previousStartPos, sizeof(int));
+		//manager.MemcpyDeviceToHost(treeManager.m_pNumofNodeEachTree + lastLearntTreeId, &numofNodePreviousTree, sizeof(int));
+		manager.MemcpyDeviceToHost(bagManager.m_pNumofNodeEachTreeEachBag + bagId * bagManager.m_numTreeEachBag + lastLearntTreeId, &numofNodePreviousTree, sizeof(int));
+		//manager.MemcpyDeviceToHost(treeManager.m_pStartPosOfEachTree + lastLearntTreeId, &previousStartPos, sizeof(int));
+		manager.MemcpyDeviceToHost(bagManager.m_pStartPosOfEachTreeEachBag + bagId * bagManager.m_numTreeEachBag + lastLearntTreeId, &previousStartPos, sizeof(int));
 	}
 	int treeStartPos = previousStartPos + numofNodePreviousTree;
-	manager.MemcpyHostToDevice(&treeStartPos, treeManager.m_pStartPosOfEachTree + curLearningTreeId, sizeof(int));
-	manager.MemcpyDeviceToDevice(snManager.m_pTreeNode, treeManager.m_pAllTree + treeStartPos, sizeof(TreeNode) * numofNode);
-	treeManager.m_numofTreeLearnt++;
+	//manager.MemcpyHostToDevice(&treeStartPos, treeManager.m_pStartPosOfEachTree + curLearningTreeId, sizeof(int));
+	manager.MemcpyHostToDevice(&treeStartPos, bagManager.m_pStartPosOfEachTreeEachBag + bagId * bagManager.m_numTreeEachBag + curLearningTreeId, sizeof(int));
+	//manager.MemcpyDeviceToDevice(snManager.m_pTreeNode, treeManager.m_pAllTree + treeStartPos, sizeof(TreeNode) * numofNode);
+	manager.MemcpyDeviceToDevice(bagManager.m_pNodeTreeOnTrainingEachBag + bagId,
+										bagManager.m_pAllTreeEachBag + bagId * bagManager.m_numTreeEachBag + treeStartPos,
+										sizeof(TreeNode) * numofNode);
+	bagManager.m_pNumofTreeLearntEachBag_h[bagId]++;
 }

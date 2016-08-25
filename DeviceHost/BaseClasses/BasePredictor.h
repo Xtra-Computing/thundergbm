@@ -21,7 +21,7 @@ public:
 
 	void PredictSparseInsByLastTree(vector<vector<KeyValue> > &v_vInstance, vector<RegTree> &v_Tree,
 					   	  vector<float_point> &v_fPredValue, vector<float_point> &v_predBuffer);
-	virtual void PredictSparseIns(vector<vector<KeyValue> > &v_vInstance, vector<RegTree> &vTree, vector<float_point> &v_fPredValue, int bagId) = 0;
+	virtual void PredictSparseIns(vector<vector<KeyValue> > &v_vInstance, vector<RegTree> &vTree, vector<float_point> &v_fPredValue, void *pStream, int bagId) = 0;
 };
 
 

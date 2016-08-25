@@ -29,6 +29,7 @@ TreeNode *BagManager::m_pSNBufferEachBag = NULL;
 int *BagManager::m_pInsIdToNodeIdEachBag = NULL;	//instance to node id
 int *BagManager::m_pInsWeight_d = NULL;
 TreeNode *BagManager::m_pAllTreeEachBag = NULL;
+int *BagManager::m_pNumofTreeLearntEachBag_h = NULL;
 
 //for gd/hessian computation
 //memory for initialisation
@@ -242,7 +243,9 @@ void BagManager::AllocMem()
 	//for reseting memory for the next tree
 	m_pNodeTreeOnTrainingEachBagHost = new TreeNode[m_maxNumNode * m_numBag];
 	//for final trees
-	checkCudaErrors(cudaMalloc((void**)&m_pAllTreeEachBag, sizeof(TreeNode) * m_maxNumNode * m_numBag));
+	checkCudaErrors(cudaMalloc((void**)&m_pAllTreeEachBag, sizeof(TreeNode) * m_numTreeEachBag * m_maxNumNode * m_numBag));
+	m_pNumofTreeLearntEachBag_h = new int[m_numBag];
+	memset(m_pNumofTreeLearntEachBag_h, 0, sizeof(int) * m_numBag);
 
 	//for the currently constructed tree
 	checkCudaErrors(cudaMalloc((void**)&m_pHashFeaIdToDenseInsPosBag, sizeof(int) * m_maxNumUsedFeaATree * m_numBag));

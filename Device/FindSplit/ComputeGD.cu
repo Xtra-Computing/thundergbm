@@ -51,9 +51,10 @@ void DeviceSplitter::ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> >
 	int numofNodeOfLastTree = 0;
 	TreeNode *pLastTree = NULL;
 	DTGPUMemManager treeManager;
-	int numofTreeLearnt = treeManager.m_numofTreeLearnt;
+	//int numofTreeLearnt = treeManager.m_numofTreeLearnt;
+	int numofTreeLearnt = bagManager.m_pNumofTreeLearntEachBag_h[bagId];
 	int treeId = numofTreeLearnt - 1;
-	pred.GetTreeInfo(pLastTree, numofNodeOfLastTree, treeId);
+	pred.GetTreeInfo(pLastTree, numofNodeOfLastTree, treeId, pStream, bagId);
 
 	KernelConf conf;
 	//start prediction
