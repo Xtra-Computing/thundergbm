@@ -43,6 +43,7 @@ public:
 
 	//for gradient and hessian
 	static float_point *m_pGDBlockSumEachBag, *m_pHessBlockSumEachBag;//memory for initialisation the root node
+	static int m_numBlockForBlockSum;
 	static float_point *m_pPredBufferEachBag;
 	static float_point *m_pdDenseInsEachBag;
 	static float_point *m_pTargetValueEachBag;

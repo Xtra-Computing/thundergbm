@@ -98,7 +98,7 @@ int main(int argc, char *argv[])
 	double fLabda = 1;//this one is constant in xgboost
 	double fGamma = 1;//minimum loss
 	int maxNumofNodePerTree = pow(2, nMaxDepth + 1) - 1;
-	int maxNumofSplittableNode = pow(2, nMaxDepth);
+	int maxNumofSplittableNode = pow(2, nMaxDepth);//can be "nMaxDepth - 1" but changing causes bugs.
 
 	DevicePredictor pred;
 
@@ -262,7 +262,8 @@ int main(int argc, char *argv[])
 
 	//copy true labels to gpu memory
 //	memAllocator.MemcpyHostToDevice(pTrueLabel, memAllocator.m_pdTrueTargetValue, numIns * sizeof(float_point));//###should be removed
-	memAllocator.MemcpyHostToDevice(pTrueLabel, bagManager.m_pdTrueTargetValueEachBag, numIns * sizeof(float_point));
+	for(int i = 0; i < numBag; i++)
+		memAllocator.MemcpyHostToDevice(pTrueLabel, bagManager.m_pdTrueTargetValueEachBag + i * bagManager.m_numIns, numIns * sizeof(float_point));
 
 	//training trees
 	vector<RegTree> v_Tree;

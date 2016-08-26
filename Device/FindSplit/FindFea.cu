@@ -107,7 +107,8 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 	{
 		clock_t start_gd = clock();
 		LoadGDHessFvalueRoot<<<dimNumofBlockToLoadGD, blockSizeLoadGD>>>(//manager.m_pGrad, manager.m_pHess, manager.m_numofIns,
-															   bagManager.m_pInsGradEachBag + bagId, bagManager.m_pInsHessEachBag + bagId, bagManager.m_numIns,
+															   bagManager.m_pInsGradEachBag + bagId * bagManager.m_numIns,
+															   	   bagManager.m_pInsHessEachBag + bagId * bagManager.m_numIns, bagManager.m_numIns,
 															   manager.m_pDInsId, manager.m_pdDFeaValue, indexComp.m_totalFeaValue,
 															   //ffManager.pGDEachFeaValue, ffManager.pHessEachFeaValue, ffManager.pDenseFeaValue);
 															   bagManager.m_pGDEachFvalueEachBag + bagId * bagManager.m_numFeaValue,
@@ -215,10 +216,11 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 	conf.ConfKernel(numofDenseValue, blockSizeComGain, dimNumofBlockToComGain);
 	ComputeGainDense<<<dimNumofBlockToComGain, blockSizeComGain>>>(
 											//manager.m_pSNodeStat, ffManager.m_pFeaValueStartPosEachNode_d, numofSNode,
-											bagManager.m_pSNodeStatEachBag + bagId, bagManager.m_pFvalueStartPosEachNodeEachBag_d + bagId * bagManager.m_maxNumSplittable,
+											bagManager.m_pSNodeStatEachBag + bagId * bagManager.m_maxNumSplittable,
+												bagManager.m_pFvalueStartPosEachNodeEachBag_d + bagId * bagManager.m_maxNumSplittable,
 												numofSNode,
 											//manager.m_pBuffIdVec,
-											bagManager.m_pBuffIdVecEachBag + bagId,
+											bagManager.m_pBuffIdVecEachBag + bagId * bagManager.m_maxNumSplittable,
 											//DeviceSplitter::m_lambda, ffManager.pGDPrefixSum, ffManager.pHessPrefixSum,
 											DeviceSplitter::m_lambda, bagManager.m_pGDPrefixSumEachBag + bagId * bagManager.m_numFeaValue,
 												bagManager.m_pHessPrefixSumEachBag + bagId * bagManager.m_numFeaValue,
@@ -328,7 +330,7 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 //	cout << "construct split point" << endl;
 	//construct split points; memset for split points
 	//manager.MemcpyHostToDevice(manager.m_pBestPointHost, manager.m_pBestSplitPoint, sizeof(SplitPoint) * maxNumofSplittable);
-	manager.MemcpyHostToDevice(manager.m_pBestPointHost, bagManager.m_pBestSplitPointEachBag + bagId, sizeof(SplitPoint) * maxNumofSplittable);
+	manager.MemcpyHostToDevice(manager.m_pBestPointHost, bagManager.m_pBestSplitPointEachBag + bagId * bagManager.m_maxNumSplittable, sizeof(SplitPoint) * maxNumofSplittable);
 	FindSplitInfo<<<1, numofSNode>>>(//ffManager.m_pEachFeaStartPosEachNode_d, ffManager.m_pEachFeaLenEachNode_d,
 									 bagManager.m_pEachFeaStartPosEachNodeEachBag_d + bagId * bagManager.m_maxNumSplittable * bagManager.m_numFea,
 									 	 bagManager.m_pEachFeaLenEachNodeEachBag_d + bagId * bagManager.m_maxNumSplittable * bagManager.m_numFea,
@@ -337,11 +339,14 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 									 	 bagManager.m_pfGlobalBestGainEachBag_d + bagId * bagManager.m_maxNumSplittable,
 									 	 bagManager.m_pnGlobalBestGainKeyEachBag_d + bagId * bagManager.m_maxNumSplittable,
 				  	  	  	  	  	 //manager.m_pBuffIdVec, nNumofFeature,
-				  	  	  	  	  	 bagManager.m_pBuffIdVecEachBag + bagId, nNumofFeature,
+				  	  	  	  	  	 bagManager.m_pBuffIdVecEachBag + bagId * bagManager.m_maxNumSplittable, nNumofFeature,
 				  	  	  	  	  	 //manager.m_pSNodeStat, ffManager.pGDPrefixSum, ffManager.pHessPrefixSum,
-				  	  	  	  	  	 bagManager.m_pSNodeStatEachBag + bagId, bagManager.m_pGDPrefixSumEachBag + bagId * bagManager.m_numFeaValue,
+				  	  	  	  	  	 bagManager.m_pSNodeStatEachBag + bagId * bagManager.m_maxNumSplittable,
+				  	  	  	  	  	 	 bagManager.m_pGDPrefixSumEachBag + bagId * bagManager.m_numFeaValue,
 				  	  	  	  	  	 	 bagManager.m_pHessPrefixSumEachBag + bagId * bagManager.m_numFeaValue,
-				  	  	  	  	  	 bagManager.m_pBestSplitPointEachBag + bagId, bagManager.m_pRChildStatEachBag + bagId, bagManager.m_pLChildStatEachBag + bagId);
+				  	  	  	  	  	 bagManager.m_pBestSplitPointEachBag + bagId * bagManager.m_maxNumSplittable,
+				  	  	  	  	  	 	 bagManager.m_pRChildStatEachBag + bagId * bagManager.m_maxNumSplittable,
+				  	  	  	  	  	 	 bagManager.m_pLChildStatEachBag + bagId * bagManager.m_maxNumSplittable);
 				  	  	  	  	  	 //manager.m_pBestSplitPoint, manager.m_pRChildStat, manager.m_pLChildStat);
 	cudaDeviceSynchronize();
 //	cout << "Done find split" << endl;

@@ -55,6 +55,7 @@ private:
 public:
 	void InitDeviceSplitter(int maxNumSNode)
 	{
+		//############# need to be updated for trees of more than one level
 		pBuffIdVec_h = new int[maxNumSNode];//all splittable node buffer index should be copied
 		pSNIdToBuffId_h = new int[maxNumSNode];
 	}
