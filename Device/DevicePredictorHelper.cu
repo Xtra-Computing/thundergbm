@@ -88,7 +88,7 @@ __global__ void PredMultiTarget(float_point *pdTargetValue, int numofDenseIns, c
 		counter++;
 		if(counter > maxDepth)//for skipping from deadlock
 		{
-			printf("%s has bugs\n", __PRETTY_FUNCTION__);
+			printf("%s has bugs; fid=%d\n", __PRETTY_FUNCTION__, fid);
 			break;
 		}
 	}

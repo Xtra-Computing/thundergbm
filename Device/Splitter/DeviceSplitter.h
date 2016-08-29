@@ -46,14 +46,13 @@ public:
 	virtual void ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> > & vvInsSparse,  void *stream, int bagId);
 
 private:
-	int m_maxNumValuePerFea;//use in (1) prefix sum computation and (2) ins2node kernel configuration.
-	void ComputeMaxNumValuePerFea(int *pnEachFeaLen, int numFea);
+	void ComputeMaxNumValuePerFea(int *pnEachFeaLen, int numFea, int bagId);
 
 private:
 	int *pBuffIdVec_h;//all splittable node buffer index should be copied
 	int *pSNIdToBuffId_h;
 public:
-	void InitDeviceSplitter(int maxNumSNode)
+	void InitDeviceSplitter(int maxNumSNode, int numBag)
 	{
 		//############# need to be updated for trees of more than one level
 		pBuffIdVec_h = new int[maxNumSNode];//all splittable node buffer index should be copied

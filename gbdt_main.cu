@@ -90,7 +90,7 @@ int main(int argc, char *argv[])
 	/********* read training instances from a file **************/
 	int maxNumofUsedFeature = 1000;
 	int maxNumofDenseIns = 1;//###### is later set to the number of instances
-	int numBag = 1;//number of bags for bagging
+	int numBag = 4;//number of bags for bagging
 
 	//for training
 	int nNumofTree = 5;
@@ -103,7 +103,7 @@ int main(int argc, char *argv[])
 	DevicePredictor pred;
 
 	DeviceSplitter splitter;
-	splitter.InitDeviceSplitter(maxNumofNodePerTree);
+	splitter.InitDeviceSplitter(maxNumofNodePerTree, numBag);
 	DeviceTrainer trainer(&splitter);
 
 	cout << "reading data..." << endl;
@@ -241,16 +241,16 @@ int main(int argc, char *argv[])
 	indexCom.AllocMem(numIns, numFea, maxNumofSplittableNode);
 
 	//copy feature key-value to device memory
-	memAllocator.MemcpyHostToDevice(pInsId, memAllocator.m_pDInsId, numFeaValue * sizeof(int));
-	memAllocator.MemcpyHostToDevice(pdValue, memAllocator.m_pdDFeaValue, numFeaValue * sizeof(float_point));
-	memAllocator.MemcpyHostToDevice(pNumofKeyValue, memAllocator.m_pDNumofKeyValue, numFea * sizeof(int));
-	memAllocator.MemcpyHostToDevice(plFeaStartPos, memAllocator.m_pFeaStartPos, numFea * sizeof(long long));
+	cudaMemcpy(memAllocator.m_pDInsId, pInsId, numFeaValue * sizeof(int), cudaMemcpyHostToDevice);
+	cudaMemcpy(memAllocator.m_pdDFeaValue, pdValue, numFeaValue * sizeof(float_point), cudaMemcpyHostToDevice);
+	cudaMemcpy(memAllocator.m_pDNumofKeyValue, pNumofKeyValue, numFea * sizeof(int), cudaMemcpyHostToDevice);
+	cudaMemcpy(memAllocator.m_pFeaStartPos, plFeaStartPos, numFea * sizeof(long long), cudaMemcpyHostToDevice);
 
 	//copy instance key-value to device memory for prediction
-	memAllocator.MemcpyHostToDevice(pFeaId, memAllocator.m_pDFeaId, numFeaValue * sizeof(int));
-	memAllocator.MemcpyHostToDevice(pfFeaValue, memAllocator.m_pdDInsValue, numFeaValue * sizeof(float_point));
-	memAllocator.MemcpyHostToDevice(pNumofFea, memAllocator.m_pDNumofFea, numIns * sizeof(int));
-	memAllocator.MemcpyHostToDevice(plInsStartPos, memAllocator.m_pInsStartPos, numIns * sizeof(long long));
+	cudaMemcpy(memAllocator.m_pDFeaId, pFeaId, numFeaValue * sizeof(int), cudaMemcpyHostToDevice);
+	cudaMemcpy(memAllocator.m_pdDInsValue, pfFeaValue, numFeaValue * sizeof(float_point), cudaMemcpyHostToDevice);
+	cudaMemcpy(memAllocator.m_pDNumofFea, pNumofFea, numIns * sizeof(int), cudaMemcpyHostToDevice);
+	cudaMemcpy(memAllocator.m_pInsStartPos, plInsStartPos, numIns * sizeof(long long), cudaMemcpyHostToDevice);
 
 	//free host memory
 	delete []pdValue;
@@ -263,7 +263,7 @@ int main(int argc, char *argv[])
 	//copy true labels to gpu memory
 //	memAllocator.MemcpyHostToDevice(pTrueLabel, memAllocator.m_pdTrueTargetValue, numIns * sizeof(float_point));//###should be removed
 	for(int i = 0; i < numBag; i++)
-		memAllocator.MemcpyHostToDevice(pTrueLabel, bagManager.m_pdTrueTargetValueEachBag + i * bagManager.m_numIns, numIns * sizeof(float_point));
+		cudaMemcpy(bagManager.m_pdTrueTargetValueEachBag + i * bagManager.m_numIns, pTrueLabel, numIns * sizeof(float_point), cudaMemcpyHostToDevice);
 
 	//training trees
 	vector<RegTree> v_Tree;

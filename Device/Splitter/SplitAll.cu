@@ -49,7 +49,7 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 	//conf.ConfKernel(manager.m_curNumofSplitable, threadPerBlock, dimNumofBlock);
 	conf.ConfKernel(bagManager.m_curNumofSplitableEachBag_h[bagId], threadPerBlock, dimNumofBlock);
 	clock_t com_weight_start = clock();
-	ComputeWeight<<<dimNumofBlock, threadPerBlock>>>(//snManager.m_pTreeNode, manager.m_pSplittableNode, manager.m_pSNIdToBuffId,
+	ComputeWeight<<<dimNumofBlock, threadPerBlock, 0, (*(cudaStream_t*)pStream)>>>(//snManager.m_pTreeNode, manager.m_pSplittableNode, manager.m_pSNIdToBuffId,
 							  bagManager.m_pNodeTreeOnTrainingEachBag + bagId * bagManager.m_maxNumNode,
 							  	  bagManager.m_pSplittableNodeEachBag + bagId * bagManager.m_maxNumSplittable,
 							  	  bagManager.m_pSNIdToBuffIdEachBag + bagId * bagManager.m_maxNumSplittable,
@@ -58,7 +58,7 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 							  	  bagManager.m_pSNodeStatEachBag + bagId * bagManager.m_maxNumSplittable, rt_eps, LEAFNODE,
 			  	  	  	  	  m_lambda, bagManager.m_curNumofSplitableEachBag_h[bagId], bLastLevel, bagManager.m_maxNumSplittable);
 	clock_t com_weight_end = clock();
-	cudaDeviceSynchronize();
+	cudaStreamSynchronize((*(cudaStream_t*)pStream));
 	total_weight_t += (com_weight_end - com_weight_start);
 #if testing
 	if(cudaGetLastError() != cudaSuccess)
@@ -73,9 +73,9 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 //	cout << "create new nodes" << endl;
 	//copy the number of nodes in the tree to the GPU memory
 	//manager.Memset(snManager.m_pNumofNewNode, 0, sizeof(int));
-	manager.Memset(bagManager.m_pNumofNewNodeTreeOnTrainingEachBag + bagId, 0, sizeof(int));
+	manager.MemsetAsync(bagManager.m_pNumofNewNodeTreeOnTrainingEachBag + bagId, 0, sizeof(int), pStream);
 	clock_t new_node_start = clock();
-	CreateNewNode<<<dimNumofBlock, threadPerBlock>>>(
+	CreateNewNode<<<dimNumofBlock, threadPerBlock, 0, (*(cudaStream_t*)pStream)>>>(
 							//snManager.m_pTreeNode, manager.m_pSplittableNode, snManager.m_pNewSplittableNode,
 							bagManager.m_pNodeTreeOnTrainingEachBag + bagId * bagManager.m_maxNumNode,
 								bagManager.m_pSplittableNodeEachBag + bagId * bagManager.m_maxNumSplittable,
@@ -97,7 +97,7 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 							bagManager.m_curNumofSplitableEachBag_h[bagId], bLastLevel, bagManager.m_maxNumSplittable);
 	int newNode = -1;
 	//manager.MemcpyDeviceToHost(snManager.m_pNumofNewNode, &newNode, sizeof(int));
-	manager.MemcpyDeviceToHost(bagManager.m_pNumofNewNodeTreeOnTrainingEachBag + bagId, &newNode, sizeof(int));
+	manager.MemcpyDeviceToHostAsync(bagManager.m_pNumofNewNodeTreeOnTrainingEachBag + bagId, &newNode, sizeof(int), pStream);
 	clock_t new_node_end = clock();
 	total_create_node_t += (new_node_end - new_node_start);
 	if(newNode == 0)//not new nodes are constructed
@@ -115,18 +115,18 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 //	cout << "lock value is: " << lockValue << endl;
 	//find all used unique feature ids. We will use these features to organise instances into new nodes.
 	//manager.Memset(snManager.m_pFeaIdToBuffId, -1, sizeof(int) * snManager.m_maxNumofUsedFea);
-	manager.Memset(bagManager.m_pFeaIdToBuffIdEachBag + bagId * bagManager.m_maxNumUsedFeaATree, -1, sizeof(int) * bagManager.m_maxNumUsedFeaATree);
+	manager.MemsetAsync(bagManager.m_pFeaIdToBuffIdEachBag + bagId * bagManager.m_maxNumUsedFeaATree, -1, sizeof(int) * bagManager.m_maxNumUsedFeaATree, pStream);
 	//manager.Memset(snManager.m_pUniqueFeaIdVec, -1, sizeof(int) * snManager.m_maxNumofUsedFea);
-	manager.Memset(bagManager.m_pUniqueFeaIdVecEachBag + bagId * bagManager.m_maxNumUsedFeaATree, -1, sizeof(int) * bagManager.m_maxNumUsedFeaATree);
+	manager.MemsetAsync(bagManager.m_pUniqueFeaIdVecEachBag + bagId * bagManager.m_maxNumUsedFeaATree, -1, sizeof(int) * bagManager.m_maxNumUsedFeaATree, pStream);
 	//manager.Memset(snManager.m_pNumofUniqueFeaId, 0, sizeof(int));
-	manager.Memset(bagManager.m_pNumofUniqueFeaIdEachBag + bagId, 0, sizeof(int));
+	manager.MemsetAsync(bagManager.m_pNumofUniqueFeaIdEachBag + bagId, 0, sizeof(int), pStream);
 	if(dimNumofBlock.x > 1 || dimNumofBlock.y > 1 || dimNumofBlock.z > 1)
 	{
 		cerr << "Bug: block for get uniqueFid is too large " << dimNumofBlock.x << endl;
 		exit(0);
 	}
 	clock_t unique_id_start = clock();
-	GetUniqueFid<<<threadPerBlock, 1>>>(//snManager.m_pTreeNode, manager.m_pSplittableNode, manager.m_curNumofSplitable,
+	GetUniqueFid<<<threadPerBlock, 1, 0, (*(cudaStream_t*)pStream)>>>(//snManager.m_pTreeNode, manager.m_pSplittableNode, manager.m_curNumofSplitable,
 							 bagManager.m_pNodeTreeOnTrainingEachBag + bagId * bagManager.m_maxNumNode,
 							 	 bagManager.m_pSplittableNodeEachBag + bagId * bagManager.m_maxNumSplittable,
 							 	 bagManager.m_curNumofSplitableEachBag_h[bagId],
@@ -136,7 +136,7 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 							 	 bagManager.m_pNumofUniqueFeaIdEachBag + bagId,
 			 	 	 	 	 //snManager.m_maxNumofUsedFea, LEAFNODE, manager.m_nSNLock);
 							 bagManager.m_maxNumUsedFeaATree, LEAFNODE, bagManager.m_nSNLockEachBag + bagId);
-	cudaDeviceSynchronize();
+	cudaStreamSynchronize((*(cudaStream_t*)pStream));
 	clock_t unique_id_end = clock();
 	total_unique_id_t += (unique_id_end - unique_id_start);
 #if testing
@@ -156,7 +156,7 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 	//for each used feature to move instances to new nodes
 	int numofUniqueFea = -1;
 	//manager.MemcpyDeviceToHost(snManager.m_pNumofUniqueFeaId, &numofUniqueFea, sizeof(int));
-	manager.MemcpyDeviceToHost(bagManager.m_pNumofUniqueFeaIdEachBag + bagId, &numofUniqueFea, sizeof(int));
+	manager.MemcpyDeviceToHostAsync(bagManager.m_pNumofUniqueFeaIdEachBag + bagId, &numofUniqueFea, sizeof(int), pStream);
 
 	if(numofUniqueFea == 0)
 		PROCESS_ERROR(bLastLevel == true);
@@ -165,11 +165,11 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 //		cout << "ins to new nodes" << endl;
 		dim3 dimGridThreadForEachUsedFea;
 		int thdPerBlockIns2node = -1;
-		conf.ConfKernel(m_maxNumValuePerFea, thdPerBlockIns2node, dimGridThreadForEachUsedFea);
+		conf.ConfKernel(bagManager.m_pMaxNumValuePerFeaEachBag[bagId], thdPerBlockIns2node, dimGridThreadForEachUsedFea);
 		PROCESS_ERROR(dimGridThreadForEachUsedFea.z == 1);
 		dimGridThreadForEachUsedFea.z = numofUniqueFea;//a decision feature is handled by a set of blocks
 		clock_t ins2node_start = clock();
-		InsToNewNode<<<dimGridThreadForEachUsedFea, thdPerBlockIns2node>>>(
+		InsToNewNode<<<dimGridThreadForEachUsedFea, thdPerBlockIns2node, 0, (*(cudaStream_t*)pStream)>>>(
 								 //snManager.m_pTreeNode, manager.m_pdDFeaValue, manager.m_pDInsId,
 								 bagManager.m_pNodeTreeOnTrainingEachBag + bagId * bagManager.m_maxNumNode, manager.m_pdDFeaValue, manager.m_pDInsId,
 								 manager.m_pFeaStartPos, manager.m_pDNumofKeyValue,
@@ -185,7 +185,7 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 								 	 bagManager.m_pLeftChildIdEachBag + bagId * bagManager.m_maxNumSplittable,
 								 	 bagManager.m_pRightChildIdEachBag + bagId * bagManager.m_maxNumSplittable,
 								 preMaxNodeId, manager.m_numofFea, manager.m_numofIns, LEAFNODE);
-		cudaDeviceSynchronize();
+		cudaStreamSynchronize((*(cudaStream_t*)pStream));
 		clock_t ins2node_end = clock();
 		total_ins2node_t += (ins2node_end - ins2node_start);
 	}
@@ -204,7 +204,7 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 	conf.ConfKernel(manager.m_numofIns, threadPerBlockEachIns, dimNumofBlockEachIns);
 
 	clock_t ins2default_start = clock();
-	InsToNewNodeByDefault<<<dimNumofBlockEachIns, threadPerBlockEachIns>>>(
+	InsToNewNodeByDefault<<<dimNumofBlockEachIns, threadPerBlockEachIns, 0, (*(cudaStream_t*)pStream)>>>(
 									//snManager.m_pTreeNode, manager.m_pInsIdToNodeId, manager.m_pSNIdToBuffId,
 									bagManager.m_pNodeTreeOnTrainingEachBag + bagId * bagManager.m_maxNumNode,
 										bagManager.m_pInsIdToNodeIdEachBag + bagId * bagManager.m_numIns,
@@ -213,7 +213,7 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 									bagManager.m_pParentIdEachBag + bagId * bagManager.m_maxNumSplittable,
 										bagManager.m_pLeftChildIdEachBag + bagId * bagManager.m_maxNumSplittable,
 			   	   	   	   	   	   	preMaxNodeId, manager.m_numofIns, LEAFNODE);
-	cudaDeviceSynchronize();
+	cudaStreamSynchronize((*(cudaStream_t*)pStream));
 	clock_t ins2default_end = clock();
 	total_ins2default_t += (ins2default_end - ins2default_start);
 #if testing
@@ -227,26 +227,28 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 	//update new splittable nodes
 	int numofNewSplittableNode = -1;
 	//manager.MemcpyDeviceToHost(snManager.m_pNumofNewNode, &numofNewSplittableNode, sizeof(int));
-	manager.MemcpyDeviceToHost(bagManager.m_pNumofNewNodeTreeOnTrainingEachBag + bagId, &numofNewSplittableNode, sizeof(int));
+	manager.MemcpyDeviceToHostAsync(bagManager.m_pNumofNewNodeTreeOnTrainingEachBag + bagId, &numofNewSplittableNode, sizeof(int), pStream);
 	if(numofNewSplittableNode == 0)
 		PROCESS_ERROR(bLastLevel == true);
 	if(numofNewSplittableNode > 0)//update splittable nodes when there are new splittable nodes
 	{
 		dim3 dimGridThreadForEachNewSN;
 		conf.ComputeBlock(numofNewSplittableNode, dimGridThreadForEachNewSN);
-		int sharedMemSizeNSN = 1;
+		int blockSizeNSN = 1;
 
 //		cout << "update new splittable" << endl;
 		//reset nodeId to bufferId
 		//manager.Memset(manager.m_pSNIdToBuffId, -1, sizeof(int) * manager.m_maxNumofSplittable);
-		manager.Memset(bagManager.m_pSNIdToBuffIdEachBag + bagId * bagManager.m_maxNumSplittable, -1, sizeof(int) * bagManager.m_maxNumSplittable);
+		manager.MemsetAsync(bagManager.m_pSNIdToBuffIdEachBag + bagId * bagManager.m_maxNumSplittable, -1,
+							sizeof(int) * bagManager.m_maxNumSplittable, pStream);
 		//manager.Memset(manager.m_pNumofBuffId, 0, sizeof(int));
-		manager.Memset(bagManager.m_pNumofBuffIdEachBag + bagId, 0, sizeof(int));
+		manager.MemsetAsync(bagManager.m_pNumofBuffIdEachBag + bagId, 0, sizeof(int), pStream);
 		//reset nodeStat
 		//manager.Memset(manager.m_pSNodeStat, 0, sizeof(nodeStat) * manager.m_maxNumofSplittable);
-		manager.Memset(bagManager.m_pSNodeStatEachBag + bagId * bagManager.m_maxNumSplittable, 0, sizeof(nodeStat) * bagManager.m_maxNumSplittable);
+		manager.MemsetAsync(bagManager.m_pSNodeStatEachBag + bagId * bagManager.m_maxNumSplittable, 0,
+						sizeof(nodeStat) * bagManager.m_maxNumSplittable, pStream);
 		clock_t update_new_sp_start = clock();
-		UpdateNewSplittable<<<dimGridThreadForEachNewSN, sharedMemSizeNSN>>>(
+		UpdateNewSplittable<<<dimGridThreadForEachNewSN, blockSizeNSN, 0, (*(cudaStream_t*)pStream)>>>(
 									  //snManager.m_pNewSplittableNode, snManager.m_pNewNodeStat, manager.m_pSNIdToBuffId,
 									  bagManager.m_pNewSplittableNodeEachBag + bagId * bagManager.m_maxNumSplittable,
 									  	  bagManager.m_pNewNodeStatEachBag + bagId * bagManager.m_maxNumSplittable,
@@ -257,7 +259,7 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 									  	  bagManager.m_pBuffIdVecEachBag + bagId * bagManager.m_maxNumSplittable, bagManager.m_pNumofBuffIdEachBag + bagId,
 									  //manager.m_maxNumofSplittable, manager.m_nSNLock);
 									  bagManager.m_maxNumSplittable, bagManager.m_nSNLockEachBag + bagId);
-		cudaDeviceSynchronize();
+		cudaStreamSynchronize((*(cudaStream_t*)pStream));
 		clock_t update_new_sp_end = clock();
 		total_update_new_splittable_t += (update_new_sp_end - update_new_sp_start);
 #if testing
@@ -269,9 +271,9 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 #endif
 
 		//manager.MemcpyDeviceToDevice(snManager.m_pNewSplittableNode, manager.m_pSplittableNode, sizeof(TreeNode) * manager.m_maxNumofSplittable);
-		manager.MemcpyDeviceToDevice(bagManager.m_pNewSplittableNodeEachBag + bagId * bagManager.m_maxNumSplittable,
+		manager.MemcpyDeviceToDeviceAsync(bagManager.m_pNewSplittableNodeEachBag + bagId * bagManager.m_maxNumSplittable,
 									 bagManager.m_pSplittableNodeEachBag + bagId * bagManager.m_maxNumSplittable,
-									 sizeof(TreeNode) * bagManager.m_maxNumSplittable);
+									 sizeof(TreeNode) * bagManager.m_maxNumSplittable, pStream);
 	}
 //	cout << "Done split all" << endl;
 }
@@ -279,12 +281,13 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 /**
  * @brief: compute the maximum number of values of the features
  */
-void DeviceSplitter::ComputeMaxNumValuePerFea(int *pnEachFeaLen, int numFea)
+void DeviceSplitter::ComputeMaxNumValuePerFea(int *pnEachFeaLen, int numFea, int bagId)
 {
-	m_maxNumValuePerFea = 0;
+	BagManager bagManager;
+	bagManager.m_pMaxNumValuePerFeaEachBag[bagId] = 0;
 	for(int a = 0; a < numFea; a++)
 	{
-		if(m_maxNumValuePerFea < pnEachFeaLen[a])
-			m_maxNumValuePerFea = pnEachFeaLen[a];
+		if(bagManager.m_pMaxNumValuePerFeaEachBag[bagId] < pnEachFeaLen[a])
+			bagManager.m_pMaxNumValuePerFeaEachBag[bagId] = pnEachFeaLen[a];
 	}
 }

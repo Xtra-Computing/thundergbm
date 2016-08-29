@@ -15,14 +15,10 @@
 class GPUMemManager
 {
 public:
-	static void MemcpyHostToDevice(void *pHostSrc, void *pDevDst, long long numofByte);
-	static void MemcpyDeviceToHost(void *pDevSrc, void *pHostDst, long long numofByte);
-	static void MemcpyDeviceToDevice(void *pDevSrc, void *pDevDst, long long numofByte);
-	static void Memset(void *pDevSrc, int value, long long numofByte);
-
-	void TestMemcpyHostToDevice(void *pHostSrc, void *pDevDst, long long numofByte);
-	void TestMemcpyDeviceToHost();
-	void TestMemcpyDeviceToDevice();
+	static void MemcpyHostToDeviceAsync(void *pHostSrc, void *pDevDst, long long numofByte, void *pStream);
+	static void MemcpyDeviceToHostAsync(void *pDevSrc, void *pHostDst, long long numofByte, void *pStream);
+	static void MemcpyDeviceToDeviceAsync(void *pDevSrc, void *pDevDst, long long numofByte, void *pStream);
+	static void MemsetAsync(void *pDevSrc, int value, long long numofByte, void *pStream);
 };
 
 

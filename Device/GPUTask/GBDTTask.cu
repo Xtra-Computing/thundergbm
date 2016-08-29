@@ -70,6 +70,7 @@ void* GBDTTask::ProcessTask(void* pInputParam)
 	double prediction_time = (double(end_pre - begin_pre) / CLOCKS_PER_SEC);
 	cout << "prediction sec = " << prediction_time << endl;
 
+	cudaStreamSynchronize(*pStream_gbdt);
 	EvalRMSE rmse;
 	float fRMSE = rmse.Eval(v_fPredValue, BagManager::m_pTrueLabel_h, v_fPredValue.size());
 	cout << "rmse=" << fRMSE << endl;

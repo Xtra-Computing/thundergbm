@@ -18,7 +18,7 @@ public:
 	DeviceTrainer(DeviceSplitter *pSplitter):BaseTrainer(pSplitter){}
 	virtual ~DeviceTrainer(){}
 
-	virtual void InitTree(RegTree &tree, int bagId);
+	virtual void InitTree(RegTree &tree, void *pStream, int bagId);
 	virtual void GrowTree(RegTree &tree, void *pStream, int bagId);
 	virtual void ReleaseTree(vector<RegTree> &v_Tree);
 

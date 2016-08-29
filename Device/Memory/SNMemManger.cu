@@ -53,14 +53,6 @@ void SNGPUManager::allocMemForTree(int maxNumofNode)
 }
 
 /**
- * @brief: reset memory for next tree
- */
-void SNGPUManager::resetForNextTree()
-{
-	GPUMemManager::MemcpyHostToDevice(m_pTreeNodeHost, m_pTreeNode, sizeof(TreeNode) * m_maxNumofNode);
-}
-
-/**
  * @brief: reserve memory for the parent children id mapping
  */
 void SNGPUManager::allocMemForParenChildIdMapping(int maxNumofSplittable)

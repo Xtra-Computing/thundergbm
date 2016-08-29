@@ -15,126 +15,41 @@
 /**
  * @brief: copy data from host to device
  */
-void GPUMemManager::MemcpyHostToDevice(void *hostSrc, void *pDevDst, long long numofByte)
+void GPUMemManager::MemcpyHostToDeviceAsync(void *hostSrc, void *pDevDst, long long numofByte, void *pStream)
 {
 	PROCESS_ERROR(numofByte > 0);
 	PROCESS_ERROR(hostSrc != NULL);
 	PROCESS_ERROR(pDevDst != NULL);
 
-	checkCudaErrors(cudaMemcpy(pDevDst, hostSrc, numofByte, cudaMemcpyHostToDevice));
+	checkCudaErrors(cudaMemcpyAsync(pDevDst, hostSrc, numofByte, cudaMemcpyHostToDevice, (*(cudaStream_t*)pStream)));
 }
 
 /**
  * @brief: copy data from device to host
  */
-void GPUMemManager::MemcpyDeviceToHost(void *pDevSrc, void *pHostDst, long long numofByte)
+void GPUMemManager::MemcpyDeviceToHostAsync(void *pDevSrc, void *pHostDst, long long numofByte, void *pStream)
 {
 	PROCESS_ERROR(numofByte > 0);
 	PROCESS_ERROR(pDevSrc != NULL);
 	PROCESS_ERROR(pHostDst != NULL);
-	checkCudaErrors(cudaMemcpy(pHostDst, pDevSrc, numofByte, cudaMemcpyDeviceToHost));
+	checkCudaErrors(cudaMemcpyAsync(pHostDst, pDevSrc, numofByte, cudaMemcpyDeviceToHost, (*(cudaStream_t*)pStream)));
 }
 
 /**
  * @brief: copy data from device to device
  */
-void GPUMemManager::MemcpyDeviceToDevice(void *pDevSrc, void *pDevDst, long long numofByte)
+void GPUMemManager::MemcpyDeviceToDeviceAsync(void *pDevSrc, void *pDevDst, long long numofByte, void *pStream)
 {
 	PROCESS_ERROR(numofByte > 0);
 	PROCESS_ERROR(pDevSrc != NULL);
 	PROCESS_ERROR(pDevDst != NULL);
-	checkCudaErrors(cudaMemcpy(pDevDst, pDevSrc, numofByte, cudaMemcpyDeviceToDevice));
+	checkCudaErrors(cudaMemcpyAsync(pDevDst, pDevSrc, numofByte, cudaMemcpyDeviceToDevice, (*(cudaStream_t*)pStream)));
 }
 
 /**
  * @brief: set gpu memory
  */
-void GPUMemManager::Memset(void *pDevSrc, int value, long long numofByte)
+void GPUMemManager::MemsetAsync(void *pDevSrc, int value, long long numofByte, void *pStream)
 {
-	checkCudaErrors(cudaMemset(pDevSrc, value, numofByte));
+	checkCudaErrors(cudaMemsetAsync(pDevSrc, value, numofByte, (*(cudaStream_t*)pStream)));
 }
-
-/**
- * @brief: copy data from host to device
- */
-void GPUMemManager::TestMemcpyHostToDevice(void *hostSrc, void *pDevDst, long long numofByte)
-{//hostSrc and pDevDst have the same values.
-
-	PROCESS_ERROR(numofByte > 0);
-	PROCESS_ERROR(hostSrc != NULL);
-	PROCESS_ERROR(pDevDst != NULL);
-
-	char *hostDst = new char[numofByte];
-
-	checkCudaErrors(cudaMemcpy(hostDst, pDevDst, numofByte, cudaMemcpyDeviceToHost));
-
-	for(int b = 0; b < numofByte; b++)
-	{
-		PROCESS_ERROR(hostDst[b] == ((char*)hostSrc)[b]);
-	}
-
-	delete[] hostDst;
-}
-
-/**
- * @brief: testing memcpy from device to host
- */
-void GPUMemManager::TestMemcpyDeviceToHost()
-{
-	int numofEle = 10;
-	int *hostValues = new int[numofEle];
-	for(int i = 0; i < numofEle; i++)
-	{
-		hostValues[i] = i;
-	}
-
-	int *devValues;
-	checkCudaErrors(cudaMalloc((void**)&devValues, sizeof(int) * numofEle));
-
-	MemcpyHostToDevice(hostValues, devValues, numofEle * sizeof(int));
-
-	int *hostValues2 = new int[numofEle];
-
-	MemcpyDeviceToHost(devValues, hostValues2, numofEle * sizeof(int));
-
-	for(int i = 0; i < numofEle; i++)
-	{
-		PROCESS_ERROR(hostValues[i] == hostValues2[i]);
-	}
-
-	delete []hostValues;
-	delete []hostValues2;
-}
-
-/**
- * @brief: testing memcpy for device to device
- */
-void GPUMemManager::TestMemcpyDeviceToDevice()
-{
-	int numofEle = 10;
-	int *hostValues = new int[numofEle];
-	for(int i = 0; i < numofEle; i++)
-	{
-		hostValues[i] = i;
-	}
-
-	int *devValues, *devDes;
-	checkCudaErrors(cudaMalloc((void**)&devValues, sizeof(int) * numofEle));
-	checkCudaErrors(cudaMalloc((void**)&devDes, sizeof(int) * numofEle));
-
-	MemcpyHostToDevice(hostValues, devValues, numofEle * sizeof(int));
-	MemcpyDeviceToDevice(devValues, devDes, numofEle * sizeof(int));
-
-	int *hostValues2 = new int[numofEle];
-
-	MemcpyDeviceToHost(devDes, hostValues2, numofEle * sizeof(int));
-
-	for(int i = 0; i < numofEle; i++)
-	{
-		PROCESS_ERROR(hostValues[i] == hostValues2[i]);
-	}
-
-	delete []hostValues;
-	delete []hostValues2;
-}
-

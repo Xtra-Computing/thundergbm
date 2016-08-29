@@ -40,11 +40,11 @@ void DeviceSplitter::ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> >
 	PROCESS_ERROR(numofUsedFea <= manager.m_maxUsedFeaInTrees);
 	int *pHashUsedFea = NULL;
 	int *pSortedUsedFea = NULL;
-	pred.GetUsedFeature(denseInsConverter.usedFeaSet, pHashUsedFea, pSortedUsedFea, bagId);
+	pred.GetUsedFeature(denseInsConverter.usedFeaSet, pHashUsedFea, pSortedUsedFea, pStream, bagId);
 
 	//for each tree
 	int nNumofTree = vTree.size();
-	int nNumofIns = manager.m_numofIns;
+	int nNumofIns = bagManager.m_numIns;
 	PROCESS_ERROR(nNumofIns > 0);
 
 	//the last learned tree
@@ -60,13 +60,14 @@ void DeviceSplitter::ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> >
 	//start prediction
 	cudaStream_t *tempStream = (cudaStream_t*)pStream;
 //	checkCudaErrors(cudaMemsetAsync(manager.m_pTargetValue, 0, sizeof(float_point) * nNumofIns, *tempStream));
-	checkCudaErrors(cudaMemset(bagManager.m_pTargetValueEachBag + bagId * bagManager.m_numIns, 0, sizeof(float_point) * nNumofIns));
+	checkCudaErrors(cudaMemsetAsync(bagManager.m_pTargetValueEachBag + bagId * bagManager.m_numIns, 0,
+									sizeof(float_point) * nNumofIns, (*(cudaStream_t*)pStream)));
 	if(nNumofTree > 0 && numofUsedFea >0)//numofUsedFea > 0 means the tree has more than one node.
 	{
 		long long startPos = 0;
 		int startInsId = 0;
 		long long *pInsStartPos = manager.m_pInsStartPos + startInsId;
-		manager.MemcpyDeviceToHost(pInsStartPos, &startPos, sizeof(long long));
+		manager.MemcpyDeviceToHostAsync(pInsStartPos, &startPos, sizeof(long long), pStream);
 	//			cout << "start pos ins" << insId << "=" << startPos << endl;
 		float_point *pDevInsValue = manager.m_pdDInsValue + startPos;
 		int *pDevFeaId = manager.m_pDFeaId + startPos;
@@ -77,7 +78,7 @@ void DeviceSplitter::ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> >
 		conf.ComputeBlock(numofInsToFill, dimGridThreadForEachIns);
 		int sharedMemSizeEachIns = 1;
 
-		FillMultiDense<<<dimGridThreadForEachIns, sharedMemSizeEachIns>>>(
+		FillMultiDense<<<dimGridThreadForEachIns, sharedMemSizeEachIns, 0, (*(cudaStream_t*)pStream)>>>(
 											  pDevInsValue, pInsStartPos, pDevFeaId, pNumofFea,
 											  	  bagManager.m_pdDenseInsEachBag + bagId * bagManager.m_maxNumUsedFeaATree * bagManager.m_numIns,
 											  	  bagManager.m_pSortedUsedFeaIdBag + bagId * bagManager.m_maxNumUsedFeaATree,
@@ -102,7 +103,7 @@ void DeviceSplitter::ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> >
 		dim3 dimGridThreadForEachIns;
 		conf.ComputeBlock(numofInsToPre, dimGridThreadForEachIns);
 		int sharedMemSizeEachIns = 1;
-		PredMultiTarget<<<dimGridThreadForEachIns, sharedMemSizeEachIns>>>(
+		PredMultiTarget<<<dimGridThreadForEachIns, sharedMemSizeEachIns, 0, (*(cudaStream_t*)pStream)>>>(
 											  bagManager.m_pTargetValueEachBag + bagId * bagManager.m_numIns,
 											  	  numofInsToPre, pLastTree,
 											  	  bagManager.m_pdDenseInsEachBag + bagId * bagManager.m_maxNumUsedFeaATree * bagManager.m_numIns,
@@ -121,12 +122,12 @@ void DeviceSplitter::ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> >
 		int threadPerBlock;
 		dim3 dimGridThread;
 		conf.ConfKernel(nNumofIns, threadPerBlock, dimGridThread);
-		SaveToPredBuffer<<<dimGridThread, threadPerBlock>>>(bagManager.m_pTargetValueEachBag + bagId * bagManager.m_numIns,
+		SaveToPredBuffer<<<dimGridThread, threadPerBlock, 0, (*(cudaStream_t*)pStream)>>>(bagManager.m_pTargetValueEachBag + bagId * bagManager.m_numIns,
 																nNumofIns, bagManager.m_pPredBufferEachBag + bagId * bagManager.m_numIns);
 														 //(manager.m_pTargetValue, nNumofIns, manager.m_pPredBuffer);
 		//update the final prediction
-		manager.MemcpyDeviceToDevice(bagManager.m_pPredBufferEachBag + bagId * bagManager.m_numIns,
-									 bagManager.m_pTargetValueEachBag + bagId * bagManager.m_numIns, sizeof(float_point) * nNumofIns);
+		manager.MemcpyDeviceToDeviceAsync(bagManager.m_pPredBufferEachBag + bagId * bagManager.m_numIns,
+									 bagManager.m_pTargetValueEachBag + bagId * bagManager.m_numIns, sizeof(float_point) * nNumofIns, pStream);
 		//manager.MemcpyDeviceToDevice(manager.m_pPredBuffer, manager.m_pTargetValue, sizeof(float_point) * nNumofIns);
 	}
 
@@ -139,7 +140,7 @@ void DeviceSplitter::ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> >
 	int blockSizeCompGD;
 	dim3 dimNumBlockComGD;
 	conf.ConfKernel(nNumofIns, blockSizeCompGD, dimNumBlockComGD);
-	ComputeGDKernel<<<dimNumBlockComGD, blockSizeCompGD>>>(
+	ComputeGDKernel<<<dimNumBlockComGD, blockSizeCompGD, 0, (*(cudaStream_t*)pStream)>>>(
 								//nNumofIns, manager.m_pTargetValue, manager.m_pdTrueTargetValue,
 								nNumofIns, bagManager.m_pTargetValueEachBag + bagId * bagManager.m_numIns,
 										   bagManager.m_pdTrueTargetValueEachBag + bagId * bagManager.m_numIns,
@@ -149,23 +150,29 @@ void DeviceSplitter::ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> >
 	//copy splittable nodes to GPU memory
 		//SNodeStat, SNIdToBuffId, pBuffIdVec need to be reset.
 	//manager.Memset(manager.m_pSNodeStat, 0, sizeof(nodeStat) * manager.m_maxNumofSplittable);
-	manager.Memset(bagManager.m_pSNodeStatEachBag + bagId * bagManager.m_maxNumSplittable, 0, sizeof(nodeStat) * bagManager.m_maxNumSplittable);
+	manager.MemsetAsync(bagManager.m_pSNodeStatEachBag + bagId * bagManager.m_maxNumSplittable, 0,
+						sizeof(nodeStat) * bagManager.m_maxNumSplittable, pStream);
 	//manager.Memset(manager.m_pSNIdToBuffId, -1, sizeof(int) * manager.m_maxNumofSplittable);
-	manager.Memset(bagManager.m_pSNIdToBuffIdEachBag + bagId * bagManager.m_maxNumSplittable, -1, sizeof(int) * bagManager.m_maxNumSplittable);
+	manager.MemsetAsync(bagManager.m_pSNIdToBuffIdEachBag + bagId * bagManager.m_maxNumSplittable, -1, sizeof(int) * bagManager.m_maxNumSplittable, pStream);
 	//manager.Memset(manager.m_pBuffIdVec, -1, sizeof(int) * manager.m_maxNumofSplittable);
-	manager.Memset(bagManager.m_pBuffIdVecEachBag + bagId * bagManager.m_maxNumSplittable, -1, sizeof(int) * bagManager.m_maxNumSplittable);
+	manager.MemsetAsync(bagManager.m_pBuffIdVecEachBag + bagId * bagManager.m_maxNumSplittable, -1, sizeof(int) * bagManager.m_maxNumSplittable, pStream);
 	//manager.Memset(manager.m_pNumofBuffId, 0, sizeof(int));
-	manager.Memset(bagManager.m_pNumofBuffIdEachBag + bagId, 0, sizeof(int));
+	manager.MemsetAsync(bagManager.m_pNumofBuffIdEachBag + bagId, 0, sizeof(int), pStream);
 
 	//compute number of blocks
 	int thdPerBlockSum;
 	dim3 dimNumBlockSum;
 	conf.ConfKernel(ceil(nNumofIns/2.0), thdPerBlockSum, dimNumBlockSum);//one thread adds two values
-	blockSum<<<dimNumBlockSum, thdPerBlockSum, thdPerBlockSum * 2 * sizeof(float_point)>>>(
+	blockSum<<<dimNumBlockSum, thdPerBlockSum, thdPerBlockSum * 2 * sizeof(float_point), (*(cudaStream_t*)pStream)>>>(
 												//manager.m_pGrad, manager.m_pGDBlockSum, nNumofIns, false);
 												bagManager.m_pInsGradEachBag + bagId * bagManager.m_numIns,
 													bagManager.m_pGDBlockSumEachBag + bagId * bagManager.m_numBlockForBlockSum, nNumofIns, false);
 	int numBlockForBlockSum = dimNumBlockSum.x * dimNumBlockSum.y;
+	if(bagManager.m_numBlockForBlockSum < numBlockForBlockSum)
+	{
+		cerr << "default number of blocks for block sum is too small" << endl;
+		exit(0);
+	}
 	int numThdFinalSum;
 	dim3 dimDummy;
 	conf.ConfKernel(ceil(numBlockForBlockSum/2.0), numThdFinalSum, dimDummy);//one thread adds two values
@@ -188,19 +195,19 @@ void DeviceSplitter::ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> >
 	cerr << "total gd block sum is " << totalBlockSum << endl;
 #endif
 
-	blockSum<<<1, numThdFinalSum, numThdFinalSum * 2 * sizeof(float_point)>>>(
+	blockSum<<<1, numThdFinalSum, numThdFinalSum * 2 * sizeof(float_point), (*(cudaStream_t*)pStream)>>>(
 												//manager.m_pGDBlockSum, manager.m_pGDBlockSum, numBlockForBlockSum, true);
 												bagManager.m_pGDBlockSumEachBag + bagId * bagManager.m_numBlockForBlockSum,
 													bagManager.m_pGDBlockSumEachBag + bagId * bagManager.m_numBlockForBlockSum, numBlockForBlockSum, true);
 
 
 	//compute hessian block sum and final sum
-	blockSum<<<dimNumBlockSum, thdPerBlockSum, thdPerBlockSum * 2 * sizeof(float_point)>>>(
+	blockSum<<<dimNumBlockSum, thdPerBlockSum, thdPerBlockSum * 2 * sizeof(float_point), (*(cudaStream_t*)pStream)>>>(
 												//manager.m_pHess, manager.m_pHessBlockSum, nNumofIns, false);
 												bagManager.m_pInsHessEachBag + bagId * bagManager.m_numIns,
 													bagManager.m_pHessBlockSumEachBag + bagId * bagManager.m_numBlockForBlockSum,
 													nNumofIns, false);
-	blockSum<<<1, numThdFinalSum, numThdFinalSum * 2 * sizeof(float_point)>>>(
+	blockSum<<<1, numThdFinalSum, numThdFinalSum * 2 * sizeof(float_point), (*(cudaStream_t*)pStream)>>>(
 												//manager.m_pHessBlockSum, manager.m_pHessBlockSum, numBlockForBlockSum, true);
 												bagManager.m_pHessBlockSumEachBag + bagId * bagManager.m_numBlockForBlockSum,
 													bagManager.m_pHessBlockSumEachBag + bagId * bagManager.m_numBlockForBlockSum, numBlockForBlockSum, true);
@@ -233,7 +240,7 @@ void DeviceSplitter::ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> >
 	delete []pHess_h;
 #endif
 
-	InitNodeStat<<<1, 1>>>(//manager.m_pGDBlockSum, manager.m_pHessBlockSum,
+	InitNodeStat<<<1, 1, 0, (*(cudaStream_t*)pStream)>>>(//manager.m_pGDBlockSum, manager.m_pHessBlockSum,
 						   bagManager.m_pGDBlockSumEachBag + bagId * bagManager.m_numBlockForBlockSum,
 						   	   bagManager.m_pHessBlockSumEachBag + bagId * bagManager.m_numBlockForBlockSum,
 						   //manager.m_pSNodeStat, manager.m_pSNIdToBuffId, manager.m_maxNumofSplittable,
@@ -243,7 +250,7 @@ void DeviceSplitter::ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> >
 						   bagManager.m_pBuffIdVecEachBag + bagId * bagManager.m_maxNumSplittable,
 						   	   bagManager.m_pNumofBuffIdEachBag + bagId);
 
-	cudaDeviceSynchronize();
+	cudaStreamSynchronize((*(cudaStream_t*)pStream));
 #if testing
 	if(cudaGetLastError() != cudaSuccess)
 	{

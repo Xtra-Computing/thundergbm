@@ -55,6 +55,8 @@ int *BagManager::m_pnLocalBestGainKeyEachBag_d = NULL;		//local best gain key of
 int BagManager::m_maxNumofBlockPerNode = -1;				//number of blocks
 float_point *BagManager::m_pfGlobalBestGainEachBag_d = NULL;//global best gain of each bag
 int *BagManager::m_pnGlobalBestGainKeyEachBag_d = NULL;		//global best gain key of each bag
+int *BagManager::m_pMaxNumValuePerFeaEachBag = NULL;
+int *BagManager::m_pEachFeaLenEachNodeEachBag_dh = NULL;//each feature value length in each node
 
 //for pinned memory; for computing indices in multiple level tree
 int *BagManager::m_pIndicesEachBag_d = NULL;	//indices for multiple level tree of each bag
@@ -153,8 +155,8 @@ void BagManager::InitBagManager(int numIns, int numFea, int numTree, int numBag,
 
 	//initialise device memory
 	GPUMemManager manager;
-	manager.MemcpyHostToDevice(m_pInsWeight, m_pInsWeight_d, sizeof(int) * m_numIns * m_numBag);
-	manager.Memset(m_pInsIdToNodeIdEachBag, 0, sizeof(int) * m_numIns * m_numBag);
+	cudaMemcpy(m_pInsWeight_d, m_pInsWeight, sizeof(int) * m_numIns * m_numBag, cudaMemcpyHostToDevice);
+	cudaMemset(m_pInsIdToNodeIdEachBag, 0, sizeof(int) * m_numIns * m_numBag);
 }
 
 /**
@@ -196,6 +198,11 @@ void BagManager::AllocMem()
 	checkCudaErrors(cudaMalloc((void**)&m_pnLocalBestGainKeyEachBag_d, sizeof(int) * m_maxNumofBlockPerNode * m_maxNumSplittable * m_numBag));
 	checkCudaErrors(cudaMalloc((void**)&m_pfGlobalBestGainEachBag_d, sizeof(float_point) * m_maxNumSplittable * m_numBag));
 	checkCudaErrors(cudaMalloc((void**)&m_pnGlobalBestGainKeyEachBag_d, sizeof(int) * m_maxNumSplittable * m_numBag));
+
+	m_pMaxNumValuePerFeaEachBag = new int[m_numBag];
+	checkCudaErrors(cudaMallocHost((void**)&m_pEachFeaLenEachNodeEachBag_dh, sizeof(int) * m_maxNumSplittable * m_numFea * m_numBag));
+	//initialise length of each feature in each node
+	memset(m_pEachFeaLenEachNodeEachBag_dh, 0, sizeof(int) * m_numFea * m_maxNumSplittable * m_numBag);
 
 	//corresponding to pinned memory; for computing indices of more than one level trees
 	checkCudaErrors(cudaMalloc((void**)&m_pIndicesEachBag_d, sizeof(int) * m_numFeaValue * m_numBag));
@@ -251,6 +258,11 @@ void BagManager::AllocMem()
 	m_pNodeTreeOnTrainingEachBagHost = new TreeNode[m_maxNumNode * m_numBag];
 	//for final trees
 	checkCudaErrors(cudaMalloc((void**)&m_pAllTreeEachBag, sizeof(TreeNode) * m_numTreeEachBag * m_maxNumNode * m_numBag));
+	//memory set for all tree nodes
+	TreeNode *pAllTreeNodeHost = new TreeNode[m_numTreeEachBag * m_maxNumNode * m_numBag];
+	cudaMemcpy(m_pAllTreeEachBag, pAllTreeNodeHost, sizeof(TreeNode) * m_numTreeEachBag * m_maxNumNode * m_numBag, cudaMemcpyHostToDevice);
+	delete[] pAllTreeNodeHost;
+
 	m_pNumofTreeLearntEachBag_h = new int[m_numBag];
 	memset(m_pNumofTreeLearntEachBag_h, 0, sizeof(int) * m_numBag);
 
