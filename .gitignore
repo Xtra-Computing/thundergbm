@@ -8,3 +8,4 @@ data
 gbdt
 *~
 core
+*.DS_Store
