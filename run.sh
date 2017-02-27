@@ -14,6 +14,8 @@ then
     exit
 fi
 DATASET_DIR=dataset
+#number of bags
+BAG="-b "
 #gamma for regularisation 
 GAMMA="-g "
 #depth of trees
@@ -25,7 +27,8 @@ case $1 in
 	abalone)
 		GAMMA=${GAMMA}"1"
 		D=${D}"1"
-		NUMTREE=${NUMTREE}"5"
+		NUMTREE=${NUMTREE}"2"
+		BAG=${BAG}"1"
 		FILENAME=${DATASET_DIR}/"abalone.txt"
 		;;
     iris)
@@ -88,4 +91,4 @@ set -x
 
 #command
 #./bin/release/mascot ${PROB} ${TASK} ${GAMMA} ${C} ${E} ${NUMFEATURE} ${FILENAME}
-./bin/release/gbdt ${GAMMA} ${D} ${NUMTREE} ${FILENAME}
+./bin/release/gbdt ${GAMMA} ${D} ${NUMTREE} ${BAG} ${FILENAME}

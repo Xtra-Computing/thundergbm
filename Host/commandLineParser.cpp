@@ -15,6 +15,7 @@ int Parser::depth = 1;
 int Parser::numTree = 1;
 float Parser::gamma = 1;
 int Parser::numFeature = 0;
+int Parser::numBag = 1;
 
 void print_null(const char *s) {}
 
@@ -43,6 +44,8 @@ void Parser::ParseLine(int argc, char **argv, char *pcFileName, char *pcSavedFil
 			case 'n':
 				numTree = atoi(argv[i]);
 				break;
+			case 'b':
+				numBag = atoi(argv[i]);
 			case 'f':
 				numFeature = atoi(argv[i]);
 				if(numFeature < 1)
@@ -83,10 +86,12 @@ void Parser::ParseLine(int argc, char **argv, char *pcFileName, char *pcSavedFil
 void Parser::HelpInfo()
 {
 	printf(
-	"Usage: gbdt xx training_set_file \n"
+	"Usage: gbdt -d xx -g xx -n xx -b xx training_data_file \n"
 	"options:\n"
+	"-b: number of bags\n"
+	"-n: number of trees"
 	"-d: depth of the tree\n"
-	"-g gamma : set gamma in kernel function\n"
+	"-g: set gamma for regularisation\n"
 	);
 	exit(1);
 }

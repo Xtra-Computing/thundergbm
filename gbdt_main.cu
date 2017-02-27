@@ -62,7 +62,7 @@ int main(int argc, char *argv[])
 	/********* read training instances from a file **************/
 	int maxNumofUsedFeature = 1000;
 	int maxNumofDenseIns = 1;//###### is later set to the number of instances
-	int numBag = 4;//number of bags for bagging
+	int numBag = parser.numBag;//number of bags for bagging
 
 	//for training
 	int nNumofTree = parser.numTree;

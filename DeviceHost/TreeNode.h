@@ -30,6 +30,8 @@ public:
 	double loss;
 	double base_weight;
 
+	unsigned int numIns;
+
 public:
 
 	TreeNode()
