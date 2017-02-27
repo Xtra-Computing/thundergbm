@@ -81,7 +81,7 @@ void DeviceTrainer::GrowTree(RegTree &tree, void *pStream, int bagId)
 
 	InitRootNode<<<1, 1, 0, (*(cudaStream_t*)pStream)>>>(//snManager.m_pTreeNode, snManager.m_pCurNumofNode_d);
 							bagManager.m_pNodeTreeOnTrainingEachBag + bagId * bagManager.m_maxNumNode,
-									bagManager.m_pCurNumofNodeTreeOnTrainingEachBag_d + bagId);
+									bagManager.m_pCurNumofNodeTreeOnTrainingEachBag_d + bagId, bagManager.m_numIns);
 
 	//manager.MemcpyDeviceToDevice(snManager.m_pTreeNode, manager.m_pSplittableNode, sizeof(TreeNode));
 	manager.MemcpyDeviceToDeviceAsync(bagManager.m_pNodeTreeOnTrainingEachBag + bagId * bagManager.m_maxNumNode,

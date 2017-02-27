@@ -74,7 +74,7 @@ __global__ void InitNodeStat(int numofIns, const float_point *pGrad, const float
 /**
  * @brief: initialise the root node of a tree, and the current node of nodes in the tree.
  */
-__global__ void InitRootNode(TreeNode *pAllTreeNode, int *pCurNumofNode)
+__global__ void InitRootNode(TreeNode *pAllTreeNode, int *pCurNumofNode, int numIns)
 {
 	pAllTreeNode[0].nodeId = 0;
 	pAllTreeNode[0].level = 0;
@@ -85,4 +85,6 @@ __global__ void InitRootNode(TreeNode *pAllTreeNode, int *pCurNumofNode)
 	pAllTreeNode[0].leftChildId = -1;
 	pAllTreeNode[0].rightChildId = -1;
 	pAllTreeNode[0].loss = -1.0;
+
+	pAllTreeNode[0].numIns = numIns;
 }

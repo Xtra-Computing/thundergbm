@@ -14,7 +14,7 @@ $(shell mkdir -p $(ODIR)/release)
 $(shell mkdir -p $(ODIR)/debug)
 $(shell mkdir -p $(ODIR)/$(obj_folder))
 
-FILES = $(shell find ./ -name '*.c*')
+FILES = $(shell find ./ -name '*.cpp' -or -name '*.cu')
 SOURCE = $(notdir $(FILES))             #remove directory
 OBJS = $(patsubst %.cpp, %.o,$(SOURCE:.cpp=.o)) #replace .cpp to .o
 OBJ = $(patsubst %.cu, %.o,$(OBJS:.cu=.o))      #replace .cu to .o
