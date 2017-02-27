@@ -11,3 +11,4 @@ gbdt
 core
 *.DS_Store
 *.o
+*.swp
