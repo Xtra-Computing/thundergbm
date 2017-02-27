@@ -12,7 +12,7 @@
 #include <fstream>
 #include <iostream>
 #include <iomanip>
-#include <boost/interprocess/mapped_region.hpp>
+#include <assert.h>
 
 #include "../../DeviceHost/DefineConst.h"
 
@@ -33,7 +33,7 @@ public:
 
 	static bool ReadRowsFromFile(FILE *&readIn, float_point *&pContent, const int &nNumofElementsPerRow,
 						  int nNumofRowsToRead, const int &nIndexofRow);
-	static bool ReadPartOfRowFromFile(boost::interprocess::mapped_region*, float_point *pContent, int nFullRowSize, int nNumofElementsToRead, long long nIndexof1stElement);
+	//static bool ReadPartOfRowFromFile(boost::interprocess::mapped_region*, float_point *pContent, int nFullRowSize, int nNumofElementsToRead, long long nIndexof1stElement);
 
 	static bool IsFileExist(string strFileName);
 	static void CreateFolder(string folderName);

@@ -1,4 +1,5 @@
 .project
+tags
 .cproject
 .settings
 Debug
@@ -9,3 +10,4 @@ gbdt
 *~
 core
 *.DS_Store
+*.o

@@ -1,7 +1,7 @@
 
 #include "fileOps.h"
-#include <boost/interprocess/shared_memory_object.hpp>
-#include <boost/interprocess/file_mapping.hpp>
+//#include <boost/interprocess/shared_memory_object.hpp>
+//#include <boost/interprocess/file_mapping.hpp>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -77,7 +77,7 @@ bool CFileOps::ReadRowsFromFile(FILE *&readIn, float_point *&pContent, const int
 	return bReturn;
 }
 
-bool CFileOps::ReadPartOfRowFromFile(boost::interprocess::mapped_region *pRegion, float_point *pContent, int nFullRowSize, int nNumofElementsToRead, long long nIndexof1stElement)
+/*bool CFileOps::ReadPartOfRowFromFile(boost::interprocess::mapped_region *pRegion, float_point *pContent, int nFullRowSize, int nNumofElementsToRead, long long nIndexof1stElement)
 {
 	bool bReturn = false;
 
@@ -94,7 +94,7 @@ bool CFileOps::ReadPartOfRowFromFile(boost::interprocess::mapped_region *pRegion
 
 	bReturn = true;
 	return bReturn;
-}
+}*/
 
 /**
  * @brief: check if a file exist (added Jul 28 2016)
