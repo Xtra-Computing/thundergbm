@@ -4,7 +4,7 @@ tags
 .settings
 Debug
 Release
-data
+dataset
 *.txt
 gbdt
 *~

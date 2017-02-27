@@ -41,39 +41,13 @@ int main(int argc, char *argv[])
 	int fileOption = 0;
 	if(argc == 2)
 	{
-		string str = argv[1];
-		fileOption = atoi(str.c_str());
+		strFileName = argv[1];
 	}
-	switch(fileOption)
-	{
-	case 0:
-		strFileName = "data/abalone.txt";//8 features and 4177 instances
-		break;
-	case 1:
-		strFileName = "data/normalized_amz.txt";//19,998 features and 30,000 instances
-		break;
-	case 2:
-		strFileName = "data/slice_loc.txt";//385 features and 53,499 instances
-		break;
-	case 3:
-		strFileName = "data/cadata.txt";//8 features and 20640 instances
-		break;
-	case 4:
-		strFileName = "data/YearPredictionMSD";//90 features and 463,715 instances
-		break;
-	case 5:
-		strFileName = "data/mnist-large/mnist0.5m01.scale";
-		break;
-	case 6:
-		strFileName = "data/epsilon_normalized_50k";
-		break;
-	case 7:
-		strFileName = "data/SUSY";//Bug: two many instances for the prefix sum
-		break;
-	default:
-		cerr << fileOption << " is an unknown file name option" << endl;
+	else{
+		cerr << "# of args is " << argc << "; no file name provided?" << endl;
 		return -1;
 	}
+	
 	cout << "processing this file: " << strFileName << endl;
 
 //	mainPureHost(strFileName);

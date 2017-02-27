@@ -80,4 +80,4 @@ set -x
 
 #command
 #./bin/release/mascot ${PROB} ${TASK} ${GAMMA} ${C} ${E} ${NUMFEATURE} ${FILENAME}
-./bin/release/gbdt
+./bin/release/gbdt ${FILENAME}

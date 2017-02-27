@@ -14,8 +14,6 @@ $(shell mkdir -p $(ODIR)/release)
 $(shell mkdir -p $(ODIR)/debug)
 $(shell mkdir -p $(ODIR)/$(obj_folder))
 
-dt_path = 
-
 FILES = $(shell find ./ -name '*.c*')
 SOURCE = $(notdir $(FILES))             #remove directory
 OBJS = $(patsubst %.cpp, %.o,$(SOURCE:.cpp=.o)) #replace .cpp to .o
@@ -51,21 +49,7 @@ debug: $(debug_bin)
 
 %.o: Device/%.c* Device/*.h
 	$(NVCC) $(NVCCFLAGS) $(LDFLAGS) -o $@ -c $<
-%.o: Device/prefix-sum/%.c* Device/prefix-sum/*.h
-	$(NVCC) $(NVCCFLAGS) $(LDFLAGS) -o $@ -c $<
-%.o: Device/FileBuffer/%.c* Device/FileBuffer/*.h
-	$(NVCC) $(NVCCFLAGS) $(LDFLAGS) -o $@ -c $<
-%.o: Device/FindSplit/%.c* Device/FindSplit/*.h
-	$(NVCC) $(NVCCFLAGS) $(LDFLAGS) -o $@ -c $<
-%.o: Device/Tree/%.c* Device/Tree/*.h
-	$(NVCC) $(NVCCFLAGS) $(LDFLAGS) -o $@ -c $<
-%.o: Device/Splitter/%.c* Device/Splitter/*.h
-	$(NVCC) $(NVCCFLAGS) $(LDFLAGS) -o $@ -c $<
-%.o: Device/Memory/%.c* Device/Memory/*.h
-	$(NVCC) $(NVCCFLAGS) $(LDFLAGS) -o $@ -c $<
-%.o: Device/Bagging/%.c* Device/Bagging/*.h
-	$(NVCC) $(NVCCFLAGS) $(LDFLAGS) -o $@ -c $<
-%.o: Device/GPUTask/%.c* Device/GPUTask/*.h
+%.o: Device/*/%.c* Device/*/*.h
 	$(NVCC) $(NVCCFLAGS) $(LDFLAGS) -o $@ -c $<
 
 %.o: DeviceHost/%.c* DeviceHost/*.h
