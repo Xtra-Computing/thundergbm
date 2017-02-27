@@ -31,22 +31,20 @@
 #include "Device/prefix-sum/prefixSum.h"
 #include "Device/FileBuffer/FileBuffer.h"
 
+#include "Host/commandLineParser.h"
+
 int main(int argc, char *argv[])
 {
 
 //	TestPrefixSum(argc, argv);
 //	return 1;
 
-	string strFileName;
-	int fileOption = 0;
-	if(argc == 2)
-	{
-		strFileName = argv[1];
-	}
-	else{
-		cerr << "# of args is " << argc << "; no file name provided?" << endl;
-		return -1;
-	}
+	char fileName[1024];
+	char savedFileName[1024];
+	Parser parser;
+	parser.ParseLine(argc, argv, fileName, savedFileName);
+
+	string strFileName = fileName;
 	
 	cout << "processing this file: " << strFileName << endl;
 
@@ -67,10 +65,10 @@ int main(int argc, char *argv[])
 	int numBag = 4;//number of bags for bagging
 
 	//for training
-	int nNumofTree = 5;
-	int nMaxDepth = 1;
+	int nNumofTree = parser.numTree;
+	int nMaxDepth = parser.depth;
 	double fLabda = 1;//this one is constant in xgboost
-	double fGamma = 1;//minimum loss
+	double fGamma = parser.gamma;//minimum loss
 	int maxNumofNodePerTree = pow(2, nMaxDepth + 1) - 1;
 	int maxNumofSplittableNode = pow(2, nMaxDepth);//can be "nMaxDepth - 1" but changing causes bugs.
 

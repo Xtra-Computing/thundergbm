@@ -14,12 +14,20 @@ then
     exit
 fi
 DATASET_DIR=dataset
-#gamma for RBF kernel
+#gamma for regularisation 
 GAMMA="-g "
-#penalty
-C="-c "
+#depth of trees
+D="-d "
+#number of trees
+NUMTREE="-n "
 #file name (must appear as the last argument)
 case $1 in
+	abalone)
+		GAMMA=${GAMMA}"1"
+		D=${D}"1"
+		NUMTREE=${NUMTREE}"5"
+		FILENAME=${DATASET_DIR}/"abalone.txt"
+		;;
     iris)
         GAMMA=${GAMMA}"0.5"
         C=${C}"100"
@@ -80,4 +88,4 @@ set -x
 
 #command
 #./bin/release/mascot ${PROB} ${TASK} ${GAMMA} ${C} ${E} ${NUMFEATURE} ${FILENAME}
-./bin/release/gbdt ${FILENAME}
+./bin/release/gbdt ${GAMMA} ${D} ${NUMTREE} ${FILENAME}
