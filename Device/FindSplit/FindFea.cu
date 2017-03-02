@@ -87,6 +87,7 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 	if(numofSNode > 1)
 	{
 		clock_t comIdx_start = clock();
+		//prepare data for computing indices
 		manager.MemcpyDeviceToHostAsync(manager.m_pBuffIdVec, pBuffIdVec_h, sizeof(int) * numofSNode, pStream);
 		manager.MemcpyDeviceToHostAsync(manager.m_pSNIdToBuffId, pSNIdToBuffId_h, sizeof(int) * maxNumofSplittable, pStream);
 		manager.MemcpyDeviceToHostAsync(manager.m_pInsIdToNodeId, indexComp.m_insIdToNodeId_dh, sizeof(int) * manager.m_numofIns, pStream);
@@ -94,16 +95,22 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 		indexComp.ComputeIndex(numofSNode, pSNIdToBuffId_h, maxNumofSplittable, pBuffIdVec_h);
 		clock_t comIdx_end = clock();
 		total_com_idx_t += (comIdx_end - comIdx_start);
-		//copy index info to device memory
+
+		//copy scatter index to device memory
 		manager.MemcpyHostToDeviceAsync(indexComp.m_pIndices_dh, ffManager.m_pIndices_d, sizeof(int) * ffManager.m_totalNumFeaValue, pStream);
+		//copy # of feature values of each node
 		manager.MemcpyHostToDeviceAsync(indexComp.m_pNumFeaValueEachNode_dh, ffManager.m_pNumFeaValueEachNode_d, sizeof(long long) * maxNumofSplittable, pStream);
+		//copy feature value start position of each node
 		manager.MemcpyHostToDeviceAsync(indexComp.m_pFeaValueStartPosEachNode_dh, ffManager.m_pFeaValueStartPosEachNode_d, sizeof(long long) * maxNumofSplittable, pStream);
+		//copy each feature start position in each node
 		manager.MemcpyHostToDeviceAsync(indexComp.m_pEachFeaStartPosEachNode_dh, ffManager.m_pEachFeaStartPosEachNode_d,
 										sizeof(long long) * maxNumofSplittable * nNumofFeature, pStream);
+		//copy # of feature values of each feature in each node
 		manager.MemcpyHostToDeviceAsync(indexComp.m_pEachFeaLenEachNode_dh, ffManager.m_pEachFeaLenEachNode_d,
 										sizeof(int) * maxNumofSplittable * nNumofFeature, pStream);
 
 		clock_t start_gd = clock();
+		//scatter operation
 		LoadGDHessFvalue<<<dimNumofBlockToLoadGD, blockSizeLoadGD, 0, (*(cudaStream_t*)pStream)>>>(manager.m_pGrad, manager.m_pHess, manager.m_numofIns,
 															   manager.m_pDInsId, manager.m_pdDFeaValue, ffManager.m_pIndices_d, indexComp.m_totalFeaValue,
 															   ffManager.pGDEachFeaValue, ffManager.pHessEachFeaValue, ffManager.pDenseFeaValue);
@@ -114,54 +121,46 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 	else
 	{
 		clock_t start_gd = clock();
-		LoadGDHessFvalueRoot<<<dimNumofBlockToLoadGD, blockSizeLoadGD, 0, (*(cudaStream_t*)pStream)>>>(//manager.m_pGrad, manager.m_pHess, manager.m_numofIns,
-															   bagManager.m_pInsGradEachBag + bagId * bagManager.m_numIns,
-															   	   bagManager.m_pInsHessEachBag + bagId * bagManager.m_numIns, bagManager.m_numIns,
-															   manager.m_pDInsId, manager.m_pdDFeaValue, indexComp.m_totalFeaValue,
-															   //ffManager.pGDEachFeaValue, ffManager.pHessEachFeaValue, ffManager.pDenseFeaValue);
-															   bagManager.m_pGDEachFvalueEachBag + bagId * bagManager.m_numFeaValue,
-															   	   bagManager.m_pHessEachFvalueEachBag + bagId * bagManager.m_numFeaValue,
-															   	   bagManager.m_pDenseFValueEachBag + bagId * bagManager.m_numFeaValue);
+		LoadGDHessFvalueRoot<<<dimNumofBlockToLoadGD, blockSizeLoadGD, 0, (*(cudaStream_t*)pStream)>>>(bagManager.m_pInsGradEachBag + bagId * bagManager.m_numIns,
+															   	   	bagManager.m_pInsHessEachBag + bagId * bagManager.m_numIns, bagManager.m_numIns,
+															   		manager.m_pDInsId, manager.m_pdDFeaValue, indexComp.m_totalFeaValue,
+															   		bagManager.m_pGDEachFvalueEachBag + bagId * bagManager.m_numFeaValue,
+															   	   	bagManager.m_pHessEachFvalueEachBag + bagId * bagManager.m_numFeaValue,
+															   	   	bagManager.m_pDenseFValueEachBag + bagId * bagManager.m_numFeaValue);
 		cudaStreamSynchronize((*(cudaStream_t*)pStream));
 		clock_t end_gd = clock();
 		total_fill_gd_t += (end_gd - start_gd);
 
 		clock_t comIdx_start = clock();
-		//manager.MemcpyHostToDevice(&manager.m_totalNumofValues, ffManager.m_pNumFeaValueEachNode_d, sizeof(long long));
+		//copy # of feature values of a node
 		manager.MemcpyHostToDeviceAsync(&manager.m_totalNumofValues, bagManager.m_pNumFvalueEachNodeEachBag_d + bagId * bagManager.m_maxNumSplittable,
 										sizeof(long long), pStream);
-		//manager.MemcpyDeviceToDevice(manager.m_pFeaStartPos, ffManager.m_pFeaValueStartPosEachNode_d, sizeof(long long));//only one node
+		//copy feature value start position of each node
 		manager.MemcpyDeviceToDeviceAsync(manager.m_pFeaStartPos, bagManager.m_pFvalueStartPosEachNodeEachBag_d + bagId * bagManager.m_maxNumSplittable,
-									 	 sizeof(long long), pStream);//only one node
-		//manager.MemcpyDeviceToDevice(manager.m_pFeaStartPos, ffManager.m_pEachFeaStartPosEachNode_d, sizeof(long long) * nNumofFeature);
-		manager.MemcpyDeviceToDeviceAsync(manager.m_pFeaStartPos,
-										bagManager.m_pEachFeaStartPosEachNodeEachBag_d + bagId * bagManager.m_maxNumSplittable * bagManager.m_numFea,
+									 	 sizeof(long long), pStream);
+		//copy each feature start position in each node
+		manager.MemcpyDeviceToDeviceAsync(manager.m_pFeaStartPos, bagManager.m_pEachFeaStartPosEachNodeEachBag_d + bagId * bagManager.m_maxNumSplittable * bagManager.m_numFea,
 										sizeof(long long) * nNumofFeature, pStream);
-		//manager.MemcpyDeviceToDevice(manager.m_pDNumofKeyValue, ffManager.m_pEachFeaLenEachNode_d, sizeof(int) * nNumofFeature);
-		manager.MemcpyDeviceToDeviceAsync(manager.m_pDNumofKeyValue,
-									    bagManager.m_pEachFeaLenEachNodeEachBag_d + bagId * bagManager.m_maxNumSplittable * bagManager.m_numFea,
+		//copy # of feature values of each feature in each node
+		manager.MemcpyDeviceToDeviceAsync(manager.m_pDNumofKeyValue, bagManager.m_pEachFeaLenEachNodeEachBag_d + bagId * bagManager.m_maxNumSplittable * bagManager.m_numFea,
 									    sizeof(int) * nNumofFeature, pStream);
 
-		//initialise indexComp
-		//manager.MemcpyDeviceToHost(ffManager.m_pEachFeaLenEachNode_d, indexComp.m_pEachFeaLenEachNode_dh, sizeof(int) * nNumofFeature);
-		manager.MemcpyDeviceToDeviceAsync(manager.m_pDNumofKeyValue,//bagManager.m_pEachFeaLenEachNodeEachBag_d + bagId * bagManager.m_maxNumSplittable * bagManager.m_numFea,
-										bagManager.m_pEachFeaLenEachNodeEachBag_dh + bagId * bagManager.m_maxNumSplittable * bagManager.m_numFea,
+		//copy # (in pinned mem) of feature values of each feature in each node
+		manager.MemcpyDeviceToDeviceAsync(manager.m_pDNumofKeyValue, bagManager.m_pEachFeaLenEachNodeEachBag_dh + bagId * bagManager.m_maxNumSplittable * bagManager.m_numFea,
 										sizeof(int) * nNumofFeature, pStream);
 
+		//set indexComp
 		indexComp.m_pFeaValueStartPosEachNode_dh[0] = 0;
 		indexComp.m_pNumFeaValueEachNode_dh[0] = manager.m_totalNumofValues;
 		clock_t comIdx_end = clock();
 		total_com_idx_t += (comIdx_end - comIdx_start);
 	}
 
-	//load gd and hessian to a dense array in device memory
-//	cout << "load gd" << endl;
-
-	//manager.MemcpyDeviceToHost(ffManager.pGDEachFeaValue, ffManager.pGDPrefixSum, sizeof(float_point) * manager.m_totalNumofValues);
-	manager.MemcpyDeviceToHostAsync(bagManager.m_pGDEachFvalueEachBag + bagId * bagManager.m_numFeaValue,
+	//initialise values for gd and hess prefix sum computing
+	manager.MemcpyDeviceToDeviceAsync(bagManager.m_pGDEachFvalueEachBag + bagId * bagManager.m_numFeaValue,
 									bagManager.m_pGDPrefixSumEachBag + bagId * bagManager.m_numFeaValue,
 									sizeof(float_point) * manager.m_totalNumofValues, pStream);
-	manager.MemcpyDeviceToHostAsync(bagManager.m_pHessEachFvalueEachBag + bagId * bagManager.m_numFeaValue,
+	manager.MemcpyDeviceToDeviceAsync(bagManager.m_pHessEachFvalueEachBag + bagId * bagManager.m_numFeaValue,
 									bagManager.m_pHessPrefixSumEachBag + bagId * bagManager.m_numFeaValue,
 									sizeof(float_point) * manager.m_totalNumofValues, pStream);
 
@@ -177,17 +176,14 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 	clock_t start_scan = clock();
 	//compute the feature with the maximum number of values
 	int totalNumArray = indexComp.m_numFea * numofSNode;
-	//ComputeMaxNumValuePerFea(indexComp.m_pEachFeaLenEachNode_dh, totalNumArray, bagId);
 	cudaStreamSynchronize((*(cudaStream_t*)pStream));//wait until the pinned memory (m_pEachFeaLenEachNodeEachBag_dh) is filled
 	ComputeMaxNumValuePerFea(bagManager.m_pEachFeaLenEachNodeEachBag_dh + bagId * bagManager.m_maxNumSplittable * bagManager.m_numFea, totalNumArray, bagId);
-	//compute prefix sum for gd and hess
 
-	PrefixSumForEachNode(//totalNumArray, ffManager.pGDPrefixSum, ffManager.pHessPrefixSum,
-						 totalNumArray, bagManager.m_pGDPrefixSumEachBag + bagId * bagManager.m_numFeaValue,
-						 	 bagManager.m_pHessPrefixSumEachBag + bagId * bagManager.m_numFeaValue,
-						 //ffManager.m_pEachFeaStartPosEachNode_d, indexComp.m_pEachFeaLenEachNode_dh,
+	//compute prefix sum for gd and hess (handing more than one arrays)
+	PrefixSumForEachNode(totalNumArray, bagManager.m_pGDPrefixSumEachBag + bagId * bagManager.m_numFeaValue,
+						 bagManager.m_pHessPrefixSumEachBag + bagId * bagManager.m_numFeaValue,
 						 bagManager.m_pEachFeaStartPosEachNodeEachBag_d + bagId * bagManager.m_maxNumSplittable * bagManager.m_numFea,
-						 	 bagManager.m_pEachFeaLenEachNodeEachBag_dh + bagId * bagManager.m_maxNumSplittable * bagManager.m_numFea,
+						 bagManager.m_pEachFeaLenEachNodeEachBag_dh + bagId * bagManager.m_maxNumSplittable * bagManager.m_numFea,
 						 bagManager.m_pMaxNumValuePerFeaEachBag[bagId]);//last parameter is a host variable
 
 	cudaStreamSynchronize((*(cudaStream_t*)pStream));
@@ -224,10 +220,9 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 	}
 #endif
 
-
 //	cout << "compute gain" << endl;
 	clock_t start_comp_gain = clock();
-	//compute gain
+	//# of feature values that need to compute gains.
 	int numofDenseValue = indexComp.m_pFeaValueStartPosEachNode_dh[numofSNode - 1] + indexComp.m_pNumFeaValueEachNode_dh[numofSNode - 1];
 	int blockSizeComGain;
 	dim3 dimNumofBlockToComGain;
@@ -246,6 +241,10 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 											bagManager.m_pDenseFValueEachBag + bagId * bagManager.m_numFeaValue, numofDenseValue,
 												bagManager.m_pGainEachFvalueEachBag + bagId * bagManager.m_numFeaValue);
 	cudaStreamSynchronize((*(cudaStream_t*)pStream));
+	if(cudaGetLastError() != cudaSuccess){
+		cerr << "error after ComputeGainDense" << endl;
+		exit(-1);
+	}
 
 #if testing
 	float_point *pGainDense = new float_point[manager.m_totalNumofValues];
@@ -275,6 +274,10 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 																	numFeaStartPos,
 																	bagManager.m_pGainEachFvalueEachBag + bagId * bagManager.m_numFeaValue);
 	cudaStreamSynchronize((*(cudaStream_t*)pStream));
+	if(cudaGetLastError() != cudaSuccess){
+		cerr << "error after FirstFeaGain" << endl;
+		exit(-1);
+	}
 	clock_t end_comp_gain = clock();
 	total_com_gain_t += (end_comp_gain - start_comp_gain);
 #if testing
@@ -315,6 +318,11 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 									bagManager.m_pnLocalBestGainKeyEachBag_d + bagId * bagManager.m_maxNumSplittable * bagManager.m_maxNumofBlockPerNode);
 	cudaStreamSynchronize((*(cudaStream_t*)pStream));
 
+	if(cudaGetLastError() != cudaSuccess){
+		cerr << "error after PickLocalBestSplitEachNode" << endl;
+		exit(-1);
+	}
+
 	//find the global best gain for each node
 	if(numBlockPerNode > 1)
 	{
@@ -330,6 +338,10 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 										bagManager.m_pnGlobalBestGainKeyEachBag_d + bagId * bagManager.m_maxNumSplittable,
 								    numBlockPerNode, numofSNode);
 		cudaStreamSynchronize((*(cudaStream_t*)pStream));
+		if(cudaGetLastError() != cudaSuccess){
+			cerr << "error after PickGlobalBestSplitEachNode" << endl;
+			exit(-1);
+		}
 	}
 	else
 	{//local best fea is the global best fea

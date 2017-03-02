@@ -190,7 +190,8 @@ __global__ void InsToNewNode(TreeNode *pAllTreeNode, float_point *pdFeaValue, in
 								 int *pInsIdToNodeId, const int *pSNIdToBuffId, SplitPoint *pBestSplitPoint,
 								 int *pUniqueFidVec, int *pNumofUniqueFid,
 								 int *pParentId, int *pLChildId, int *pRChildId,
-								 int preMaxNodeId, int numofFea, int numofIns, int flag_LEAFNODE)
+								 int preMaxNodeId, int numofFea, int numofIns, int flag_LEAFNODE)//,
+								 //int numInsR, int numInsL)
 {
 	int numofUniqueFid = *pNumofUniqueFid;
 	int feaId = blockIdx.z;
@@ -226,7 +227,8 @@ __global__ void InsToNewNode(TreeNode *pAllTreeNode, float_point *pdFeaValue, in
 		if(nid < 0)//leaf node
 			return;
 
-		if(nid > preMaxNodeId)//new node ids
+		if(nid > preMaxNodeId)//new node ids. This is possible because here each thread 
+							  //corresponds to a feature value, and hence duplication may occur.
 			return;
 
 #ifdef testing
@@ -268,17 +270,22 @@ __global__ void InsToNewNode(TreeNode *pAllTreeNode, float_point *pdFeaValue, in
 			if(fvalue >= fPivot)
 			{
 				pInsIdToNodeId[insId] = pRChildId[bufferPos];//right child id
+				//numInsR = atomicAdd(numInsR, 1);//increase numIns in right child
 			}
-			else
+			else{
 				pInsIdToNodeId[insId] = pLChildId[bufferPos];//left child id
+				//numInsL = atomicAdd(numInsL, 1);
+			}
 		}
 	}
 
 }
 
 __global__ void InsToNewNodeByDefault(TreeNode *pAllTreeNode, int *pInsIdToNodeId, const int *pSNIdToBuffId,
+
 										   int *pParentId, int *pLChildId,
 										   int preMaxNodeId, int numofIns, int flag_LEAFNODE)
+										   //int numInsL)
 {
 	int nGlobalThreadId = (blockIdx.y * gridDim.x + blockIdx.x) * blockDim.x + threadIdx.x;
 	if(nGlobalThreadId >= numofIns)//not used threads
@@ -299,6 +306,7 @@ __global__ void InsToNewNodeByDefault(TreeNode *pAllTreeNode, int *pInsIdToNodeI
 		int bufferPos = pSNIdToBuffId[nid];
 		pInsIdToNodeId[nGlobalThreadId] = pLChildId[bufferPos];//by default the instance with unknown feature value going to left child
 		ErrorCond(bufferPos != -1, __PRETTY_FUNCTION__, "rChild=lChild+1");
+		//numInsL = atomicAdd(numInsL, 1);
 	}
 
 }
@@ -339,5 +347,7 @@ __global__ void UpdateNewSplittable(TreeNode *pNewSplittableNode, nodeStat *pNew
 			atomicExch(pnLock, 0);
 		}
 	}
-
+	//for computing node size
+	pNewSplittableNode[nGlobalThreadId].numIns = pNewNodeStat[nGlobalThreadId].sum_hess;
+	printf("nid=%d, numofIns=%d\n", nid, pNewSplittableNode[nGlobalThreadId].numIns);
 }

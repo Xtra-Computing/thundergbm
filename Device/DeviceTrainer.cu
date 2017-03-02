@@ -134,7 +134,7 @@ void DeviceTrainer::GrowTree(RegTree &tree, void *pStream, int bagId)
 		if(nCurDepth == m_nMaxDepth)
 			bLastLevel = true;
 
-		int curNumofNode = -1;
+		int curNumofNode = -1;//this is fine even though bagging is used, as each bag is handled by a host thread.
 		//manager.MemcpyDeviceToHost(snManager.m_pCurNumofNode_d, &curNumofNode, sizeof(int));
 		manager.MemcpyDeviceToHostAsync(bagManager.m_pCurNumofNodeTreeOnTrainingEachBag_d + bagId, &curNumofNode,
 										sizeof(int), pStream);

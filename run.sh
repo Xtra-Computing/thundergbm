@@ -26,7 +26,7 @@ NUMTREE="-n "
 case $1 in
 	abalone)
 		GAMMA=${GAMMA}"1"
-		D=${D}"1"
+		D=${D}"2"
 		NUMTREE=${NUMTREE}"2"
 		BAG=${BAG}"1"
 		FILENAME=${DATASET_DIR}/"abalone.txt"
@@ -73,15 +73,10 @@ case $1 in
         FILENAME=${DATASET_DIR}/$1
 esac
 ###options
-#svm with probability output
-PROB="-b 0" #0 for no probability output; 1 for probability output.
 
 #task type: 0 for training; 1 for cross-validation; 2 for evaluation
 #	    3 for grid search; 4 for selecting better C.
 TASK="-o 2"
-
-#evaluate training error
-E="-r 1" #0 not evaluate training error; evaluate training error otherwise.
 
 #number of features
 #NUMFEATURE="-f 16"
@@ -91,4 +86,4 @@ set -x
 
 #command
 #./bin/release/mascot ${PROB} ${TASK} ${GAMMA} ${C} ${E} ${NUMFEATURE} ${FILENAME}
-./bin/release/gbdt ${GAMMA} ${D} ${NUMTREE} ${BAG} ${FILENAME}
+./bin/debug/gbdt ${GAMMA} ${D} ${NUMTREE} ${BAG} ${FILENAME}

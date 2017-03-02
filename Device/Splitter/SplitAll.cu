@@ -160,6 +160,14 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 
 	if(numofUniqueFea == 0)
 		PROCESS_ERROR(bLastLevel == true);
+
+	//number of instances in left and right children
+	int curNumSplittingNode = bagManager.m_curNumofSplitableEachBag_h[bagId];
+	int *pNumofR = new int[curNumSplittingNode];
+	int *pNumofL = new int[curNumSplittingNode];
+	memset(pNumofR, 0, sizeof(int) * curNumSplittingNode);
+	memset(pNumofL, 0, sizeof(int) * curNumSplittingNode);
+
 	if(numofUniqueFea > 0)//need to move instances to new nodes if there are new nodes.
 	{
 //		cout << "ins to new nodes" << endl;
@@ -168,6 +176,7 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 		conf.ConfKernel(bagManager.m_pMaxNumValuePerFeaEachBag[bagId], thdPerBlockIns2node, dimGridThreadForEachUsedFea);
 		PROCESS_ERROR(dimGridThreadForEachUsedFea.z == 1);
 		dimGridThreadForEachUsedFea.z = numofUniqueFea;//a decision feature is handled by a set of blocks
+
 		clock_t ins2node_start = clock();
 		InsToNewNode<<<dimGridThreadForEachUsedFea, thdPerBlockIns2node, 0, (*(cudaStream_t*)pStream)>>>(
 								 //snManager.m_pTreeNode, manager.m_pdDFeaValue, manager.m_pDInsId,
