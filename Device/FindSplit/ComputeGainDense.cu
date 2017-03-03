@@ -294,7 +294,7 @@ __global__ void FindSplitInfo(const long long *pEachFeaStartPosEachNode, const i
 	int snId = threadIdx.x;//position in the dense array of nodes
 	int key = pnGlobalBestGainKey[snId];//position in the dense array
 
-	//compute feature id
+	//find best feature id
 	int bestFeaId = -1;
 	for(int f = 0; f < numFea; f++)
 	{
@@ -302,7 +302,7 @@ __global__ void FindSplitInfo(const long long *pEachFeaStartPosEachNode, const i
 		int numofFValue = pEachFeaLenEachNode[feaPos];
 		if(pEachFeaStartPosEachNode[feaPos] + numofFValue < key)//####### key should be represented using long long
 			continue;
-		else
+		else//key is in the range of values of f
 		{
 			bestFeaId = f;
 			break;
@@ -312,11 +312,10 @@ __global__ void FindSplitInfo(const long long *pEachFeaStartPosEachNode, const i
 	if(bestFeaId == -1)
 		printf("Error: bestFeaId=%d\n", bestFeaId);
 
-	int buffId = pPosToBuffId[snId];//dense pos to buffer id (i.e. hash value)
+	int buffId = pPosToBuffId[snId];//snId to buffer id (i.e. hash value)
 
 	pBestSplitPoint[buffId].m_fGain = pfGlobalBestGain[snId];//change the gain back to positive
-	if(pfGlobalBestGain[snId] <= 0)//no gain
-	{
+	if(pfGlobalBestGain[snId] <= 0){//no gain
 		return;
 	}
 
