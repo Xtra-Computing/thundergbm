@@ -34,52 +34,51 @@ int *IndexComputer::m_pBuffIdToPos_dh = NULL;//map buff id to dense pos id; not 
 
 /**
  * @brief: compute index in new node for each feature value
+ * @output: scatter indices; len of each feature in each node; fvalue start pos of each node; start pos of each fea in each node
  */
 void IndexComputer::ComputeIndex(int numSNode, const int *pSNIdToBuffId, int maxNumSN, const int *pBuffVec)
 {
-//	PROCESS_ERROR(m_pInsId != NULL && m_totalFeaValue > 0 && m_insIdToNodeId_dh != NULL);
-//	PROCESS_ERROR(numSNode > 0 && m_pIndices_dh != NULL);
-//	PROCESS_ERROR(maxNumSN >= 0);
+	PROCESS_ERROR(m_pInsId != NULL && m_totalFeaValue > 0 && m_insIdToNodeId_dh != NULL);
+	PROCESS_ERROR(numSNode > 0 && m_pIndices_dh != NULL);
+	PROCESS_ERROR(maxNumSN >= 0);
 
 	//initialise length of each feature in each node
 	memset(m_pEachFeaLenEachNode_dh, 0, sizeof(int) * m_numFea * m_maxNumofSN);
 
-	//construct a mapping
+	//construct a mapping: buffId->snId. snId->buffId already exists
 	for(int b = 0; b < numSNode; b++)
 	{
 		int buffId = pBuffVec[b];
+		PROCESS_ERROR(buffId >= 0);
 		m_pBuffIdToPos_dh[buffId] = b;
 		m_pNumFeaValueEachNode_dh[b] = 0;//initialise the number of feature values of each node to 0
 	}
 
-	//compute fea value info for each node
+	/*** compute fea value info for each node ***/
 	clock_t start_nodeFeaValue = clock();
+	printf("total feature value=%d\n", m_totalFeaValue);
 	for(int fv = 0; fv < m_totalFeaValue; fv++)
 	{
 		int insId = m_pInsId[fv];
 		int nid = m_insIdToNodeId_dh[insId];
-		if(nid < 0)
-		{
+		if(nid < 0){
 			continue;
 		}
 		int buffId = nid % maxNumSN;//pSNIdToBuffId[remain];//Hashing::HostGetBufferId(pSNIdToBuffId, nid, maxNumSN);
-		int densePos = m_pBuffIdToPos_dh[buffId];
+		int snId = m_pBuffIdToPos_dh[buffId];
+		PROCESS_ERROR(snId >= 0);
 
 		//increase the number of fea values of this node by 1
-		m_pNumFeaValueEachNode_dh[densePos]++;
+		m_pNumFeaValueEachNode_dh[snId]++;
 	}
 	clock_t end_nodeFeaValue = clock();
 	m_total_copy += (end_nodeFeaValue - start_nodeFeaValue);
-
 	//compute fea value start pos of each node
-	for(int n = 0; n < numSNode; n++)
-	{
-		if(n == 0)
-		{
+	for(int n = 0; n < numSNode; n++){
+		if(n == 0){
 			m_pFeaValueStartPosEachNode_dh[n] = 0;
 		}
-		else
-		{
+		else{
 			m_pFeaValueStartPosEachNode_dh[n] = m_pFeaValueStartPosEachNode_dh[n - 1] + m_pNumFeaValueEachNode_dh[n - 1];
 		}
 		//initialise start index
@@ -96,9 +95,8 @@ void IndexComputer::ComputeIndex(int numSNode, const int *pSNIdToBuffId, int max
 			do{
 				feaId++;//next feature starts
 
-				for(int n = 0; n < numSNode; n++)
-				{//initialise each feature start position and length
-					m_pEachFeaStartPosEachNode_dh[feaId + n * m_numFea] = m_pIndexCounterEachNode[n];
+				for(int n = 0; n < numSNode; n++){//initialise each feature start position and length
+					m_pEachFeaStartPosEachNode_dh[feaId + n * m_numFea] = m_pIndexCounterEachNode[n];//m_pIndexCounterEachNode increases for each fv.
 				}
 			}while(m_numFea > feaId + 1 && fv == m_pFeaStartPos[feaId + 1]);//skip features having no values
 			clock_t end_copy = clock();
@@ -114,14 +112,14 @@ void IndexComputer::ComputeIndex(int numSNode, const int *pSNIdToBuffId, int max
 			continue;
 		}
 		int buffId = nid % maxNumSN;//pSNIdToBuffId[remain];//Hashing::HostGetBufferId(pSNIdToBuffId, nid, maxNumSN);
-		int snDensePos = m_pBuffIdToPos_dh[buffId];
+		int snId = m_pBuffIdToPos_dh[buffId];
 
 		//compute index in the out array
-		m_pIndices_dh[fv] = m_pIndexCounterEachNode[snDensePos];
-//		PROCESS_ERROR(pIndexCounter[snDensePos] - m_pFeaValueStartPosEachNode_dh[snDensePos] < m_pNumFeaValueEachNode_dh[snDensePos]);
+		m_pIndices_dh[fv] = m_pIndexCounterEachNode[snId];
+//		PROCESS_ERROR(pIndexCounter[snId] - m_pFeaValueStartPosEachNode_dh[snId] < m_pNumFeaValueEachNode_dh[snId]);
 
-		m_pIndexCounterEachNode[snDensePos]++;//increase the index counter
-		m_pEachFeaLenEachNode_dh[feaId + snDensePos * m_numFea]++;//increase the feature value length
+		m_pIndexCounterEachNode[snId]++;//increase the index counter
+		m_pEachFeaLenEachNode_dh[feaId + snId * m_numFea]++;//increase the feature value length
 	}
 }
 

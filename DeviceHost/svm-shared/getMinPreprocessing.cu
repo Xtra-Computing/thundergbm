@@ -29,6 +29,8 @@ __device__ void GetGlobalMinPreprocessing(int nArraySize, const float_point *pfB
 			float_point fTempBlockMin = pfBlockMinValue[i];
 			if(fTempBlockMin < fTempMin)
 			{
+				if(pnBlockMinKey[i] < 0)
+					printf("negative key is included into the final result! tid=%d\n", localTid);
 			//store the minimum value and the corresponding key
 				fTempMin = fTempBlockMin;
 				nTempMinKey = pnBlockMinKey[i];

@@ -83,7 +83,7 @@ __global__ void LoadGDHessFvalue(const float_point *pInsGD, const float_point *p
 	if(idx < 0)
 		printf("index to out array is negative!\n");
 	if(idx >= numFeaValue)
-		printf("index to out array is too large!\n");
+		printf("index to out array is too large: %d. numFvalue=%d!\n", idx, numFeaValue);
 #endif
 
 	//scatter: store GD, Hess and the feature value.
@@ -177,12 +177,12 @@ __global__ void FirstFeaGain(const long long *pEachFeaStartPosEachNode, int numF
 		return;
 	}
 	long long gainPos = pEachFeaStartPosEachNode[gTid];
-	printf("gTid=%d\n", gTid);
-	printf("change %f to 0 pos at %d, gainPos=%d\n", pGainOnEachFeaValue[gainPos], pEachFeaStartPosEachNode[gTid], gainPos);
+//	printf("gTid=%d, gainPos=%ld\n", gTid, gainPos);
+//	printf("change %f to 0 pos at %d, gainPos=%ld\n", pGainOnEachFeaValue[gainPos], pEachFeaStartPosEachNode[gTid], gainPos);
 	pGainOnEachFeaValue[gainPos] = 0;
-	if(gTid == 0){
-		printf("pEachFeaStartPosEachNode[8]=%f\n", pEachFeaStartPosEachNode[8]);
-	}
+//	if(gTid == 0){
+//		printf("pEachFeaStartPosEachNode[8]=%f\n", pEachFeaStartPosEachNode[8]);
+//	}
 }
 
 /**
@@ -202,8 +202,7 @@ __global__ void PickLocalBestSplitEachNode(const long long *pnNumFeaValueEachNod
 	int localTid = threadIdx.x;
 	pfGain[localTid] = FLT_MAX;//initialise to a large positive number
 	pnBetterGainKey[localTid] = -1;
-	if(localTid == 0)
-	{//initialise local best value
+	if(localTid == 0){//initialise local best value
 		int blockId = blockIdx.z * gridDim.y * gridDim.x + blockIdx.y * gridDim.x + blockIdx.x;
 		pfLocalBestGain[blockId] = FLT_MAX;
 		pnLocalBestGainKey[blockId] = -1;
@@ -212,15 +211,12 @@ __global__ void PickLocalBestSplitEachNode(const long long *pnNumFeaValueEachNod
 	long long numValueThisNode = pnNumFeaValueEachNode[snId];//get the number of feature value of this node
 	long long tidForEachNode = (blockIdx.y * gridDim.x + blockIdx.x) * blockDim.x + threadIdx.x;
 
-	if(tidForEachNode >= numValueThisNode)//no gain to load
-	{
-		return;
-	}
-
 	long long nPos = pFeaStartPosEachNode[snId] + tidForEachNode;//feature value gain position
 	if(nPos < 0)
 		printf("sp pos is nagative! %d\n", nPos);
-
+	if(tidForEachNode >= numValueThisNode){//no gain to load
+		return;
+	}
 	pfGain[localTid] = -pGainOnEachFeaValue[nPos];//change to find min of -gain
 	pnBetterGainKey[localTid] = nPos;//############ need to be long long
 	__syncthreads();
@@ -279,7 +275,7 @@ __global__ void PickGlobalBestSplitEachNode(const float_point *pfLocalBestGain, 
 		pfGlobalBestGain[snId] = -pfGain[0];//make the gain back to its original sign
 		pnGlobalBestGainKey[snId] = pnBetterGainKey[0];
 		if(pnBetterGainKey[0] < 0)
-			printf("negative key: snId=%d, gain=%f, key=%d\n", snId, pfGain[0], pnBetterGainKey[0]);
+			printf("negative key: snId=%d, gain=%f, key=%d, blockDim.x=%d, blockSize=%d, blockpPerNode=%d\n", snId, pfGain[0], pnBetterGainKey[0], blockDim.x, BLOCK_SIZE, numBlockPerNode);
 	}
 }
 
