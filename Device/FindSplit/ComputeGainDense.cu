@@ -217,6 +217,8 @@ __global__ void PickLocalBestSplitEachNode(const long long *pnNumFeaValueEachNod
 	if(tidForEachNode >= numValueThisNode){//no gain to load
 		return;
 	}
+	if(nPos > 33416)
+		printf("pos is larger than # of fvalues: %ld; # of fvalue of this node is %ld\n", nPos, numValueThisNode);
 	pfGain[localTid] = -pGainOnEachFeaValue[nPos];//change to find min of -gain
 	pnBetterGainKey[localTid] = nPos;//############ need to be long long
 	__syncthreads();
