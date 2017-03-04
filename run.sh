@@ -27,14 +27,16 @@ case $1 in
 	abalone)
 		GAMMA=${GAMMA}"1"
 		D=${D}"2"
-		NUMTREE=${NUMTREE}"2"
+		NUMTREE=${NUMTREE}"1"
 		BAG=${BAG}"1"
-		FILENAME=${DATASET_DIR}/"abalone.txt"
+		FILENAME=${DATASET_DIR}/"abalone.txt" #8 features and 4177 instances
 		;;
-    iris)
-        GAMMA=${GAMMA}"0.5"
-        C=${C}"100"
-        FILENAME=${DATASET_DIR}/"iris.scale"
+    cadata)
+        GAMMA=${GAMMA}"1"
+        D=${D}"2"
+		NUMTREE=${NUMTREE}"1"
+		BAG=${BAG}"1"
+        FILENAME=${DATASET_DIR}/"cadata" #8 features and 20640 instances
         ;;
     mnist)
         GAMMA=${GAMMA}"0.125"

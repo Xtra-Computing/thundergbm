@@ -65,7 +65,7 @@ __global__ void GetInfoEachFeaInBatch(const int *pnNumofKeyValues, const long lo
 									  int totalNumofFea, int feaBatch, int numofSNInProgress, int smallestNodeId,
 									  int *pStartPosEachFeaInBatch, int *pnEachFeaLen);
 void PrefixSumForEachNode(int feaBatch, float_point *pGDOnEachFeaValue_d, float_point *pHessOnEachFeaValue_d,
-						  const long long *pnStartPosEachFeaInBatch, const int *pnEachFeaLen, int maxNumValuePerFea);
+						  const long long *pnStartPosEachFeaInBatch, const int *pnEachFeaLen, int maxNumValuePerFea, void*pStream);
 __global__ void ComputeGain(const int *pnNumofKeyValues, const long long *pnFeaStartPos, const nodeStat *pSNodeStat, int smallestFeaId, int feaBatch,
 							const int *pBuffId, int numofSNInProgress, int smallestNodeId, float_point lambda,
 							const float_point *pGDPrefixSumOnEachFeaValue, const float_point *pHessPrefixSumOnEachFeaValue,

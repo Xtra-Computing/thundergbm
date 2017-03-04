@@ -217,8 +217,6 @@ __global__ void PickLocalBestSplitEachNode(const long long *pnNumFeaValueEachNod
 	if(tidForEachNode >= numValueThisNode){//no gain to load
 		return;
 	}
-	if(nPos > 33416)
-		printf("pos is larger than # of fvalues: %ld; # of fvalue of this node is %ld\n", nPos, numValueThisNode);
 	pfGain[localTid] = -pGainOnEachFeaValue[nPos];//change to find min of -gain
 	pnBetterGainKey[localTid] = nPos;//############ need to be long long
 	__syncthreads();
@@ -334,5 +332,7 @@ __global__ void FindSplitInfo(const long long *pEachFeaStartPosEachNode, const i
 	pRChildStat[buffId].sum_hess = pPrefixSumHess[idxPreSum];
 	if(pLChildStat[buffId].sum_hess < 0 || pRChildStat[buffId].sum_hess < 0)
 		printf("Error: hess is negative l hess=%d, r hess=%d\n", pLChildStat[buffId].sum_hess, pRChildStat[buffId].sum_hess);
+	printf("split: f=%d, value=%f, gain=%f, gd=%f v.s. %f, hess=%f v.s. %f, buffId=%d\n", bestFeaId, pBestSplitPoint[buffId].m_fSplitValue,
+			pBestSplitPoint[buffId].m_fGain, pLChildStat[buffId].sum_gd, pRChildStat[buffId].sum_gd, pLChildStat[buffId].sum_hess, pRChildStat[buffId].sum_hess, buffId);
 }
 

@@ -116,7 +116,7 @@ void IndexComputer::ComputeIndex(int numSNode, const int *pSNIdToBuffId, int max
 
 		//compute index in the out array
 		m_pIndices_dh[fv] = m_pIndexCounterEachNode[snId];
-//		PROCESS_ERROR(pIndexCounter[snId] - m_pFeaValueStartPosEachNode_dh[snId] < m_pNumFeaValueEachNode_dh[snId]);
+		PROCESS_ERROR(m_pIndexCounterEachNode[snId] - m_pFeaValueStartPosEachNode_dh[snId] < m_pNumFeaValueEachNode_dh[snId]);
 
 		m_pIndexCounterEachNode[snId]++;//increase the index counter
 		m_pEachFeaLenEachNode_dh[feaId + snId * m_numFea]++;//increase the feature value length
