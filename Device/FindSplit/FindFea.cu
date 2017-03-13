@@ -78,6 +78,9 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 
 	//compute index for each feature value
 	IndexComputer indexComp;
+	//initialise each feature length
+	manager.MemcpyDeviceToHostAsync(manager.m_pFeaStartPos, indexComp.m_pEachFeaStartPos_dh, sizeof(unsigned int) * bagManager.m_numFea, pStream);
+
 	KernelConf conf;
 	int blockSizeLoadGD;
 	dim3 dimNumofBlockToLoadGD;
@@ -93,7 +96,7 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 		indexComp.ComputeIndex(numofSNode, pSNIdToBuffId_h, maxNumofSplittable, pBuffIdVec_h);
 		clock_t comIdx_end = clock();
 		total_com_idx_t += (comIdx_end - comIdx_start);
-
+		
 		//copy scatter index to device memory
 		manager.MemcpyHostToDeviceAsync(indexComp.m_pIndices_dh, bagManager.m_pIndicesEachBag_d + bagId * bagManager.m_numFeaValue, sizeof(int) * bagManager.m_numFeaValue, pStream);
 		//copy # of feature values of each node

@@ -134,7 +134,7 @@ __global__ void GetInfoEachFeaInBatch(const int *pnNumofKeyValues, const long lo
 void PrefixSumForEachNode(int numofSubArray, float_point *pGDOnEachFeaValue_d, float_point *pHessOnEachFeaValue_d,
 						  const long long *pnStartPosEachFeaInBatch, const int *pnEachFeaLen, int maxNumValuePerFea, void*pStream)
 {
-#if 1
+#if 0
 	int total_ele = 0;
 	for(int i = 0; i < numofSubArray; i++)
 	{
@@ -151,7 +151,7 @@ void PrefixSumForEachNode(int numofSubArray, float_point *pGDOnEachFeaValue_d, f
 	prefixsumForDeviceArray(pGDOnEachFeaValue_d, pnStartPosEachFeaInBatch, pnEachFeaLen, numofSubArray, maxNumValuePerFea);
 	prefixsumForDeviceArray(pHessOnEachFeaValue_d, pnStartPosEachFeaInBatch, pnEachFeaLen, numofSubArray, maxNumValuePerFea);
 
-#if 1 
+#if 0 
 	float_point *pHessPrefixSum_h = new float_point[total_ele];
 	float_point *pGDPrefixSum_h = new float_point[total_ele];
 	manager.MemcpyDeviceToHostAsync(pHessOnEachFeaValue_d, pHessPrefixSum_h, sizeof(float_point) * total_ele, pStream);

@@ -33,9 +33,13 @@ public:
 	static int *m_pBuffIdToPos_dh;
 	static int *m_pPosToBuffId_dh;
 
+
+	static unsigned int *m_pEachFeaStartPos_dh;
+
 public:
 	//compute indices for each feature value in feature lists
 	static void ComputeIndex(int numNode, const int *pSNIdToBuffId, int maxNumSN, const int *pBuffVec);
+	static void ComputeIdxGPU(int numNode, const int *pSNIdToBuffId, int maxNumSN, const int *pBuffVec);
 
 	static void AllocMem(int nNumofExamples, int nNumofFeatures, int maxNumofSpittableNode);
 };
