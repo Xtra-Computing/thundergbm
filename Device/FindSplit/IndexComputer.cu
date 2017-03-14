@@ -36,6 +36,7 @@ int *IndexComputer::m_pEachFeaLenEachNode_dh = NULL;//each feature value length 
 int *IndexComputer::m_pBuffIdToPos_dh = NULL;//map buff id to dense pos id; not all elements in this array are used, due to not continuous buffid.
 
 unsigned int *IndexComputer::m_pEachFeaStartPos_dh = NULL;
+unsigned int *IndexComputer::m_pnGatherIdx = NULL;
 
 /**
   *@brief: mark feature values beloning to node with id=snId by 1
@@ -119,7 +120,7 @@ void ComputeEachFeaStartPosEachNode(int numFea, int snId, unsigned int collected
 /**
   * @brief: compute gether index by GPUs
   */
-void IndexComputer::ComputeIdxGPU(int numSNode, const int *pSNIdToBuffId, int maxNumSN, const int *pBuffVec){
+void IndexComputer::ComputeIdxGPU(int numSNode, int maxNumSN, const int *pBuffVec){
 	PROCESS_ERROR(m_pInsId != NULL && m_totalFeaValue > 0 && m_insIdToNodeId_dh != NULL);
 	PROCESS_ERROR(numSNode > 0 && m_pIndices_dh != NULL);
 	PROCESS_ERROR(maxNumSN >= 0);
@@ -127,10 +128,8 @@ void IndexComputer::ComputeIdxGPU(int numSNode, const int *pSNIdToBuffId, int ma
 	//this will be moved to memeory allocator
 	float_point *pfSparseGatherIdx;
 	unsigned int *pnSparseGatherIdx;
-	unsigned int *gatherIdx;
 	checkCudaErrors(cudaMalloc((void**)&pfSparseGatherIdx, sizeof(float_point) * m_totalFeaValue));
 	checkCudaErrors(cudaMalloc((void**)&pnSparseGatherIdx, sizeof(unsigned int) * m_totalFeaValue));
-	checkCudaErrors(cudaMalloc((void**)&gatherIdx, sizeof(unsigned int) * m_totalFeaValue));
 
 	unsigned int curGatherIdx = 0;
 	unsigned int collectedGatherIdx = 0;
@@ -145,8 +144,8 @@ void IndexComputer::ComputeIdxGPU(int numSNode, const int *pSNIdToBuffId, int ma
 		checkCudaErrors(cudaMemset(pfSparseGatherIdx, 0, sizeof(float_point) * m_totalFeaValue));
 
 		//construct 01 array for key values
-		int snId = pBuffVec[i];
-		PROCESS_ERROR(snId == i);
+		int snId = pBuffVec[i];//snId = nid % maxSN
+		PROCESS_ERROR(snId >= 0);
 		ArrayMarker<<<dimNumofBlockForFvalue, blockSizeForFvalue>>>(snId, m_pInsId, m_insIdToNodeId_dh, m_totalFeaValue, maxNumSN, pfSparseGatherIdx);
 
 		//compute prefix sum for one array
@@ -157,19 +156,19 @@ void IndexComputer::ComputeIdxGPU(int numSNode, const int *pSNIdToBuffId, int ma
 		FloatToUnsignedInt<<<dimNumofBlockForFvalue, blockSizeForFvalue>>>(pfSparseGatherIdx, m_totalFeaValue, pnSparseGatherIdx);
 
 		//compute each feature length in each node
-		UpdateEachFeaLenEachNode(m_pEachFeaStartPos_dh, i, m_numFea, m_totalFeaValue, pnSparseGatherIdx, m_pEachFeaLenEachNode_dh);
+		UpdateEachFeaLenEachNode(m_pEachFeaStartPos_dh, snId, m_numFea, m_totalFeaValue, pnSparseGatherIdx, m_pEachFeaLenEachNode_dh);
 
 		//get collected gather index of this round
 		checkCudaErrors(cudaMemcpy(&curGatherIdx, pnSparseGatherIdx + m_totalFeaValue - 1, sizeof(unsigned int), cudaMemcpyDeviceToHost));
 
 		//write to gether index
-		CollectGatherIdx<<<dimNumofBlockForFvalue, blockSizeForFvalue>>>(pnSparseGatherIdx, collectedGatherIdx, m_totalFeaValue, gatherIdx);
+		CollectGatherIdx<<<dimNumofBlockForFvalue, blockSizeForFvalue>>>(pnSparseGatherIdx, collectedGatherIdx, m_totalFeaValue, m_pnGatherIdx);
 
 		//number of feature values of this node
 		m_pNumFeaValueEachNode_dh[i] = curGatherIdx;//############# snId = i
 
 		//each feature start position in each node
-		ComputeEachFeaStartPosEachNode(m_numFea, i, collectedGatherIdx, m_pEachFeaLenEachNode_dh, m_pEachFeaStartPosEachNode_dh);
+		ComputeEachFeaStartPosEachNode(m_numFea, snId, collectedGatherIdx, m_pEachFeaLenEachNode_dh, m_pEachFeaStartPosEachNode_dh);
 
 		//feature value start position of each node
 		m_pFeaValueStartPosEachNode_dh[i] = collectedGatherIdx;
@@ -177,6 +176,9 @@ void IndexComputer::ComputeIdxGPU(int numSNode, const int *pSNIdToBuffId, int ma
 		//update the number of collected gather indices
 		collectedGatherIdx += curGatherIdx;
 	}
+
+	checkCudaErrors(cudaFree(pfSparseGatherIdx));
+	checkCudaErrors(cudaFree(pnSparseGatherIdx));
 }
 
 /**
@@ -288,4 +290,5 @@ void IndexComputer::AllocMem(int nNumofExamples, int nNumofFeatures, int maxNumo
 	checkCudaErrors(cudaMallocHost((void**)&m_pEachFeaLenEachNode_dh, sizeof(int) * m_maxNumofSN * m_numFea));
 
 	checkCudaErrors(cudaMallocHost((void**)&m_pEachFeaStartPos_dh, sizeof(unsigned int) * m_numFea));
+	checkCudaErrors(cudaMalloc((void**)&m_pnGatherIdx, sizeof(unsigned int) * m_totalFeaValue));
 }

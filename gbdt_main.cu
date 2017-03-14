@@ -52,7 +52,7 @@ int main(int argc, char *argv[])
 //	return 1;
 
 	CUcontext context;
-	if(!InitCUDA('T', context))
+	if(!InitCUDA(context))
 	{
 		cerr << "cannot initialise GPU" << endl;
 		return 0;

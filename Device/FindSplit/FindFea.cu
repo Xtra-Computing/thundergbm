@@ -115,6 +115,18 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 		manager.MemcpyHostToDeviceAsync(indexComp.m_pEachFeaLenEachNode_dh, bagManager.m_pEachFeaLenEachNodeEachBag_dh + bagId * bagManager.m_maxNumSplittable * bagManager.m_numFea,
 										sizeof(int) * bagManager.m_maxNumSplittable * bagManager.m_numFea, pStream);
 
+		//compute gather index via GPUs
+		indexComp.ComputeIdxGPU(numofSNode, maxNumofSplittable, pBuffIdVec_h);
+		unsigned int *tempAllIdx = new unsigned int[bagManager.m_numFeaValue];
+		manager.MemcpyDeviceToHostAsync(indexComp.m_pnGatherIdx, tempAllIdx, sizeof(unsigned int) * bagManager.m_numFeaValue, pStream);
+
+		for(int i = 0; i < bagManager.m_numFeaValue; i++){
+			if(tempAllIdx[i] != indexComp.m_pIndices_dh[i]){
+				printf("%d (%u) v.s. %d, pos=%d\n", tempAllIdx[i], tempAllIdx[i], indexComp.m_pIndices_dh[i]);
+			}
+		}
+		
+
 		PROCESS_ERROR(nNumofFeature == bagManager.m_numFea);
 		clock_t start_gd = clock();
 		//scatter operation

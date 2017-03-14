@@ -11,6 +11,7 @@
 #include "../../DeviceHost/MyAssert.h"
 #include "../Memory/gpuMemManager.h"
 #include "../KernelConf.h"
+#include "../../GetCudaError.h"
 
 int *BagManager::m_pInsWeight = NULL;
 int BagManager::m_numBag = -1;
@@ -117,6 +118,7 @@ int *BagManager::m_pSortedUsedFeaIdBag = NULL;			//sorted used feature ids
 void BagManager::InitBagManager(int numIns, int numFea, int numTree, int numBag, int maxNumSN, int maxNumNode, long long numFeaValue,
 								int maxNumUsedFeaInATree, int maxTreeDepth)
 {
+	GETERROR("cuda error before init bag manager");
 	PROCESS_ERROR(numIns > 0 && numBag > 0 && maxNumSN > 0 && maxNumNode > 0);
 	m_numIns = numIns;
 	m_numFea = numFea;
@@ -146,11 +148,14 @@ void BagManager::InitBagManager(int numIns, int numFea, int numTree, int numBag,
 			cerr << "error in building bags" << endl;
 	}
 #endif
+	GETERROR("cuda error before create stream");
 
+	printf("# of bags=%d\n", m_numBag);
 	m_pStream = new cudaStream_t[numBag];
 	for(int i = 0; i < m_numBag; i++)
 		cudaStreamCreate(&m_pStream[i]);
 
+	GETERROR("before allocate memory in BagManager");
 	AllocMem();
 
 	//initialise device memory
@@ -165,6 +170,7 @@ void BagManager::InitBagManager(int numIns, int numFea, int numTree, int numBag,
 void BagManager::AllocMem()
 {
 	//instance information for each bag
+	PROCESS_ERROR(m_numIns > 0 && m_numBag > 0);
 	checkCudaErrors(cudaMalloc((void**)&m_pInsIdToNodeIdEachBag, sizeof(int) * m_numIns * m_numBag));
 	checkCudaErrors(cudaMalloc((void**)&m_pInsWeight_d, sizeof(int) * m_numIns * m_numBag));
 

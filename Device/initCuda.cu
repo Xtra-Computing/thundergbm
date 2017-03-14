@@ -14,57 +14,55 @@ using std::cerr;
 using std::endl;
 
 /**
+ * @brief: set the device to use
+ */
+void UseDevice(int deviceId, CUcontext &context)
+{
+    CUdevice device;
+    cudaDeviceProp prop;
+    checkCudaErrors(cudaGetDeviceProperties(&prop, deviceId));
+    cout << "Using " << prop.name << "; device id is " << deviceId << endl;
+    checkCudaErrors(cudaSetDevice(deviceId));
+    cuDeviceGet(&device, deviceId);
+    cuCtxCreate(&context, CU_CTX_MAP_HOST, device);
+    if(!prop.canMapHostMemory)
+		fprintf(stderr, "Device %d cannot map host memory!\n", deviceId);
+}
+
+
+/**
  * @brief: initialize CUDA device
  */
 
-bool InitCUDA(char gpuType, CUcontext &context)
+bool InitCUDA(CUcontext &context, char gpuType = 'T')
 {
     int count;
 
     checkCudaErrors(cudaGetDeviceCount(&count));
-    if(count == 0)
-    {
+    if(count == 0) {
         fprintf(stderr, "There is no device.\n");
         return false;
     }
 
-    CUdevice device;
-
     int i;
-    bool bUseTesla = false;
-    for(i = 0; i < count; i++)
-    {
+    for(i = 0; i < count; i++) {
         cudaDeviceProp prop;
         checkCudaErrors(cudaGetDeviceProperties(&prop, i));
-        if(cudaGetDeviceProperties(&prop, i) == cudaSuccess)
-        {
+        if(cudaGetDeviceProperties(&prop, i) == cudaSuccess) {
         	cout << prop.name << endl;
-        	if(prop.name[0] == gpuType && prop.name[1] == 'e')
-        	{
-        		cout << "Using " << prop.name << endl;
-       			bUseTesla = true;
-        		checkCudaErrors(cudaSetDevice(i));
-        		cuDeviceGet(&device, i);
-        		cuCtxCreate(&context, CU_CTX_SCHED_AUTO, device);
-        		break;
+        	if(prop.name[0] == gpuType)
+        	{//choose the prefer device
+                UseDevice(i, context);
+       			break;
         	}
-            if(prop.major >= 1)
-            {
-            	cout << count << " device(s) with compute capability " << prop.major << endl;
-            }
         }
     }
 
+    cout << i << " v.s. " << count << endl;
     if(i == count)
     {
-        cerr << "There is no device of " << gpuType << " series. Please reset the parameter of \""
-        	 << __PRETTY_FUNCTION__ << "\"" <<endl;
-        return false;
-    }
-
-    if(!bUseTesla)
-    {
-    	checkCudaErrors(cudaSetDevice(0));
+        cout << "There is no device of \"" << gpuType << "\" series" << endl;
+        UseDevice(0, context);
     }
 
     return true;

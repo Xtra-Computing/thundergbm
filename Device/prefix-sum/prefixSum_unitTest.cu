@@ -16,6 +16,8 @@
 
 #include "prefixSum.h"
 #include "powerOfTwo.h"
+#include "../../GetCudaError.h"
+#include "../../DeviceHost/MyAssert.h"
 
 using std::cout;
 using std::endl;
@@ -77,6 +79,7 @@ void elementsLastBlock(unsigned int *pnEltsLastBlock, unsigned int *pnThreadLast
  */
 void prefixsumForDeviceArray(T *array_d, const long long *pnArrayStartPos_d, const int *pnEachArrayLen_h, int numArray, int numElementsLongestArray)
 {
+	PROCESS_ERROR(array_d != NULL && pnArrayStartPos_d != NULL && pnEachArrayLen_h != NULL && numArray > 0 && numElementsLongestArray > 0);
 	//the arrays are ordered by their length in ascending order
 	int totalNumofEleInArray = 0;
 	for(int a = 0; a < numArray; a++)
@@ -124,11 +127,7 @@ void prefixsumForDeviceArray(T *array_d, const long long *pnArrayStartPos_d, con
 	cuda_prefixsum <<< dim_grid_prescan, dim_block_prescan, numEltsPerBlockPrescan * sizeof(T) >>>
 			(array_d, totalNumofEleInArray, out_array_d, pnArrayStartPos_d, pnEachSubArrayLen_d, numArray, numBlocksPrescan, pnThreadLastBlock_d, pnEltsLastBlock_d);
 	cudaDeviceSynchronize();
-	if(cudaGetLastError() != cudaSuccess)
-	{
-		cout << "error in first cuda_prefixsum" << endl;
-		exit(0);
-	}
+	GETERROR("first cuda_prefixsum");
 
 	//for block sum
 	if(numBlocksPrescan > 1)//number of blocks for each array
