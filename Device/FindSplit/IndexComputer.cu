@@ -15,6 +15,7 @@
 #include "../Hashing.h"
 #include "../KernelConf.h"
 #include "../prefix-sum/prefixSum.h"
+#include "../../GetCudaError.h"
 
 
 using std::vector;
@@ -37,16 +38,17 @@ int *IndexComputer::m_pBuffIdToPos_dh = NULL;//map buff id to dense pos id; not 
 
 unsigned int *IndexComputer::m_pEachFeaStartPos_dh = NULL;
 unsigned int *IndexComputer::m_pnGatherIdx = NULL;
+unsigned int *IndexComputer::m_pFvToInsId = NULL;
 
 /**
   *@brief: mark feature values beloning to node with id=snId by 1
   */
-__global__ void ArrayMarker(int snId, int *pFvToInsId, int *pInsIdToNodeId, int totalNumFv, int maxNumSN, float_point *pSparseGatherIdx){
+__global__ void ArrayMarker(int snId, unsigned int *pFvToInsId, int *pInsIdToNodeId, int totalNumFv, int maxNumSN, float_point *pSparseGatherIdx){
 	int gTid = (blockIdx.y * gridDim.x + blockIdx.x) * blockDim.x + threadIdx.x;
 	if(gTid >= totalNumFv)//thread has nothing to mark 
 		return;
 
-	int insId = pFvToInsId[gTid];
+	unsigned int insId = pFvToInsId[gTid];
 	int nid = pInsIdToNodeId[insId];
 	int buffId = nid % maxNumSN;
 	if(snId == buffId){
@@ -61,7 +63,7 @@ __global__ void ArrayMarker(int snId, int *pFvToInsId, int *pInsIdToNodeId, int 
 void UpdateEachFeaLenEachNode(unsigned int *pEachFeaStartPos, int snId, int numFea, int totalFvalue, unsigned int *pSparseGatherIdx, int *pEachFeaLenEachNode){
 	for(int f = 0; f < numFea; f++){
 		unsigned int posOfLastFvalue;
-		if(f < numFea + 1)
+		if(f < numFea - 1)
 			posOfLastFvalue = pEachFeaStartPos[f + 1] - 1;
 		else
 			posOfLastFvalue = totalFvalue - 1;
@@ -86,14 +88,14 @@ __global__ void CollectGatherIdx(unsigned int *pSparseGatherIdx, unsigned int co
 	unsigned int idx = pSparseGatherIdx[gTid];	
 	if(gTid == 0){
 		if(idx == 1)//store the first element
-			pGatherIdx[idx + collectedGatherIdx - 1] = gTid;
+			pGatherIdx[gTid] = collectedGatherIdx + idx - 1;
 		if(idx > 1 || idx < 0)
 			printf("error in CollectGatherIdx\n");
 	}
 	else{
 		if(idx == pSparseGatherIdx[gTid - 1])//repeated element due to prefix sum
 			return;
-		pGatherIdx[idx + collectedGatherIdx - 1] = gTid;
+		pGatherIdx[gTid] = collectedGatherIdx + idx - 1;
 	}
 }
 
@@ -128,8 +130,12 @@ void IndexComputer::ComputeIdxGPU(int numSNode, int maxNumSN, const int *pBuffVe
 	//this will be moved to memeory allocator
 	float_point *pfSparseGatherIdx;
 	unsigned int *pnSparseGatherIdx;
+	unsigned int *pnSparseGatherIdx_h = new unsigned int[m_totalFeaValue];
 	checkCudaErrors(cudaMalloc((void**)&pfSparseGatherIdx, sizeof(float_point) * m_totalFeaValue));
 	checkCudaErrors(cudaMalloc((void**)&pnSparseGatherIdx, sizeof(unsigned int) * m_totalFeaValue));
+	long long *pnStartPos;
+	checkCudaErrors(cudaMalloc((void**)&pnStartPos, sizeof(long long) * 1));
+	checkCudaErrors(cudaMemset(pnStartPos, 0, sizeof(long long) * 1));
 
 	unsigned int curGatherIdx = 0;
 	unsigned int collectedGatherIdx = 0;
@@ -139,6 +145,7 @@ void IndexComputer::ComputeIdxGPU(int numSNode, int maxNumSN, const int *pBuffVe
 	dim3 dimNumofBlockForFvalue;
 	conf.ConfKernel(m_totalFeaValue, blockSizeForFvalue, dimNumofBlockForFvalue);
 
+	checkCudaErrors(cudaMemcpy(m_pFvToInsId, m_pInsId, sizeof(unsigned int) * m_totalFeaValue, cudaMemcpyHostToDevice));
 	for(int i = 0; i < numSNode; i++){
 		//reset sparse gather index
 		checkCudaErrors(cudaMemset(pfSparseGatherIdx, 0, sizeof(float_point) * m_totalFeaValue));
@@ -146,17 +153,19 @@ void IndexComputer::ComputeIdxGPU(int numSNode, int maxNumSN, const int *pBuffVe
 		//construct 01 array for key values
 		int snId = pBuffVec[i];//snId = nid % maxSN
 		PROCESS_ERROR(snId >= 0);
-		ArrayMarker<<<dimNumofBlockForFvalue, blockSizeForFvalue>>>(snId, m_pInsId, m_insIdToNodeId_dh, m_totalFeaValue, maxNumSN, pfSparseGatherIdx);
+		printf("numof fv=%d, blocksize=%d, numblock.x=%d, numblock.y=%d\n", m_totalFeaValue, blockSizeForFvalue, dimNumofBlockForFvalue.x, dimNumofBlockForFvalue.y);
+		ArrayMarker<<<dimNumofBlockForFvalue, blockSizeForFvalue>>>(snId, m_pFvToInsId, m_insIdToNodeId_dh, m_totalFeaValue, maxNumSN, pfSparseGatherIdx);
 
 		//compute prefix sum for one array
-		long long pnStartPos = 0;
 		int arraySize = m_totalFeaValue;
-		prefixsumForDeviceArray(pfSparseGatherIdx, &pnStartPos, &arraySize, 1, m_totalFeaValue);
+		GETERROR("after ArrayMarker");
+		prefixsumForDeviceArray(pfSparseGatherIdx, pnStartPos, &arraySize, 1, m_totalFeaValue);
 		//convert float to int
 		FloatToUnsignedInt<<<dimNumofBlockForFvalue, blockSizeForFvalue>>>(pfSparseGatherIdx, m_totalFeaValue, pnSparseGatherIdx);
+		checkCudaErrors(cudaMemcpy(pnSparseGatherIdx_h, pnSparseGatherIdx, sizeof(unsigned int) * m_totalFeaValue, cudaMemcpyDeviceToHost));
 
 		//compute each feature length in each node
-		UpdateEachFeaLenEachNode(m_pEachFeaStartPos_dh, snId, m_numFea, m_totalFeaValue, pnSparseGatherIdx, m_pEachFeaLenEachNode_dh);
+		UpdateEachFeaLenEachNode(m_pEachFeaStartPos_dh, snId, m_numFea, m_totalFeaValue, pnSparseGatherIdx_h, m_pEachFeaLenEachNode_dh);
 
 		//get collected gather index of this round
 		checkCudaErrors(cudaMemcpy(&curGatherIdx, pnSparseGatherIdx + m_totalFeaValue - 1, sizeof(unsigned int), cudaMemcpyDeviceToHost));
@@ -165,13 +174,13 @@ void IndexComputer::ComputeIdxGPU(int numSNode, int maxNumSN, const int *pBuffVe
 		CollectGatherIdx<<<dimNumofBlockForFvalue, blockSizeForFvalue>>>(pnSparseGatherIdx, collectedGatherIdx, m_totalFeaValue, m_pnGatherIdx);
 
 		//number of feature values of this node
-		m_pNumFeaValueEachNode_dh[i] = curGatherIdx;//############# snId = i
+		m_pNumFeaValueEachNode_dh[snId] = curGatherIdx;
 
 		//each feature start position in each node
 		ComputeEachFeaStartPosEachNode(m_numFea, snId, collectedGatherIdx, m_pEachFeaLenEachNode_dh, m_pEachFeaStartPosEachNode_dh);
 
 		//feature value start position of each node
-		m_pFeaValueStartPosEachNode_dh[i] = collectedGatherIdx;
+		m_pFeaValueStartPosEachNode_dh[snId] = collectedGatherIdx;
 
 		//update the number of collected gather indices
 		collectedGatherIdx += curGatherIdx;
@@ -272,6 +281,26 @@ void IndexComputer::ComputeIndex(int numSNode, const int *pSNIdToBuffId, int max
 	}
 }
 
+__global__ void llToUint(unsigned int *pUintArray, long long *pLlArray, int numEle){
+	int gTid = (blockIdx.y * gridDim.x + blockIdx.x) * blockDim.x + threadIdx.x;
+	if(gTid >= numEle)//thread has nothing to mark 
+		return;
+	pUintArray[gTid] = pLlArray[gTid];
+
+}
+/**
+ * @brief: convert copy long long to unsigned int
+ */
+void IndexComputer::LonglongToUnsignedInt(unsigned int *pEachFeaStartPos_dh, long long *pFeaStartPos, int numEle){
+	KernelConf conf;
+	int blockSize;
+	dim3 dimNumofBlock;
+	conf.ConfKernel(numEle, blockSize, dimNumofBlock);
+
+	llToUint<<<dimNumofBlock, blockSize>>>(pEachFeaStartPos_dh, pFeaStartPos, numEle);
+}
+
+
 /**
  * @brief: allocate reusable memory
  */
@@ -291,4 +320,5 @@ void IndexComputer::AllocMem(int nNumofExamples, int nNumofFeatures, int maxNumo
 
 	checkCudaErrors(cudaMallocHost((void**)&m_pEachFeaStartPos_dh, sizeof(unsigned int) * m_numFea));
 	checkCudaErrors(cudaMalloc((void**)&m_pnGatherIdx, sizeof(unsigned int) * m_totalFeaValue));
+	checkCudaErrors(cudaMalloc((void**)&m_pFvToInsId, sizeof(unsigned int) * m_totalFeaValue));
 }

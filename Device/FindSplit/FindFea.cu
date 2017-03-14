@@ -79,7 +79,7 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 	//compute index for each feature value
 	IndexComputer indexComp;
 	//initialise each feature length
-	manager.MemcpyDeviceToHostAsync(manager.m_pFeaStartPos, indexComp.m_pEachFeaStartPos_dh, sizeof(unsigned int) * bagManager.m_numFea, pStream);
+	indexComp.LonglongToUnsignedInt(indexComp.m_pEachFeaStartPos_dh, manager.m_pFeaStartPos, bagManager.m_numFea);
 
 	KernelConf conf;
 	int blockSizeLoadGD;
@@ -102,6 +102,9 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 		//copy # of feature values of each node
 		manager.MemcpyHostToDeviceAsync(indexComp.m_pNumFeaValueEachNode_dh, bagManager.m_pNumFvalueEachNodeEachBag_d + bagId * bagManager.m_maxNumSplittable,
 										sizeof(long long) * bagManager.m_maxNumSplittable, pStream);
+		for(int i = 0; i < numofSNode; i++){
+			printf("node %d has %d fvaluse\n", i, indexComp.m_pNumFeaValueEachNode_dh[i]);
+		}
 		//copy feature value start position of each node
 		manager.MemcpyHostToDeviceAsync(indexComp.m_pFeaValueStartPosEachNode_dh, bagManager.m_pFvalueStartPosEachNodeEachBag_d + bagId * bagManager.m_maxNumSplittable, 
 										sizeof(long long) * maxNumofSplittable, pStream);
@@ -120,12 +123,16 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 		unsigned int *tempAllIdx = new unsigned int[bagManager.m_numFeaValue];
 		manager.MemcpyDeviceToHostAsync(indexComp.m_pnGatherIdx, tempAllIdx, sizeof(unsigned int) * bagManager.m_numFeaValue, pStream);
 
+		int invalid = 0;
 		for(int i = 0; i < bagManager.m_numFeaValue; i++){
+//			printf("%d v.s. %d, i=%d\n", tempAllIdx[i], indexComp.m_pIndices_dh[i], i);
 			if(tempAllIdx[i] != indexComp.m_pIndices_dh[i]){
-				printf("%d (%u) v.s. %d, pos=%d\n", tempAllIdx[i], tempAllIdx[i], indexComp.m_pIndices_dh[i]);
+				printf("%d v.s. %d, i=%d\n", tempAllIdx[i], indexComp.m_pIndices_dh[i], i);
+				invalid++;
 			}
+			if(invalid == 10)
+				exit(0);
 		}
-		
 
 		PROCESS_ERROR(nNumofFeature == bagManager.m_numFea);
 		clock_t start_gd = clock();

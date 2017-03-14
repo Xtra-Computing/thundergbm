@@ -36,12 +36,14 @@ public:
 
 	static unsigned int *m_pEachFeaStartPos_dh;
 	static unsigned int *m_pnGatherIdx;
-
+	static unsigned int *m_pFvToInsId;
 
 public:
 	//compute indices for each feature value in feature lists
 	static void ComputeIndex(int numNode, const int *pSNIdToBuffId, int maxNumSN, const int *pBuffVec);
 	static void ComputeIdxGPU(int numNode, int maxNumSN, const int *pBuffVec);
+	static void LonglongToUnsignedInt(unsigned int *pEachFeaStartPos_dh, long long *pFeaStartPos, int numFea);
+
 
 	static void AllocMem(int nNumofExamples, int nNumofFeatures, int maxNumofSpittableNode);
 };

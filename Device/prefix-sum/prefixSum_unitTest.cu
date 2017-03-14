@@ -14,6 +14,8 @@
 #include <iomanip>
 #include <assert.h>
 
+#include <cuda.h>
+#include <helper_cuda.h>
 #include "prefixSum.h"
 #include "powerOfTwo.h"
 #include "../../GetCudaError.h"
@@ -118,16 +120,15 @@ void prefixsumForDeviceArray(T *array_d, const long long *pnArrayStartPos_d, con
 	cudaMalloc((void**)&pnThreadLastBlock_d, sizeof(unsigned int) * numArray);
 	cudaMalloc((void**)&pnEachSubArrayLen_d, sizeof(unsigned int) * numArray);
 
-	cudaMemcpy(pnEltsLastBlock_d, pnEltsLastBlock, sizeof(unsigned int) * numArray, cudaMemcpyHostToDevice);
+	checkCudaErrors(cudaMemcpy(pnEltsLastBlock_d, pnEltsLastBlock, sizeof(unsigned int) * numArray, cudaMemcpyHostToDevice));
 	cudaMemcpy(pnThreadLastBlock_d, pnEffectiveThreadLastBlock, sizeof(unsigned int) * numArray, cudaMemcpyHostToDevice);
 	cudaMemcpy(pnEachSubArrayLen_d, pnEachArrayLen_h, sizeof(unsigned int) * numArray, cudaMemcpyHostToDevice);
 
-
+	GETERROR("before cuda_prefixsum");
 	// do prefix sum for each block
 	cuda_prefixsum <<< dim_grid_prescan, dim_block_prescan, numEltsPerBlockPrescan * sizeof(T) >>>
 			(array_d, totalNumofEleInArray, out_array_d, pnArrayStartPos_d, pnEachSubArrayLen_d, numArray, numBlocksPrescan, pnThreadLastBlock_d, pnEltsLastBlock_d);
 	cudaDeviceSynchronize();
-	GETERROR("first cuda_prefixsum");
 
 	//for block sum
 	if(numBlocksPrescan > 1)//number of blocks for each array
@@ -177,11 +178,7 @@ void prefixsumForDeviceArray(T *array_d, const long long *pnArrayStartPos_d, con
 		cudaMemcpy(pnThreadBlockSum_d, pnEffectiveThreadForBlockSum, sizeof(unsigned int) * numBlockForBlockSum, cudaMemcpyHostToDevice);
 		cudaMemcpy(pnBlockSumArrayStartPos_d, pnBlockSumArrayStartPos, sizeof(long long) * numBlockForBlockSum, cudaMemcpyHostToDevice);
 		cudaMemcpy(pn2ndSubArrayLen_d, pn2ndSubArrayLen_h, sizeof(unsigned int) * numBlockForBlockSum, cudaMemcpyHostToDevice);
-		if(cudaGetLastError() != cudaSuccess)
-		{
-			cout << "error in before second cuda_prefixsum" << endl;
-			exit(0);
-		}
+		GETERROR("before second cuda_prefixsum");
 
 		int numofEleInOutArray = numBlocksPrescan * numBlockForBlockSum;
 		int numofBlockPerSubArray = 1;//only one block for each subarray
@@ -189,11 +186,7 @@ void prefixsumForDeviceArray(T *array_d, const long long *pnArrayStartPos_d, con
 								out_array_d, numofEleInOutArray, tmp_d, pnBlockSumArrayStartPos_d, pn2ndSubArrayLen_d,
 								numArray, numofBlockPerSubArray, pnThreadBlockSum_d, pnBlockSumEltsLastBlcok_d);
 		cudaDeviceSynchronize();
-		if(cudaGetLastError() != cudaSuccess)
-		{
-			cout << "error in second cuda_prefixsum" << endl;
-			exit(0);
-		}
+		GETERROR("in second cuda_prefixsum");
 
 		// update original array using block sum
 		//kernel configuration is the same as prescan, since we need to process all the elements
@@ -204,11 +197,7 @@ void prefixsumForDeviceArray(T *array_d, const long long *pnArrayStartPos_d, con
 				(array_d, pnArrayStartPos_d, pnEachSubArrayLen_d, numArray, out_array_d);
 
 		cudaDeviceSynchronize();
-		if(cudaGetLastError() != cudaSuccess)
-		{
-			cout << "error in cuda_updatesum" << endl;
-			exit(0);
-		}
+		GETERROR("in cuda_updatesum");
 
 		delete[] pnEffectiveThreadForBlockSum;
 		delete[] pnBlockSumEltsLastBlcok;
