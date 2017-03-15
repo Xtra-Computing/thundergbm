@@ -93,18 +93,20 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 		manager.MemcpyDeviceToHostAsync(bagManager.m_pSNIdToBuffIdEachBag + bagId * bagManager.m_maxNumSplittable, pSNIdToBuffId_h, sizeof(int) * bagManager.m_maxNumSplittable, pStream);
 		manager.MemcpyDeviceToHostAsync(bagManager.m_pInsIdToNodeIdEachBag, indexComp.m_insIdToNodeId_dh, sizeof(int) * bagManager.m_numIns, pStream);
 		//compute indices
-		indexComp.ComputeIndex(numofSNode, pSNIdToBuffId_h, maxNumofSplittable, pBuffIdVec_h);
+/*		indexComp.ComputeIndex(numofSNode, pSNIdToBuffId_h, maxNumofSplittable, pBuffIdVec_h);
 		clock_t comIdx_end = clock();
 		total_com_idx_t += (comIdx_end - comIdx_start);
 		
 		//copy scatter index to device memory
 		manager.MemcpyHostToDeviceAsync(indexComp.m_pIndices_dh, bagManager.m_pIndicesEachBag_d + bagId * bagManager.m_numFeaValue, sizeof(int) * bagManager.m_numFeaValue, pStream);
 		//copy # of feature values of each node
+*/
+		//compute gather index via GPUs
+		indexComp.ComputeIdxGPU(numofSNode, maxNumofSplittable, pBuffIdVec_h);
+		manager.MemcpyDeviceToDeviceAsync(indexComp.m_pnGatherIdx, bagManager.m_pIndicesEachBag_d + bagId * bagManager.m_numFeaValue, sizeof(int) * bagManager.m_numFeaValue, pStream);
+	
 		manager.MemcpyHostToDeviceAsync(indexComp.m_pNumFeaValueEachNode_dh, bagManager.m_pNumFvalueEachNodeEachBag_d + bagId * bagManager.m_maxNumSplittable,
 										sizeof(long long) * bagManager.m_maxNumSplittable, pStream);
-		for(int i = 0; i < numofSNode; i++){
-			printf("node %d has %d fvaluse\n", i, indexComp.m_pNumFeaValueEachNode_dh[i]);
-		}
 		//copy feature value start position of each node
 		manager.MemcpyHostToDeviceAsync(indexComp.m_pFeaValueStartPosEachNode_dh, bagManager.m_pFvalueStartPosEachNodeEachBag_d + bagId * bagManager.m_maxNumSplittable, 
 										sizeof(long long) * maxNumofSplittable, pStream);
@@ -118,22 +120,7 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 		manager.MemcpyHostToDeviceAsync(indexComp.m_pEachFeaLenEachNode_dh, bagManager.m_pEachFeaLenEachNodeEachBag_dh + bagId * bagManager.m_maxNumSplittable * bagManager.m_numFea,
 										sizeof(int) * bagManager.m_maxNumSplittable * bagManager.m_numFea, pStream);
 
-		//compute gather index via GPUs
-		indexComp.ComputeIdxGPU(numofSNode, maxNumofSplittable, pBuffIdVec_h);
-		unsigned int *tempAllIdx = new unsigned int[bagManager.m_numFeaValue];
-		manager.MemcpyDeviceToHostAsync(indexComp.m_pnGatherIdx, tempAllIdx, sizeof(unsigned int) * bagManager.m_numFeaValue, pStream);
-
-		int invalid = 0;
-		for(int i = 0; i < bagManager.m_numFeaValue; i++){
-//			printf("%d v.s. %d, i=%d\n", tempAllIdx[i], indexComp.m_pIndices_dh[i], i);
-			if(tempAllIdx[i] != indexComp.m_pIndices_dh[i]){
-				printf("%d v.s. %d, i=%d\n", tempAllIdx[i], indexComp.m_pIndices_dh[i], i);
-				invalid++;
-			}
-			if(invalid == 10)
-				exit(0);
-		}
-
+	
 		PROCESS_ERROR(nNumofFeature == bagManager.m_numFea);
 		clock_t start_gd = clock();
 		//scatter operation
@@ -276,16 +263,12 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 	dim3 dimNumofBlockToComGain;
 	conf.ConfKernel(numofDenseValue, blockSizeComGain, dimNumofBlockToComGain);
 	ComputeGainDense<<<dimNumofBlockToComGain, blockSizeComGain, 0, (*(cudaStream_t*)pStream)>>>(
-											//manager.m_pSNodeStat, ffManager.m_pFeaValueStartPosEachNode_d, numofSNode,
 											bagManager.m_pSNodeStatEachBag + bagId * bagManager.m_maxNumSplittable,
 											bagManager.m_pFvalueStartPosEachNodeEachBag_d + bagId * bagManager.m_maxNumSplittable,
 											numofSNode,
-											//manager.m_pBuffIdVec,
 											bagManager.m_pBuffIdVecEachBag + bagId * bagManager.m_maxNumSplittable,
-											//DeviceSplitter::m_lambda, ffManager.pGDPrefixSum, ffManager.pHessPrefixSum,
 											DeviceSplitter::m_lambda, bagManager.m_pGDPrefixSumEachBag + bagId * bagManager.m_numFeaValue,
 											bagManager.m_pHessPrefixSumEachBag + bagId * bagManager.m_numFeaValue,
-											//ffManager.pDenseFeaValue, numofDenseValue, ffManager.pGainEachFeaValue);
 											bagManager.m_pDenseFValueEachBag + bagId * bagManager.m_numFeaValue, numofDenseValue,
 											bagManager.m_pGainEachFvalueEachBag + bagId * bagManager.m_numFeaValue);
 	cudaStreamSynchronize((*(cudaStream_t*)pStream));

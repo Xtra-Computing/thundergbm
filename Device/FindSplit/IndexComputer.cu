@@ -111,8 +111,9 @@ __global__ void FloatToUnsignedInt(float_point *pfSparseGatherIdx, unsigned int 
   *@brief: compute start position of each feature in each node
   */
 void ComputeEachFeaStartPosEachNode(int numFea, int snId, unsigned int collectedGatherIdx, int *pEachFeaLenEachNode, long long *pEachFeaStartPosEachNode){
-	
+	//start pos for first feature
 	pEachFeaStartPosEachNode[snId * numFea] = collectedGatherIdx;
+	//start pos for other feature
 	for(int f = 1; f < numFea; f++){
 		unsigned int feaPos = snId * numFea + f;
 		pEachFeaStartPosEachNode[feaPos] = pEachFeaStartPosEachNode[feaPos - 1] + pEachFeaLenEachNode[feaPos];
@@ -165,7 +166,7 @@ void IndexComputer::ComputeIdxGPU(int numSNode, int maxNumSN, const int *pBuffVe
 		checkCudaErrors(cudaMemcpy(pnSparseGatherIdx_h, pnSparseGatherIdx, sizeof(unsigned int) * m_totalFeaValue, cudaMemcpyDeviceToHost));
 
 		//compute each feature length in each node
-		UpdateEachFeaLenEachNode(m_pEachFeaStartPos_dh, snId, m_numFea, m_totalFeaValue, pnSparseGatherIdx_h, m_pEachFeaLenEachNode_dh);
+		UpdateEachFeaLenEachNode(m_pEachFeaStartPos_dh, i, m_numFea, m_totalFeaValue, pnSparseGatherIdx_h, m_pEachFeaLenEachNode_dh);//##### change i to snId to make more sense
 
 		//get collected gather index of this round
 		checkCudaErrors(cudaMemcpy(&curGatherIdx, pnSparseGatherIdx + m_totalFeaValue - 1, sizeof(unsigned int), cudaMemcpyDeviceToHost));
@@ -174,13 +175,13 @@ void IndexComputer::ComputeIdxGPU(int numSNode, int maxNumSN, const int *pBuffVe
 		CollectGatherIdx<<<dimNumofBlockForFvalue, blockSizeForFvalue>>>(pnSparseGatherIdx, collectedGatherIdx, m_totalFeaValue, m_pnGatherIdx);
 
 		//number of feature values of this node
-		m_pNumFeaValueEachNode_dh[snId] = curGatherIdx;
+		m_pNumFeaValueEachNode_dh[i] = curGatherIdx;//##### change i to snId to make more sense
 
 		//each feature start position in each node
-		ComputeEachFeaStartPosEachNode(m_numFea, snId, collectedGatherIdx, m_pEachFeaLenEachNode_dh, m_pEachFeaStartPosEachNode_dh);
+		ComputeEachFeaStartPosEachNode(m_numFea, i, collectedGatherIdx, m_pEachFeaLenEachNode_dh, m_pEachFeaStartPosEachNode_dh);//######## change i to snId to make more sense
 
 		//feature value start position of each node
-		m_pFeaValueStartPosEachNode_dh[snId] = collectedGatherIdx;
+		m_pFeaValueStartPosEachNode_dh[i] = collectedGatherIdx;//###### change i to snId to make more sense
 
 		//update the number of collected gather indices
 		collectedGatherIdx += curGatherIdx;
