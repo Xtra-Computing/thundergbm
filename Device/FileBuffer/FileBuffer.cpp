@@ -75,7 +75,9 @@ void FileBuffer::SetMembers(int *pInsId, float_point *pdValue, int *pNumofKeyVal
 void FileBuffer::WriteBufferFile(string strFolder)
 {
 	CFileOps::CreateFolder(strFolder);//create folder
-	ofstream writeFile(strFolder + strInsId);
+	ofstream writeFile;
+
+	writeFile.open(strFolder + strInsId, ofstream::trunc | std::ios::binary);
 	CFileOps::WriteToFile(writeFile, m_pInsId, sizeof(int) * m_numFeaValue);
 	writeFile.close();
 	writeFile.clear();
@@ -147,8 +149,7 @@ void FileBuffer::ReadDataInfo(string strFolder, int &numFeature, int &numExample
 	}
 	int numofInfo = 3;
 	long long *lDataInfo = new long long[numofInfo];
-	long long nIndexof1stElement = 0;
-	CFileOps::ReadPartOfRowFromFile(readFile, lDataInfo, numofInfo, nIndexof1stElement);
+	CFileOps::ReadPartOfRowFromFile(readFile, lDataInfo, numofInfo);
 	fclose(readFile);
 	numFeature = lDataInfo[0];
 	numExample = lDataInfo[1];
@@ -164,41 +165,42 @@ void FileBuffer::ReadBufferFile(string strFolder, int *pInsId, float_point *pdVa
 								float_point *pfTrueLabel,
 								int numFeature, int numExample, long long numFeaValue)
 {
-	long long nIndexof1stElement = 0;
-	FILE *readFile = fopen((strFolder + strInsId).c_str(), "r");
-	CFileOps::ReadPartOfRowFromFile(readFile, pInsId, numFeaValue, nIndexof1stElement);
+	FILE *readFile = fopen((strFolder + strInsId).c_str(), "rb");
+	printf("reading %s...\n", strInsId.c_str());
+	CFileOps::ReadPartOfRowFromFile<int>(readFile, pInsId, numFeaValue);
 	fclose(readFile);
 
 	readFile = fopen((strFolder + strFeaValueInsId).c_str(), "r");
-	CFileOps::ReadPartOfRowFromFile(readFile, pdValue, numFeaValue, nIndexof1stElement);
+	printf("reading %s...\n", strFeaValueFeaId.c_str());
+	CFileOps::ReadPartOfRowFromFile(readFile, pdValue, numFeaValue);
 	fclose(readFile);
 
 	readFile = fopen((strFolder + strNumofValueEachFea).c_str(), "r");
-	CFileOps::ReadPartOfRowFromFile(readFile, pNumofKeyValue, numFeature, nIndexof1stElement);
+	CFileOps::ReadPartOfRowFromFile(readFile, pNumofKeyValue, numFeature);
 	fclose(readFile);
 
 	readFile = fopen((strFolder + strFeaStartPos).c_str(), "r");
-	CFileOps::ReadPartOfRowFromFile(readFile, plFeaStartPos, numFeature, nIndexof1stElement);
+	CFileOps::ReadPartOfRowFromFile(readFile, plFeaStartPos, numFeature);
 	fclose(readFile);
 
 	//files for prediction
 	readFile = fopen((strFolder + strFeaId).c_str(), "r");
-	CFileOps::ReadPartOfRowFromFile(readFile, pFeaId, numFeaValue, nIndexof1stElement);
+	CFileOps::ReadPartOfRowFromFile(readFile, pFeaId, numFeaValue);
 	fclose(readFile);
 
 	readFile = fopen((strFolder + strFeaValueFeaId).c_str(), "r");
-	CFileOps::ReadPartOfRowFromFile(readFile, pfFeaValue, numFeaValue, nIndexof1stElement);
+	CFileOps::ReadPartOfRowFromFile(readFile, pfFeaValue, numFeaValue);
 	fclose(readFile);
 
 	readFile = fopen((strFolder + strNumofFeaEachIns).c_str(), "r");
-	CFileOps::ReadPartOfRowFromFile(readFile, pNumofFea, numExample, nIndexof1stElement);
+	CFileOps::ReadPartOfRowFromFile(readFile, pNumofFea, numExample);
 	fclose(readFile);
 
 	readFile = fopen((strFolder + strInsLabel).c_str(), "r");
-	CFileOps::ReadPartOfRowFromFile(readFile, pfTrueLabel, numExample, nIndexof1stElement);
+	CFileOps::ReadPartOfRowFromFile(readFile, pfTrueLabel, numExample);
 	fclose(readFile);
 
 	readFile = fopen((strFolder + strInsStartPos).c_str(), "r");
-	CFileOps::ReadPartOfRowFromFile(readFile, plInsStartPos, numExample, nIndexof1stElement);
+	CFileOps::ReadPartOfRowFromFile(readFile, plInsStartPos, numExample);
 	fclose(readFile);
 }

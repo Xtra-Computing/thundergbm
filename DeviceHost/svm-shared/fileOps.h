@@ -43,28 +43,24 @@ public:
 	 * @return: the starting position of this Hessian row
 	 */
 	template<class T>
-	static int WriteToFile(ofstream &writeOut, T *pContent, int nSizeofContent)
+	static int WriteToFile(ofstream &writeOut, T *pContent, int numBytes)
 	{
-		int nReturn = -1;
-		if(!writeOut.is_open() || pContent == NULL || nSizeofContent <= 0)
+		if(!writeOut.is_open() || pContent == NULL || numBytes <= 0)
 		{
 			cerr << "write content to file failed: input param invalid" << endl;
-			return nReturn;
+			return -1;
 		}
 
-		//return the starting postion of this Hessian row
-		nReturn = writeOut.tellp();
-		//for(int i = 0; i < nSizeofContent; i++)
-		//{
-			writeOut.write((char*)pContent, sizeof(T) * nSizeofContent);
-			//writeOut /*<< setprecision(16)*/ << (float_point)*pContent;
-			//if(i != nSizeofContent - 1)
-			//	writeOut << " : ";
-		//	pContent++;
-		//}
-		//writeOut << endl;
+		if(writeOut.bad()){
+			printf("error: failed before writing\n");
+		}
+		writeOut.write((char*)pContent, numBytes);
+		if(writeOut.bad()){
+			printf("error: failed after writing\n");
+		}
 
-		return nReturn;
+		writeOut.flush();
+		return 0;
 	}
 
 	/*
@@ -75,36 +71,11 @@ public:
 	 * @param: nIndexof1stElement: the start point of this reading procedure.
 	 */
 	template<class T>
-	static void ReadPartOfRowFromFile(FILE *&readIn, T *pContent, int nNumofElementsToRead, long long nIndexof1stElement)
+	static void ReadPartOfRowFromFile(FILE *&readIn, T *pContent, int nNumofElementsToRead)
 	{
-		//bool bReturn = false;
-
-		assert(readIn != NULL && pContent != NULL && nNumofElementsToRead > 0 && nIndexof1stElement >= 0);
-		//find the position of this Hessian row
-		fseek(readIn, 0, SEEK_END);
-		assert(ftell(readIn) != 0);
-
-		long long nSeekPos = sizeof(T) * nIndexof1stElement;
-		fseek(readIn, nSeekPos, SEEK_SET);
-//		cout << ftell(readIn) << endl;
-		assert(ftell(readIn) != -1);
-
+		assert(readIn != NULL && pContent != NULL && nNumofElementsToRead > 0);
+		rewind(readIn);
 		fread(pContent, sizeof(T), nNumofElementsToRead, readIn);
-
-//		cout << ftell(readIn) << endl;
-//		assert(nNumofRead > 0);
-//		cout << "the number of kernel values read " << nNumofRead << endl;
-		if(ferror(readIn) == true)
-		{
-			cout  << "read kernel values from file error" << endl;
-		}
-
-		//clean eof bit, when pointer reaches end of file
-		if(feof(readIn))
-		{
-//			cout << "end of file is reached" << endl;
-			rewind(readIn);
-		}
 	}
 };
 

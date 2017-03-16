@@ -38,10 +38,12 @@ case $1 in
 		BAG=${BAG}"1"
         FILENAME=${DATASET_DIR}/"cadata" #8 features and 20640 instances
         ;;
-    mnist)
-        GAMMA=${GAMMA}"0.125"
-        C=${C}"10"
-        FILENAME=${DATASET_DIR}/"mnist.scale"
+    yp)
+	   GAMMA=${GAMMA}"1"
+        D=${D}"2"
+		NUMTREE=${NUMTREE}"1"
+		BAG=${BAG}"1"
+        FILENAME=${DATASET_DIR}/"YearPredictionMSD" #8 features and 20640 instances
         ;;
     a9a | a6a)
         GAMMA=${GAMMA}"0.5"

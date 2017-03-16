@@ -35,10 +35,6 @@
 
 int main(int argc, char *argv[])
 {
-
-//	TestPrefixSum(argc, argv);
-//	return 1;
-
 	char fileName[1024];
 	char savedFileName[1024];
 	Parser parser;
@@ -160,9 +156,15 @@ int main(int argc, char *argv[])
 								   pTrueLabel,
 								   numFea, numIns, numFeaValue);
 
-#if false
-		KeyValue::TestVecToArray(trainer.splitter->m_vvFeaInxPair, pInsId, pdValue, pNumofKeyValue);
-		KeyValue::TestVecToArray(trainer.m_vvInsSparse, pFeaId, pfFeaValue, pNumofFea);
+#if 0
+		dataReader.ReadLibSVMFormatSparse(v_vInsSparse, v_fLabel, strFileName, numFea, numIns);
+		vector<vector<KeyValue> > m_vvFeaInxPair;
+		KeyValue::SortFeaValue(numFea, v_vInsSparse, m_vvFeaInxPair);
+		KeyValue::TestVecToArray(m_vvFeaInxPair, pInsId, pdValue, pNumofKeyValue);
+		//store sparse instances to GPU memory for prediction
+		printf("# of ins=%d\n", v_vInsSparse.size());
+		KeyValue::TestVecToArray(v_vInsSparse, pFeaId, pfFeaValue, pNumofFea);
+
 		for(int i = 0; i < numIns; i++)
 		{
 			PROCESS_ERROR(pTrueLabel[i] == v_fLabel[i]);

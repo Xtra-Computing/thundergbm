@@ -94,16 +94,17 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 		manager.MemcpyDeviceToHostAsync(bagManager.m_pInsIdToNodeIdEachBag, indexComp.m_insIdToNodeId_dh, sizeof(int) * bagManager.m_numIns, pStream);
 		//compute indices
 /*		indexComp.ComputeIndex(numofSNode, pSNIdToBuffId_h, maxNumofSplittable, pBuffIdVec_h);
-		clock_t comIdx_end = clock();
-		total_com_idx_t += (comIdx_end - comIdx_start);
-		
+	
 		//copy scatter index to device memory
 		manager.MemcpyHostToDeviceAsync(indexComp.m_pIndices_dh, bagManager.m_pIndicesEachBag_d + bagId * bagManager.m_numFeaValue, sizeof(int) * bagManager.m_numFeaValue, pStream);
 		//copy # of feature values of each node
 */
 		//compute gather index via GPUs
 		indexComp.ComputeIdxGPU(numofSNode, maxNumofSplittable, pBuffIdVec_h);
-		manager.MemcpyDeviceToDeviceAsync(indexComp.m_pnGatherIdx, bagManager.m_pIndicesEachBag_d + bagId * bagManager.m_numFeaValue, sizeof(int) * bagManager.m_numFeaValue, pStream);
+		manager.MemcpyHostToDeviceAsync(indexComp.m_pnGatherIdx, bagManager.m_pIndicesEachBag_d + bagId * bagManager.m_numFeaValue, sizeof(int) * bagManager.m_numFeaValue, pStream);
+
+		clock_t comIdx_end = clock();
+		total_com_idx_t += (comIdx_end - comIdx_start);
 	
 		manager.MemcpyHostToDeviceAsync(indexComp.m_pNumFeaValueEachNode_dh, bagManager.m_pNumFvalueEachNodeEachBag_d + bagId * bagManager.m_maxNumSplittable,
 										sizeof(long long) * bagManager.m_maxNumSplittable, pStream);

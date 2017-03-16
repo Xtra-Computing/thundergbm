@@ -132,9 +132,16 @@ void KeyValue::TestVecToArray(vector<vector<KeyValue> > &vvFeaInxPair, int *pIns
 		PROCESS_ERROR(pNumofKeyValue[i] == nNumofValue);
 
 		//for each pair of key-value
+		int invalid = 0;
 		for(int p = 0; p < nNumofValue; p++)
 		{
-			PROCESS_ERROR(pInsId[nCur] == vKV[p].id);
+			if(pInsId[nCur] != vKV[p].id){
+				printf("ins id diff: %d v.s. %d at the %d-th fv\n", pInsId[nCur], vKV[p].id, nCur);
+				//PROCESS_ERROR(pInsId[nCur] == vKV[p].id);
+				invalid++;
+			}
+			if(invalid == 100)
+				exit(0);
 			PROCESS_ERROR(pdValue[nCur] == vKV[p].featureValue);
 			nCur++;//move to next key value
 		}
