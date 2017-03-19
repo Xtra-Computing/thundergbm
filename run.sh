@@ -26,29 +26,31 @@ NUMTREE="-n "
 case $1 in
 	abalone)
 		GAMMA=${GAMMA}"1"
-		D=${D}"2"
-		NUMTREE=${NUMTREE}"1"
+		D=${D}"3"
+		NUMTREE=${NUMTREE}"2"
 		BAG=${BAG}"1"
 		FILENAME=${DATASET_DIR}/"abalone.txt" #8 features and 4177 instances
 		;;
     cadata)
         GAMMA=${GAMMA}"1"
-        D=${D}"2"
+        D=${D}"4"
 		NUMTREE=${NUMTREE}"1"
 		BAG=${BAG}"1"
         FILENAME=${DATASET_DIR}/"cadata" #8 features and 20640 instances
         ;;
     yp)
-	   GAMMA=${GAMMA}"1"
+	   	GAMMA=${GAMMA}"1"
         D=${D}"2"
-		NUMTREE=${NUMTREE}"1"
+		NUMTREE=${NUMTREE}"2"
 		BAG=${BAG}"1"
         FILENAME=${DATASET_DIR}/"YearPredictionMSD" #8 features and 20640 instances
         ;;
-    a9a | a6a)
-        GAMMA=${GAMMA}"0.5"
-        C=${C}"100"
-        FILENAME=${DATASET_DIR}/$1
+    epsilon)
+		GAMMA=${GAMMA}"1"
+        D=${D}"2"
+		NUMTREE=${NUMTREE}"1"
+		BAG=${BAG}"1"
+        FILENAME=${DATASET_DIR}/"log1p.E2006.train" #8 features and 20640 instances
         ;;
     w8a)
         GAMMA=${GAMMA}"0.5"

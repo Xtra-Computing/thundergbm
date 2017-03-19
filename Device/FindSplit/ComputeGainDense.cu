@@ -8,6 +8,7 @@
 
 #include <stdio.h>
 #include <float.h>
+#include <limits>
 #include "FindFeaKernel.h"
 #include "../KernelConst.h"
 #include "../../DeviceHost/svm-shared/DeviceUtility.h"
@@ -152,9 +153,10 @@ __global__ void ComputeGainDense(const nodeStat *pSNodeStat, const long long *pF
 	bool needUpdate = NeedUpdate(rChildHess, tempHess);
     if(needUpdate == true)//need to compute the gain
     {
-    	pGainOnEachFeaValue[gTid] = (tempGD * tempGD)/(tempHess + lambda) +
-    								(rChildGD * rChildGD)/(rChildHess + lambda) -
-    								(parentGD * parentGD)/(parentHess + lambda);
+		float_point tempGain = (tempGD * tempGD)/(tempHess + lambda) + 
+						  	   (rChildGD * rChildGD)/(rChildHess + lambda) -
+	  						   (parentGD * parentGD)/(parentHess + lambda);
+    	pGainOnEachFeaValue[gTid] = tempGain; 
 //    	if(pGainOnEachFeaValue[gTid] > 0 && ((rChildHess == 463714 && tempHess == 1) || (rChildHess == 1 && tempHess == 463714)))
  //   		printf("gain=%f, gid=%d, rhess=%f, lhess=%f\n", pGainOnEachFeaValue[gTid], gTid, rChildHess, tempHess);
     }
@@ -321,6 +323,8 @@ __global__ void FindSplitInfo(const long long *pEachFeaStartPosEachNode, const i
 	if(key < 1)
 		printf("Error: best key=%d, is < 1\n", key);
 	pBestSplitPoint[buffId].m_fSplitValue = 0.5f * (pDenseFeaValue[key] + pDenseFeaValue[key - 1]);
+	if(blockDim.x == 4)
+		printf("sv=%f, pr-sv=%f, next-sv=%f\n", pBestSplitPoint[buffId].m_fSplitValue, pDenseFeaValue[key - 1], pDenseFeaValue[key]);
 
 	//child node stat
 	int idxPreSum = key - 1;//follow xgboost using exclusive
@@ -332,7 +336,6 @@ __global__ void FindSplitInfo(const long long *pEachFeaStartPosEachNode, const i
 	pRChildStat[buffId].sum_hess = pPrefixSumHess[idxPreSum];
 	if(pLChildStat[buffId].sum_hess < 0 || pRChildStat[buffId].sum_hess < 0)
 		printf("Error: hess is negative l hess=%d, r hess=%d\n", pLChildStat[buffId].sum_hess, pRChildStat[buffId].sum_hess);
-	printf("split: f=%d, value=%f, gain=%f, gd=%f v.s. %f, hess=%f v.s. %f, buffId=%d\n", bestFeaId, pBestSplitPoint[buffId].m_fSplitValue,
-			pBestSplitPoint[buffId].m_fGain, pLChildStat[buffId].sum_gd, pRChildStat[buffId].sum_gd, pLChildStat[buffId].sum_hess, pRChildStat[buffId].sum_hess, buffId);
+	printf("split: f=%d, value=%f, gain=%f, gd=%f v.s. %f, hess=%f v.s. %f, buffId=%d, key=%d\n", bestFeaId, pBestSplitPoint[buffId].m_fSplitValue,
+			pBestSplitPoint[buffId].m_fGain, pLChildStat[buffId].sum_gd, pRChildStat[buffId].sum_gd, pLChildStat[buffId].sum_hess, pRChildStat[buffId].sum_hess, buffId, key);
 }
-

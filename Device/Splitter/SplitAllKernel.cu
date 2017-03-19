@@ -71,6 +71,8 @@ __global__ void CreateNewNode(TreeNode *pAllTreeNode, TreeNode *pSplittableNode,
 	ErrorChecker(nid, __PRETTY_FUNCTION__, "nid");
 //	int bufferPos = pSNIdToBufferId[nid];//#########
 	int bufferPos = GetBufferId(pSNIdToBufferId, nid, maxNumofSplittableNode);
+	if(bufferPos != nid % maxNumofSplittableNode)
+		printf("oh shit you ####################################\n");
 //	printf("splitting node %d, buffPos is %d, tid=%d\n", nid, bufferPos, nGlobalThreadId);
 	ErrorChecker(bufferPos, __PRETTY_FUNCTION__, "bufferPos");
 
@@ -190,8 +192,8 @@ __global__ void InsToNewNode(TreeNode *pAllTreeNode, float_point *pdFeaValue, in
 								 int *pInsIdToNodeId, const int *pSNIdToBuffId, SplitPoint *pBestSplitPoint,
 								 int *pUniqueFidVec, int *pNumofUniqueFid,
 								 int *pParentId, int *pLChildId, int *pRChildId,
-								 int preMaxNodeId, int numofFea, int numofIns, int flag_LEAFNODE)//,
-								 //int numInsR, int numInsL)
+								 int preMaxNodeId, int numofFea, int numofIns, int flag_LEAFNODE,
+								 int *numInsR, int *numInsL)
 {
 	int numofUniqueFid = *pNumofUniqueFid;
 	int feaId = blockIdx.z;
@@ -214,78 +216,72 @@ __global__ void InsToNewNode(TreeNode *pAllTreeNode, float_point *pdFeaValue, in
 	long long curFeaStartPos = pFeaStartPos[ufid];
 	float_point *pdCurFeaValue = pdFeaValue + curFeaStartPos;//fvalue start pos in the global memory
 	int *pCurFeaInsId = pInsId + curFeaStartPos;//ins_id of this fea start pos in the global memory
-//	for(int i = 0; i < nNumofPair; i++)
+
+	int insId = pCurFeaInsId[perFeaTid];
+
+#ifdef testing
+	ErrorChecker(numofIns - insId, __PRETTY_FUNCTION__, "numofIns - insId");
+	ErrorChecker(insId, __PRETTY_FUNCTION__, "insId");
+#endif
+	int nid = pInsIdToNodeId[insId];
+
+	if(nid < 0)//leaf node
+		return;
+
+	if(nid > preMaxNodeId)//new node ids. This is possible because here each thread 
+						  //corresponds to a feature value, and hence duplication may occur.
+		return;
+
+	int bufferPos = pSNIdToBuffId[nid];
+
+#ifdef testing
+	ErrorChecker(bufferPos, __PRETTY_FUNCTION__, "bufferPos");
+#endif
+	int fid = pBestSplitPoint[bufferPos].m_nFeatureId;
+	if(fid != ufid)//this feature is not the splitting feature for the instance.
+		return;
+
+	if(nid != pParentId[bufferPos])//node doesn't need to split (leaf node or new node)
 	{
-		int insId = pCurFeaInsId[perFeaTid];
-
-#ifdef testing
-		ErrorChecker(insId, __PRETTY_FUNCTION__, "insId");
-		ErrorChecker(numofIns - insId, __PRETTY_FUNCTION__, "numofIns - insId");
-#endif
-		int nid = pInsIdToNodeId[insId];
-
-		if(nid < 0)//leaf node
-			return;
-
-		if(nid > preMaxNodeId)//new node ids. This is possible because here each thread 
-							  //corresponds to a feature value, and hence duplication may occur.
-			return;
-
-#ifdef testing
-		ErrorChecker(nid, __PRETTY_FUNCTION__, "nid");
-#endif
-		int bufferPos = pSNIdToBuffId[nid];
-
-#ifdef testing
-		ErrorChecker(bufferPos, __PRETTY_FUNCTION__, "bufferPos");
-#endif
-		int fid = pBestSplitPoint[bufferPos].m_nFeatureId;
-		if(fid != ufid)//this feature is not the splitting feature for the instance.
-			return;
-
-
-		if(nid != pParentId[bufferPos])//node doesn't need to split (leaf node or new node)
+		if(pAllTreeNode[nid].rightChildId != flag_LEAFNODE)
 		{
-			if(pAllTreeNode[nid].rightChildId != flag_LEAFNODE)
-			{
 #ifdef testing
-				ErrorChecker(preMaxNodeId - nid, __PRETTY_FUNCTION__, "preMaxNodeId - nid");
-#endif
-				return;
-			}
-#ifdef testing
-			ErrorCond(pAllTreeNode[nid].rightChildId == flag_LEAFNODE, __PRETTY_FUNCTION__, "pAllTreeNode[nid].rightChildId == flag_LEAFNODE");
+			ErrorChecker(preMaxNodeId - nid, __PRETTY_FUNCTION__, "preMaxNodeId - nid");
 #endif
 			return;
 		}
-
-		if(nid == pParentId[bufferPos])
-		{//internal node (needs to split)
 #ifdef testing
-			ErrorCond(pRChildId[bufferPos] == pLChildId[bufferPos] + 1, __PRETTY_FUNCTION__, "rChild=lChild+1");//right child id > than left child id
+		ErrorCond(pAllTreeNode[nid].rightChildId == flag_LEAFNODE, __PRETTY_FUNCTION__, "pAllTreeNode[nid].rightChildId == flag_LEAFNODE");
 #endif
-
-			double fPivot = pBestSplitPoint[bufferPos].m_fSplitValue;
-			double fvalue = pdCurFeaValue[perFeaTid];
-			if(fvalue >= fPivot)
-			{
-				pInsIdToNodeId[insId] = pRChildId[bufferPos];//right child id
-				//numInsR = atomicAdd(numInsR, 1);//increase numIns in right child
-			}
-			else{
-				pInsIdToNodeId[insId] = pLChildId[bufferPos];//left child id
-				//numInsL = atomicAdd(numInsL, 1);
-			}
-		}
+		return;
 	}
 
+	if(nid == pParentId[bufferPos])
+	{//internal node (needs to split)
+#ifdef testing
+		ErrorCond(pRChildId[bufferPos] == pLChildId[bufferPos] + 1, __PRETTY_FUNCTION__, "rChild=lChild+1");//right child id > than left child id
+#endif
+
+		double fPivot = pBestSplitPoint[bufferPos].m_fSplitValue;
+		double fvalue = pdCurFeaValue[perFeaTid];
+
+		if(fvalue >= fPivot)
+		{
+			pInsIdToNodeId[insId] = pRChildId[bufferPos];//right child id
+			atomicAdd(numInsR + bufferPos, 1);//increase numIns in right child
+		}
+		else{
+			pInsIdToNodeId[insId] = pLChildId[bufferPos];//left child id
+			atomicAdd(numInsL + bufferPos, 1);
+		}
+	}
 }
 
 __global__ void InsToNewNodeByDefault(TreeNode *pAllTreeNode, int *pInsIdToNodeId, const int *pSNIdToBuffId,
 
 										   int *pParentId, int *pLChildId,
-										   int preMaxNodeId, int numofIns, int flag_LEAFNODE)
-										   //int numInsL)
+										   int preMaxNodeId, int numofIns, int flag_LEAFNODE,
+										   int *numInsL)
 {
 	int nGlobalThreadId = (blockIdx.y * gridDim.x + blockIdx.x) * blockDim.x + threadIdx.x;
 	if(nGlobalThreadId >= numofIns)//not used threads
@@ -304,9 +300,10 @@ __global__ void InsToNewNodeByDefault(TreeNode *pAllTreeNode, int *pInsIdToNodeI
 	else
 	{
 		int bufferPos = pSNIdToBuffId[nid];
+		//if(pInsIdToNodeId[nGlobalThreadId] * 2 + 1 != pLChildId[bufferPos])
 		pInsIdToNodeId[nGlobalThreadId] = pLChildId[bufferPos];//by default the instance with unknown feature value going to left child
 		ErrorCond(bufferPos != -1, __PRETTY_FUNCTION__, "rChild=lChild+1");
-		//numInsL = atomicAdd(numInsL, 1);
+		atomicAdd(numInsL + bufferPos, 1);
 	}
 
 }
@@ -334,6 +331,8 @@ __global__ void UpdateNewSplittable(TreeNode *pNewSplittableNode, nodeStat *pNew
 		{
 			bool bIsNew = false;
 			int bufferPos = AssignHashValue(pSNIdToBuffId, nid, maxNumofSplittable, bIsNew);
+			if(bufferPos != nid % maxNumofSplittable)
+				printf("oh shit ###################################\n");
 
 			ErrorChecker(bufferPos, __PRETTY_FUNCTION__, "bufferPos");
 			pSNodeStat[bufferPos] = pNewNodeStat[nGlobalThreadId];
@@ -348,6 +347,6 @@ __global__ void UpdateNewSplittable(TreeNode *pNewSplittableNode, nodeStat *pNew
 		}
 	}
 	//for computing node size
-	pNewSplittableNode[nGlobalThreadId].numIns = pNewNodeStat[nGlobalThreadId].sum_hess;
+	pNewSplittableNode[nGlobalThreadId].numIns = pNewNodeStat[nGlobalThreadId].sum_hess;//Will this have problems? sum_hess is count on fvalue != 0, while numIns may be bigger.
 	printf("nid=%d, numofIns=%d\n", nid, pNewSplittableNode[nGlobalThreadId].numIns);
 }

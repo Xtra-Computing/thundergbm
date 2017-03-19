@@ -42,7 +42,7 @@ public:
 	//compute indices for each feature value in feature lists
 	static void ComputeIndex(int numNode, const int *pSNIdToBuffId, int maxNumSN, const int *pBuffVec);
 	static void ComputeIdxGPU(int numNode, int maxNumSN, const int *pBuffVec);
-	static void LonglongToUnsignedInt(unsigned int *pEachFeaStartPos_dh, long long *pFeaStartPos, int numFea);
+	static void LonglongToUnsignedInt(long long *pFeaStartPos, unsigned int *pEachFeaStartPos_dh, int numFea);
 
 
 	static void AllocMem(int nNumofExamples, int nNumofFeatures, int maxNumofSpittableNode);
