@@ -192,8 +192,7 @@ __global__ void InsToNewNode(TreeNode *pAllTreeNode, float_point *pdFeaValue, in
 								 int *pInsIdToNodeId, const int *pSNIdToBuffId, SplitPoint *pBestSplitPoint,
 								 int *pUniqueFidVec, int *pNumofUniqueFid,
 								 int *pParentId, int *pLChildId, int *pRChildId,
-								 int preMaxNodeId, int numofFea, int numofIns, int flag_LEAFNODE,
-								 int *numInsR, int *numInsL)
+								 int preMaxNodeId, int numofFea, int numofIns, int flag_LEAFNODE)
 {
 	int numofUniqueFid = *pNumofUniqueFid;
 	int feaId = blockIdx.z;
@@ -268,11 +267,11 @@ __global__ void InsToNewNode(TreeNode *pAllTreeNode, float_point *pdFeaValue, in
 		if(fvalue >= fPivot)
 		{
 			pInsIdToNodeId[insId] = pRChildId[bufferPos];//right child id
-			atomicAdd(numInsR + bufferPos, 1);//increase numIns in right child
+//			atomicAdd(numInsR + bufferPos, 1);//increase numIns in right child
 		}
 		else{
 			pInsIdToNodeId[insId] = pLChildId[bufferPos];//left child id
-			atomicAdd(numInsL + bufferPos, 1);
+//			atomicAdd(numInsL + bufferPos, 1);
 		}
 	}
 }
@@ -280,8 +279,7 @@ __global__ void InsToNewNode(TreeNode *pAllTreeNode, float_point *pdFeaValue, in
 __global__ void InsToNewNodeByDefault(TreeNode *pAllTreeNode, int *pInsIdToNodeId, const int *pSNIdToBuffId,
 
 										   int *pParentId, int *pLChildId,
-										   int preMaxNodeId, int numofIns, int flag_LEAFNODE,
-										   int *numInsL)
+										   int preMaxNodeId, int numofIns, int flag_LEAFNODE)
 {
 	int nGlobalThreadId = (blockIdx.y * gridDim.x + blockIdx.x) * blockDim.x + threadIdx.x;
 	if(nGlobalThreadId >= numofIns)//not used threads
@@ -303,7 +301,7 @@ __global__ void InsToNewNodeByDefault(TreeNode *pAllTreeNode, int *pInsIdToNodeI
 		//if(pInsIdToNodeId[nGlobalThreadId] * 2 + 1 != pLChildId[bufferPos])
 		pInsIdToNodeId[nGlobalThreadId] = pLChildId[bufferPos];//by default the instance with unknown feature value going to left child
 		ErrorCond(bufferPos != -1, __PRETTY_FUNCTION__, "rChild=lChild+1");
-		atomicAdd(numInsL + bufferPos, 1);
+//		atomicAdd(numInsL + bufferPos, 1);
 	}
 
 }
@@ -348,5 +346,5 @@ __global__ void UpdateNewSplittable(TreeNode *pNewSplittableNode, nodeStat *pNew
 	}
 	//for computing node size
 	pNewSplittableNode[nGlobalThreadId].numIns = pNewNodeStat[nGlobalThreadId].sum_hess;//Will this have problems? sum_hess is count on fvalue != 0, while numIns may be bigger.
-	printf("nid=%d, numofIns=%d\n", nid, pNewSplittableNode[nGlobalThreadId].numIns);
+	//printf("nid=%d, numofIns=%d\n", nid, pNewSplittableNode[nGlobalThreadId].numIns);
 }

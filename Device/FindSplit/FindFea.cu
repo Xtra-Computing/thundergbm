@@ -216,7 +216,7 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 			cout << endl;
 	}
 #endif
-#if 1 
+#if 0 
 	float_point *pfGDScanEachFeaValue_h = new float_point[manager.m_totalNumofValues];
 	float_point *pfHessScanEachFeaValue_h = new float_point[manager.m_totalNumofValues];
 	manager.MemcpyDeviceToHostAsync(bagManager.m_pGDPrefixSumEachBag, pfGDScanEachFeaValue_h, sizeof(float_point) * manager.m_totalNumofValues, pStream);
@@ -245,8 +245,6 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 		}
 	}
 
-	if(numofSNode == 8)
-		cout << "hi" << endl;
 #endif
 
 //	cout << "compute gain" << endl;
@@ -271,7 +269,7 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 		exit(-1);
 	}
 
-#if 1
+#if 0
 	float_point *pGainDense = new float_point[manager.m_totalNumofValues];
 	memset(pGainDense, 0, sizeof(float_point) * manager.m_totalNumofValues);
 	manager.MemcpyDeviceToHostAsync(bagManager.m_pGainEachFvalueEachBag, pGainDense, sizeof(float_point) * manager.m_totalNumofValues, pStream);
@@ -305,7 +303,7 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 	}
 	clock_t end_comp_gain = clock();
 	total_com_gain_t += (end_comp_gain - start_comp_gain);
-#if 1
+#if 0
 	manager.MemcpyDeviceToHostAsync(bagManager.m_pGainEachFvalueEachBag, pGainDense, sizeof(float_point) * manager.m_totalNumofValues, pStream);
 	maxGain = -1;
 	for(int i = 0; i < manager.m_totalNumofValues; i++)

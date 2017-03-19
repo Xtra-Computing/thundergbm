@@ -78,14 +78,6 @@ void UpdateEachFeaLenEachNode(unsigned int *pEachFeaStartPos, int snId, int numF
 		}
 		pEachFeaLenEachNode[snId * numFea + f] = pSparseGatherIdx[posOfLastFvalue] - lenPreviousFvalue;
 	}
-	int numofSN = 10;
-	nodeStat *tempSNStat = new nodeStat[numofSN];
-	BagManager bagManager;
-	cudaMemcpy(tempSNStat, bagManager.m_pSNodeStatEachBag, sizeof(nodeStat) * numofSN, cudaMemcpyDeviceToHost);
-	if(tempSNStat[snId].sum_hess != pEachFeaLenEachNode[snId * numFea] && snId < numofSN){
-		printf("stat=%f, len=%d\n", tempSNStat[snId].sum_hess, pEachFeaLenEachNode[snId * numFea]);
-	}
-	delete []tempSNStat;
 }
 
 /**
@@ -173,23 +165,7 @@ void IndexComputer::ComputeIdxGPU(int numSNode, int maxNumSN, const int *pBuffVe
 		//construct 01 array for key values
 		int snId = pBuffVec[i];//snId = nid % maxSN
 
-		//debugging
-		unsigned int *fvToInsId_h = new unsigned int[m_totalFeaValue];
-		cudaMemcpy(fvToInsId_h, m_pFvToInsId, sizeof(unsigned int) * m_totalFeaValue, cudaMemcpyDeviceToHost);
-		int counter = 0;
-		for(int v = 0; v < m_totalFeaValue; v++){
-			if(20640 <= fvToInsId_h[v] || fvToInsId_h[v] < 0){
-				printf("oh shit..........................\n");
-				exit(0);
-			}
-			if(m_insIdToNodeId_dh[fvToInsId_h[v]] == snId)
-				counter++;
-		}
-		delete[] fvToInsId_h;
-		printf("node %d has %d ins\n", snId, counter/8);
-
 		PROCESS_ERROR(snId >= 0);
-		printf("numof fv=%d, blocksize=%d, numblock.x=%d, numblock.y=%d\n", m_totalFeaValue, blockSizeForFvalue, dimNumofBlockForFvalue.x, dimNumofBlockForFvalue.y);
 		ArrayMarker<<<dimNumofBlockForFvalue, blockSizeForFvalue>>>(snId, m_pFvToInsId, m_insIdToNodeId_dh, m_totalFeaValue, maxNumSN, pfSparseGatherIdx);
 
 		//compute prefix sum for one array
@@ -200,9 +176,6 @@ void IndexComputer::ComputeIdxGPU(int numSNode, int maxNumSN, const int *pBuffVe
 		FloatToUnsignedInt<<<dimNumofBlockForFvalue, blockSizeForFvalue>>>(pfSparseGatherIdx, m_totalFeaValue, pnSparseGatherIdx);
 		checkCudaErrors(cudaMemcpy(pnSparseGatherIdx_h, pnSparseGatherIdx, sizeof(unsigned int) * m_totalFeaValue, cudaMemcpyDeviceToHost));
 
-		if(numSNode == 8){
-			printf("have a look\n");
-		}
 		//compute each feature length in each node
 		UpdateEachFeaLenEachNode(m_pEachFeaStartPos_dh, i, m_numFea, m_totalFeaValue, pnSparseGatherIdx_h, m_pEachFeaLenEachNode_dh);//##### change i to snId to make more sense
 
@@ -214,7 +187,6 @@ void IndexComputer::ComputeIdxGPU(int numSNode, int maxNumSN, const int *pBuffVe
 
 		//number of feature values of this node
 		m_pNumFeaValueEachNode_dh[i] = curGatherIdx;//##### change i to snId to make more sense
-		printf("nid=%d and i=%d has %d fvalues\n", snId, i, curGatherIdx);
 
 		//each feature start position in each node
 		ComputeEachFeaStartPosEachNode(m_numFea, i, collectedGatherIdx, m_pEachFeaLenEachNode_dh, m_pEachFeaStartPosEachNode_dh);//######## change i to snId to make more sense

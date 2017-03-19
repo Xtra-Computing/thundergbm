@@ -99,9 +99,6 @@ __global__ void FindFeaSplitValue(const int *pnNumofKeyValues, const long long *
 					float_point sv = (fvalue + pLastValuePerThread[bufferPos]) * 0.5f;
 
 					float_point loss_chg = CalGain(pSNodeStatPerThread[hashValue], pTempRChildStatPerThread[bufferPos], tempGD, tempHess, lambda);
-//					if(loss_chg > 9.69 && loss_chg < 9.7  && feaId == 5)
-//						printf("Here have a look\n");
-
 
 		            UpdateSplitInfo(pSNodeStatPerThread[hashValue], pBestSplitPointPerThread[bufferPos], pRChildStatPerThread[bufferPos],
 		            							  pLChildStatPerThread[bufferPos], pTempRChildStatPerThread[bufferPos], tempGD, tempHess,
