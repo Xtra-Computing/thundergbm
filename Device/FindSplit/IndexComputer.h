@@ -20,7 +20,6 @@ public:
 	static long long *m_pFeaStartPos;
 	static int m_numFea;
 	static int m_maxNumofSN;
-	static int *m_pIndexCounterEachNode;
 	static long long m_total_copy;
 
 	//pinned memory
@@ -40,7 +39,6 @@ public:
 
 public:
 	//compute indices for each feature value in feature lists
-	static void ComputeIndex(int numNode, const int *pSNIdToBuffId, int maxNumSN, const int *pBuffVec);
 	static void ComputeIdxGPU(int numNode, int maxNumSN, const int *pBuffVec);
 	static void LonglongToUnsignedInt(long long *pFeaStartPos, unsigned int *pEachFeaStartPos_dh, int numFea);
 

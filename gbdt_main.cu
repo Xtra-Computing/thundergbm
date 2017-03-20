@@ -313,7 +313,6 @@ int main(int argc, char *argv[])
 	//free host memory
 	delete []pInsId;
 	delete []plFeaStartPos;
-	delete []indexCom.m_pIndexCounterEachNode;
 //	cudaFreeHost(indexCom.m_pIndices_dh);
 //	cudaFreeHost(indexCom.m_insIdToNodeId_dh);
 

@@ -164,8 +164,7 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 //		cout << "ins to new nodes" << endl;
 		dim3 dimGridThreadForEachUsedFea;
 		int thdPerBlockIns2node = -1;
-//		conf.ConfKernel(bagManager.m_pMaxNumValuePerFeaEachBag[bagId], thdPerBlockIns2node, dimGridThreadForEachUsedFea);
-		conf.ConfKernel(bagManager.m_numIns, thdPerBlockIns2node, dimGridThreadForEachUsedFea);
+		conf.ConfKernel(bagManager.m_numIns, thdPerBlockIns2node, dimGridThreadForEachUsedFea);//######## can be improved: bagManager.m_numIns is the upper limits.
 		PROCESS_ERROR(dimGridThreadForEachUsedFea.z == 1);
 		dimGridThreadForEachUsedFea.z = numofUniqueFea;//a decision feature is handled by a set of blocks
 
