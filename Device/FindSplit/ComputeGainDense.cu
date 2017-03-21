@@ -277,7 +277,8 @@ __global__ void PickGlobalBestSplitEachNode(const float_point *pfLocalBestGain, 
 		pfGlobalBestGain[snId] = -pfGain[0];//make the gain back to its original sign
 		pnGlobalBestGainKey[snId] = pnBetterGainKey[0];
 		if(pnBetterGainKey[0] < 0)
-			printf("negative key: snId=%d, gain=%f, key=%d, blockDim.x=%d, blockSize=%d, blockpPerNode=%d\n", snId, pfGain[0], pnBetterGainKey[0], blockDim.x, BLOCK_SIZE, numBlockPerNode);
+			printf("negative key: snId=%d, gain=%f, key=%d, blockDim.x=%d, blockSize=%d, blockpPerNode=%d, numSN=%d\n", 
+					snId, pfGain[0], pnBetterGainKey[0], blockDim.x, BLOCK_SIZE, numBlockPerNode, numofSNode);
 	}
 }
 

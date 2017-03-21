@@ -188,6 +188,7 @@ void IndexComputer::ComputeIdxGPU(int numSNode, int maxNumSN, const int *pBuffVe
 
 		//number of feature values of this node
 		m_pNumFeaValueEachNode_dh[i] = curGatherIdx;//##### change i to snId to make more sense
+		printf("node %d has %d ins\n", snId, curGatherIdx / 8);
 
 		//each feature start position in each node
 		ComputeEachFeaStartPosEachNode(m_numFea, i, collectedGatherIdx, m_pEachFeaLenEachNode_dh, m_pEachFeaStartPosEachNode_dh);//######## change i to snId to make more sense

@@ -10,7 +10,7 @@
 #define KERNELCONST_H_
 
 
-#define BLOCK_SIZE	64
+#define BLOCK_SIZE 64
 
 
 #endif /* KERNELCONST_H_ */

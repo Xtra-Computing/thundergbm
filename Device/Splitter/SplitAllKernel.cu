@@ -24,15 +24,16 @@ __global__ void ComputeWeight(TreeNode *pAllTreeNode, TreeNode *pSplittableNode,
 								  float_point lambda, int numofSplittableNode, bool bLastLevel, int maxNumofSplittableNode)
 {
 	int nGlobalThreadId = (blockIdx.y * gridDim.x + blockIdx.x) * blockDim.x + threadIdx.x;
-	if(nGlobalThreadId < 0 || nGlobalThreadId >= numofSplittableNode)//one thread per splittable node
-		printf("Error in computeWeight function, thread id=%d\n", nGlobalThreadId);
+	if(nGlobalThreadId >= numofSplittableNode)//one thread per splittable node
+		return;
 
 	int nid = pSplittableNode[nGlobalThreadId].nodeId;
 	ErrorChecker(nid, __PRETTY_FUNCTION__, "nid");
 
-//	int bufferPos = pSNIdToBufferId[nid];//########## here should be using the hash function.
 	int bufferPos = GetBufferId(pSNIdToBufferId, nid, maxNumofSplittableNode);
-//	printf("node %d needs to split... pos in buff is %d\n", nid, bufferPos);
+	if(bufferPos != nid % maxNumofSplittableNode)
+		printf("ohhhhhhhhhhhhhhhhhhhhhhhhhhhh: bufferPos is unexpected\n");
+
 	ErrorChecker(bufferPos, __PRETTY_FUNCTION__, "bufferPos");
 
 	//mark the node as a leaf node if (1) the gain is negative or (2) the tree reaches maximum depth.
@@ -61,8 +62,8 @@ __global__ void CreateNewNode(TreeNode *pAllTreeNode, TreeNode *pSplittableNode,
 {
 	//for each splittable node, assign lchild and rchild ids
 	int nGlobalThreadId = (blockIdx.y * gridDim.x + blockIdx.x) * blockDim.x + threadIdx.x;
-	if(nGlobalThreadId < 0 || nGlobalThreadId >= nNumofSplittableNode)//one thread per splittable node
-		printf("Error in CreateNewNode function, thread id=%d\n", nGlobalThreadId);
+	if(nGlobalThreadId >= nNumofSplittableNode)//one thread per splittable node
+		return;
 
 	ErrorChecker(*pNumofNewNode == 0, __PRETTY_FUNCTION__, "*pNumofNewNode == 0");
 
@@ -97,7 +98,6 @@ __global__ void CreateNewNode(TreeNode *pAllTreeNode, TreeNode *pSplittableNode,
 		pNewNodeStat[leftNewNodeId] = pLChildStat[bufferPos];
 		pNewNodeStat[rightNewNodeId] = pRChildStat[bufferPos];
 
-
 		//split into two nodes
 		TreeNode &leftChild = pAllTreeNode[lchildId];
 		TreeNode &rightChild = pAllTreeNode[rchildId];
@@ -126,7 +126,6 @@ __global__ void CreateNewNode(TreeNode *pAllTreeNode, TreeNode *pSplittableNode,
 		pNewSplittableNode[leftNewNodeId] = leftChild;
 		pNewSplittableNode[rightNewNodeId] = rightChild;
 
-
 		pAllTreeNode[nid].leftChildId = leftChild.nodeId;
 		pAllTreeNode[nid].rightChildId = rightChild.nodeId;
 		ErrorChecker(pBestSplitPoint[bufferPos].m_nFeatureId, __PRETTY_FUNCTION__, "pBestSplitPoint[bufferPos].m_nFeatureId");
@@ -136,10 +135,8 @@ __global__ void CreateNewNode(TreeNode *pAllTreeNode, TreeNode *pSplittableNode,
 
 		//this is used in finding unique feature ids
 		pSplittableNode[nGlobalThreadId].featureId = pBestSplitPoint[bufferPos].m_nFeatureId;
-
 //			printf("cur # of node is %d\n", *pNumofNode);
 	}
-
 }
 
 /**
@@ -150,8 +147,8 @@ __global__ void GetUniqueFid(TreeNode *pAllTreeNode, TreeNode *pSplittableNode, 
 								 int maxNumofUsedFea, int flag_LEAFNODE, int *pnLock)
 {
 	int nGlobalThreadId = (blockIdx.y * gridDim.x + blockIdx.x) * blockDim.x + threadIdx.x;
-	if(nGlobalThreadId < 0 || nGlobalThreadId >= nNumofSplittableNode)//one thread per splittable node
-		printf("Error in GetUniqueFid function, thread id=%d\n", nGlobalThreadId);
+	if(nGlobalThreadId >= nNumofSplittableNode)//one thread per splittable node
+		return;	
 
 	ErrorCond(*pNumofUniqueFid == 0, __PRETTY_FUNCTION__, "*pNumofUniqueFid == 0");
 
@@ -242,6 +239,7 @@ __global__ void InsToNewNode(TreeNode *pAllTreeNode, float_point *pdFeaValue, in
 
 	if(nid != pParentId[bufferPos])//node doesn't need to split (leaf node or new node)
 	{
+		printf("nid=%d, pid=%d ######################\n", nid, pParentId[bufferPos]);
 		if(pAllTreeNode[nid].rightChildId != flag_LEAFNODE)
 		{
 #ifdef testing
@@ -255,17 +253,16 @@ __global__ void InsToNewNode(TreeNode *pAllTreeNode, float_point *pdFeaValue, in
 		return;
 	}
 
-	if(nid == pParentId[bufferPos])
-	{//internal node (needs to split)
+	if(nid == pParentId[bufferPos]){//internal node (needs to split)
 #ifdef testing
 		ErrorCond(pRChildId[bufferPos] == pLChildId[bufferPos] + 1, __PRETTY_FUNCTION__, "rChild=lChild+1");//right child id > than left child id
 #endif
-
+		if(pAllTreeNode[nid].rightChildId == flag_LEAFNODE)
+			printf("Are you kidding me????????????????\n");
 		double fPivot = pBestSplitPoint[bufferPos].m_fSplitValue;
 		double fvalue = pdCurFeaValue[perFeaTid];
 
-		if(fvalue >= fPivot)
-		{
+		if(fvalue >= fPivot){
 			pInsIdToNodeId[insId] = pRChildId[bufferPos];//right child id
 //			atomicAdd(numInsR + bufferPos, 1);//increase numIns in right child
 		}
@@ -277,7 +274,6 @@ __global__ void InsToNewNode(TreeNode *pAllTreeNode, float_point *pdFeaValue, in
 }
 
 __global__ void InsToNewNodeByDefault(TreeNode *pAllTreeNode, int *pInsIdToNodeId, const int *pSNIdToBuffId,
-
 										   int *pParentId, int *pLChildId,
 										   int preMaxNodeId, int numofIns, int flag_LEAFNODE)
 {
@@ -297,6 +293,7 @@ __global__ void InsToNewNodeByDefault(TreeNode *pAllTreeNode, int *pInsIdToNodeI
 	}
 	else
 	{
+		printf("ins to new node by default: ################## nid=%d, maxNid=%d, rcid=%d, flag=%d\n", nid, preMaxNodeId, pAllTreeNode[nid].rightChildId, flag_LEAFNODE);
 		int bufferPos = pSNIdToBuffId[nid];
 		//if(pInsIdToNodeId[nGlobalThreadId] * 2 + 1 != pLChildId[bufferPos])
 		pInsIdToNodeId[nGlobalThreadId] = pLChildId[bufferPos];//by default the instance with unknown feature value going to left child
@@ -312,8 +309,8 @@ __global__ void UpdateNewSplittable(TreeNode *pNewSplittableNode, nodeStat *pNew
 {
 	int numofNewNode = *pNumofNewNode;
 	int nGlobalThreadId = (blockIdx.y * gridDim.x + blockIdx.x) * blockDim.x + threadIdx.x;
-	if(nGlobalThreadId < 0 || nGlobalThreadId >= numofNewNode)//one thread per splittable node
-		printf("Error in InsToNewNode function, thread id=%d\n", nGlobalThreadId);
+	if(nGlobalThreadId >= numofNewNode)//one thread per splittable node
+		return;
 
 	ErrorChecker(*pBuffIdCounter == 0, __PRETTY_FUNCTION__, "*pBuffIdCounter == 0");
 
@@ -346,5 +343,5 @@ __global__ void UpdateNewSplittable(TreeNode *pNewSplittableNode, nodeStat *pNew
 	}
 	//for computing node size
 	pNewSplittableNode[nGlobalThreadId].numIns = pNewNodeStat[nGlobalThreadId].sum_hess;//Will this have problems? sum_hess is count on fvalue != 0, while numIns may be bigger.
-	//printf("nid=%d, numofIns=%d\n", nid, pNewSplittableNode[nGlobalThreadId].numIns);
+	printf("nid=%d, numofIns=%d\n", nid, pNewSplittableNode[nGlobalThreadId].numIns);
 }

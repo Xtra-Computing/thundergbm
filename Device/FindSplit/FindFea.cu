@@ -91,9 +91,6 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 		manager.MemcpyDeviceToHostAsync(bagManager.m_pSNIdToBuffIdEachBag + bagId * bagManager.m_maxNumSplittable, pSNIdToBuffId_h, sizeof(int) * bagManager.m_maxNumSplittable, pStream);
 		manager.MemcpyDeviceToHostAsync(bagManager.m_pInsIdToNodeIdEachBag + bagId * bagManager.m_numIns, indexComp.m_insIdToNodeId_dh, sizeof(int) * bagManager.m_numIns, pStream);
 
-//		indexComp.ComputeIndex(numofSNode, pSNIdToBuffId_h, maxNumofSplittable, pBuffIdVec_h);
-//		manager.MemcpyHostToDeviceAsync(indexComp.m_pIndices_dh, bagManager.m_pIndicesEachBag_d + bagId * bagManager.m_numFeaValue, sizeof(int) * bagManager.m_numFeaValue, pStream);
-
 		//compute gather index via GPUs
 		indexComp.ComputeIdxGPU(numofSNode, maxNumofSplittable, pBuffIdVec_h);
 		manager.MemcpyHostToDeviceAsync(indexComp.m_pnGatherIdx, bagManager.m_pIndicesEachBag_d + bagId * bagManager.m_numFeaValue, sizeof(int) * bagManager.m_numFeaValue, pStream);
@@ -116,15 +113,16 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 		//copy (in pinned mem) of feature values for each feature in each node
 		manager.MemcpyHostToDeviceAsync(indexComp.m_pEachFeaLenEachNode_dh, bagManager.m_pEachFeaLenEachNodeEachBag_dh + bagId * bagManager.m_maxNumSplittable * bagManager.m_numFea,
 										sizeof(int) * bagManager.m_maxNumSplittable * bagManager.m_numFea, pStream);
-
 	
 		PROCESS_ERROR(nNumofFeature == bagManager.m_numFea);
 		clock_t start_gd = clock();
 		//scatter operation
+		//total fvalue to load may be smaller than m_totalFeaValue, due to some nodes becoming leaves.
+		int numFvToLoad = indexComp.m_pFeaValueStartPosEachNode_dh[numofSNode - 1] + indexComp.m_pNumFeaValueEachNode_dh[numofSNode - 1];
 		LoadGDHessFvalue<<<dimNumofBlockToLoadGD, blockSizeLoadGD, 0, (*(cudaStream_t*)pStream)>>>(bagManager.m_pInsGradEachBag + bagId * bagManager.m_numIns, 
 															   bagManager.m_pInsHessEachBag + bagId * bagManager.m_numIns, 
 															   bagManager.m_numIns, manager.m_pDInsId, manager.m_pdDFeaValue, 
-															   bagManager.m_pIndicesEachBag_d, indexComp.m_totalFeaValue,
+															   bagManager.m_pIndicesEachBag_d, numFvToLoad,
 															   bagManager.m_pGDEachFvalueEachBag + bagId * bagManager.m_numFeaValue, 
 															   bagManager.m_pHessEachFvalueEachBag + bagId * bagManager.m_numFeaValue, 
 															   bagManager.m_pDenseFValueEachBag + bagId * bagManager.m_numFeaValue);
@@ -249,7 +247,7 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 
 //	cout << "compute gain" << endl;
 	clock_t start_comp_gain = clock();
-	//# of feature values that need to compute gains.
+	//# of feature values that need to compute gains; the code below cannot be replaced by indexComp.m_totalNumFeaValue, due to some nodes becoming leaves.
 	int numofDenseValue = indexComp.m_pFeaValueStartPosEachNode_dh[numofSNode - 1] + indexComp.m_pNumFeaValueEachNode_dh[numofSNode - 1];
 	int blockSizeComGain;
 	dim3 dimNumofBlockToComGain;
