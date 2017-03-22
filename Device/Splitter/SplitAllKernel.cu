@@ -343,5 +343,5 @@ __global__ void UpdateNewSplittable(TreeNode *pNewSplittableNode, nodeStat *pNew
 	}
 	//for computing node size
 	pNewSplittableNode[nGlobalThreadId].numIns = pNewNodeStat[nGlobalThreadId].sum_hess;//Will this have problems? sum_hess is count on fvalue != 0, while numIns may be bigger.
-	printf("nid=%d, numofIns=%d\n", nid, pNewSplittableNode[nGlobalThreadId].numIns);
+//	printf("nid=%d, numofIns=%d\n", nid, pNewSplittableNode[nGlobalThreadId].numIns);
 }

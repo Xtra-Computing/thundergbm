@@ -191,7 +191,7 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 	int totalNumArray = indexComp.m_numFea * numofSNode;
 	cudaStreamSynchronize((*(cudaStream_t*)pStream));//wait until the pinned memory (m_pEachFeaLenEachNodeEachBag_dh) is filled
 	ComputeMaxNumValuePerFea(bagManager.m_pEachFeaLenEachNodeEachBag_dh + bagId * bagManager.m_maxNumSplittable * bagManager.m_numFea, totalNumArray, bagId);
-	cout << "max # of values per fea is " << bagManager.m_pMaxNumValuePerFeaEachBag[bagId] <<"; # of arrays is " << totalNumArray << endl;
+	//cout << "max # of values per fea is " << bagManager.m_pMaxNumValuePerFeaEachBag[bagId] <<"; # of arrays is " << totalNumArray << endl;
 
 	cudaDeviceSynchronize();
 	//compute prefix sum for gd and hess (handing more than one arrays)
@@ -287,7 +287,7 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 //	cout << "first fea gain removal" << endl;
 	//change the gain of the first feature value to 0
 	int numFeaStartPos = indexComp.m_numFea * numofSNode;
-	printf("num of feature start positions=%d\n", numFeaStartPos);
+//	printf("num of feature start positions=%d\n", numFeaStartPos);
 	int blockSizeFirstGain;
 	dim3 dimNumofBlockFirstGain;
 	conf.ConfKernel(numFeaStartPos, blockSizeFirstGain, dimNumofBlockFirstGain);

@@ -49,7 +49,7 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 	dim3 dimNumofBlock;
 	conf.ConfKernel(bagManager.m_curNumofSplitableEachBag_h[bagId], threadPerBlock, dimNumofBlock);
 	clock_t com_weight_start = clock();
-	printf("curSN=%d, tperblock=%d, numofBlock=%d\n", bagManager.m_curNumofSplitableEachBag_h[bagId], threadPerBlock, dimNumofBlock.x * dimNumofBlock.y * dimNumofBlock.z);
+//	printf("curSN=%d, tperblock=%d, numofBlock=%d\n", bagManager.m_curNumofSplitableEachBag_h[bagId], threadPerBlock, dimNumofBlock.x * dimNumofBlock.y * dimNumofBlock.z);
 	ComputeWeight<<<dimNumofBlock, threadPerBlock, 0, (*(cudaStream_t*)pStream)>>>(//snManager.m_pTreeNode, manager.m_pSplittableNode, manager.m_pSNIdToBuffId,
 							  bagManager.m_pNodeTreeOnTrainingEachBag + bagId * bagManager.m_maxNumNode,
 							  	  bagManager.m_pSplittableNodeEachBag + bagId * bagManager.m_maxNumSplittable,
@@ -202,7 +202,7 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 		conf.ComputeBlock(numofNewSplittableNode, dimGridThreadForEachNewSN);
 		int blockSizeNSN = 1;
 
-		printf("new sn=%d, blocksize=%d, blocks=%d\n", numofNewSplittableNode, blockSizeNSN, dimGridThreadForEachNewSN.x * dimGridThreadForEachNewSN.y * dimGridThreadForEachNewSN.z);
+//		printf("new sn=%d, blocksize=%d, blocks=%d\n", numofNewSplittableNode, blockSizeNSN, dimGridThreadForEachNewSN.x * dimGridThreadForEachNewSN.y * dimGridThreadForEachNewSN.z);
 //		cout << "update new splittable" << endl;
 		//reset nodeId to bufferId
 		//manager.Memset(manager.m_pSNIdToBuffId, -1, sizeof(int) * manager.m_maxNumofSplittable);
