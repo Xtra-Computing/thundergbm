@@ -33,7 +33,7 @@ case $1 in
 		;;
     cadata)
         GAMMA=${GAMMA}"1"
-        D=${D}"6"
+        D=${D}"5"
 		NUMTREE=${NUMTREE}"1"
 		BAG=${BAG}"1"
         FILENAME=${DATASET_DIR}/"cadata" #8 features and 20640 instances

@@ -142,6 +142,7 @@ void IndexComputer::ComputeIdxGPU(int numSNode, int maxNumSN, const int *pBuffVe
 	long long *pnStartPos;
 	checkCudaErrors(cudaMalloc((void**)&pnStartPos, sizeof(long long) * 1));
 	checkCudaErrors(cudaMemset(pnStartPos, 0, sizeof(long long) * 1));
+	checkCudaErrors(cudaMemset(m_pnGatherIdx, 0, sizeof(unsigned int) * m_totalFeaValue));//when leaves appear, this is effective.
 
 	//memset for debuging; this should be removed to develop more reliable program
 	memset(m_pEachFeaLenEachNode_dh, 0, sizeof(int) * maxNumSN * m_numFea);
@@ -173,6 +174,7 @@ void IndexComputer::ComputeIdxGPU(int numSNode, int maxNumSN, const int *pBuffVe
 		int arraySize = m_totalFeaValue;
 		GETERROR("after ArrayMarker");
 		prefixsumForDeviceArray(pfSparseGatherIdx, pnStartPos, &arraySize, 1, m_totalFeaValue);
+
 		//convert float to int
 		FloatToUnsignedInt<<<dimNumofBlockForFvalue, blockSizeForFvalue>>>(pfSparseGatherIdx, m_totalFeaValue, pnSparseGatherIdx);
 		checkCudaErrors(cudaMemcpy(pnSparseGatherIdx_h, pnSparseGatherIdx, sizeof(unsigned int) * m_totalFeaValue, cudaMemcpyDeviceToHost));
@@ -188,7 +190,7 @@ void IndexComputer::ComputeIdxGPU(int numSNode, int maxNumSN, const int *pBuffVe
 
 		//number of feature values of this node
 		m_pNumFeaValueEachNode_dh[i] = curGatherIdx;//##### change i to snId to make more sense
-		printf("node %d has %d ins\n", snId, curGatherIdx / 8);
+		printf("node %d has %f ins\n", snId, (float)curGatherIdx / 8);
 
 		//each feature start position in each node
 		ComputeEachFeaStartPosEachNode(m_numFea, i, collectedGatherIdx, m_pEachFeaLenEachNode_dh, m_pEachFeaStartPosEachNode_dh);//######## change i to snId to make more sense
@@ -198,7 +200,22 @@ void IndexComputer::ComputeIdxGPU(int numSNode, int maxNumSN, const int *pBuffVe
 
 		//update the number of collected gather indices
 		collectedGatherIdx += curGatherIdx;
+		float *tempIdx = new float[m_totalFeaValue];
+		checkCudaErrors(cudaMemcpy(tempIdx, pfSparseGatherIdx, sizeof(float) * m_totalFeaValue, cudaMemcpyDeviceToHost));
+		if(tempIdx[m_totalFeaValue - 1] < 1){
+			printf("oh shitttttttttttttttttttttttt %f, i=%d\n", tempIdx[m_totalFeaValue - 1], i);
+		}
 	}
+	printf("total idx is %d $$$$$$$$$$$$$$$$$$$$$$$$$$$$\n", collectedGatherIdx);
+
+	unsigned int *tempIdx = new unsigned int[m_totalFeaValue];
+	checkCudaErrors(cudaMemcpy(tempIdx, m_pnGatherIdx, sizeof(unsigned int) * m_totalFeaValue, cudaMemcpyDeviceToHost));
+	for(int idx = 1; idx < m_totalFeaValue; idx++){
+		if(tempIdx[idx] >= collectedGatherIdx)
+			printf("########################pre=%d v.s. next=%d; idx=%d, total collected=%d\n", tempIdx[idx - 1], tempIdx[idx], idx, collectedGatherIdx);
+	}
+	delete []tempIdx;
+
 
 	checkCudaErrors(cudaFree(pfSparseGatherIdx));
 	checkCudaErrors(cudaFree(pnSparseGatherIdx));
