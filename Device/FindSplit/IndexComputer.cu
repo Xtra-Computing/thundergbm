@@ -175,6 +175,7 @@ void IndexComputer::ComputeIdxGPU(int numSNode, int maxNumSN, const int *pBuffVe
 		//compute prefix sum for one array
 		int arraySize = m_totalFeaValue;
 		GETERROR("after ArrayMarker");
+		printf("computing prefix sum for indexComp\n");
 		prefixsumForDeviceArray(pfSparseGatherIdx, pnStartPos, &arraySize, 1, m_totalFeaValue);
 
 		//convert float to int

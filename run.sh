@@ -33,7 +33,7 @@ case $1 in
 		;;
     cadata)
         GAMMA=${GAMMA}"1"
-        D=${D}"7"
+        D=${D}"5"
 		NUMTREE=${NUMTREE}"1"
 		BAG=${BAG}"1"
         FILENAME=${DATASET_DIR}/"cadata" #8 features and 20640 instances
@@ -91,5 +91,4 @@ TASK="-o 2"
 set -x
 
 #command
-#./bin/release/mascot ${PROB} ${TASK} ${GAMMA} ${C} ${E} ${NUMFEATURE} ${FILENAME}
-./bin/debug/gbdt ${GAMMA} ${D} ${NUMTREE} ${BAG} ${FILENAME}
+./bin/release/gbdt ${GAMMA} ${D} ${NUMTREE} ${BAG} ${FILENAME}
