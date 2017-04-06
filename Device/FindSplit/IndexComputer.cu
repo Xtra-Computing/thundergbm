@@ -17,7 +17,9 @@
 #include "../KernelConf.h"
 #include "../prefix-sum/prefixSum.h"
 #include "../../GetCudaError.h"
-
+#include <thrust/scan.h>
+#include <thrust/execution_policy.h>
+#include <thrust/device_ptr.h>
 
 using std::vector;
 
@@ -43,7 +45,7 @@ unsigned int *IndexComputer::m_pFvToInsId = NULL;
 /**
   *@brief: mark feature values beloning to node with id=snId by 1
   */
-__global__ void ArrayMarker(int snId, unsigned int *pFvToInsId, int *pInsIdToNodeId, int totalNumFv, int maxNumSN, float_point *pSparseGatherIdx){
+__global__ void ArrayMarker(int snId, unsigned int *pFvToInsId, int *pInsIdToNodeId, int totalNumFv, int maxNumSN, unsigned int *pSparseGatherIdx){
 	int gTid = (blockIdx.y * gridDim.x + blockIdx.x) * blockDim.x + threadIdx.x;
 	if(gTid >= totalNumFv)//thread has nothing to mark 
 		return;
@@ -139,6 +141,10 @@ void IndexComputer::ComputeIdxGPU(int numSNode, int maxNumSN, const int *pBuffVe
 	unsigned int *pnSparseGatherIdx_h = new unsigned int[m_totalFeaValue];
 	checkCudaErrors(cudaMalloc((void**)&pfSparseGatherIdx, sizeof(float_point) * m_totalFeaValue));
 	checkCudaErrors(cudaMalloc((void**)&pnSparseGatherIdx, sizeof(unsigned int) * m_totalFeaValue));
+	unsigned int *pnKey;
+	checkCudaErrors(cudaMalloc((void**)&pnKey, sizeof(unsigned int) * m_totalFeaValue));
+	checkCudaErrors(cudaMemset(pnKey, 0, sizeof(unsigned int) * m_totalFeaValue));
+
 	long long *pnStartPos;
 	checkCudaErrors(cudaMalloc((void**)&pnStartPos, sizeof(long long) * 1));
 	checkCudaErrors(cudaMemset(pnStartPos, 0, sizeof(long long) * 1));
@@ -165,21 +171,20 @@ void IndexComputer::ComputeIdxGPU(int numSNode, int maxNumSN, const int *pBuffVe
 	for(int i = 0; i < numSNode; i++){
 		//reset sparse gather index
 		checkCudaErrors(cudaMemset(pfSparseGatherIdx, 0, sizeof(float_point) * m_totalFeaValue));
+		checkCudaErrors(cudaMemset(pnSparseGatherIdx, 0, sizeof(unsigned int) * m_totalFeaValue));
+		checkCudaErrors(cudaMemset(pnKey, 0, sizeof(unsigned int) * m_totalFeaValue));
 
 		//construct 01 array for key values
 		int snId = pBuffVec[i];//snId = nid % maxSN
 
 		PROCESS_ERROR(snId >= 0);
-		ArrayMarker<<<dimNumofBlockForFvalue, blockSizeForFvalue>>>(snId, m_pFvToInsId, m_insIdToNodeId_dh, m_totalFeaValue, maxNumSN, pfSparseGatherIdx);
+		ArrayMarker<<<dimNumofBlockForFvalue, blockSizeForFvalue>>>(snId, m_pFvToInsId, m_insIdToNodeId_dh, m_totalFeaValue, maxNumSN, pnSparseGatherIdx);
 
 		//compute prefix sum for one array
 		int arraySize = m_totalFeaValue;
 		GETERROR("after ArrayMarker");
-		printf("computing prefix sum for indexComp\n");
-		prefixsumForDeviceArray(pfSparseGatherIdx, pnStartPos, &arraySize, 1, m_totalFeaValue);
-
-		//convert float to int
-		FloatToUnsignedInt<<<dimNumofBlockForFvalue, blockSizeForFvalue>>>(pfSparseGatherIdx, m_totalFeaValue, pnSparseGatherIdx);
+		thrust::inclusive_scan_by_key(thrust::system::cuda::par, pnKey, pnKey + m_totalFeaValue, pnSparseGatherIdx, pnSparseGatherIdx);//in place prefix sum
+		GETERROR("after thrust");
 		checkCudaErrors(cudaMemcpy(pnSparseGatherIdx_h, pnSparseGatherIdx, sizeof(unsigned int) * m_totalFeaValue, cudaMemcpyDeviceToHost));
 
 		//compute each feature length in each node

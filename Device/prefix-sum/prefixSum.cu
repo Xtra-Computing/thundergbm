@@ -166,24 +166,21 @@ __global__ void cuda_updatesum(T *array, const long long *arrayStartPos, const u
 	int blockIdAllArray = (blockIdx.z * gridDim.y + blockIdx.y);//blockIdAllArray corresponds to an array to compute prefix sum
 	if(blockIdAllArray >= numArray)
 		return;
-	unsigned int tid = threadIdx.x;
+	unsigned int blkSize = blockDim.x * blockDim.y;
+	unsigned int tid = threadIdx.y * blockDim.x + threadIdx.x;
 	int array_id = blockIdAllArray;
 	//##### long long to unsigned int here
-	unsigned int b_offset = arrayStartPos[array_id] + blockIdx.x * blockDim.x;//in_array offset due to multi blocks
-	unsigned int id = b_offset + tid;
+	unsigned int b_offset = arrayStartPos[array_id] + blockIdx.x * blkSize;//in_array offset due to multi blocks
 	unsigned int array_len = pnEachSubArrayLen[array_id];
-	if(blockIdx.x * blockDim.x + tid >= array_len)//skip this thread, due to the small subarray size
-	{
+	if(blockIdx.x * blkSize + tid >= array_len)//skip this thread, due to the small subarray size
 		return;
-	}
 
 	T op = 0;
-	if (blockIdx.x > 0)//if it is not the first block
-	{
+	if(blockIdx.x > 0){//if it is not the first block
 		op = update_array[blockIdAllArray * gridDim.x + blockIdx.x - 1];
 	}
 
+	unsigned int id = b_offset + tid;
 	T temp = array[id] + op;
 	array[id] = temp;
 }
-
