@@ -7,6 +7,8 @@
  */
 
 #include <iostream>
+#include <thrust/scan.h>
+#include <thrust/execution_policy.h>
 
 #include "../../DeviceHost/MyAssert.h"
 #include "../../DeviceHost/svm-shared/HostUtility.h"
@@ -192,58 +194,35 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 	cudaStreamSynchronize((*(cudaStream_t*)pStream));//wait until the pinned memory (m_pEachFeaLenEachNodeEachBag_dh) is filled
 	ComputeMaxNumValuePerFea(bagManager.m_pEachFeaLenEachNodeEachBag_dh + bagId * bagManager.m_maxNumSplittable * bagManager.m_numFea, totalNumArray, bagId);
 	//cout << "max # of values per fea is " << bagManager.m_pMaxNumValuePerFeaEachBag[bagId] <<"; # of arrays is " << totalNumArray << endl;
-
 	cudaDeviceSynchronize();
-	//compute prefix sum for gd and hess (handing more than one arrays)
-	PrefixSumForEachNode(totalNumArray, bagManager.m_pGDPrefixSumEachBag + bagId * bagManager.m_numFeaValue,
-						 bagManager.m_pHessPrefixSumEachBag + bagId * bagManager.m_numFeaValue,
-						 bagManager.m_pEachFeaStartPosEachNodeEachBag_d + bagId * bagManager.m_maxNumSplittable * bagManager.m_numFea,
-						 bagManager.m_pEachFeaLenEachNodeEachBag_dh + bagId * bagManager.m_maxNumSplittable * bagManager.m_numFea,
-						 bagManager.m_pMaxNumValuePerFeaEachBag[bagId], pStream);//last parameter is a host variable
+
+	//construct keys for exclusive scan
+	int *pnKey_d;
+	int keyFlag = 0;
+	checkCudaErrors(cudaMalloc((void**)&pnKey_d, bagManager.m_numFeaValue * sizeof(int)));
+	long long *pTempEachFeaStartEachNode = bagManager.m_pEachFeaStartPosEachNodeEachBag_d + bagId * bagManager.m_maxNumSplittable * bagManager.m_numFea;
+	long long *pTempEachFeaStartEachNode_h = new long long[totalNumArray];
+	checkCudaErrors(cudaMemcpy(pTempEachFeaStartEachNode_h, pTempEachFeaStartEachNode, sizeof(long long) * totalNumArray, cudaMemcpyDeviceToHost));
+	for(int m = 0; m < totalNumArray; m++){
+		unsigned int arrayLen = bagManager.m_pEachFeaLenEachNodeEachBag_dh[m];
+		unsigned int arrayStartPos = pTempEachFeaStartEachNode_h[m];
+		checkCudaErrors(cudaMemset(pnKey_d + arrayStartPos, keyFlag, sizeof(int) * arrayLen));
+		if(keyFlag == 0)
+			keyFlag = -1;
+		else 
+			keyFlag = 0;
+	}
+	delete[] pTempEachFeaStartEachNode_h;
+
+	//compute prefix sum for gd and hess (more than one arrays)
+	float_point *pTempGDSum = bagManager.m_pGDPrefixSumEachBag + bagId * bagManager.m_numFeaValue;
+	float_point *pTempHessSum = bagManager.m_pHessPrefixSumEachBag + bagId * bagManager.m_numFeaValue;
+	thrust::inclusive_scan_by_key(thrust::system::cuda::par, pnKey_d, pnKey_d + bagManager.m_numFeaValue, pTempGDSum, pTempGDSum);//in place prefix sum
+	thrust::inclusive_scan_by_key(thrust::system::cuda::par, pnKey_d, pnKey_d + bagManager.m_numFeaValue, pTempHessSum, pTempHessSum);
 
 	cudaStreamSynchronize((*(cudaStream_t*)pStream));
 	clock_t end_scan = clock();
 	total_scan_t += (end_scan - start_scan);
-
-#if 0
-	cout << "############### of sn " << numofSNode << endl;
-	manager.MemcpyDeviceToHostAsync(bagManager.m_pHessPrefixSumEachBag, pfHessEachFeaValue_h, sizeof(float_point) * manager.m_totalNumofValues, pStream);
-	for(int i = 0; i < manager.m_totalNumofValues; i++){
-		cout << pfHessEachFeaValue_h[i] << "\t";
-		if(i % 20 == 0 && i > 0)
-			cout << endl;
-	}
-#endif
-#if 0 
-	float_point *pfGDScanEachFeaValue_h = new float_point[manager.m_totalNumofValues];
-	float_point *pfHessScanEachFeaValue_h = new float_point[manager.m_totalNumofValues];
-	manager.MemcpyDeviceToHostAsync(bagManager.m_pGDPrefixSumEachBag, pfGDScanEachFeaValue_h, sizeof(float_point) * manager.m_totalNumofValues, pStream);
-	manager.MemcpyDeviceToHostAsync(bagManager.m_pHessPrefixSumEachBag, pfHessScanEachFeaValue_h, sizeof(float_point) * manager.m_totalNumofValues, pStream);
-	for(int n = 0; n < numofSNode; n++)
-	{
-		for(int fid = 0; fid < manager.m_numofFea; fid++)
-		{
-			float_point fGDScan = 0;
-			float_point fHessScan = 0;
-			int nodeStartPos = indexComp.m_pEachFeaStartPosEachNode_dh[n * manager.m_numofFea + fid];
-			for(int fv = 0; fv < indexComp.m_pEachFeaLenEachNode_dh[n * manager.m_numofFea + fid]; fv++)
-			{
-				int pos = nodeStartPos + fv;
-				fGDScan += pfGDEachFeaValue_h[pos];
-				fHessScan += pfHessEachFeaValue_h[pos];
-				if(abs(pfGDScanEachFeaValue_h[pos] - fGDScan) > abs(fGDScan) * deltaTest * 0.01)
-				{
-					cout << "scan gd diff " << pfGDScanEachFeaValue_h[pos] << " v.s. " << fGDScan << endl;
-				}
-				if(abs(pfHessScanEachFeaValue_h[pos] - fHessScan) > deltaTest)
-				{
-					cout << "scan hess diff " << pfHessScanEachFeaValue_h[pos] << " v.s. " << fHessScan << endl;
-				}
-			}
-		}
-	}
-
-#endif
 
 //	cout << "compute gain" << endl;
 	clock_t start_comp_gain = clock();
