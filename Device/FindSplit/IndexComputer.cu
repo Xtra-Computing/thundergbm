@@ -19,7 +19,6 @@
 #include "../../GetCudaError.h"
 #include <thrust/scan.h>
 #include <thrust/execution_policy.h>
-#include <thrust/device_ptr.h>
 
 using std::vector;
 
@@ -62,7 +61,6 @@ __global__ void ArrayMarker(int snId, unsigned int *pFvToInsId, int *pInsIdToNod
 
 /**
   *@brief: compute length for each feature value of each node 
-  *
   */
 void UpdateEachFeaLenEachNode(unsigned int *pEachFeaStartPos, int snId, int numFea, int totalFvalue, unsigned int *pSparseGatherIdx, int *pEachFeaLenEachNode){
 	for(int f = 0; f < numFea; f++){
@@ -74,7 +72,7 @@ void UpdateEachFeaLenEachNode(unsigned int *pEachFeaStartPos, int snId, int numF
 		else
 			posOfLastFvalue = totalFvalue - 1;
 
-		unsigned int startPos = pEachFeaStartPos[f];//totalFvalue of elements are filled with 1 or 0.
+		unsigned int startPos = pEachFeaStartPos[f];//start position of the feature f.
 		unsigned int lenPreviousFvalue = 0;
 		if(f > 0){
 			lenPreviousFvalue = pSparseGatherIdx[startPos - 1];
@@ -136,10 +134,8 @@ void IndexComputer::ComputeIdxGPU(int numSNode, int maxNumSN, const int *pBuffVe
 	PROCESS_ERROR(maxNumSN == m_maxNumofSN);
 	
 	//this will be moved to memeory allocator
-	float_point *pfSparseGatherIdx;
 	unsigned int *pnSparseGatherIdx;
 	unsigned int *pnSparseGatherIdx_h = new unsigned int[m_totalFeaValue];
-	checkCudaErrors(cudaMalloc((void**)&pfSparseGatherIdx, sizeof(float_point) * m_totalFeaValue));
 	checkCudaErrors(cudaMalloc((void**)&pnSparseGatherIdx, sizeof(unsigned int) * m_totalFeaValue));
 	unsigned int *pnKey;
 	checkCudaErrors(cudaMalloc((void**)&pnKey, sizeof(unsigned int) * m_totalFeaValue));
@@ -170,7 +166,6 @@ void IndexComputer::ComputeIdxGPU(int numSNode, int maxNumSN, const int *pBuffVe
 	checkCudaErrors(cudaMemcpy(m_pFvToInsId, m_pInsId, sizeof(unsigned int) * m_totalFeaValue, cudaMemcpyHostToDevice));
 	for(int i = 0; i < numSNode; i++){
 		//reset sparse gather index
-		checkCudaErrors(cudaMemset(pfSparseGatherIdx, 0, sizeof(float_point) * m_totalFeaValue));
 		checkCudaErrors(cudaMemset(pnSparseGatherIdx, 0, sizeof(unsigned int) * m_totalFeaValue));
 		checkCudaErrors(cudaMemset(pnKey, 0, sizeof(unsigned int) * m_totalFeaValue));
 
@@ -184,33 +179,26 @@ void IndexComputer::ComputeIdxGPU(int numSNode, int maxNumSN, const int *pBuffVe
 		int arraySize = m_totalFeaValue;
 		GETERROR("after ArrayMarker");
 		thrust::inclusive_scan_by_key(thrust::system::cuda::par, pnKey, pnKey + m_totalFeaValue, pnSparseGatherIdx, pnSparseGatherIdx);//in place prefix sum
-		GETERROR("after thrust");
-		checkCudaErrors(cudaMemcpy(pnSparseGatherIdx_h, pnSparseGatherIdx, sizeof(unsigned int) * m_totalFeaValue, cudaMemcpyDeviceToHost));
-
-		//compute each feature length in each node
-		UpdateEachFeaLenEachNode(m_pEachFeaStartPos_dh, i, m_numFea, m_totalFeaValue, pnSparseGatherIdx_h, m_pEachFeaLenEachNode_dh);//##### change i to snId to make more sense
-
-		//get collected gather index of this round
-		checkCudaErrors(cudaMemcpy(&curGatherIdx, pnSparseGatherIdx + m_totalFeaValue - 1, sizeof(unsigned int), cudaMemcpyDeviceToHost));
-
 		//write to gether index
 		CollectGatherIdx<<<dimNumofBlockForFvalue, blockSizeForFvalue>>>(pnSparseGatherIdx, collectedGatherIdx, m_totalFeaValue, m_pnGatherIdx);
 
-		//number of feature values of this node
-		m_pNumFeaValueEachNode_dh[i] = curGatherIdx;//##### change i to snId to make more sense
-	//	printf("node %d has %f ins\n", snId, (float)curGatherIdx / 8);
-
+		checkCudaErrors(cudaMemcpy(pnSparseGatherIdx_h, pnSparseGatherIdx, sizeof(unsigned int) * m_totalFeaValue, cudaMemcpyDeviceToHost));
+		//compute each feature length in each node
+		UpdateEachFeaLenEachNode(m_pEachFeaStartPos_dh, i, m_numFea, m_totalFeaValue, pnSparseGatherIdx_h, m_pEachFeaLenEachNode_dh);//##### change i to snId to make more sense
 		//each feature start position in each node
 		ComputeEachFeaStartPosEachNode(m_numFea, i, collectedGatherIdx, m_pEachFeaLenEachNode_dh, m_pEachFeaStartPosEachNode_dh);//######## change i to snId to make more sense
-
 		//feature value start position of each node
 		m_pFeaValueStartPosEachNode_dh[i] = collectedGatherIdx;//###### change i to snId to make more sense
 
+		//get collected gather index of this round
+		checkCudaErrors(cudaMemcpy(&curGatherIdx, pnSparseGatherIdx + m_totalFeaValue - 1, sizeof(unsigned int), cudaMemcpyDeviceToHost));
+		//number of feature values of this node
+		m_pNumFeaValueEachNode_dh[i] = curGatherIdx;//##### change i to snId to make more sense
 		//update the number of collected gather indices
 		collectedGatherIdx += curGatherIdx;
 	}
-	checkCudaErrors(cudaFree(pfSparseGatherIdx));
 	checkCudaErrors(cudaFree(pnSparseGatherIdx));
+	delete[] pnSparseGatherIdx_h;
 }
 
 
