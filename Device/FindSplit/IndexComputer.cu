@@ -44,7 +44,7 @@ unsigned int *IndexComputer::m_pFvToInsId = NULL;
 /**
   *@brief: mark feature values beloning to node with id=snId by 1
   */
-__global__ void ArrayMarker(int snId, unsigned int *pFvToInsId, int *pInsIdToNodeId, int totalNumFv, int maxNumSN, unsigned int *pSparseGatherIdx){
+__global__ void ArrayMarker(int *pBuffVec_d, unsigned int *pFvToInsId, int *pInsIdToNodeId, int totalNumFv, int maxNumSN, unsigned int *pSparseGatherIdx){
 	int gTid = (blockIdx.y * gridDim.x + blockIdx.x) * blockDim.x + threadIdx.x;
 	if(gTid >= totalNumFv)//thread has nothing to mark 
 		return;
@@ -54,8 +54,10 @@ __global__ void ArrayMarker(int snId, unsigned int *pFvToInsId, int *pInsIdToNod
 	if(nid < 0)
 		return;
 	int buffId = nid % maxNumSN;
+	unsigned int arrayId = blockIdx.z; //each arrayId corresponds to a prefix sum later
+	int snId = pBuffVec_d[arrayId];
 	if(snId == buffId){
-		pSparseGatherIdx[gTid] = 1;
+		pSparseGatherIdx[gTid + arrayId * totalNumFv] = 1;
 	}
 }
 
@@ -82,36 +84,6 @@ void UpdateEachFeaLenEachNode(unsigned int *pEachFeaStartPos, int snId, int numF
 }
 
 /**
-  * @brief: store gather indices
-  */
-__global__ void CollectGatherIdx(unsigned int *pSparseGatherIdx, unsigned int collectedGatherIdx, unsigned int totalNumFv, unsigned int *pGatherIdx){
-	int gTid = (blockIdx.y * gridDim.x + blockIdx.x) * blockDim.x + threadIdx.x;
-	if(gTid >= totalNumFv)//thread has nothing to mark 
-		return;
-
-	unsigned int idx = pSparseGatherIdx[gTid];	
-	if(gTid == 0){
-		if(idx == 1)//store the first element
-			pGatherIdx[gTid] = collectedGatherIdx + idx - 1;
-		if(idx > 1 || idx < 0)
-			printf("error in CollectGatherIdx\n");
-	}
-	else{
-		if(idx == pSparseGatherIdx[gTid - 1])//repeated element due to prefix sum
-			return;
-		pGatherIdx[gTid] = collectedGatherIdx + idx - 1;
-	}
-}
-
-__global__ void FloatToUnsignedInt(float_point *pfSparseGatherIdx, unsigned int totalNumFv, unsigned int *pnSparseGatherIdx){
-	int gTid = (blockIdx.y * gridDim.x + blockIdx.x) * blockDim.x + threadIdx.x;
-	if(gTid >= totalNumFv)//thread has nothing to mark 
-		return;
-	pnSparseGatherIdx[gTid] = pfSparseGatherIdx[gTid];
-}
-
-
-/**
   *@brief: compute start position of each feature in each node
   */
 void ComputeEachFeaStartPosEachNode(int numFea, int snId, unsigned int collectedGatherIdx, int *pEachFeaLenEachNode, long long *pEachFeaStartPosEachNode){
@@ -125,6 +97,86 @@ void ComputeEachFeaStartPosEachNode(int numFea, int snId, unsigned int collected
 }
 
 /**
+  *@brief: compute length and start position of each feature in each node
+  */
+__global__ void ComputeEachFeaInfo(unsigned int *pEachFeaStartPos, int numFea, int totalFvalue, unsigned int *pSparseGatherIdx, int *pEachFeaLenEachNode,
+								   long long *pEachFeaStartPosEachNode, long long *pFeaValueStartPosEachNode, long long *pNumFeaValueEachNode){
+	unsigned int arrayId = blockIdx.x; //each arrayId corresponds to a prefix sum
+	int snId = arrayId;
+
+	for(int f = 0; f < numFea; f++){
+		unsigned int posOfLastFvalue;
+		if(f < numFea - 1){
+			PROCESS_ERROR(pEachFeaStartPos[f + 1] > 0);
+			posOfLastFvalue = snId * totalFvalue + pEachFeaStartPos[f + 1] - 1;
+		}
+		else
+			posOfLastFvalue = snId * totalFvalue + totalFvalue - 1;
+
+		unsigned int startPos = pEachFeaStartPos[f];//start position of the feature f.
+		unsigned int lenPreviousFvalue = 0;
+		if(f > 0){
+			lenPreviousFvalue = pSparseGatherIdx[snId * totalFvalue + startPos - 1];
+		}
+		pEachFeaLenEachNode[snId * numFea + f] = pSparseGatherIdx[posOfLastFvalue] - lenPreviousFvalue;
+	}
+
+	unsigned int arrayStartPos = 0;//start position of this array (i.e. node)
+	for(int i = 1; i < arrayId; i++){//will improve it later
+		arrayStartPos += pSparseGatherIdx[i * totalFvalue - 1];	
+	}
+	//start pos for first feature
+	pEachFeaStartPosEachNode[snId * numFea] = arrayStartPos;
+	//start pos for other feature
+	for(int f = 1; f < numFea; f++){
+		unsigned int feaPos = snId * numFea + f;
+		pEachFeaStartPosEachNode[feaPos] = pEachFeaStartPosEachNode[feaPos - 1] + pEachFeaLenEachNode[feaPos];
+	}
+
+	//feature value start position of each node 
+	pFeaValueStartPosEachNode[snId] = arrayStartPos;
+
+	//number of feature values of this node
+	pNumFeaValueEachNode[snId] = pSparseGatherIdx[snId * totalFvalue + totalFvalue - 1];
+}
+
+/**
+  * @brief: store gather indices
+  */
+__global__ void CollectGatherIdx(unsigned int *pSparseGatherIdx, unsigned int totalNumFv, unsigned int *pGatherIdx){
+	int gTid = (blockIdx.y * gridDim.x + blockIdx.x) * blockDim.x + threadIdx.x;
+	if(gTid >= totalNumFv)//thread has nothing to mark 
+		return;
+
+	unsigned int arrayId = blockIdx.z; //each arrayId corresponds to a prefix sum 
+	unsigned int arrayStartPos = 0;//start position of this array (i.e. node)
+	for(int i = 1; i < arrayId; i++){//will improve it later
+		arrayStartPos += pSparseGatherIdx[i * totalNumFv - 1];	
+	}
+	unsigned int idx = pSparseGatherIdx[gTid + arrayId * totalNumFv];
+	if(gTid == 0){
+		if(idx == 1)//store the first element
+			pGatherIdx[gTid] = arrayStartPos + idx - 1;//set destination for element at gTid
+		if(idx > 1 || idx < 0)
+			printf("error in CollectGatherIdx\n");
+	}
+	else{
+		if(idx == pSparseGatherIdx[gTid - 1])//repeated element due to prefix sum
+			return;
+		pGatherIdx[gTid] = arrayStartPos + idx - 1;//set destimation for element at gTid
+	}
+}
+
+__global__ void FloatToUnsignedInt(float_point *pfSparseGatherIdx, unsigned int totalNumFv, unsigned int *pnSparseGatherIdx){
+	int gTid = (blockIdx.y * gridDim.x + blockIdx.x) * blockDim.x + threadIdx.x;
+	if(gTid >= totalNumFv)//thread has nothing to mark 
+		return;
+	pnSparseGatherIdx[gTid] = pfSparseGatherIdx[gTid];
+}
+
+
+
+/**
   * @brief: compute gether index by GPUs
   */
 void IndexComputer::ComputeIdxGPU(int numSNode, int maxNumSN, const int *pBuffVec){
@@ -133,17 +185,15 @@ void IndexComputer::ComputeIdxGPU(int numSNode, int maxNumSN, const int *pBuffVe
 	PROCESS_ERROR(maxNumSN >= 0);
 	PROCESS_ERROR(maxNumSN == m_maxNumofSN);
 	
-	//this will be moved to memeory allocator
-	unsigned int *pnSparseGatherIdx;
-	unsigned int *pnSparseGatherIdx_h = new unsigned int[m_totalFeaValue];
-	checkCudaErrors(cudaMalloc((void**)&pnSparseGatherIdx, sizeof(unsigned int) * m_totalFeaValue));
 	unsigned int *pnKey;
-	checkCudaErrors(cudaMalloc((void**)&pnKey, sizeof(unsigned int) * m_totalFeaValue));
-	checkCudaErrors(cudaMemset(pnKey, 0, sizeof(unsigned int) * m_totalFeaValue));
-
-	long long *pnStartPos;
-	checkCudaErrors(cudaMalloc((void**)&pnStartPos, sizeof(long long) * 1));
-	checkCudaErrors(cudaMemset(pnStartPos, 0, sizeof(long long) * 1));
+	unsigned int *pnSparseGatherIdx;
+	checkCudaErrors(cudaMalloc((void**)&pnSparseGatherIdx, sizeof(unsigned int) * m_totalFeaValue * numSNode));
+	checkCudaErrors(cudaMalloc((void**)&pnKey, sizeof(unsigned int) * m_totalFeaValue * numSNode));
+	for(int i = 0; i < numSNode; i++){
+		int flag = (i % 2 == 0 ? 0:-1);
+		checkCudaErrors(cudaMemset(pnKey + i * m_totalFeaValue, flag, sizeof(unsigned int) * m_totalFeaValue));
+	}
+	checkCudaErrors(cudaMemset(pnSparseGatherIdx, 0, sizeof(unsigned int) * m_totalFeaValue * numSNode));
 
 	unsigned int flags = -1;//all bits are 1
 	checkCudaErrors(cudaMemset(m_pnGatherIdx, flags, sizeof(unsigned int) * m_totalFeaValue));//when leaves appear, this is effective.
@@ -154,51 +204,34 @@ void IndexComputer::ComputeIdxGPU(int numSNode, int maxNumSN, const int *pBuffVe
 	memset(m_pEachFeaStartPosEachNode_dh, 0, sizeof(long long) * m_numFea * maxNumSN);
 	memset(m_pFeaValueStartPosEachNode_dh, 0, sizeof(long long) * m_numFea * maxNumSN);
 	GETERROR("after memset for idx comp");
-
-	unsigned int curGatherIdx = 0;
-	unsigned int collectedGatherIdx = 0;
-
 	KernelConf conf;
 	int blockSizeForFvalue;
 	dim3 dimNumofBlockForFvalue;
 	conf.ConfKernel(m_totalFeaValue, blockSizeForFvalue, dimNumofBlockForFvalue);
+	if(dimNumofBlockForFvalue.z > 1){
+		printf("invalid kernel configuration!\n");
+		exit(0);
+	}
+	dimNumofBlockForFvalue.z = numSNode;//each z value for a prefix sum.
 
 	checkCudaErrors(cudaMemcpy(m_pFvToInsId, m_pInsId, sizeof(unsigned int) * m_totalFeaValue, cudaMemcpyHostToDevice));
-	for(int i = 0; i < numSNode; i++){
-		//reset sparse gather index
-		checkCudaErrors(cudaMemset(pnSparseGatherIdx, 0, sizeof(unsigned int) * m_totalFeaValue));
-		checkCudaErrors(cudaMemset(pnKey, 0, sizeof(unsigned int) * m_totalFeaValue));
+	int *pBuffVec_d;
+	checkCudaErrors(cudaMalloc((void**)pBuffVec_d, sizeof(int) * numSNode));
+	checkCudaErrors(cudaMemcpy(pBuffVec_d, pBuffVec, sizeof(int) * numSNode, cudaMemcpyHostToDevice));
 
-		//construct 01 array for key values
-		int snId = pBuffVec[i];//snId = nid % maxSN
+	ArrayMarker<<<dimNumofBlockForFvalue, blockSizeForFvalue>>>(pBuffVec_d, m_pFvToInsId, m_insIdToNodeId_dh, m_totalFeaValue, maxNumSN, pnSparseGatherIdx);
+	GETERROR("after ArrayMarker");
 
-		PROCESS_ERROR(snId >= 0);
-		ArrayMarker<<<dimNumofBlockForFvalue, blockSizeForFvalue>>>(snId, m_pFvToInsId, m_insIdToNodeId_dh, m_totalFeaValue, maxNumSN, pnSparseGatherIdx);
+	//compute prefix sum for one array
+	thrust::inclusive_scan_by_key(thrust::system::cuda::par, pnKey, pnKey + m_totalFeaValue * numSNode, pnSparseGatherIdx, pnSparseGatherIdx);//in place prefix sum
+	//write to gether index
+	CollectGatherIdx<<<dimNumofBlockForFvalue, blockSizeForFvalue>>>(pnSparseGatherIdx, m_totalFeaValue, m_pnGatherIdx);
 
-		//compute prefix sum for one array
-		int arraySize = m_totalFeaValue;
-		GETERROR("after ArrayMarker");
-		thrust::inclusive_scan_by_key(thrust::system::cuda::par, pnKey, pnKey + m_totalFeaValue, pnSparseGatherIdx, pnSparseGatherIdx);//in place prefix sum
-		//write to gether index
-		CollectGatherIdx<<<dimNumofBlockForFvalue, blockSizeForFvalue>>>(pnSparseGatherIdx, collectedGatherIdx, m_totalFeaValue, m_pnGatherIdx);
+	//compute each feature length and start position in each node
+	ComputeEachFeaInfo<<<numSNode, 1>>>(m_pEachFeaStartPos_dh, m_numFea, m_totalFeaValue, pnSparseGatherIdx, m_pEachFeaLenEachNode_dh, m_pEachFeaStartPosEachNode_dh,
+										m_pFeaValueStartPosEachNode_dh, m_pNumFeaValueEachNode_dh);
 
-		checkCudaErrors(cudaMemcpy(pnSparseGatherIdx_h, pnSparseGatherIdx, sizeof(unsigned int) * m_totalFeaValue, cudaMemcpyDeviceToHost));
-		//compute each feature length in each node
-		UpdateEachFeaLenEachNode(m_pEachFeaStartPos_dh, i, m_numFea, m_totalFeaValue, pnSparseGatherIdx_h, m_pEachFeaLenEachNode_dh);//##### change i to snId to make more sense
-		//each feature start position in each node
-		ComputeEachFeaStartPosEachNode(m_numFea, i, collectedGatherIdx, m_pEachFeaLenEachNode_dh, m_pEachFeaStartPosEachNode_dh);//######## change i to snId to make more sense
-		//feature value start position of each node
-		m_pFeaValueStartPosEachNode_dh[i] = collectedGatherIdx;//###### change i to snId to make more sense
-
-		//get collected gather index of this round
-		checkCudaErrors(cudaMemcpy(&curGatherIdx, pnSparseGatherIdx + m_totalFeaValue - 1, sizeof(unsigned int), cudaMemcpyDeviceToHost));
-		//number of feature values of this node
-		m_pNumFeaValueEachNode_dh[i] = curGatherIdx;//##### change i to snId to make more sense
-		//update the number of collected gather indices
-		collectedGatherIdx += curGatherIdx;
-	}
 	checkCudaErrors(cudaFree(pnSparseGatherIdx));
-	delete[] pnSparseGatherIdx_h;
 }
 
 
