@@ -60,6 +60,7 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 
 	//compute index for each feature value
 	IndexComputer indexComp;
+	long long *pFeaValueStartPosEachNode_h = new long long[bagManager.m_numFeaValue * bagManager.m_maxNumSplittable];
 
 	KernelConf conf;
 	int blockSizeLoadGD;
@@ -72,13 +73,15 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 		indexComp.ComputeIdxGPU(numofSNode, maxNumofSplittable, bagId);
 		clock_t comIdx_end = clock();
 		total_com_idx_t += (comIdx_end - comIdx_start);
+
+		long long *pTmpFvalueStartPosEachNode = bagManager.m_pFvalueStartPosEachNodeEachBag_d + bagId * bagManager.m_maxNumSplittable;
+		checkCudaErrors(cudaMemcpy(pFeaValueStartPosEachNode_h, pTmpFvalueStartPosEachNode,
+								   sizeof(long long) * bagManager.m_maxNumSplittable, cudaMemcpyDeviceToHost));
 	
 		//copy # of feature values of each node
 		manager.MemcpyHostToDeviceAsync(indexComp.m_pNumFeaValueEachNode_dh, bagManager.m_pNumFvalueEachNodeEachBag_d + bagId * bagManager.m_maxNumSplittable,
 										sizeof(long long) * bagManager.m_maxNumSplittable, pStream);
 		//copy feature value start position of each node
-		manager.MemcpyHostToDeviceAsync(indexComp.m_pFeaValueStartPosEachNode_dh, bagManager.m_pFvalueStartPosEachNodeEachBag_d + bagId * bagManager.m_maxNumSplittable, 
-										sizeof(long long) * maxNumofSplittable, pStream);
 		//copy (in pinned mem) of feature values for each feature in each node
 		manager.MemcpyHostToDeviceAsync(bagManager.m_pEachFeaLenEachNodeEachBag_d + bagId * bagManager.m_maxNumSplittable * bagManager.m_numFea,
 										bagManager.m_pEachFeaLenEachNodeEachBag_dh + bagId * bagManager.m_maxNumSplittable * bagManager.m_numFea,
@@ -88,7 +91,7 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 		clock_t start_gd = clock();
 		//scatter operation
 		//total fvalue to load may be smaller than m_totalFeaValue, due to some nodes becoming leaves.
-		int numFvToLoad = indexComp.m_pFeaValueStartPosEachNode_dh[numofSNode - 1] + indexComp.m_pNumFeaValueEachNode_dh[numofSNode - 1];
+		int numFvToLoad = pFeaValueStartPosEachNode_h[numofSNode - 1] + indexComp.m_pNumFeaValueEachNode_dh[numofSNode - 1];
 		LoadGDHessFvalue<<<dimNumofBlockToLoadGD, blockSizeLoadGD, 0, (*(cudaStream_t*)pStream)>>>(bagManager.m_pInsGradEachBag + bagId * bagManager.m_numIns, 
 															   bagManager.m_pInsHessEachBag + bagId * bagManager.m_numIns, 
 															   bagManager.m_numIns, manager.m_pDInsId, manager.m_pdDFeaValue, 
@@ -132,7 +135,7 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 										sizeof(int) * nNumofFeature, pStream);
 
 		//set indexComp
-		indexComp.m_pFeaValueStartPosEachNode_dh[0] = 0;
+		pFeaValueStartPosEachNode_h[0] = 0;
 		indexComp.m_pNumFeaValueEachNode_dh[0] = manager.m_totalNumofValues;
 		clock_t comIdx_end = clock();
 		total_com_idx_t += (comIdx_end - comIdx_start);
@@ -186,7 +189,8 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 //	cout << "compute gain" << endl;
 	clock_t start_comp_gain = clock();
 	//# of feature values that need to compute gains; the code below cannot be replaced by indexComp.m_totalNumFeaValue, due to some nodes becoming leaves.
-	int numofDenseValue = indexComp.m_pFeaValueStartPosEachNode_dh[numofSNode - 1] + indexComp.m_pNumFeaValueEachNode_dh[numofSNode - 1];
+	int numofDenseValue = pFeaValueStartPosEachNode_h[numofSNode - 1] + indexComp.m_pNumFeaValueEachNode_dh[numofSNode - 1];
+	delete []pFeaValueStartPosEachNode_h;
 	int blockSizeComGain;
 	dim3 dimNumofBlockToComGain;
 	conf.ConfKernel(numofDenseValue, blockSizeComGain, dimNumofBlockToComGain);

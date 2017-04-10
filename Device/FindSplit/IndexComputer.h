@@ -23,7 +23,6 @@ public:
 	static long long m_total_copy;
 
 	//pinned memory
-	static long long *m_pFeaValueStartPosEachNode_dh;
 	static long long *m_pNumFeaValueEachNode_dh;
 	static int *m_pPosToBuffId_dh;
 

@@ -30,7 +30,6 @@ int IndexComputer::m_maxNumofSN = -1;
 long long IndexComputer::m_total_copy = -1;
 
 long long *IndexComputer::m_pNumFeaValueEachNode_dh = NULL;	//# of feature values of each node
-long long *IndexComputer::m_pFeaValueStartPosEachNode_dh = NULL;//start positions to feature value of each node
 
 unsigned int *IndexComputer::m_pFvToInsId = NULL;
 
@@ -155,7 +154,6 @@ void IndexComputer::ComputeIdxGPU(int numSNode, int maxNumSN, int bagId){
 
 	//memset for debuging; this should be removed to develop more reliable program
 	memset(m_pNumFeaValueEachNode_dh, 0, sizeof(long long) * maxNumSN);
-	memset(m_pFeaValueStartPosEachNode_dh, 0, sizeof(long long) * m_numFea * maxNumSN);
 
 	KernelConf conf;
 	int blockSizeForFvalue;
@@ -171,9 +169,7 @@ void IndexComputer::ComputeIdxGPU(int numSNode, int maxNumSN, int bagId){
 	BagManager bagManager;
 	int *pBuffVec_d = bagManager.m_pBuffIdVecEachBag + bagId * bagManager.m_maxNumSplittable;
 
-	long long *pTmpFvalueStartPosEachNode;
-	checkCudaErrors(cudaMalloc((void**)&pTmpFvalueStartPosEachNode, sizeof(long long) * m_numFea * maxNumSN));
-	checkCudaErrors(cudaMemset(pTmpFvalueStartPosEachNode, 0, sizeof(long long) * m_numFea * maxNumSN));
+	long long *pTmpFvalueStartPosEachNode = bagManager.m_pFvalueStartPosEachNodeEachBag_d + bagId * bagManager.m_maxNumSplittable;
 
 	int *pTmpInsIdToNodeId = bagManager.m_pInsIdToNodeIdEachBag + bagId * bagManager.m_numIns;
 	ArrayMarker<<<dimNumofBlockForFvalue, blockSizeForFvalue>>>(pBuffVec_d, m_pFvToInsId, pTmpInsIdToNodeId,
@@ -204,12 +200,8 @@ void IndexComputer::ComputeIdxGPU(int numSNode, int maxNumSN, int bagId){
 										pTmpFvalueStartPosEachNode, m_pNumFeaValueEachNode_dh);
 	GETERROR("after ComputeEachFeaInfo");
 
-	checkCudaErrors(cudaMemcpy(m_pFeaValueStartPosEachNode_dh, pTmpFvalueStartPosEachNode,
-							   sizeof(long long) * m_numFea * maxNumSN, cudaMemcpyDeviceToHost));
-
 	checkCudaErrors(cudaFree(pnSparseGatherIdx));
 	checkCudaErrors(cudaFree(pnKey));
-	checkCudaErrors(cudaFree(pTmpFvalueStartPosEachNode));
 }
 
 /**
@@ -221,7 +213,6 @@ void IndexComputer::AllocMem(int nNumofExamples, int nNumofFeatures, int maxNumo
 	m_maxNumofSN = maxNumofSplittableNode;
 
 	checkCudaErrors(cudaMallocHost((void**)&m_pNumFeaValueEachNode_dh, sizeof(long long) * m_maxNumofSN));
-	checkCudaErrors(cudaMallocHost((void**)&m_pFeaValueStartPosEachNode_dh, sizeof(long long) * m_numFea * m_maxNumofSN));
 
 	checkCudaErrors(cudaMalloc((void**)&m_pFvToInsId, sizeof(unsigned int) * m_totalFeaValue));
 }
