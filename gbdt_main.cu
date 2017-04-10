@@ -38,6 +38,7 @@ int main(int argc, char *argv[])
 	char fileName[1024];
 	char savedFileName[1024];
 	Parser parser;
+
 	parser.ParseLine(argc, argv, fileName, savedFileName);
 
 	string strFileName = fileName;

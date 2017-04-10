@@ -44,7 +44,8 @@ unsigned int *IndexComputer::m_pFvToInsId = NULL;
 /**
   *@brief: mark feature values beloning to node with id=snId by 1
   */
-__global__ void ArrayMarker(int *pBuffVec_d, unsigned int *pFvToInsId, int *pInsIdToNodeId, int totalNumFv, int maxNumSN, unsigned int *pSparseGatherIdx){
+__global__ void ArrayMarker(int *pBuffVec_d, unsigned int *pFvToInsId, int *pInsIdToNodeId, int totalNumFv,
+							int maxNumSN, unsigned int *pSparseGatherIdx){
 	int gTid = (blockIdx.y * gridDim.x + blockIdx.x) * blockDim.x + threadIdx.x;
 	if(gTid >= totalNumFv)//thread has nothing to mark 
 		return;
@@ -122,7 +123,7 @@ __global__ void ComputeEachFeaInfo(unsigned int *pEachFeaStartPos, int numFea, i
 	}
 
 	unsigned int arrayStartPos = 0;//start position of this array (i.e. node)
-	for(int i = 1; i < arrayId; i++){//will improve it later
+	for(int i = 1; i <= arrayId; i++){//will improve it later
 		arrayStartPos += pSparseGatherIdx[i * totalFvalue - 1];	
 	}
 	//start pos for first feature
@@ -150,7 +151,7 @@ __global__ void CollectGatherIdx(unsigned int *pSparseGatherIdx, unsigned int to
 
 	unsigned int arrayId = blockIdx.z; //each arrayId corresponds to a prefix sum 
 	unsigned int arrayStartPos = 0;//start position of this array (i.e. node)
-	for(int i = 1; i < arrayId; i++){//will improve it later
+	for(int i = 1; i <= arrayId; i++){//will improve it later
 		arrayStartPos += pSparseGatherIdx[i * totalNumFv - 1];	
 	}
 	unsigned int idx = pSparseGatherIdx[gTid + arrayId * totalNumFv];
@@ -161,7 +162,7 @@ __global__ void CollectGatherIdx(unsigned int *pSparseGatherIdx, unsigned int to
 			printf("error in CollectGatherIdx\n");
 	}
 	else{
-		if(idx == pSparseGatherIdx[gTid - 1])//repeated element due to prefix sum
+		if(idx == pSparseGatherIdx[gTid + arrayId * totalNumFv - 1])//repeated element due to prefix sum
 			return;
 		pGatherIdx[gTid] = arrayStartPos + idx - 1;//set destimation for element at gTid
 	}
@@ -188,12 +189,12 @@ void IndexComputer::ComputeIdxGPU(int numSNode, int maxNumSN, const int *pBuffVe
 	unsigned int *pnKey;
 	unsigned int *pnSparseGatherIdx;
 	checkCudaErrors(cudaMalloc((void**)&pnSparseGatherIdx, sizeof(unsigned int) * m_totalFeaValue * numSNode));
+	checkCudaErrors(cudaMemset(pnSparseGatherIdx, 0, sizeof(unsigned int) * m_totalFeaValue * numSNode));
 	checkCudaErrors(cudaMalloc((void**)&pnKey, sizeof(unsigned int) * m_totalFeaValue * numSNode));
 	for(int i = 0; i < numSNode; i++){
-		int flag = (i % 2 == 0 ? 0:-1);
-		checkCudaErrors(cudaMemset(pnKey + i * m_totalFeaValue, flag, sizeof(unsigned int) * m_totalFeaValue));
+//		int flag = (i % 2 == 0 ? 0:(-1));
+		checkCudaErrors(cudaMemset(pnKey + i * m_totalFeaValue, i, sizeof(unsigned int) * m_totalFeaValue));
 	}
-	checkCudaErrors(cudaMemset(pnSparseGatherIdx, 0, sizeof(unsigned int) * m_totalFeaValue * numSNode));
 
 	unsigned int flags = -1;//all bits are 1
 	checkCudaErrors(cudaMemset(m_pnGatherIdx, flags, sizeof(unsigned int) * m_totalFeaValue));//when leaves appear, this is effective.
@@ -203,7 +204,7 @@ void IndexComputer::ComputeIdxGPU(int numSNode, int maxNumSN, const int *pBuffVe
 	memset(m_pNumFeaValueEachNode_dh, 0, sizeof(long long) * maxNumSN);
 	memset(m_pEachFeaStartPosEachNode_dh, 0, sizeof(long long) * m_numFea * maxNumSN);
 	memset(m_pFeaValueStartPosEachNode_dh, 0, sizeof(long long) * m_numFea * maxNumSN);
-	GETERROR("after memset for idx comp");
+
 	KernelConf conf;
 	int blockSizeForFvalue;
 	dim3 dimNumofBlockForFvalue;
@@ -216,20 +217,29 @@ void IndexComputer::ComputeIdxGPU(int numSNode, int maxNumSN, const int *pBuffVe
 
 	checkCudaErrors(cudaMemcpy(m_pFvToInsId, m_pInsId, sizeof(unsigned int) * m_totalFeaValue, cudaMemcpyHostToDevice));
 	int *pBuffVec_d;
-	checkCudaErrors(cudaMalloc((void**)pBuffVec_d, sizeof(int) * numSNode));
+	checkCudaErrors(cudaMalloc((void**)&pBuffVec_d, sizeof(int) * numSNode));
 	checkCudaErrors(cudaMemcpy(pBuffVec_d, pBuffVec, sizeof(int) * numSNode, cudaMemcpyHostToDevice));
 
-	ArrayMarker<<<dimNumofBlockForFvalue, blockSizeForFvalue>>>(pBuffVec_d, m_pFvToInsId, m_insIdToNodeId_dh, m_totalFeaValue, maxNumSN, pnSparseGatherIdx);
+	ArrayMarker<<<dimNumofBlockForFvalue, blockSizeForFvalue>>>(pBuffVec_d, m_pFvToInsId, m_insIdToNodeId_dh,
+																m_totalFeaValue, maxNumSN, pnSparseGatherIdx);
 	GETERROR("after ArrayMarker");
+	cudaDeviceSynchronize();
 
 	//compute prefix sum for one array
-	thrust::inclusive_scan_by_key(thrust::system::cuda::par, pnKey, pnKey + m_totalFeaValue * numSNode, pnSparseGatherIdx, pnSparseGatherIdx);//in place prefix sum
+	thrust::inclusive_scan_by_key(thrust::system::cuda::par, pnKey, pnKey + m_totalFeaValue * numSNode,
+								  pnSparseGatherIdx, pnSparseGatherIdx);//in place prefix sum
+
 	//write to gether index
 	CollectGatherIdx<<<dimNumofBlockForFvalue, blockSizeForFvalue>>>(pnSparseGatherIdx, m_totalFeaValue, m_pnGatherIdx);
+	GETERROR("after CollectGatherIdx");
+	cudaDeviceSynchronize();
 
 	//compute each feature length and start position in each node
-	ComputeEachFeaInfo<<<numSNode, 1>>>(m_pEachFeaStartPos_dh, m_numFea, m_totalFeaValue, pnSparseGatherIdx, m_pEachFeaLenEachNode_dh, m_pEachFeaStartPosEachNode_dh,
+	ComputeEachFeaInfo<<<numSNode, 1>>>(m_pEachFeaStartPos_dh, m_numFea, m_totalFeaValue, pnSparseGatherIdx,
+										m_pEachFeaLenEachNode_dh, m_pEachFeaStartPosEachNode_dh,
 										m_pFeaValueStartPosEachNode_dh, m_pNumFeaValueEachNode_dh);
+	GETERROR("after ComputeEachFeaInfo");
+	cudaDeviceSynchronize();
 
 	checkCudaErrors(cudaFree(pnSparseGatherIdx));
 }
