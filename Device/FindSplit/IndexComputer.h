@@ -23,25 +23,16 @@ public:
 	static long long m_total_copy;
 
 	//pinned memory
-	static int *m_insIdToNodeId_dh;
-	static int *m_pIndices_dh;
 	static long long *m_pFeaValueStartPosEachNode_dh;
 	static long long *m_pNumFeaValueEachNode_dh;
-	static long long *m_pEachFeaStartPosEachNode_dh;
-	static int *m_pEachFeaLenEachNode_dh;
-	static int *m_pBuffIdToPos_dh;
 	static int *m_pPosToBuffId_dh;
 
-
-	static unsigned int *m_pEachFeaStartPos_dh;
 	static unsigned int *m_pnGatherIdx;
 	static unsigned int *m_pFvToInsId;
 
 public:
 	//compute indices for each feature value in feature lists
-	static void ComputeIdxGPU(int numNode, int maxNumSN, const int *pBuffVec);
-	static void LonglongToUnsignedInt(long long *pFeaStartPos, unsigned int *pEachFeaStartPos_dh, int numFea);
-
+	static void ComputeIdxGPU(int numNode, int maxNumSN, const int *pBuffVec, int bagId);
 
 	static void AllocMem(int nNumofExamples, int nNumofFeatures, int maxNumofSpittableNode);
 };

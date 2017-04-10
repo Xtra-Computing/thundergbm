@@ -78,8 +78,6 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 
 	//compute index for each feature value
 	IndexComputer indexComp;
-	//initialise each feature length
-	indexComp.LonglongToUnsignedInt(manager.m_pFeaStartPos, indexComp.m_pEachFeaStartPos_dh, bagManager.m_numFea);
 
 	KernelConf conf;
 	int blockSizeLoadGD;
@@ -91,10 +89,9 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 		//prepare data for computing indices
 		manager.MemcpyDeviceToHostAsync(bagManager.m_pBuffIdVecEachBag + bagId * bagManager.m_maxNumSplittable, pBuffIdVec_h, sizeof(int) * bagManager.m_maxNumSplittable, pStream);
 		manager.MemcpyDeviceToHostAsync(bagManager.m_pSNIdToBuffIdEachBag + bagId * bagManager.m_maxNumSplittable, pSNIdToBuffId_h, sizeof(int) * bagManager.m_maxNumSplittable, pStream);
-		manager.MemcpyDeviceToHostAsync(bagManager.m_pInsIdToNodeIdEachBag + bagId * bagManager.m_numIns, indexComp.m_insIdToNodeId_dh, sizeof(int) * bagManager.m_numIns, pStream);
 
 		//compute gather index via GPUs
-		indexComp.ComputeIdxGPU(numofSNode, maxNumofSplittable, pBuffIdVec_h);
+		indexComp.ComputeIdxGPU(numofSNode, maxNumofSplittable, pBuffIdVec_h, bagId);
 		manager.MemcpyDeviceToDeviceAsync(indexComp.m_pnGatherIdx, bagManager.m_pIndicesEachBag_d + bagId * bagManager.m_numFeaValue, sizeof(int) * bagManager.m_numFeaValue, pStream);
 
 		clock_t comIdx_end = clock();
@@ -106,14 +103,9 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 		//copy feature value start position of each node
 		manager.MemcpyHostToDeviceAsync(indexComp.m_pFeaValueStartPosEachNode_dh, bagManager.m_pFvalueStartPosEachNodeEachBag_d + bagId * bagManager.m_maxNumSplittable, 
 										sizeof(long long) * maxNumofSplittable, pStream);
-		//copy each feature start position in each node
-		manager.MemcpyHostToDeviceAsync(indexComp.m_pEachFeaStartPosEachNode_dh, bagManager.m_pEachFeaStartPosEachNodeEachBag_d + bagId * bagManager.m_maxNumSplittable * bagManager.m_numFea,
-										sizeof(long long) * maxNumofSplittable * nNumofFeature, pStream);
-		//copy # of feature values of each feature in each node
-		manager.MemcpyHostToDeviceAsync(indexComp.m_pEachFeaLenEachNode_dh, bagManager.m_pEachFeaLenEachNodeEachBag_d + bagId * bagManager.m_maxNumSplittable * bagManager.m_numFea,
-										sizeof(int) * bagManager.m_maxNumSplittable * bagManager.m_numFea, pStream);
 		//copy (in pinned mem) of feature values for each feature in each node
-		manager.MemcpyHostToDeviceAsync(indexComp.m_pEachFeaLenEachNode_dh, bagManager.m_pEachFeaLenEachNodeEachBag_dh + bagId * bagManager.m_maxNumSplittable * bagManager.m_numFea,
+		manager.MemcpyHostToDeviceAsync(bagManager.m_pEachFeaLenEachNodeEachBag_d + bagId * bagManager.m_maxNumSplittable * bagManager.m_numFea,
+										bagManager.m_pEachFeaLenEachNodeEachBag_dh + bagId * bagManager.m_maxNumSplittable * bagManager.m_numFea,
 										sizeof(int) * bagManager.m_maxNumSplittable * bagManager.m_numFea, pStream);
 	
 		PROCESS_ERROR(nNumofFeature == bagManager.m_numFea);

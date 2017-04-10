@@ -26,7 +26,6 @@ __global__ void PickLocalBestFea(const SplitPoint *pBestSplitPointPerThread, con
 								 int numofSNode, int numofFea, int maxNumofSplittable,
 								 float_point *pfBestGain, int *pnBestGainKey)
 {
-	int nGlobalThreadId = (blockIdx.y * gridDim.x + blockIdx.x) * blockDim.x + threadIdx.x;
 	int blockId = blockIdx.y * gridDim.x + blockIdx.x;
 	int snId = blockIdx.y;
 	if(snId >= numofSNode)

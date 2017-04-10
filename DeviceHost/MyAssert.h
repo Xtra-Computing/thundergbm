@@ -17,16 +17,14 @@
 #define _DEBUG
 
 #ifndef _DEBUG
-	#define PROCESS_ERROR(x)	((void)0)
+#define PROCESS_ERROR(x)	((void)0)
 #else
-	#define PROCESS_ERROR(x)	\
+#define PROCESS_ERROR(x) do{\
 		if (!(x))				\
 		{						\
 			assert(false);		\
 		}						\
-		NULL;
+		}while (0)
 #endif //_DEBUG
-
-
 
 #endif /* MYASSERT_H_ */

@@ -58,7 +58,6 @@ void DeviceSplitter::ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> >
 
 	KernelConf conf;
 	//start prediction
-	cudaStream_t *tempStream = (cudaStream_t*)pStream;
 //	checkCudaErrors(cudaMemsetAsync(manager.m_pTargetValue, 0, sizeof(float_point) * nNumofIns, *tempStream));
 	checkCudaErrors(cudaMemsetAsync(bagManager.m_pTargetValueEachBag + bagId * bagManager.m_numIns, 0,
 									sizeof(float_point) * nNumofIns, (*(cudaStream_t*)pStream)));

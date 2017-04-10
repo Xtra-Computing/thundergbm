@@ -58,7 +58,6 @@ int main(int argc, char *argv[])
 	clock_t begin_whole, end_whole;
 	/********* read training instances from a file **************/
 	int maxNumofUsedFeature = 1000;
-	int maxNumofDenseIns = 1;//###### is later set to the number of instances
 	int numBag = parser.numBag;//number of bags for bagging
 
 	//for training
@@ -274,7 +273,7 @@ int main(int argc, char *argv[])
 		taskParam[bag].pDataPack = &pDataPack[bag];
 
 		pthread_attr_t attr;
-		pthread_t tid = -1;//cpu thread id
+		pthread_t tid;//cpu thread id
 		pthread_attr_init(&attr);
 //		pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);//PTHREAD_CREATE_DETACHED
 		int nCreateTd = pthread_create(&tid, &attr, gbdtTask.Process, (void*) &thdInput[bag]);

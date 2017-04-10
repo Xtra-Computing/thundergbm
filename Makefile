@@ -58,7 +58,7 @@ debug: $(debug_bin)
 %.o: DeviceHost/*/%.c* DeviceHost/*/*.h
 	$(NVCC) $(NVCCFLAGS) $(LDFLAGS) -o $@ -c $<
 
-all: debug
+all: release
 
 .PHONY:clean
 
