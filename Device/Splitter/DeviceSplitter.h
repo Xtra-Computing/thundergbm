@@ -47,17 +47,6 @@ public:
 
 private:
 	void ComputeMaxNumValuePerFea(int *pnEachFeaLen, int numFea, int bagId);
-
-private:
-	int *pBuffIdVec_h;//all splittable node buffer index should be copied
-	int *pSNIdToBuffId_h;
-public:
-	void InitDeviceSplitter(int maxNumSNode, int numBag)
-	{//it is maxNumNodePerTree
-		//############# need to be updated for trees of more than one level
-		pBuffIdVec_h = new int[maxNumSNode];//all splittable node buffer index should be copied
-		pSNIdToBuffId_h = new int[maxNumSNode];
-	}
 };
 
 

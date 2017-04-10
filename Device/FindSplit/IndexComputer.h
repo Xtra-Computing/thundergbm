@@ -27,12 +27,11 @@ public:
 	static long long *m_pNumFeaValueEachNode_dh;
 	static int *m_pPosToBuffId_dh;
 
-	static unsigned int *m_pnGatherIdx;
 	static unsigned int *m_pFvToInsId;
 
 public:
 	//compute indices for each feature value in feature lists
-	static void ComputeIdxGPU(int numNode, int maxNumSN, const int *pBuffVec, int bagId);
+	static void ComputeIdxGPU(int numNode, int maxNumSN, int bagId);
 
 	static void AllocMem(int nNumofExamples, int nNumofFeatures, int maxNumofSpittableNode);
 };

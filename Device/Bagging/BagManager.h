@@ -62,7 +62,7 @@ public:
 	static int *m_pEachFeaLenEachNodeEachBag_dh;//each feature value length in each node
 
 	//for pinned memory; for computing indices in multiple level tree
-	static int *m_pIndicesEachBag_d;
+	static unsigned int *m_pIndicesEachBag_d;
 	static long long *m_pNumFvalueEachNodeEachBag_d;//the number of feature values of each (splittable?) node
 	static long long *m_pFvalueStartPosEachNodeEachBag_d;//the start position of each node
 	static long long *m_pEachFeaStartPosEachNodeEachBag_d;//the start position of each feature in a node

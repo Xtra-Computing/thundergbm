@@ -70,7 +70,6 @@ int main(int argc, char *argv[])
 	DevicePredictor pred;
 
 	DeviceSplitter splitter;
-	splitter.InitDeviceSplitter(maxNumofNodePerTree, numBag);
 	DeviceTrainer trainer(&splitter);
 
 	cout << "reading data..." << endl;

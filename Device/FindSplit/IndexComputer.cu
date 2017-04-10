@@ -32,7 +32,6 @@ long long IndexComputer::m_total_copy = -1;
 long long *IndexComputer::m_pNumFeaValueEachNode_dh = NULL;	//# of feature values of each node
 long long *IndexComputer::m_pFeaValueStartPosEachNode_dh = NULL;//start positions to feature value of each node
 
-unsigned int *IndexComputer::m_pnGatherIdx = NULL;
 unsigned int *IndexComputer::m_pFvToInsId = NULL;
 
 /**
@@ -51,9 +50,8 @@ __global__ void ArrayMarker(int *pBuffVec_d, unsigned int *pFvToInsId, int *pIns
 	int buffId = nid % maxNumSN;
 	unsigned int arrayId = blockIdx.z; //each arrayId corresponds to a prefix sum later
 	int snId = pBuffVec_d[arrayId];
-	if(snId == buffId){
-		pSparseGatherIdx[gTid + arrayId * totalNumFv] = 1;
-	}
+	int mark = (snId == buffId) ? 1 : 0;
+	pSparseGatherIdx[gTid + arrayId * totalNumFv] = mark;
 }
 
 /**
@@ -140,13 +138,12 @@ __global__ void ComputeEachFeaInfo(long long *pEachFeaStartPos, int numFea, int 
 /**
   * @brief: compute gether index by GPUs
   */
-void IndexComputer::ComputeIdxGPU(int numSNode, int maxNumSN, const int *pBuffVec, int bagId){
+void IndexComputer::ComputeIdxGPU(int numSNode, int maxNumSN, int bagId){
 	PROCESS_ERROR(m_pInsId != NULL && m_totalFeaValue > 0 && numSNode > 0);
 	PROCESS_ERROR(maxNumSN >= 0 && maxNumSN == m_maxNumofSN);
 	
 	unsigned int *pnSparseGatherIdx;
 	checkCudaErrors(cudaMalloc((void**)&pnSparseGatherIdx, sizeof(unsigned int) * m_totalFeaValue * numSNode));
-	checkCudaErrors(cudaMemset(pnSparseGatherIdx, 0, sizeof(unsigned int) * m_totalFeaValue * numSNode));
 	unsigned int *pnKey;
 	checkCudaErrors(cudaMalloc((void**)&pnKey, sizeof(unsigned int) * m_totalFeaValue * numSNode));
 	for(int i = 0; i < numSNode; i++){
@@ -155,7 +152,6 @@ void IndexComputer::ComputeIdxGPU(int numSNode, int maxNumSN, const int *pBuffVe
 	}
 
 	int flags = -1;//all bits are 1
-	checkCudaErrors(cudaMemset(m_pnGatherIdx, flags, sizeof(unsigned int) * m_totalFeaValue));//when leaves appear, this is effective.
 
 	//memset for debuging; this should be removed to develop more reliable program
 	memset(m_pNumFeaValueEachNode_dh, 0, sizeof(long long) * maxNumSN);
@@ -172,11 +168,13 @@ void IndexComputer::ComputeIdxGPU(int numSNode, int maxNumSN, const int *pBuffVe
 	dimNumofBlockForFvalue.z = numSNode;//each z value for a prefix sum.
 
 	checkCudaErrors(cudaMemcpy(m_pFvToInsId, m_pInsId, sizeof(unsigned int) * m_totalFeaValue, cudaMemcpyHostToDevice));
-	int *pBuffVec_d;
-	checkCudaErrors(cudaMalloc((void**)&pBuffVec_d, sizeof(int) * numSNode));
-	checkCudaErrors(cudaMemcpy(pBuffVec_d, pBuffVec, sizeof(int) * numSNode, cudaMemcpyHostToDevice));
-
 	BagManager bagManager;
+	int *pBuffVec_d = bagManager.m_pBuffIdVecEachBag + bagId * bagManager.m_maxNumSplittable;
+
+	long long *pTmpFvalueStartPosEachNode;
+	checkCudaErrors(cudaMalloc((void**)&pTmpFvalueStartPosEachNode, sizeof(long long) * m_numFea * maxNumSN));
+	checkCudaErrors(cudaMemset(pTmpFvalueStartPosEachNode, 0, sizeof(long long) * m_numFea * maxNumSN));
+
 	int *pTmpInsIdToNodeId = bagManager.m_pInsIdToNodeIdEachBag + bagId * bagManager.m_numIns;
 	ArrayMarker<<<dimNumofBlockForFvalue, blockSizeForFvalue>>>(pBuffVec_d, m_pFvToInsId, pTmpInsIdToNodeId,
 																m_totalFeaValue, maxNumSN, pnSparseGatherIdx);
@@ -187,11 +185,13 @@ void IndexComputer::ComputeIdxGPU(int numSNode, int maxNumSN, const int *pBuffVe
 								  pnSparseGatherIdx, pnSparseGatherIdx);//in place prefix sum
 
 	//get feature values start position of each node
-	ComputeFvalueStartPosEachNode<<<1,1>>>(pnSparseGatherIdx, m_totalFeaValue, numSNode, m_pFeaValueStartPosEachNode_dh);
+	ComputeFvalueStartPosEachNode<<<1,1>>>(pnSparseGatherIdx, m_totalFeaValue, numSNode, pTmpFvalueStartPosEachNode);
 
 	//write to gether index
+	unsigned int *pTmpGatherIdx = bagManager.m_pIndicesEachBag_d + bagId * bagManager.m_numFeaValue;
+	checkCudaErrors(cudaMemset(pTmpGatherIdx, flags, sizeof(unsigned int) * m_totalFeaValue));//when leaves appear, this is effective.
 	CollectGatherIdx<<<dimNumofBlockForFvalue, blockSizeForFvalue>>>(pnSparseGatherIdx, m_totalFeaValue,
-																	 m_pFeaValueStartPosEachNode_dh, m_pnGatherIdx);
+																	 pTmpFvalueStartPosEachNode, pTmpGatherIdx);
 	GETERROR("after CollectGatherIdx");
 
 	//compute each feature length and start position in each node
@@ -201,12 +201,15 @@ void IndexComputer::ComputeIdxGPU(int numSNode, int maxNumSN, const int *pBuffVe
 											  bagId * bagManager.m_maxNumSplittable * bagManager.m_numFea;
 	ComputeEachFeaInfo<<<numSNode, 1>>>(manager.m_pFeaStartPos, m_numFea, m_totalFeaValue, pnSparseGatherIdx,
 										pTmpEachFeaLenEachNode, pTmpEachFeaStartPosEachNode,
-										m_pFeaValueStartPosEachNode_dh, m_pNumFeaValueEachNode_dh);
+										pTmpFvalueStartPosEachNode, m_pNumFeaValueEachNode_dh);
 	GETERROR("after ComputeEachFeaInfo");
+
+	checkCudaErrors(cudaMemcpy(m_pFeaValueStartPosEachNode_dh, pTmpFvalueStartPosEachNode,
+							   sizeof(long long) * m_numFea * maxNumSN, cudaMemcpyDeviceToHost));
 
 	checkCudaErrors(cudaFree(pnSparseGatherIdx));
 	checkCudaErrors(cudaFree(pnKey));
-	checkCudaErrors(cudaFree(pBuffVec_d));
+	checkCudaErrors(cudaFree(pTmpFvalueStartPosEachNode));
 }
 
 /**
@@ -220,6 +223,5 @@ void IndexComputer::AllocMem(int nNumofExamples, int nNumofFeatures, int maxNumo
 	checkCudaErrors(cudaMallocHost((void**)&m_pNumFeaValueEachNode_dh, sizeof(long long) * m_maxNumofSN));
 	checkCudaErrors(cudaMallocHost((void**)&m_pFeaValueStartPosEachNode_dh, sizeof(long long) * m_numFea * m_maxNumofSN));
 
-	checkCudaErrors(cudaMalloc((void**)&m_pnGatherIdx, sizeof(unsigned int) * m_totalFeaValue));
 	checkCudaErrors(cudaMalloc((void**)&m_pFvToInsId, sizeof(unsigned int) * m_totalFeaValue));
 }

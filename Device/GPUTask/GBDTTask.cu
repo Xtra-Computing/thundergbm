@@ -51,7 +51,6 @@ void* GBDTTask::ProcessTask(void* pInputParam)
 	cudaStreamSynchronize(*pStream_gbdt);
 
 	DeviceSplitter splitter;
-	splitter.InitDeviceSplitter(BagManager::m_maxNumNode, 1);
 	DeviceTrainer trainer(&splitter);
 
 	vector<RegTree> v_Tree;

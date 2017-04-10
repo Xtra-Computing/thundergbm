@@ -58,7 +58,7 @@ __global__ void LoadGDHessFvalueRoot(const float_point *pInsGD, const float_poin
  * @brief: copy the gd, hess and feaValue for each node based on some features on similar number of values
  */
 __global__ void LoadGDHessFvalue(const float_point *pInsGD, const float_point *pInsHess, int numIns,
-						   const int *pInsId, const float_point *pAllFeaValue, const int *pDstIndexEachFeaValue, int numFeaValue,
+						   const int *pInsId, const float_point *pAllFeaValue, const unsigned int *pDstIndexEachFeaValue, int numFeaValue,
 						   float_point *pGDEachFeaValue, float_point *pHessEachFeaValue, float_point *pDenseFeaValue)
 {
 	//one thread loads one value

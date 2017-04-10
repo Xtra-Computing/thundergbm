@@ -27,10 +27,6 @@ using std::endl;
 using std::make_pair;
 using std::cerr;
 
-#ifdef testing
-#undef testing
-#endif
-
 /**
  * @brief: efficient best feature finder
  */
@@ -62,20 +58,6 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 	}
 	cudaStreamSynchronize((*(cudaStream_t*)pStream));
 
-	//process in a few rounds each of which has a subset of splittable nodes
-#if testing
-	int numRound = Ceil(numofSNode, ffManager.maxNumofSNodeInFF);
-	if(numRound > 1)
-		cout << "FindFea in " << numRound << " rounds." << endl;
-
-	SplitPoint *testBestSplitPoint1 = new SplitPoint[maxNumofSplittable];
-	nodeStat *testpRChildStat = new nodeStat[maxNumofSplittable];
-	nodeStat *testpLChildStat = new nodeStat[maxNumofSplittable];
-	SplitPoint *testBestSplitPoint3 = new SplitPoint[maxNumofSplittable];
-	nodeStat *testpRChildStat3 = new nodeStat[maxNumofSplittable];
-	nodeStat *testpLChildStat3 = new nodeStat[maxNumofSplittable];
-#endif
-
 	//compute index for each feature value
 	IndexComputer indexComp;
 
@@ -86,14 +68,8 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 	if(numofSNode > 1)
 	{
 		clock_t comIdx_start = clock();
-		//prepare data for computing indices
-		manager.MemcpyDeviceToHostAsync(bagManager.m_pBuffIdVecEachBag + bagId * bagManager.m_maxNumSplittable, pBuffIdVec_h, sizeof(int) * bagManager.m_maxNumSplittable, pStream);
-		manager.MemcpyDeviceToHostAsync(bagManager.m_pSNIdToBuffIdEachBag + bagId * bagManager.m_maxNumSplittable, pSNIdToBuffId_h, sizeof(int) * bagManager.m_maxNumSplittable, pStream);
-
 		//compute gather index via GPUs
-		indexComp.ComputeIdxGPU(numofSNode, maxNumofSplittable, pBuffIdVec_h, bagId);
-		manager.MemcpyDeviceToDeviceAsync(indexComp.m_pnGatherIdx, bagManager.m_pIndicesEachBag_d + bagId * bagManager.m_numFeaValue, sizeof(int) * bagManager.m_numFeaValue, pStream);
-
+		indexComp.ComputeIdxGPU(numofSNode, maxNumofSplittable, bagId);
 		clock_t comIdx_end = clock();
 		total_com_idx_t += (comIdx_end - comIdx_start);
 	
@@ -170,15 +146,6 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 									bagManager.m_pHessPrefixSumEachBag + bagId * bagManager.m_numFeaValue,
 									sizeof(float_point) * manager.m_totalNumofValues, pStream);
 
-
-#if 0
-	float_point deltaTest = 0.01;
-	float_point *pfGDEachFeaValue_h = new float_point[manager.m_totalNumofValues];
-	float_point *pfHessEachFeaValue_h = new float_point[manager.m_totalNumofValues];
-	manager.MemcpyDeviceToHostAsync(bagManager.m_pGDEachFvalueEachBag, pfGDEachFeaValue_h, sizeof(float_point) * manager.m_totalNumofValues, pStream);
-	manager.MemcpyDeviceToHostAsync(bagManager.m_pHessEachFvalueEachBag, pfHessEachFeaValue_h, sizeof(float_point) * manager.m_totalNumofValues, pStream);
-#endif
-
 //	cout << "prefix sum" << endl;
 	clock_t start_scan = clock();
 	//compute the feature with the maximum number of values
@@ -238,24 +205,6 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 		exit(-1);
 	}
 
-#if 0
-	float_point *pGainDense = new float_point[manager.m_totalNumofValues];
-	memset(pGainDense, 0, sizeof(float_point) * manager.m_totalNumofValues);
-	manager.MemcpyDeviceToHostAsync(bagManager.m_pGainEachFvalueEachBag, pGainDense, sizeof(float_point) * manager.m_totalNumofValues, pStream);
-	float_point maxGain = -1;
-	int max_id = -1;
-	for(int i = 0; i < manager.m_totalNumofValues; i++)
-	{//find the max gain
-		if(pGainDense[i] > maxGain)
-		{
-			maxGain = pGainDense[i];
-			max_id = i;
-		}
-	}
-	cout << "max gain before fixing is " << maxGain << " id = " << max_id << endl;
-#endif
-
-//	cout << "first fea gain removal" << endl;
 	//change the gain of the first feature value to 0
 	int numFeaStartPos = indexComp.m_numFea * numofSNode;
 //	printf("num of feature start positions=%d\n", numFeaStartPos);
@@ -272,17 +221,6 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 	}
 	clock_t end_comp_gain = clock();
 	total_com_gain_t += (end_comp_gain - start_comp_gain);
-#if 0
-	manager.MemcpyDeviceToHostAsync(bagManager.m_pGainEachFvalueEachBag, pGainDense, sizeof(float_point) * manager.m_totalNumofValues, pStream);
-	maxGain = -1;
-	for(int i = 0; i < manager.m_totalNumofValues; i++)
-	{//find the max gain
-		if(pGainDense[i] > maxGain)
-			maxGain = pGainDense[i];
-	}
-	cout << "max gain after fixing is " << maxGain << endl;
-	delete []pGainDense;
-#endif
 
 //	cout << "searching" << endl;
 	clock_t start_search = clock();
@@ -363,10 +301,4 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 				  	  	  	  	  	 bagManager.m_pLChildStatEachBag + bagId * bagManager.m_maxNumSplittable);
 	cudaStreamSynchronize((*(cudaStream_t*)pStream));
 //	cout << "Done find split" << endl;
-
-#if testing
-	manager.MemcpyDeviceToHost(manager.m_pBestSplitPoint, testBestSplitPoint3, sizeof(SplitPoint) * maxNumofSplittable);
-	manager.MemcpyDeviceToHost(manager.m_pRChildStat, testpRChildStat3, sizeof(nodeStat) * maxNumofSplittable);
-	manager.MemcpyDeviceToHost(manager.m_pLChildStat, testpLChildStat3, sizeof(nodeStat) * maxNumofSplittable);
-#endif
 }
