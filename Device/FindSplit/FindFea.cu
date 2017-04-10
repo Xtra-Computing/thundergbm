@@ -171,7 +171,7 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 									sizeof(float_point) * manager.m_totalNumofValues, pStream);
 
 
-#if 1
+#if 0
 	float_point deltaTest = 0.01;
 	float_point *pfGDEachFeaValue_h = new float_point[manager.m_totalNumofValues];
 	float_point *pfHessEachFeaValue_h = new float_point[manager.m_totalNumofValues];

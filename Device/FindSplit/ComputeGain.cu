@@ -12,7 +12,6 @@
 #include "FindFeaKernel.h"
 #include "../KernelConst.h"
 #include "../DeviceHashing.h"
-#include "../prefix-sum/prefixSum.h"
 #include "../Splitter/DeviceSplitter.h"
 #include "../Memory/gpuMemManager.h"
 
@@ -129,82 +128,6 @@ __global__ void GetInfoEachFeaInBatch(const int *pnNumofKeyValues, const long lo
 }
 
 /**
- * @brief: compute the prefix sum for gd and hess
- */
-void PrefixSumForEachNode(int numofSubArray, float_point *pGDOnEachFeaValue_d, float_point *pHessOnEachFeaValue_d,
-						  const long long *pnStartPosEachFeaInBatch, const int *pnEachFeaLen, int maxNumValuePerFea, void*pStream)
-{
-#if 0
-	int total_ele = 0;
-	for(int i = 0; i < numofSubArray; i++)
-	{
-		printf("lenof subarray %d is %d\n", i, pnEachFeaLen[i]);
-		total_ele += pnEachFeaLen[i];
-	}
-	float_point *pHessEachFeaValue_h = new float_point[total_ele];
-	float_point *pGDEachFeaValue_h = new float_point[total_ele];
-	GPUMemManager manager;
-	manager.MemcpyDeviceToHostAsync(pHessOnEachFeaValue_d, pHessEachFeaValue_h, sizeof(float_point) * total_ele, pStream);
-	manager.MemcpyDeviceToHostAsync(pGDOnEachFeaValue_d, pGDEachFeaValue_h, sizeof(float_point) * total_ele, pStream);
-#endif
-
-	prefixsumForDeviceArray(pGDOnEachFeaValue_d, pnStartPosEachFeaInBatch, pnEachFeaLen, numofSubArray, maxNumValuePerFea);
-	prefixsumForDeviceArray(pHessOnEachFeaValue_d, pnStartPosEachFeaInBatch, pnEachFeaLen, numofSubArray, maxNumValuePerFea);
-
-#if 0 
-	float_point *pHessPrefixSum_h = new float_point[total_ele];
-	float_point *pGDPrefixSum_h = new float_point[total_ele];
-	manager.MemcpyDeviceToHostAsync(pHessOnEachFeaValue_d, pHessPrefixSum_h, sizeof(float_point) * total_ele, pStream);
-	manager.MemcpyDeviceToHostAsync(pGDOnEachFeaValue_d, pGDPrefixSum_h, sizeof(float_point) * total_ele, pStream);
-	int counter = 0;
-	for(int i = 0; i < numofSubArray; i++)
-	{
-		float_point sumHess = 0;
-		float_point sumGD = 0;
-		float_point prefix_block_sum = 0;
-		bool bDiff = false;
-		for(int j = 0; j < pnEachFeaLen[i]; j++)
-		{
-			if(j != 0 && j % 512 == 0)
-			{
-				cout.precision(10);
-//				cout << j/512 << " block sum is " << prefix_block_sum << "; prefix sum is " << sumGD << endl;
-				prefix_block_sum = 0;
-			}
-			sumHess += pHessEachFeaValue_h[counter];
-			sumGD += pGDEachFeaValue_h[counter];
-			prefix_block_sum += pGDEachFeaValue_h[counter];
-			if(pHessPrefixSum_h[counter] != sumHess)
-			{
-				bDiff = true;
-				printf("sub array id=%d\n", i);
-				printf("ghess=%f v.s. chess=%f, counter=%d\n", pHessPrefixSum_h[counter], sumHess, counter);
-			}
-			if(pGDPrefixSum_h[counter] != sumGD)
-			{
-//				cout << "have a look here too" << endl;
-			}
-			if(counter == 8378)
-			{
-//				cout << sumGD << " + " << pGDEachFeaValue_h[counter + 1] << " is " << sumGD + pGDEachFeaValue_h[counter + 1] << endl;
-//				cout << "have a look" << endl;
-			}
-			counter++;
-		}
-		if(numofSubArray > 8 && bDiff == true)
-		sleep(10);
-	}
-//	cout << pGDPrefixSum_h[36169768] << endl;
-	//36169768
-
-	delete[] pHessEachFeaValue_h;
-	delete[] pHessPrefixSum_h;
-	delete[] pGDEachFeaValue_h;
-	delete[] pGDPrefixSum_h;
-#endif
-}
-
-/**
  * @brief: compute the gain in parallel, each gain is computed by a thread; kernel have the same configuration as obtainGDEachNode.
  */
 __global__ void ComputeGain(const int *pnNumofKeyValues, const long long *pnFeaStartPos, const nodeStat *pSNodeStat,
@@ -217,7 +140,6 @@ __global__ void ComputeGain(const int *pnNumofKeyValues, const long long *pnFeaS
 	//blockIdx.x corresponds to a feature which has multiple values
 	//blockIdx.y corresponds to a feature id
 	//blockIdx.z corresponds to a splittable node id
-	int nGlobalThreadId = (blockIdx.z * gridDim.y * gridDim.x + blockIdx.y * gridDim.x + blockIdx.x) * blockDim.x + threadIdx.x;
 
 	int snId = blockIdx.z;
 	int hashVaue = pBuffId[snId + smallestNodeId];
@@ -288,7 +210,6 @@ __global__ void FixedGain(const int *pnNumofKeyValues, const long long *pnFeaSta
 	//blockIdx.x corresponds to a feature which has multiple values
 	//blockIdx.y corresponds to a feature id
 	//blockIdx.z corresponds to a splittable node id
-	int nGlobalThreadId = (blockIdx.z * gridDim.y * gridDim.x + blockIdx.y * gridDim.x + blockIdx.x) * blockDim.x + threadIdx.x;
 	int snId = blockIdx.z;
 	if(snId >= numofSNInProgress)
 		printf("The number of super blocks is larger than the number of splittable nodes.\n");

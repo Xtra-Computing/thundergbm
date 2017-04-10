@@ -28,7 +28,6 @@
 #include "Device/initCuda.h"
 #include "Device/FindSplit/IndexComputer.h"
 
-#include "Device/prefix-sum/prefixSum.h"
 #include "Device/FileBuffer/FileBuffer.h"
 
 #include "Host/commandLineParser.h"

@@ -15,7 +15,6 @@
 #include "../Bagging/BagManager.h"
 #include "../Hashing.h"
 #include "../KernelConf.h"
-#include "../prefix-sum/prefixSum.h"
 #include "../../GetCudaError.h"
 #include "../Memory/gbdtGPUMemManager.h"
 #include <thrust/scan.h>

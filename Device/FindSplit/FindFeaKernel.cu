@@ -11,7 +11,6 @@
 #include "FindFeaKernel.h"
 #include "../Splitter/DeviceSplitter.h"
 #include "../DeviceHashing.h"
-#include "../prefix-sum/prefixSum.h"
 
 const float rt_2eps = 2.0 * DeviceSplitter::rt_eps;
 

@@ -11,7 +11,6 @@
 #include "FindFeaKernel.h"
 #include "../KernelConst.h"
 #include "../DeviceHashing.h"
-#include "../prefix-sum/prefixSum.h"
 #include "../../DeviceHost/svm-shared/DeviceUtility.h"
 #include "../../DeviceHost/NodeStat.h"
 
@@ -28,7 +27,6 @@ __global__ void PickFeaLocalBestSplit(const int *pnNumofKeyValues, const long lo
 	//blockIdx.x corresponds to a feature which has multiple values
 	//blockIdx.y corresponds to a feature id
 	//blockIdx.z corresponds to a splittable node id
-	int nGlobalThreadId = (blockIdx.z * gridDim.y * gridDim.x + blockIdx.y * gridDim.x + blockIdx.x) * blockDim.x + threadIdx.x;
 
 	int snId = blockIdx.z;
 	int feaId = blockIdx.y + smallestFeaId;
@@ -100,7 +98,6 @@ __global__ void PickFeaGlobalBestSplit(int feaBatch, int numofSNode,
 	//blockIdx.x (==1) corresponds to a feature which has multiple values
 	//blockIdx.y corresponds to a feature id
 	//blockIdx.z corresponds to a splittable node id
-	int nGlobalThreadId = (blockIdx.z * gridDim.y + blockIdx.y) * blockDim.x + threadIdx.x;
 
 	int snId = blockIdx.z;
 	if(blockIdx.y >= feaBatch)
@@ -152,7 +149,6 @@ __global__ void PickLocalBestFeaBestSplit(int feaBatch, int numofSNode,
 {
 	//blockIdx.y corresponds to a splittable node id
 
-	int nGlobalThreadId = (blockIdx.y * gridDim.x + blockIdx.x) * blockDim.x + threadIdx.x;
 	int blockId = blockIdx.y * gridDim.x + blockIdx.x;
 	int snId = blockIdx.y;
 	if(snId >= numofSNode)

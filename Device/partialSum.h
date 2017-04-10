@@ -11,7 +11,7 @@
 
 #include <helper_cuda.h>
 #include <cuda.h>
-#include "../../DeviceHost/DefineConst.h"
+#include "../DeviceHost/DefineConst.h"
 
 __global__ void blockSum(float_point * input, float_point * output, int len, bool isFinalSum);
 
