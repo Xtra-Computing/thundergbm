@@ -9,16 +9,16 @@
 #include <iostream>
 #include <algorithm>
 
-#include "../../DeviceHost/MyAssert.h"
-#include "../Memory/gbdtGPUMemManager.h"
-#include "../Memory/SNMemManager.h"
-#include "../Bagging/BagManager.h"
 #include "DeviceSplitter.h"
+#include "DeviceSplitAllKernel.h"
 #include "../Preparator.h"
 #include "../Hashing.h"
-#include "DeviceSplitAllKernel.h"
 #include "../KernelConf.h"
-#include "../../GetCudaError.h"
+#include "../Bagging/BagManager.h"
+#include "../Memory/SNMemManager.h"
+#include "../Memory/gbdtGPUMemManager.h"
+#include "../../DeviceHost/MyAssert.h"
+#include "../../SharedUtility/GetCudaError.h"
 
 using std::cout;
 using std::cerr;

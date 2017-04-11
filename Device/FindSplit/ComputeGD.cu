@@ -18,7 +18,7 @@
 #include "../Memory/dtMemManager.h"
 #include "../../DeviceHost/SparsePred/DenseInstance.h"
 #include "../partialSum.h"
-#include "../powerOfTwo.h"
+#include "../../SharedUtility/powerOfTwo.h"
 #include "../Bagging/BagManager.h"
 
 using std::cerr;

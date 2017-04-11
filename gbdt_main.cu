@@ -25,7 +25,7 @@
 #include "Device/GPUTask/GBDTTask.h"
 #include "Device/DeviceTrainer.h"
 #include "Device/DevicePredictor.h"
-#include "Device/initCuda.h"
+#include "SharedUtility/initCuda.h"
 #include "Device/FindSplit/IndexComputer.h"
 
 #include "Device/FileBuffer/FileBuffer.h"

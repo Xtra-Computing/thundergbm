@@ -6,19 +6,19 @@
  *		@brief: compute index for each feature value in the feature lists
  */
 
+#include <cuda.h>
 #include <vector>
 #include <algorithm>
-#include <cuda.h>
 #include <helper_cuda.h>
-#include "IndexComputer.h"
-#include "../../DeviceHost/MyAssert.h"
-#include "../Bagging/BagManager.h"
-#include "../Hashing.h"
-#include "../KernelConf.h"
-#include "../../GetCudaError.h"
-#include "../Memory/gbdtGPUMemManager.h"
 #include <thrust/scan.h>
 #include <thrust/execution_policy.h>
+#include "IndexComputer.h"
+#include "../Hashing.h"
+#include "../KernelConf.h"
+#include "../Bagging/BagManager.h"
+#include "../Memory/gbdtGPUMemManager.h"
+#include "../../SharedUtility/GetCudaError.h"
+#include "../../DeviceHost/MyAssert.h"
 
 using std::vector;
 
