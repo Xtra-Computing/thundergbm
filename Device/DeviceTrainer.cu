@@ -76,8 +76,6 @@ void DeviceTrainer::GrowTree(RegTree &tree, void *pStream, int bagId)
 	//copy the root node to GPU
 	BagManager bagManager;
 	GBDTGPUMemManager manager;
-//	SNGPUManager snManager;
-//	snManager.resetForNextTree();//reset tree nodes to default value
 
 	InitRootNode<<<1, 1, 0, (*(cudaStream_t*)pStream)>>>(//snManager.m_pTreeNode, snManager.m_pCurNumofNode_d);
 							bagManager.m_pNodeTreeOnTrainingEachBag + bagId * bagManager.m_maxNumNode,
@@ -145,8 +143,6 @@ void DeviceTrainer::GrowTree(RegTree &tree, void *pStream, int bagId)
 								   sizeof(int), pStream);
 		clock_t end_split_t = clock();
 		total_split_t += (double(end_split_t - start_split_t) / CLOCKS_PER_SEC);
-//		cout << "number of new/splittable nodes is " << manager.m_curNumofSplitable << endl;
-
 		nCurDepth++;
 	}
 

@@ -40,8 +40,8 @@ case $1 in
         ;;
     yp)
 	   	GAMMA=${GAMMA}"1"
-        D=${D}"2"
-		NUMTREE=${NUMTREE}"2"
+        D=${D}"3"
+		NUMTREE=${NUMTREE}"4"
 		BAG=${BAG}"1"
         FILENAME=${DATASET_DIR}/"YearPredictionMSD" #8 features and 20640 instances
         ;;

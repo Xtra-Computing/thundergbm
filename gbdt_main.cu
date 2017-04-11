@@ -188,12 +188,6 @@ int main(int argc, char *argv[])
 	memAllocator.allocHostMemory();//allocate reusable host memory
 	//allocate numofFeature*numofSplittabeNode
 
-	//SNGPUManager snManger;
-	//snManger.allocMemForTree(maxNumofNodePerTree);//reserve memory for the tree
-	//snManger.allocMemForParenChildIdMapping(maxNumofSplittableNode);
-	//snManger.allocMemForNewNode(maxNumofSplittableNode);
-	//snManger.allocMemForUsedFea(maxNumofUsedFeature);//use in splitting all nodes process
-
 	FFMemManager ffManager;
 	ffManager.m_totalNumFeaValue = numFeaValue;
 	ffManager.getMaxNumofSN(numFeaValue, maxNumofSplittableNode);
@@ -206,7 +200,6 @@ int main(int argc, char *argv[])
 
 	//initialise index computer object
 	IndexComputer indexCom;
-	indexCom.m_pInsId = pInsId;
 	indexCom.m_totalFeaValue = numFeaValue;
 	indexCom.m_pFeaStartPos = plFeaStartPos;
 	indexCom.m_total_copy = 0;

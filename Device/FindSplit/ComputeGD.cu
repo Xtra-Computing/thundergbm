@@ -9,17 +9,18 @@
 #include <iostream>
 
 #include "FindFeaKernel.h"
+#include "../partialSum.h"
 #include "../KernelConf.h"
 #include "../DevicePredictor.h"
+#include "../Bagging/BagManager.h"
+#include "../Splitter/Initiator.h"
+#include "../Memory/dtMemManager.h"
 #include "../DevicePredictorHelper.h"
 #include "../Splitter/DeviceSplitter.h"
-#include "../Splitter/Initiator.h"
 #include "../Memory/gbdtGPUMemManager.h"
-#include "../Memory/dtMemManager.h"
-#include "../../DeviceHost/SparsePred/DenseInstance.h"
-#include "../partialSum.h"
 #include "../../SharedUtility/powerOfTwo.h"
-#include "../Bagging/BagManager.h"
+#include "../../DeviceHost/SparsePred/DenseInstance.h"
+#include "../../SharedUtility/GetCudaError.h"
 
 using std::cerr;
 using std::endl;
@@ -85,13 +86,7 @@ void DeviceSplitter::ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> >
 											  //pDevInsValue, pInsStartPos, pDevFeaId, pNumofFea, manager.m_pdDenseIns,
 											  //manager.m_pSortedUsedFeaId, manager.m_pHashFeaIdToDenseInsPos,
 											  numofUsedFea, startInsId, numofInsToFill);
-#if testing
-			if(cudaGetLastError() != cudaSuccess)
-			{
-				cout << "error in FillMultiDense" << endl;
-				exit(0);
-			}
-#endif
+		GETERROR("after FillMultiDense");
 	}
 
 	//prediction using the last tree
@@ -110,13 +105,8 @@ void DeviceSplitter::ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> >
 											  numofUsedFea, bagManager.m_pHashFeaIdToDenseInsPosBag + bagId * bagManager.m_maxNumUsedFeaATree,
 											  	  bagManager.m_maxTreeDepth);
 											  //numofUsedFea, manager.m_pHashFeaIdToDenseInsPos, treeManager.m_maxTreeDepth);
-#if testing
-		if(cudaGetLastError() != cudaSuccess)
-		{
-			cout << "error in PredTarget" << endl;
-			exit(0);
-		}
-#endif
+		GETERROR("after PredMultiTarget");
+
 		//save to buffer
 		int threadPerBlock;
 		dim3 dimGridThread;
@@ -250,12 +240,6 @@ void DeviceSplitter::ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> >
 						   	   bagManager.m_pNumofBuffIdEachBag + bagId);
 
 	cudaStreamSynchronize((*(cudaStream_t*)pStream));
-#if testing
-	if(cudaGetLastError() != cudaSuccess)
-	{
-		cout << "error in InitNodeStat" << endl;
-		exit(0);
-	}
-#endif
+	GETERROR("after InitNodeStat");
 }
 

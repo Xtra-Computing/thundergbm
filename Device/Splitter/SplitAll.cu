@@ -61,13 +61,8 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 	clock_t com_weight_end = clock();
 	cudaStreamSynchronize((*(cudaStream_t*)pStream));
 	total_weight_t += (com_weight_end - com_weight_start);
-#if testing
-	if(cudaGetLastError() != cudaSuccess)
-	{
-		cout << "error in ComputeWeight" << endl;
-		exit(0);
-	}
-#endif
+	GETERROR("after ComputeWeight");
+
 	if(bLastLevel == true)//don't need to do the rest?
 		return;
 

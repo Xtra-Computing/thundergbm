@@ -15,7 +15,6 @@ class IndexComputer
 {
 public:
 	//host
-	static int *m_pInsId;
 	static int m_totalFeaValue;
 	static long long *m_pFeaStartPos;
 	static int m_numFea;
@@ -26,7 +25,9 @@ public:
 	static long long *m_pNumFeaValueEachNode_dh;
 	static int *m_pPosToBuffId_dh;
 
-	static unsigned int *m_pFvToInsId;
+	//device memory
+	static unsigned int *pnSparseGatherIdx;
+	static unsigned int *pnKey;
 
 public:
 	//compute indices for each feature value in feature lists
