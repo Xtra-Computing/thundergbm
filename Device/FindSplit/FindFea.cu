@@ -20,7 +20,7 @@
 #include "../Memory/findFeaMemManager.h"
 #include "../Memory/gbdtGPUMemManager.h"
 #include "../../DeviceHost/MyAssert.h"
-#include "../../DeviceHost/svm-shared/HostUtility.h"
+#include "../../SharedUtility/HostUtility.h"
 #include "../../SharedUtility/GetCudaError.h"
 
 using std::cout;

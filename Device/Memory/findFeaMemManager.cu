@@ -13,7 +13,7 @@
 #include "../../DeviceHost/MyAssert.h"
 #include "../KernelConf.h"
 #include "../../DeviceHost/svm-shared/MemInfo.h"
-#include "../../DeviceHost/svm-shared/HostUtility.h"
+#include "../../SharedUtility/HostUtility.h"
 
 #ifdef testing
 #undef testing

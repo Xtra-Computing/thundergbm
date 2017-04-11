@@ -123,7 +123,6 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 	clock_t unique_id_end = clock();
 	total_unique_id_t += (unique_id_end - unique_id_start);
 	GETERROR("in GetUniqueFid");
-	GETERROR("before InsToNewNode");
 
 	//for each used feature to move instances to new nodes
 	int numofUniqueFea = -1;

@@ -26,7 +26,7 @@ public:
 	static int *m_pPosToBuffId_dh;
 
 	//device memory
-	static unsigned int *pnSparseGatherIdx;
+	static unsigned int *pPartitionMarker;
 	static unsigned int *pnKey;
 
 public:

@@ -17,8 +17,10 @@
 #include "../KernelConf.h"
 #include "../Bagging/BagManager.h"
 #include "../Memory/gbdtGPUMemManager.h"
-#include "../../SharedUtility/GetCudaError.h"
 #include "../../DeviceHost/MyAssert.h"
+#include "../../SharedUtility/GetCudaError.h"
+#include "../../SharedUtility/KernelMacro.h"
+#include "../../SharedUtility/HostUtility.h"
 
 using std::vector;
 
@@ -29,15 +31,15 @@ int IndexComputer::m_maxNumofSN = -1;
 long long IndexComputer::m_total_copy = -1;
 
 long long *IndexComputer::m_pNumFeaValueEachNode_dh = NULL;	//# of feature values of each node
-unsigned int *IndexComputer::pnSparseGatherIdx = NULL;
+unsigned int *IndexComputer::pPartitionMarker = NULL;
 unsigned int *IndexComputer::pnKey = NULL;
 
 /**
   *@brief: mark feature values beloning to node with id=snId by 1
   */
-__global__ void ArrayMarker(int *pBuffVec_d, int *pFvToInsId, int *pInsIdToNodeId, int totalNumFv,
-							int maxNumSN, unsigned int *pSparseGatherIdx){
-	int gTid = (blockIdx.y * gridDim.x + blockIdx.x) * blockDim.x + threadIdx.x;
+__global__ void MarkPartition(unsigned int *pBuffId2PartitionId, int *pFvToInsId, int *pInsIdToNodeId,
+							int totalNumFv,	int maxNumSN, unsigned int *pParitionMarker){
+	int gTid = GLOBAL_TID();
 	if(gTid >= totalNumFv)//thread has nothing to mark 
 		return;
 
@@ -46,16 +48,42 @@ __global__ void ArrayMarker(int *pBuffVec_d, int *pFvToInsId, int *pInsIdToNodeI
 	if(nid < 0)
 		return;
 	int buffId = nid % maxNumSN;
-	unsigned int arrayId = blockIdx.z; //each arrayId corresponds to a prefix sum later
-	int snId = pBuffVec_d[arrayId];
-	int mark = (snId == buffId) ? 1 : 0;
-	pSparseGatherIdx[gTid + arrayId * totalNumFv] = mark;
+	int partitionId = pBuffId2PartitionId[buffId];
+	pParitionMarker[gTid] = partitionId;
+}
+
+/**
+ * @brief: count number of elements in each segment in the partition marker
+ */
+__global__ void PartitionHistogram(unsigned int *pPartitionMarker, unsigned int markerLen, unsigned int numParition,
+								   unsigned int numEleEachThd, unsigned int totalNumThd, unsigned int *pHistogram_d){
+	extern __shared__ unsigned int counters[];
+	int gTid = GLOBAL_TID();
+	unsigned int tid = threadIdx.x;
+	for(int p = 0; p < numParition; p++){
+		counters[tid * numParition + p] = 0;
+	}
+	if(gTid >= totalNumThd){//thread has nothing to do
+		return;
+	}
+	for(int i = 0; i < numEleEachThd; i++){
+		if(gTid * numEleEachThd + i >= markerLen){//no element to process
+			return;
+		}
+		int pid = pPartitionMarker[gTid * numEleEachThd + i];
+		counters[tid * numParition + pid]++;
+	}
+	//store counters to global memory
+	for(int p = 0; p < numParition; p++){
+		//counters of the same partition are consecutive
+		pHistogram_d[p * totalNumThd + gTid] = counters[tid * numParition + p];
+	}
 }
 
 /**
  * @brief: compute feature value start position
  */
-__global__ void ComputeFvalueStartPosEachNode(unsigned int *pnSparseGatherIdx, unsigned int totalFeaValue,
+__global__ void ComputeFvalueStartPosEachNode(unsigned int *pHistogram_d, unsigned int totalNumThd,
 											  unsigned int numNode, long long *pFeaValueStartPosEachNode){
 	unsigned int arrayStartPos = 0;//start position of this array (i.e. node)
 	int i = 0;
@@ -64,33 +92,46 @@ __global__ void ComputeFvalueStartPosEachNode(unsigned int *pnSparseGatherIdx, u
 		i++;
 		if(i >= numNode)
 			break;
-		arrayStartPos += pnSparseGatherIdx[i * totalFeaValue - 1];
+		arrayStartPos += pHistogram_d[i * totalNumThd - 1];
 	}while(true);
 }
 
 /**
   * @brief: store gather indices
   */
-__global__ void CollectGatherIdx(unsigned int *pSparseGatherIdx, unsigned int totalNumFv,
-								 long long *pEachFeaStartPosEachNode, unsigned int *pGatherIdx){
-	int gTid = (blockIdx.y * gridDim.x + blockIdx.x) * blockDim.x + threadIdx.x;
-	if(gTid >= totalNumFv)//thread has nothing to mark
+__global__ void CollectGatherIdx(const unsigned int *pPartitionMarker, unsigned int markerLen,
+								 const unsigned int *pHistogram_d, unsigned int numParition,
+								 unsigned int numEleEachThd, unsigned int totalNumThd, unsigned int *pGatherIdx){
+	int gTid = GLOBAL_TID();
+	if(gTid >= totalNumThd)//thread has nothing to collect
 		return;
 
-	unsigned int arrayId = blockIdx.z; //each arrayId corresponds to a prefix sum
-	unsigned int arrayStartPos = pEachFeaStartPosEachNode[arrayId];//start position of this array (i.e. node)
+	unsigned int tid = threadIdx.x;
+	extern __shared__ unsigned int eleDst[];
 
-	unsigned int idx = pSparseGatherIdx[gTid + arrayId * totalNumFv];
-	if(gTid == 0){
-		if(idx == 1)//store the first element
-			pGatherIdx[gTid] = arrayStartPos + idx - 1;//set destination for element at gTid
-		if(idx > 1)
-			printf("error in CollectGatherIdx\n");
+	//partition size
+	for(int p = 0; p < numParition; p++){
+		unsigned int partitionSize = pHistogram_d[p * totalNumThd + totalNumThd - 1];
+		eleDst[tid * numParition + p] = partitionSize;
 	}
-	else{
-		if(idx == pSparseGatherIdx[gTid + arrayId * totalNumFv - 1])//repeated element due to prefix sum
+	//partition start pos
+	for(int p = 1; p < numParition; p++){
+		eleDst[tid * numParition + p] += eleDst[tid * numParition + p - 1];
+	}
+	//write start pos
+	for(int p = 0; p < numParition; p++){
+		unsigned int thdCounterPos = p * totalNumThd + gTid;
+		eleDst[tid * numParition + p] += pHistogram_d[thdCounterPos];
+	}
+
+	for(int i = 0; i < numEleEachThd; i++){
+		unsigned int elePos = gTid * numEleEachThd + i;
+		if(elePos >= markerLen)//no element to process
 			return;
-		pGatherIdx[gTid] = arrayStartPos + idx - 1;//set destimation for element at gTid
+		int pid = pPartitionMarker[elePos];
+		unsigned int writeIdx = tid * numParition + pid;
+		pGatherIdx[elePos] = eleDst[writeIdx];//element destination
+		eleDst[writeIdx]++;
 	}
 }
 
@@ -98,39 +139,38 @@ __global__ void CollectGatherIdx(unsigned int *pSparseGatherIdx, unsigned int to
 /**
   *@brief: compute length and start position of each feature in each node
   */
-__global__ void ComputeEachFeaInfo(long long *pEachFeaStartPos, int numFea, int totalFvalue, unsigned int *pSparseGatherIdx,
+__global__ void ComputeEachFeaInfo(const long long *pEachFeaStartPos, int numFea, int totalNumFvalue, const unsigned int *pHistogram_d, int totalNumThd,
 								   int *pEachFeaLenEachNode, long long *pEachFeaStartPosEachNode,
-								   long long *pFeaValueStartPosEachNode, long long *pNumFeaValueEachNode){
-	unsigned int arrayId = blockIdx.x; //each arrayId corresponds to a prefix sum
-	int snId = arrayId;
+								   long long *pFvalueStartPosEachNode, long long *pNumFeaValueEachNode){
+	int pid = blockIdx.x; //each arrayId corresponds to a prefix sum
 
 	for(int f = 0; f < numFea; f++){
 		unsigned int posOfLastFvalue;
 		if(f < numFea - 1){
 			PROCESS_ERROR(pEachFeaStartPos[f + 1] > 0);
-			posOfLastFvalue = snId * totalFvalue + pEachFeaStartPos[f + 1] - 1;
+			posOfLastFvalue = pid * totalNumFvalue + pEachFeaStartPos[f + 1] - 1;
 		}
 		else
-			posOfLastFvalue = snId * totalFvalue + totalFvalue - 1;
+			posOfLastFvalue = pid * totalNumFvalue + totalNumFvalue - 1;
 
 		unsigned int startPos = pEachFeaStartPos[f];//start position of the feature f.
 		unsigned int lenPreviousFvalue = 0;
 		if(f > 0){
-			lenPreviousFvalue = pSparseGatherIdx[snId * totalFvalue + startPos - 1];
+			lenPreviousFvalue = pHistogram_d[pid * totalNumThd + startPos - 1];
 		}
-		pEachFeaLenEachNode[snId * numFea + f] = pSparseGatherIdx[posOfLastFvalue] - lenPreviousFvalue;
+		pEachFeaLenEachNode[pid * numFea + f] = pHistogram_d[posOfLastFvalue] - lenPreviousFvalue;
 	}
 
 	//start pos for first feature
-	pEachFeaStartPosEachNode[snId * numFea] = pFeaValueStartPosEachNode[snId];
+	pEachFeaStartPosEachNode[pid * numFea] = pFvalueStartPosEachNode[pid];
 	//start pos for other feature
 	for(int f = 1; f < numFea; f++){
-		unsigned int feaPos = snId * numFea + f;
+		unsigned int feaPos = pid * numFea + f;
 		pEachFeaStartPosEachNode[feaPos] = pEachFeaStartPosEachNode[feaPos - 1] + pEachFeaLenEachNode[feaPos];
 	}
 
 	//number of feature values of this node
-	pNumFeaValueEachNode[snId] = pSparseGatherIdx[snId * totalFvalue + totalFvalue - 1];
+	pNumFeaValueEachNode[pid] = pHistogram_d[pid * totalNumThd + totalNumThd - 1];
 }
 
 /**
@@ -139,12 +179,23 @@ __global__ void ComputeEachFeaInfo(long long *pEachFeaStartPos, int numFea, int 
 void IndexComputer::ComputeIdxGPU(int numSNode, int maxNumSN, int bagId){
 	PROCESS_ERROR(m_totalFeaValue > 0 && numSNode > 0 && maxNumSN >= 0 && maxNumSN == m_maxNumofSN);
 	
-	for(int i = 0; i < numSNode; i++){
-		int flag = (i % 2 == 0 ? 0:(-1));
-		checkCudaErrors(cudaMemset(pnKey + i * m_totalFeaValue, flag, sizeof(unsigned int) * m_totalFeaValue));
-	}
-
 	int flags = -1;//all bits are 1
+	BagManager bagManager;
+	GBDTGPUMemManager manager;
+	int *pBuffVec_d = bagManager.m_pBuffIdVecEachBag + bagId * bagManager.m_maxNumSplittable;
+
+	//map snId to partition id start from 0
+	int *pBuffVec_h = new int[numSNode];
+	unsigned int *pBuffId2PartitionId_h = new unsigned int[m_maxNumofSN];
+	checkCudaErrors(cudaMemcpy(pBuffVec_h, pBuffVec_d, sizeof(int) * numSNode, cudaMemcpyDeviceToHost));
+	memset(pBuffId2PartitionId_h, flags, m_maxNumofSN);
+	for(int i = 0; i < numSNode; i++){
+		int snId = pBuffVec_h[i];
+		pBuffId2PartitionId_h[snId] = i;
+	}
+	unsigned int *pBuffId2PartitionId_d;
+	checkCudaErrors(cudaMalloc((void**)&pBuffId2PartitionId_d, sizeof(unsigned int) * m_maxNumofSN));
+	checkCudaErrors(cudaMemcpy(pBuffId2PartitionId_d, pBuffId2PartitionId_h, sizeof(unsigned int) * m_maxNumofSN, cudaMemcpyHostToDevice));
 
 	//memset for debuging; this should be removed to develop more reliable program
 	memset(m_pNumFeaValueEachNode_dh, 0, sizeof(long long) * maxNumSN);
@@ -157,40 +208,57 @@ void IndexComputer::ComputeIdxGPU(int numSNode, int maxNumSN, int bagId){
 		printf("invalid kernel configuration!\n");
 		exit(0);
 	}
-	dimNumofBlockForFvalue.z = numSNode;//each z value for a prefix sum.
-
-	BagManager bagManager;
-	GBDTGPUMemManager manager;
-	int *pBuffVec_d = bagManager.m_pBuffIdVecEachBag + bagId * bagManager.m_maxNumSplittable;
-	long long *pTmpFvalueStartPosEachNode = bagManager.m_pFvalueStartPosEachNodeEachBag_d + bagId * bagManager.m_maxNumSplittable;
 
 	int *pTmpInsIdToNodeId = bagManager.m_pInsIdToNodeIdEachBag + bagId * bagManager.m_numIns;
-	ArrayMarker<<<dimNumofBlockForFvalue, blockSizeForFvalue>>>(pBuffVec_d, manager.m_pDInsId, pTmpInsIdToNodeId,
-																m_totalFeaValue, maxNumSN, pnSparseGatherIdx);
-	GETERROR("after ArrayMarker");
+	MarkPartition<<<dimNumofBlockForFvalue, blockSizeForFvalue>>>(pBuffId2PartitionId_d, manager.m_pDInsId, pTmpInsIdToNodeId,
+																  m_totalFeaValue, maxNumSN, pPartitionMarker);
+	GETERROR("after MarkPartition");
 
+	unsigned int *pHistogram_d;
+	unsigned int numElementEachThd = 16;
+	unsigned int totalNumEffectiveThd = Ceil(m_totalFeaValue, numElementEachThd);
+	dim3 numBlkDim;
+	int numThdPerBlk;
+	conf.ConfKernel(totalNumEffectiveThd, numThdPerBlk, numBlkDim);
+	checkCudaErrors(cudaMalloc((void**)&pHistogram_d, sizeof(unsigned int) * numSNode * totalNumEffectiveThd));
+	PartitionHistogram<<<numBlkDim, numThdPerBlk, numSNode * numThdPerBlk>>>(pPartitionMarker, m_totalFeaValue, numSNode,
+																	     	 numElementEachThd, totalNumEffectiveThd, pHistogram_d);
+
+	checkCudaErrors(cudaMalloc((void**)&pnKey, sizeof(unsigned int) * totalNumEffectiveThd * numSNode));
+	for(int i = 0; i < numSNode; i++){
+		int flag = (i % 2 == 0 ? 0:(-1));
+		checkCudaErrors(cudaMemset(pnKey + i * totalNumEffectiveThd, flag, sizeof(unsigned int) * totalNumEffectiveThd));
+	}
 	//compute prefix sum for one array
-	thrust::inclusive_scan_by_key(thrust::system::cuda::par, pnKey, pnKey + m_totalFeaValue * numSNode,
-								  pnSparseGatherIdx, pnSparseGatherIdx);//in place prefix sum
+	thrust::inclusive_scan_by_key(thrust::system::cuda::par, pnKey, pnKey + totalNumEffectiveThd * numSNode,
+								  pHistogram_d, pHistogram_d);//in place prefix sum
 
 	//get feature values start position of each node
-	ComputeFvalueStartPosEachNode<<<1,1>>>(pnSparseGatherIdx, m_totalFeaValue, numSNode, pTmpFvalueStartPosEachNode);
+	long long *pTmpFvalueStartPosEachNode = bagManager.m_pFvalueStartPosEachNodeEachBag_d + bagId * bagManager.m_maxNumSplittable;
+	ComputeFvalueStartPosEachNode<<<1,1>>>(pHistogram_d, totalNumEffectiveThd, numSNode, pTmpFvalueStartPosEachNode);
 
 	//write to gether index
 	unsigned int *pTmpGatherIdx = bagManager.m_pIndicesEachBag_d + bagId * bagManager.m_numFeaValue;
 	checkCudaErrors(cudaMemset(pTmpGatherIdx, flags, sizeof(unsigned int) * m_totalFeaValue));//when leaves appear, this is effective.
-	CollectGatherIdx<<<dimNumofBlockForFvalue, blockSizeForFvalue>>>(pnSparseGatherIdx, m_totalFeaValue,
-																	 pTmpFvalueStartPosEachNode, pTmpGatherIdx);
+	CollectGatherIdx<<<numBlkDim, numThdPerBlk, numSNode * numThdPerBlk>>>(pPartitionMarker, m_totalFeaValue, pHistogram_d, numSNode,
+												  numElementEachThd, totalNumEffectiveThd, pTmpGatherIdx);
 	GETERROR("after CollectGatherIdx");
 
 	//compute each feature length and start position in each node
-	int *pTmpEachFeaLenEachNode = bagManager.m_pEachFeaLenEachNodeEachBag_d + bagId * bagManager.m_maxNumSplittable * bagManager.m_numFea;
+	int *pTmpEachFeaLenEachNode = bagManager.m_pEachFeaLenEachNodeEachBag_d +
+								  bagId * bagManager.m_maxNumSplittable * bagManager.m_numFea;
 	long long * pTmpEachFeaStartPosEachNode = bagManager.m_pEachFeaStartPosEachNodeEachBag_d +
 											  bagId * bagManager.m_maxNumSplittable * bagManager.m_numFea;
-	ComputeEachFeaInfo<<<numSNode, 1>>>(manager.m_pFeaStartPos, m_numFea, m_totalFeaValue, pnSparseGatherIdx,
+	ComputeEachFeaInfo<<<numSNode, 1>>>(manager.m_pFeaStartPos, m_numFea, totalNumEffectiveThd, pHistogram_d,
 										pTmpEachFeaLenEachNode, pTmpEachFeaStartPosEachNode,
 										pTmpFvalueStartPosEachNode, m_pNumFeaValueEachNode_dh);
 	GETERROR("after ComputeEachFeaInfo");
+
+	delete[] pBuffVec_h;
+	delete[] pBuffId2PartitionId_h;
+	checkCudaErrors(cudaFree(pBuffId2PartitionId_d));
+	checkCudaErrors(cudaFree(pHistogram_d));
+	checkCudaErrors(cudaFree(pnKey));
 }
 
 /**
@@ -203,6 +271,5 @@ void IndexComputer::AllocMem(int nNumofExamples, int nNumofFeatures, int maxNumo
 
 	checkCudaErrors(cudaMallocHost((void**)&m_pNumFeaValueEachNode_dh, sizeof(long long) * m_maxNumofSN));
 
-	checkCudaErrors(cudaMalloc((void**)&pnSparseGatherIdx, sizeof(unsigned int) * m_totalFeaValue * m_maxNumofSN));
-	checkCudaErrors(cudaMalloc((void**)&pnKey, sizeof(unsigned int) * m_totalFeaValue * m_maxNumofSN));
+	checkCudaErrors(cudaMalloc((void**)&pPartitionMarker, sizeof(unsigned int) * m_totalFeaValue));
 }
