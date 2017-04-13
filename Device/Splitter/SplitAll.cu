@@ -71,14 +71,10 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 	manager.MemsetAsync(bagManager.m_pNumofNewNodeTreeOnTrainingEachBag + bagId, 0, sizeof(int), pStream);
 	clock_t new_node_start = clock();
 	CreateNewNode<<<dimNumofBlock, threadPerBlock, 0, (*(cudaStream_t*)pStream)>>>(
-							//snManager.m_pTreeNode, manager.m_pSplittableNode, snManager.m_pNewSplittableNode,
 							bagManager.m_pNodeTreeOnTrainingEachBag + bagId * bagManager.m_maxNumNode,
 								bagManager.m_pSplittableNodeEachBag + bagId * bagManager.m_maxNumSplittable,
 								bagManager.m_pNewSplittableNodeEachBag + bagId * bagManager.m_maxNumSplittable,
-							//manager.m_pSNIdToBuffId, manager.m_pBestSplitPoint,
-							bagManager.m_pSNIdToBuffIdEachBag + bagId * bagManager.m_maxNumSplittable,
 								bagManager.m_pBestSplitPointEachBag + bagId * bagManager.m_maxNumSplittable,
-							//snManager.m_pParentId, snManager.m_pLeftChildId, snManager.m_pRightChildId,
 							bagManager.m_pParentIdEachBag + bagId * bagManager.m_maxNumSplittable,
 							bagManager.m_pLeftChildIdEachBag + bagId * bagManager.m_maxNumSplittable,
 							bagManager.m_pRightChildIdEachBag + bagId * bagManager.m_maxNumSplittable,
@@ -216,7 +212,7 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 									  //manager.m_pSNodeStat, snManager.m_pNumofNewNode, manager.m_pBuffIdVec, manager.m_pNumofBuffId,
 									  bagManager.m_pSNodeStatEachBag + bagId * bagManager.m_maxNumSplittable,
 									  	  bagManager.m_pNumofNewNodeTreeOnTrainingEachBag + bagId,
-									  	  bagManager.m_pBuffIdVecEachBag + bagId * bagManager.m_maxNumSplittable, bagManager.m_pNumofBuffIdEachBag + bagId,
+									  	  bagManager.m_pPartitionId2SNPosEachBag + bagId * bagManager.m_maxNumSplittable, bagManager.m_pNumofBuffIdEachBag + bagId,
 									  //manager.m_maxNumofSplittable, manager.m_nSNLock);
 									  bagManager.m_maxNumSplittable, bagManager.m_nSNLockEachBag + bagId);
 		cudaStreamSynchronize((*(cudaStream_t*)pStream));

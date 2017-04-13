@@ -20,7 +20,7 @@ __global__ void ComputeWeight(TreeNode *pAllTreeNode, TreeNode *pSplittableNode,
 		  	  	  	  	  	  	  float_point lambda, int numofSplittableNode, bool bLastLevel, int maxNumofSplittableNode);
 
 __global__ void CreateNewNode(TreeNode *pAllTreeNode, TreeNode *pSplittableNode, TreeNode *pNewSplittableNode,
-								  const int *pSNIdToBufferId, const SplitPoint *pBestSplitPoint,
+							  const SplitPoint *pBestSplitPoint,
 		  	  	  	  	  	  	  int *pParentId, int *pLChildId, int *pRChildId,
 		  	  	  	  	  	  	  const nodeStat *pLChildStat, const nodeStat *pRChildStat, nodeStat *pNewNodeStat,
 		  	  	  	  	  	  	  int *m_nNumofNode, int *pNumofNewNode,

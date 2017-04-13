@@ -54,7 +54,7 @@ __global__ void ComputeWeight(TreeNode *pAllTreeNode, TreeNode *pSplittableNode,
  * @brief: create new nodes and associate new nodes with their parent id
  */
 __global__ void CreateNewNode(TreeNode *pAllTreeNode, TreeNode *pSplittableNode, TreeNode *pNewSplittableNode,
-								 const int *pSNIdToBufferId, const SplitPoint *pBestSplitPoint,
+							  const SplitPoint *pBestSplitPoint,
 								  int *pParentId, int *pLChildId, int *pRChildId,
 								  const nodeStat *pLChildStat, const nodeStat *pRChildStat, nodeStat *pNewNodeStat,
 								  int *pNumofNode, int *pNumofNewNode,
@@ -243,8 +243,7 @@ __global__ void InsToNewNode(const TreeNode *pAllTreeNode, const float_point *pd
 
 	if(nid == pParentId[bufferPos]){//internal node (needs to split)
 		CONCHECKER(pRChildId[bufferPos] == pLChildId[bufferPos] + 1);//right child id > than left child id
-		if(pAllTreeNode[nid].rightChildId == flag_LEAFNODE)
-			printf("Are you kidding me????????????????\n");
+		CONCHECKER(pAllTreeNode[nid].rightChildId != flag_LEAFNODE);
 		double fPivot = pBestSplitPoint[bufferPos].m_fSplitValue;
 		double fvalue = pdCurFeaValue[perFeaTid];
 
@@ -290,7 +289,7 @@ __global__ void InsToNewNodeByDefault(TreeNode *pAllTreeNode, int *pInsIdToNodeI
 }
 
 __global__ void UpdateNewSplittable(TreeNode *pNewSplittableNode, nodeStat *pNewNodeStat, int *pSNIdToBuffId,
-								   	    nodeStat *pSNodeStat, int *pNumofNewNode, int *pBuffIdVec, int *pBuffIdCounter,
+								   	    nodeStat *pSNodeStat, int *pNumofNewNode, int *pPartitionId2SNPos, int *pPartitionCounter,
 								   	    int maxNumofSplittable, int *pnLock)
 {
 	int numofNewNode = *pNumofNewNode;
@@ -298,7 +297,7 @@ __global__ void UpdateNewSplittable(TreeNode *pNewSplittableNode, nodeStat *pNew
 	if(nGlobalThreadId >= numofNewNode)//one thread per splittable node
 		return;
 
-	CONCHECKER(*pBuffIdCounter == 0);
+	CONCHECKER(*pPartitionCounter == 0);
 
 	int nid = pNewSplittableNode[nGlobalThreadId].nodeId;
 	ECHECKER(nid);
@@ -311,17 +310,17 @@ __global__ void UpdateNewSplittable(TreeNode *pNewSplittableNode, nodeStat *pNew
 		if(atomicExch(pnLock, 1) == 0)
 		{
 			bool bIsNew = false;
-			int bufferPos = AssignHashValue(pSNIdToBuffId, nid, maxNumofSplittable, bIsNew);
-			if(bufferPos != nid % maxNumofSplittable)
+			int snPos = AssignHashValue(pSNIdToBuffId, nid, maxNumofSplittable, bIsNew);//#### can't be simply replaced by "nid%maxSN"
+			if(snPos != nid % maxNumofSplittable)
 				printf("oh shit ###################################\n");
 
-			ECHECKER(bufferPos);
-			pSNodeStat[bufferPos] = pNewNodeStat[nGlobalThreadId];
+			ECHECKER(snPos);
+			pSNodeStat[snPos] = pNewNodeStat[nGlobalThreadId];
 			if(bIsNew == true)
 			{
-				int counter = atomicAdd(pBuffIdCounter, 1);
-				ECHECKER(counter);
-				pBuffIdVec[counter] = bufferPos;
+				int partitionId = atomicAdd(pPartitionCounter, 1);
+				ECHECKER(partitionId);
+				pPartitionId2SNPos[partitionId] = snPos;
 			}
 			bLeaveLoop = true;
 			atomicExch(pnLock, 0);
@@ -329,5 +328,4 @@ __global__ void UpdateNewSplittable(TreeNode *pNewSplittableNode, nodeStat *pNew
 	}
 	//for computing node size
 	pNewSplittableNode[nGlobalThreadId].numIns = pNewNodeStat[nGlobalThreadId].sum_hess;//Will this have problems? sum_hess is count on fvalue != 0, while numIns may be bigger.
-//	printf("nid=%d, numofIns=%d\n", nid, pNewSplittableNode[nGlobalThreadId].numIns);
 }

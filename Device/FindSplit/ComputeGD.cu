@@ -144,7 +144,7 @@ void DeviceSplitter::ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> >
 	//manager.Memset(manager.m_pSNIdToBuffId, -1, sizeof(int) * manager.m_maxNumofSplittable);
 	manager.MemsetAsync(bagManager.m_pSNIdToBuffIdEachBag + bagId * bagManager.m_maxNumSplittable, -1, sizeof(int) * bagManager.m_maxNumSplittable, pStream);
 	//manager.Memset(manager.m_pBuffIdVec, -1, sizeof(int) * manager.m_maxNumofSplittable);
-	manager.MemsetAsync(bagManager.m_pBuffIdVecEachBag + bagId * bagManager.m_maxNumSplittable, -1, sizeof(int) * bagManager.m_maxNumSplittable, pStream);
+	manager.MemsetAsync(bagManager.m_pPartitionId2SNPosEachBag + bagId * bagManager.m_maxNumSplittable, -1, sizeof(int) * bagManager.m_maxNumSplittable, pStream);
 	//manager.Memset(manager.m_pNumofBuffId, 0, sizeof(int));
 	manager.MemsetAsync(bagManager.m_pNumofBuffIdEachBag + bagId, 0, sizeof(int), pStream);
 
@@ -236,7 +236,7 @@ void DeviceSplitter::ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> >
 						   bagManager.m_pSNodeStatEachBag + bagId * bagManager.m_maxNumSplittable,
 						   	   bagManager.m_pSNIdToBuffIdEachBag + bagId * bagManager.m_maxNumSplittable, manager.m_maxNumofSplittable,
 						   //manager.m_pBuffIdVec, manager.m_pNumofBuffId
-						   bagManager.m_pBuffIdVecEachBag + bagId * bagManager.m_maxNumSplittable,
+						   bagManager.m_pPartitionId2SNPosEachBag + bagId * bagManager.m_maxNumSplittable,
 						   	   bagManager.m_pNumofBuffIdEachBag + bagId);
 
 	cudaStreamSynchronize((*(cudaStream_t*)pStream));

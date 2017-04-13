@@ -81,7 +81,7 @@ float_point *BagManager::m_pLastValueEachBag = NULL;//store the last processed v
 int *BagManager::m_nSNLockEachBag = NULL;
 int *BagManager::m_curNumofSplitableEachBag_h = NULL; //number of splittable node of current tree
 int *BagManager::m_pSNIdToBuffIdEachBag = NULL;	//(require memset!) map splittable node id to buffer position
-int *BagManager::m_pBuffIdVecEachBag = NULL;	//store all the buffer ids for splittable nodes
+int *BagManager::m_pPartitionId2SNPosEachBag = NULL;	//store all the buffer ids for splittable nodes
 int *BagManager::m_pNumofBuffIdEachBag = NULL;	//the total number of buffer ids in the current round.
 //host memory for GPU memory reset
 SplitPoint *BagManager::m_pBestPointEachBagHost = NULL;//best split points
@@ -243,9 +243,9 @@ void BagManager::AllocMem()
 	checkCudaErrors(cudaMemset(m_nSNLockEachBag, 0, sizeof(int) * m_numBag));
 	//map splittable node to buffer id
 	checkCudaErrors(cudaMalloc((void**)&m_pSNIdToBuffIdEachBag, sizeof(int) * m_maxNumSplittable * m_numBag));
-	checkCudaErrors(cudaMalloc((void**)&m_pBuffIdVecEachBag, sizeof(int) * m_maxNumSplittable * m_numBag));
+	checkCudaErrors(cudaMalloc((void**)&m_pPartitionId2SNPosEachBag, sizeof(int) * m_maxNumSplittable * m_numBag));
 	checkCudaErrors(cudaMalloc((void**)&m_pNumofBuffIdEachBag, sizeof(int) * m_numBag));
-	checkCudaErrors(cudaMemset(m_pBuffIdVecEachBag, -1, sizeof(int) * m_maxNumSplittable * m_numBag));
+	checkCudaErrors(cudaMemset(m_pPartitionId2SNPosEachBag, -1, sizeof(int) * m_maxNumSplittable * m_numBag));
 	checkCudaErrors(cudaMemset(m_pNumofBuffIdEachBag, 0, sizeof(int) * m_numBag));
 	m_pBestPointEachBagHost = new SplitPoint[m_maxNumSplittable * m_numBag];
 	//for parent and children relationship

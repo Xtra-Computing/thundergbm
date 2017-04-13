@@ -34,7 +34,7 @@
 #define CONCHECKER(condition) ((void)0)
 #else
 #define CONCHECKER(condition) do{									\
-	if(condition == false){											\
+	if((condition) == false){											\
 		printf("Error in %s(%s:%d)\n", __func__,__FILE__, __LINE__);\
 	}																\
 }while(0)

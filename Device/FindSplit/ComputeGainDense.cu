@@ -13,6 +13,7 @@
 #include "../KernelConst.h"
 #include "../../DeviceHost/svm-shared/DeviceUtility.h"
 #include "../Splitter/DeviceSplitter.h"
+#include "../../SharedUtility/CudaMacro.h"
 
 const float rt_2eps = 2.0 * DeviceSplitter::rt_eps;
 
@@ -43,10 +44,7 @@ __global__ void LoadGDHessFvalueRoot(const float_point *pInsGD, const float_poin
 
 	int insId = pInsId[gTid];//instance id
 
-#ifdef testing
-	if(insId >= numIns)
-		printf("Instance id is larger than the number of instances!\n");
-#endif
+	CONCHECKER(insId < numIns);
 
 	//store GD and Hess.
 	pGDEachFeaValue[gTid] = pInsGD[insId];
@@ -70,22 +68,15 @@ __global__ void LoadGDHessFvalue(const float_point *pInsGD, const float_point *p
 
 	int insId = pInsId[gTid];//instance id
 
-#ifdef testing
-	if(insId >= numIns)
-		printf("Instance id is larger than the number of instances!\n");
-#endif
+	CONCHECKER(insId < numIns);
 
 	//index for scatter
 	int idx = pDstIndexEachFeaValue[gTid];
 	if(idx == -1)//instance is in a leaf node
 		return;
 
-#ifdef testing
-	if(idx < 0)
-		printf("index to out array is negative!\n");
-	if(idx >= numFeaValue)
-		printf("index to out array is too large: %d. numFvalue=%d!\n", idx, numFeaValue);
-#endif
+	CONCHECKER(idx >= 0);
+	CONCHECKER(idx < numFeaValue);
 
 	//scatter: store GD, Hess and the feature value.
 	pGDEachFeaValue[idx] = pInsGD[insId];
@@ -120,8 +111,7 @@ __global__ void ComputeGainDense(const nodeStat *pSNodeStat, const long long *pF
 		}
 	}
 	int hashVaue = pBuffId[snId];
-	if(hashVaue < 0)
-		printf("Error in ComputeGain: buffer id %d, i=%d\n", hashVaue, snId);
+	ECHECKER(hashVaue);
 
 	if(gTid >= numofDenseValue)//the thread has no gain to compute, i.e. a thread per gain
 	{
@@ -214,8 +204,8 @@ __global__ void PickLocalBestSplitEachNode(const long long *pnNumFeaValueEachNod
 	long long tidForEachNode = (blockIdx.y * gridDim.x + blockIdx.x) * blockDim.x + threadIdx.x;
 
 	long long nPos = pFeaStartPosEachNode[snId] + tidForEachNode;//feature value gain position
-	if(nPos < 0)
-		printf("sp pos is nagative! %d\n", nPos);
+	ECHECKER(nPos);
+
 	if(tidForEachNode >= numValueThisNode){//no gain to load
 		return;
 	}
@@ -231,8 +221,10 @@ __global__ void PickLocalBestSplitEachNode(const long long *pnNumFeaValueEachNod
 		int blockId = blockIdx.z * gridDim.y * gridDim.x + blockIdx.y * gridDim.x + blockIdx.x;
 		pfLocalBestGain[blockId] = pfGain[0];
 		pnLocalBestGainKey[blockId] = pnBetterGainKey[0];
-		if(pnBetterGainKey[0] < 0)
-			printf("negative key: snId=%d, blockId=%d, gain=%f, key=%d\n", snId, blockId, pfGain[0], pnBetterGainKey[0]);
+
+		ECHECKER(pnBetterGainKey[0]);
+		//if(pnBetterGainKey[0] < 0)
+		//	printf("negative key: snId=%d, blockId=%d, gain=%f, key=%d\n", snId, blockId, pfGain[0], pnBetterGainKey[0]);
 	}
 }
 
@@ -247,11 +239,8 @@ __global__ void PickGlobalBestSplitEachNode(const float_point *pfLocalBestGain, 
 	int blockId = blockIdx.x;
 
 	int snId = blockId;
-	if(blockIdx.y > 1)
-		printf("One block is not enough to find global best split.\n");
-
-	if(snId >= numofSNode)
-		printf("Error in PickBestFea: kernel split %d nods, but only %d splittable nodes\n", snId, numofSNode);
+	CONCHECKER(blockIdx.y <= 1);
+	CONCHECKER(snId < numofSNode);
 
 	__shared__ float_point pfGain[BLOCK_SIZE];
 	__shared__ int pnBetterGainKey[BLOCK_SIZE];
@@ -276,9 +265,10 @@ __global__ void PickGlobalBestSplitEachNode(const float_point *pfLocalBestGain, 
 	{
 		pfGlobalBestGain[snId] = -pfGain[0];//make the gain back to its original sign
 		pnGlobalBestGainKey[snId] = pnBetterGainKey[0];
-		if(pnBetterGainKey[0] < 0)
-			printf("negative key: snId=%d, gain=%f, key=%d, blockDim.x=%d, blockSize=%d, blockpPerNode=%d, numSN=%d\n", 
-					snId, pfGain[0], pnBetterGainKey[0], blockDim.x, BLOCK_SIZE, numBlockPerNode, numofSNode);
+		ECHECKER(pnBetterGainKey[0]);
+//		if(pnBetterGainKey[0] < 0)
+//		printf("negative key: snId=%d, gain=%f, key=%d, blockDim.x=%d, blockSize=%d, blockpPerNode=%d, numSN=%d\n",
+//			snId, pfGain[0], pnBetterGainKey[0], blockDim.x, BLOCK_SIZE, numBlockPerNode, numofSNode);
 	}
 }
 
@@ -287,7 +277,7 @@ __global__ void PickGlobalBestSplitEachNode(const float_point *pfLocalBestGain, 
  */
 __global__ void FindSplitInfo(const long long *pEachFeaStartPosEachNode, const int *pEachFeaLenEachNode,
 							  const float_point *pDenseFeaValue, const float_point *pfGlobalBestGain, const int *pnGlobalBestGainKey,
-							  const int *pPosToBuffId, const int numFea,
+							  const int *pPartitionId2SNPos, const int numFea,
 							  const nodeStat *snNodeStat, const float_point *pPrefixSumGD, const float_point *pPrefixSumHess,
 							  SplitPoint *pBestSplitPoint, nodeStat *pRChildStat, nodeStat *pLChildStat)
 {
@@ -310,10 +300,9 @@ __global__ void FindSplitInfo(const long long *pEachFeaStartPosEachNode, const i
 		}
 	}
 
-	if(bestFeaId == -1)
-		printf("Error: bestFeaId=%d\n", bestFeaId);
+	CONCHECKER(bestFeaId != -1);
 
-	int buffId = pPosToBuffId[snId];//snId to buffer id (i.e. hash value)
+	int buffId = pPartitionId2SNPos[snId];//snId to buffer id (i.e. hash value)
 
 	pBestSplitPoint[buffId].m_fGain = pfGlobalBestGain[snId];//change the gain back to positive
 	if(pfGlobalBestGain[snId] <= 0){//no gain
@@ -321,8 +310,7 @@ __global__ void FindSplitInfo(const long long *pEachFeaStartPosEachNode, const i
 	}
 
 	pBestSplitPoint[buffId].m_nFeatureId = bestFeaId;
-	if(key < 1)
-		printf("Error: best key=%d, is < 1\n", key);
+	ECHECKER(key);
 	pBestSplitPoint[buffId].m_fSplitValue = 0.5f * (pDenseFeaValue[key] + pDenseFeaValue[key - 1]);
 
 	//child node stat
@@ -333,8 +321,10 @@ __global__ void FindSplitInfo(const long long *pEachFeaStartPosEachNode, const i
 //		printf("Have a look at here\n");
 	pRChildStat[buffId].sum_gd = pPrefixSumGD[idxPreSum];
 	pRChildStat[buffId].sum_hess = pPrefixSumHess[idxPreSum];
-	if(pLChildStat[buffId].sum_hess < 0 || pRChildStat[buffId].sum_hess < 0)
-		printf("Error: hess is negative l hess=%d, r hess=%d\n", pLChildStat[buffId].sum_hess, pRChildStat[buffId].sum_hess);
+	ECHECKER(pLChildStat[buffId].sum_hess);
+	ECHECKER(pRChildStat[buffId].sum_hess);
+//	if(pLChildStat[buffId].sum_hess < 0 || pRChildStat[buffId].sum_hess < 0)
+//		printf("Error: hess is negative l hess=%d, r hess=%d\n", pLChildStat[buffId].sum_hess, pRChildStat[buffId].sum_hess);
 //	printf("split: f=%d, value=%f, gain=%f, gd=%f v.s. %f, hess=%f v.s. %f, buffId=%d, key=%d\n", bestFeaId, pBestSplitPoint[buffId].m_fSplitValue,
 //			pBestSplitPoint[buffId].m_fGain, pLChildStat[buffId].sum_gd, pRChildStat[buffId].sum_gd, pLChildStat[buffId].sum_hess, pRChildStat[buffId].sum_hess, buffId, key);
 }

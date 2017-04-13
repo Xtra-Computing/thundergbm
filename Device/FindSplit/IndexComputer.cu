@@ -40,7 +40,7 @@ float_point* IndexComputer::m_pArrangedFvalue_d = NULL;
 /**
   *@brief: mark feature values beloning to node with id=snId by 1
   */
-__global__ void MarkPartition(unsigned int *pBuffId2PartitionId, int *pFvToInsId, int *pInsIdToNodeId,
+__global__ void MarkPartition(unsigned int *pSNPos2PartitionId, int *pFvToInsId, int *pInsIdToNodeId,
 							int totalNumFv,	int maxNumSN, unsigned int *pParitionMarker){
 	int gTid = GLOBAL_TID();
 	if(gTid >= totalNumFv)//thread has nothing to mark 
@@ -50,8 +50,8 @@ __global__ void MarkPartition(unsigned int *pBuffId2PartitionId, int *pFvToInsId
 	int nid = pInsIdToNodeId[insId];
 	if(nid < 0)
 		return;
-	int buffId = nid % maxNumSN;
-	int partitionId = pBuffId2PartitionId[buffId];
+	int snPos = nid % maxNumSN;
+	int partitionId = pSNPos2PartitionId[snPos];
 	pParitionMarker[gTid] = partitionId;
 }
 
@@ -170,6 +170,7 @@ __global__ void ComputeEachFeaInfo(const unsigned int *pPartitionMarker, const u
 				break;
 		}
 	}
+	printf("pid1=%d v.s. pid2=%d, # of tid=%d\n", pid1, pid2, blockDim.x);
 
 	//get pid1 and pid2 start position
 	unsigned int startPosPartition1 = 0;
@@ -253,20 +254,20 @@ void IndexComputer::ComputeIdxGPU(int numSNode, int maxNumSN, int bagId){
 	
 	int flags = -1;//all bits are 1
 	BagManager bagManager;
-	int *pBuffVec_d = bagManager.m_pBuffIdVecEachBag + bagId * bagManager.m_maxNumSplittable;
+	int *pPartitionId2SNPos_d = bagManager.m_pPartitionId2SNPosEachBag + bagId * bagManager.m_maxNumSplittable;
 
 	//map snId to partition id start from 0
-	int *pBuffVec_h = new int[numSNode];
-	unsigned int *pBuffId2PartitionId_h = new unsigned int[m_maxNumofSN];
-	checkCudaErrors(cudaMemcpy(pBuffVec_h, pBuffVec_d, sizeof(int) * numSNode, cudaMemcpyDeviceToHost));
-	memset(pBuffId2PartitionId_h, flags, m_maxNumofSN);
+	int *pPartitionId2SNPos_h = new int[numSNode];
+	unsigned int *pSNPos2PartitionId_h = new unsigned int[m_maxNumofSN];
+	checkCudaErrors(cudaMemcpy(pPartitionId2SNPos_h, pPartitionId2SNPos_d, sizeof(int) * numSNode, cudaMemcpyDeviceToHost));
+	memset(pSNPos2PartitionId_h, flags, m_maxNumofSN);
 	for(int i = 0; i < numSNode; i++){
-		int snId = pBuffVec_h[i];
-		pBuffId2PartitionId_h[snId] = i;
+		int snPos = pPartitionId2SNPos_h[i];
+		pSNPos2PartitionId_h[snPos] = i;
 	}
-	unsigned int *pBuffId2PartitionId_d;
-	checkCudaErrors(cudaMalloc((void**)&pBuffId2PartitionId_d, sizeof(unsigned int) * m_maxNumofSN));
-	checkCudaErrors(cudaMemcpy(pBuffId2PartitionId_d, pBuffId2PartitionId_h, sizeof(unsigned int) * m_maxNumofSN, cudaMemcpyHostToDevice));
+	unsigned int *pSNPos2PartitionId_d;
+	checkCudaErrors(cudaMalloc((void**)&pSNPos2PartitionId_d, sizeof(unsigned int) * m_maxNumofSN));
+	checkCudaErrors(cudaMemcpy(pSNPos2PartitionId_d, pSNPos2PartitionId_h, sizeof(unsigned int) * m_maxNumofSN, cudaMemcpyHostToDevice));
 
 	KernelConf conf;
 	int blockSizeForFvalue;
@@ -278,7 +279,7 @@ void IndexComputer::ComputeIdxGPU(int numSNode, int maxNumSN, int bagId){
 	}
 
 	int *pTmpInsIdToNodeId = bagManager.m_pInsIdToNodeIdEachBag + bagId * bagManager.m_numIns;
-	MarkPartition<<<dimNumofBlockForFvalue, blockSizeForFvalue>>>(pBuffId2PartitionId_d, m_pArrangedInsId_d, pTmpInsIdToNodeId,
+	MarkPartition<<<dimNumofBlockForFvalue, blockSizeForFvalue>>>(pSNPos2PartitionId_d, m_pArrangedInsId_d, pTmpInsIdToNodeId,
 																  m_totalFeaValue, maxNumSN, pPartitionMarker);
 	GETERROR("after MarkPartition");
 
@@ -325,9 +326,9 @@ void IndexComputer::ComputeIdxGPU(int numSNode, int maxNumSN, int bagId){
 	//get feature values start position of each new node
 	ComputeFvalueStartPosEachNode<<<1,1>>>(pHistogram_d, totalNumEffectiveThd, numSNode, pTmpFvalueStartPosEachNode);
 
-	delete[] pBuffVec_h;
-	delete[] pBuffId2PartitionId_h;
-	checkCudaErrors(cudaFree(pBuffId2PartitionId_d));
+	delete[] pPartitionId2SNPos_h;
+	delete[] pSNPos2PartitionId_h;
+	checkCudaErrors(cudaFree(pSNPos2PartitionId_d));
 	checkCudaErrors(cudaFree(pHistogram_d));
 	checkCudaErrors(cudaFree(pnKey));
 }
