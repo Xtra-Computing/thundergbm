@@ -167,14 +167,10 @@ __global__ void ComputeEachFeaInfo(const unsigned int *pPartitionMarker, const u
 	for(int i = 0; i < lenofSN; i++){
 		int p = pPartitionMarker[start + i];
 		if(p != pid1){
-			if(pid2 == -1)
 				pid2 = p;
-			else if(pid2 != p)
-				printf("Oh shit...............pid1=%d, pid2=%d, p=%d\n", pid1, pid2, p);
+				break;
 		}
 	}
-	if(pid2 == -1)
-		printf("oh shit................ pid2=-1\n");
 
 	//get pid1 and pid2 start position
 	unsigned int startPosPartition1 = 0;
@@ -187,8 +183,6 @@ __global__ void ComputeEachFeaInfo(const unsigned int *pPartitionMarker, const u
 	for(int p = 0; p < pid2; p++){
 		startPosPartition2 += pHistogram_d[p * totalNumThd + totalNumThd - 1];
 	}
-	if((pid2 == 1 && startPosPartition2 > 33416) || (pid1 == 1 && startPosPartition1 > 33416))
-		printf("ohhhhhhhhhhhhhhhh shitttttttttttttttttttttt\n");
 
 	unsigned int startPosofCurFeaPid1 = startPosPartition1;
 	unsigned int startPosofCurFeaPid2 = startPosPartition2;
@@ -198,8 +192,7 @@ __global__ void ComputeEachFeaInfo(const unsigned int *pPartitionMarker, const u
 		unsigned int numFvalueThisSN = pEachFeaLenEachNode[feaPos];
 		unsigned int posOfLastFValue = pEachFeaStartPosEachNode[feaPos] + numFvalueThisSN - 1;
 		int lastFvaluePid = pPartitionMarker[posOfLastFValue];
-		if(lastFvaluePid != pid1 && lastFvaluePid != pid2)
-			printf("oh shit........... last fv pid=%d, pid1=%d, pid2=%d\n", lastFvaluePid, pid1, pid2);
+
 		//get length of f in partition that contains last fvalue
 		unsigned int dstPos = pGatherIdx[posOfLastFValue];
 		unsigned int startPosofCurFea = 0;
@@ -209,8 +202,7 @@ __global__ void ComputeEachFeaInfo(const unsigned int *pPartitionMarker, const u
 			startPosofCurFea = startPosofCurFeaPid2;
 
 		unsigned int numThisFeaValue = dstPos - startPosofCurFea + 1;
-		if((int)numFvalueThisSN - numThisFeaValue < 0)
-			printf("oh shit.............sn has %d fvalues; this parition has %d\n", numFvalueThisSN, numThisFeaValue);
+
 		//start position for the next feature
 		if(lastFvaluePid == pid1){
 			startPosofCurFeaPid1 += numThisFeaValue;
@@ -317,11 +309,6 @@ void IndexComputer::ComputeIdxGPU(int numSNode, int maxNumSN, int bagId){
 												  numElementEachThd, totalNumEffectiveThd, pTmpGatherIdx);
 	GETERROR("after CollectGatherIdx");
 
-	//rearrange makers
-//	unsigned int *pTmpArrangedPartitionMarker;
-//	checkCudaErrors(cudaMalloc((void**)&pTmpArrangedPartitionMarker, sizeof(unsigned int) * m_totalFeaValue));
-//	RearrangeMarker<<<dimNumofBlockForFvalue, blockSizeForFvalue>>>(pPartitionMarker, pTmpGatherIdx, m_totalFeaValue, pTmpArrangedPartitionMarker);
-
 	long long *pTmpFvalueStartPosEachNode = bagManager.m_pFvalueStartPosEachNodeEachBag_d + bagId * bagManager.m_maxNumSplittable;
 	//compute each feature length and start position in each node
 	int *pTmpEachFeaLenEachNode = bagManager.m_pEachFeaLenEachNodeEachBag_d +
@@ -344,7 +331,6 @@ void IndexComputer::ComputeIdxGPU(int numSNode, int maxNumSN, int bagId){
 	checkCudaErrors(cudaFree(pBuffId2PartitionId_d));
 	checkCudaErrors(cudaFree(pHistogram_d));
 	checkCudaErrors(cudaFree(pnKey));
-//	checkCudaErrors(cudaFree(pTmpArrangedPartitionMarker));
 }
 
 /**
