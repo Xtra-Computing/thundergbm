@@ -14,7 +14,7 @@
 #include <helper_cuda.h>
 
 #include "storageManager.h"
-#include "HostUtility.h"
+#include "../../SharedUtility/HostUtility.h"
 #include "MemInfo.h"
 #include "../../DeviceHost/DefineConst.h"
 

@@ -13,11 +13,11 @@
 #include "DeviceSplitAllKernel.h"
 #include "../Preparator.h"
 #include "../Hashing.h"
-#include "../KernelConf.h"
 #include "../Bagging/BagManager.h"
 #include "../Memory/SNMemManager.h"
 #include "../Memory/gbdtGPUMemManager.h"
 #include "../../DeviceHost/MyAssert.h"
+#include "../../SharedUtility/KernelConf.h"
 #include "../../SharedUtility/GetCudaError.h"
 
 using std::cout;
@@ -145,7 +145,6 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 		InsToNewNode<<<dimGridThreadForEachUsedFea, thdPerBlockIns2node, 0, (*(cudaStream_t*)pStream)>>>(
 								 bagManager.m_pNodeTreeOnTrainingEachBag + bagId * bagManager.m_maxNumNode, manager.m_pdDFeaValue, manager.m_pDInsId,
 								 manager.m_pFeaStartPos, manager.m_pDNumofKeyValue,
-								 bagManager.m_pInsIdToNodeIdEachBag + bagId * bagManager.m_numIns,
 								 bagManager.m_pSNIdToBuffIdEachBag + bagId * bagManager.m_maxNumSplittable,
 								 bagManager.m_pBestSplitPointEachBag + bagId * bagManager.m_maxNumSplittable,
 								 bagManager.m_pUniqueFeaIdVecEachBag + bagId * bagManager.m_maxNumUsedFeaATree,
@@ -153,7 +152,9 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 								 bagManager.m_pParentIdEachBag + bagId * bagManager.m_maxNumSplittable,
 								 bagManager.m_pLeftChildIdEachBag + bagId * bagManager.m_maxNumSplittable,
 								 bagManager.m_pRightChildIdEachBag + bagId * bagManager.m_maxNumSplittable,
-								 preMaxNodeId, manager.m_numofFea, manager.m_numofIns, LEAFNODE);
+								 preMaxNodeId, manager.m_numofFea,
+								 bagManager.m_pInsIdToNodeIdEachBag + bagId * bagManager.m_numIns,
+								 manager.m_numofIns, LEAFNODE);
 		cudaStreamSynchronize((*(cudaStream_t*)pStream));
 		clock_t ins2node_end = clock();
 		total_ins2node_t += (ins2node_end - ins2node_start);

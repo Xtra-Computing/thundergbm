@@ -10,7 +10,6 @@
 
 #include "FindFeaKernel.h"
 #include "../partialSum.h"
-#include "../KernelConf.h"
 #include "../DevicePredictor.h"
 #include "../Bagging/BagManager.h"
 #include "../Splitter/Initiator.h"
@@ -18,8 +17,9 @@
 #include "../DevicePredictorHelper.h"
 #include "../Splitter/DeviceSplitter.h"
 #include "../Memory/gbdtGPUMemManager.h"
-#include "../../SharedUtility/powerOfTwo.h"
 #include "../../DeviceHost/SparsePred/DenseInstance.h"
+#include "../../SharedUtility/powerOfTwo.h"
+#include "../../SharedUtility/KernelConf.h"
 #include "../../SharedUtility/GetCudaError.h"
 
 using std::cerr;

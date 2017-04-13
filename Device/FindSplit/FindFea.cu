@@ -13,13 +13,13 @@
 #include "IndexComputer.h"
 #include "FindFeaKernel.h"
 #include "../Hashing.h"
-#include "../KernelConf.h"
 #include "../Bagging/BagManager.h"
 #include "../Memory/SNMemManager.h"
 #include "../Splitter/DeviceSplitter.h"
 #include "../Memory/findFeaMemManager.h"
 #include "../Memory/gbdtGPUMemManager.h"
 #include "../../DeviceHost/MyAssert.h"
+#include "../../SharedUtility/KernelConf.h"
 #include "../../SharedUtility/HostUtility.h"
 #include "../../SharedUtility/GetCudaError.h"
 
@@ -27,6 +27,29 @@ using std::cout;
 using std::endl;
 using std::make_pair;
 using std::cerr;
+
+/**
+ * @brief: rearrange marker for computing feature length and start pos of each node
+ */
+__global__ void RearrangeData(const int *pOldInsId, const float_point *pOldFvalue, const unsigned int *pDstIndexEachFeaValue,
+							  int numFeaValue, int *pNewInsId, float_point *pNewFvalue)
+{
+	//one thread loads one value
+	//## global id looks ok, but need to be careful
+	int gTid = (blockIdx.y * gridDim.x + blockIdx.x) * blockDim.x + threadIdx.x;
+
+	if(gTid >= numFeaValue)//thread has nothing to load
+		return;
+
+	//index for scatter
+	int idx = pDstIndexEachFeaValue[gTid];
+	if(idx == -1)//instance is in a leaf node
+		return;
+
+	//scatter: store GD, Hess and the feature value.
+	pNewInsId[idx] = pOldInsId[gTid];
+	pNewFvalue[idx] = pOldFvalue[gTid];
+}
 
 /**
  * @brief: efficient best feature finder
@@ -95,7 +118,7 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 		int numFvToLoad = pFeaValueStartPosEachNode_h[numofSNode - 1] + indexComp.m_pNumFeaValueEachNode_dh[numofSNode - 1];
 		LoadGDHessFvalue<<<dimNumofBlockToLoadGD, blockSizeLoadGD, 0, (*(cudaStream_t*)pStream)>>>(bagManager.m_pInsGradEachBag + bagId * bagManager.m_numIns, 
 															   bagManager.m_pInsHessEachBag + bagId * bagManager.m_numIns, 
-															   bagManager.m_numIns, manager.m_pDInsId, manager.m_pdDFeaValue, 
+															   bagManager.m_numIns, indexComp.m_pArrangedInsId_d, indexComp.m_pArrangedFvalue_d,
 															   bagManager.m_pIndicesEachBag_d, numFvToLoad,
 															   bagManager.m_pGDEachFvalueEachBag + bagId * bagManager.m_numFeaValue, 
 															   bagManager.m_pHessEachFvalueEachBag + bagId * bagManager.m_numFeaValue, 
@@ -103,13 +126,24 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 		cudaStreamSynchronize((*(cudaStream_t*)pStream));
 		clock_t end_gd = clock();
 		total_fill_gd_t += (end_gd - start_gd);
+		int *pNewInsId;
+		float_point *pNewFvalue;
+		checkCudaErrors(cudaMalloc((void**)&pNewInsId, sizeof(int) * numFvToLoad));
+		checkCudaErrors(cudaMalloc((void**)&pNewFvalue, sizeof(float_point) * numFvToLoad));
+		RearrangeData<<<dimNumofBlockToLoadGD, blockSizeLoadGD>>>(indexComp.m_pArrangedInsId_d, indexComp.m_pArrangedFvalue_d,
+																  bagManager.m_pIndicesEachBag_d, numFvToLoad,
+																  pNewInsId, pNewFvalue);
+		checkCudaErrors(cudaMemcpy(indexComp.m_pArrangedInsId_d, pNewInsId, sizeof(int) * numFvToLoad, cudaMemcpyDeviceToDevice));
+		checkCudaErrors(cudaMemcpy(indexComp.m_pArrangedFvalue_d, pNewFvalue, sizeof(float_point) * numFvToLoad, cudaMemcpyDeviceToDevice));
+		checkCudaErrors(cudaFree(pNewInsId));
+		checkCudaErrors(cudaFree(pNewFvalue));
 	}
 	else
 	{
 		clock_t start_gd = clock();
 		LoadGDHessFvalueRoot<<<dimNumofBlockToLoadGD, blockSizeLoadGD, 0, (*(cudaStream_t*)pStream)>>>(bagManager.m_pInsGradEachBag + bagId * bagManager.m_numIns,
 															   	   	bagManager.m_pInsHessEachBag + bagId * bagManager.m_numIns, bagManager.m_numIns,
-															   		manager.m_pDInsId, manager.m_pdDFeaValue, indexComp.m_totalFeaValue,
+															   		indexComp.m_pArrangedInsId_d, indexComp.m_pArrangedFvalue_d, indexComp.m_totalFeaValue,
 															   		bagManager.m_pGDEachFvalueEachBag + bagId * bagManager.m_numFeaValue,
 															   	   	bagManager.m_pHessEachFvalueEachBag + bagId * bagManager.m_numFeaValue,
 															   	   	bagManager.m_pDenseFValueEachBag + bagId * bagManager.m_numFeaValue);

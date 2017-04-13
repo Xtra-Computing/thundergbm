@@ -31,12 +31,12 @@ __global__ void GetUniqueFid(TreeNode *pAllTreeNode, TreeNode *pSplittableNode, 
 		 	 	 	 	 	 	 int *pFeaIdToBuffId, int *pUniqueFidVec,int *pNumofUniqueFid,
 		 	 	 	 	 	 	 int maxNumofUsedFea, int flag_LEAFNODE, int *pnLock);
 
-__global__ void InsToNewNode(TreeNode *pAllTreeNode, float_point *pdFeaValue, int *pInsId,
-		 	 	 	 	 	 	 long long *pFeaStartPos, int *pNumofKeyValue,
-		 	 	 	 	 	 	 int *pInsIdToNodeId, const int *pSNIdToBuffId, SplitPoint *pBestSplitPoint,
-		 	 	 	 	 	 	 int *pUniqueFidVec, int *pNumofUniqueFid,
-		 	 	 	 	 	 	 int *pParentId, int *pLChildId, int *pRChildId,
-		 	 	 	 	 	 	 int preMaxNodeId, int numofFea, int numofIns, int flag_LEAFNODE);
+__global__ void InsToNewNode(const TreeNode *pAllTreeNode, const float_point *pdFeaValue, const int *pInsId,
+		 	 	 	 	 	 const long long *pFeaStartPos, const int *pNumofKeyValue,
+		 	 	 	 	 	 const int *pSNIdToBuffId, const SplitPoint *pBestSplitPoint,
+		 	 	 	 	 	 const int *pUniqueFidVec, const int *pNumofUniqueFid,
+		 	 	 	 	 	 const int *pParentId, const int *pLChildId, const int *pRChildId,
+		 	 	 	 	 	 int preMaxNodeId, int numofFea, int *pInsIdToNodeId, int numofIns, int flag_LEAFNODE);
 
 __global__ void InsToNewNodeByDefault(TreeNode *pAllTreeNode, int *pInsIdToNodeId, const int *pSNIdToBuffId,
 		   	   	   	   	   	   	   	   	   int *pParentId, int *pLChildId,

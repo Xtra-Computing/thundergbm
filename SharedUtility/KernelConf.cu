@@ -8,8 +8,8 @@
 
 #include <iostream>
 #include "KernelConf.h"
-#include "KernelConst.h"
-#include "../DeviceHost/svm-shared/HostUtility.h"
+#include "../Device/KernelConst.h"
+#include "../SharedUtility/HostUtility.h"
 
 using std::cout;
 using std::endl;

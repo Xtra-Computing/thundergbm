@@ -8,16 +8,16 @@
 
 #include <stdio.h>
 #include "Hashing.h"
-#include "KernelConf.h"
 #include "DevicePredictor.h"
 #include "DevicePredictorHelper.h"
 #include "Memory/gbdtGPUMemManager.h"
 #include "Memory/dtMemManager.h"
 #include "Bagging/BagManager.h"
-#include "../DeviceHost/DefineConst.h"
 #include "../DeviceHost/TreeNode.h"
-#include "../DeviceHost/SparsePred/DenseInstance.h"
 #include "../DeviceHost/MyAssert.h"
+#include "../DeviceHost/DefineConst.h"
+#include "../DeviceHost/SparsePred/DenseInstance.h"
+#include "../SharedUtility/KernelConf.h"
 
 
 /**

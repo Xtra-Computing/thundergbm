@@ -184,12 +184,12 @@ __global__ void GetUniqueFid(TreeNode *pAllTreeNode, TreeNode *pSplittableNode, 
 /**
  * @brief: assign instances (which have non-zero values on the feature of interest) to new nodes
  */
-__global__ void InsToNewNode(TreeNode *pAllTreeNode, float_point *pdFeaValue, int *pInsId,
-								 long long *pFeaStartPos, int *pNumofKeyValue,
-								 int *pInsIdToNodeId, const int *pSNIdToBuffId, SplitPoint *pBestSplitPoint,
-								 int *pUniqueFidVec, int *pNumofUniqueFid,
-								 int *pParentId, int *pLChildId, int *pRChildId,
-								 int preMaxNodeId, int numofFea, int numofIns, int flag_LEAFNODE)
+__global__ void InsToNewNode(const TreeNode *pAllTreeNode, const float_point *pdFeaValue, const int *pInsId,
+							 const long long *pFeaStartPos, const int *pNumofKeyValue,
+							 const int *pSNIdToBuffId, const SplitPoint *pBestSplitPoint,
+							 const int *pUniqueFidVec, const int *pNumofUniqueFid,
+							 const int *pParentId, const int *pLChildId, const int *pRChildId,
+								 int preMaxNodeId, int numofFea, int *pInsIdToNodeId, int numofIns, int flag_LEAFNODE)
 {
 	int numofUniqueFid = *pNumofUniqueFid;
 	int feaId = blockIdx.z;
@@ -210,8 +210,8 @@ __global__ void InsToNewNode(TreeNode *pAllTreeNode, float_point *pdFeaValue, in
 
 	//for each instance that has value on the feature
 	long long curFeaStartPos = pFeaStartPos[ufid];
-	float_point *pdCurFeaValue = pdFeaValue + curFeaStartPos;//fvalue start pos in the global memory
-	int *pCurFeaInsId = pInsId + curFeaStartPos;//ins_id of this fea start pos in the global memory
+	const float_point *pdCurFeaValue = pdFeaValue + curFeaStartPos;//fvalue start pos in the global memory
+	const int *pCurFeaInsId = pInsId + curFeaStartPos;//ins_id of this fea start pos in the global memory
 
 	int insId = pCurFeaInsId[perFeaTid];
 

@@ -37,6 +37,9 @@ __global__ void InitNodeStat(const float_point *root_sum_gd, const float_point *
 	int nid = 0;//id of root node is always 0.
 	bool bIsNew = false;
 	int buffId = AssignHashValue(pSNIdToBuffId, nid, maxNumofSplittable, bIsNew);
+	if(buffId != nid % maxNumofSplittable)
+		printf("buffId != nid % maxNumofSN!######################3");
+
 	if(buffId != 0)
 		printf("buffId = %d\n", buffId);
 	pSNodeStat[buffId].sum_gd = root_sum_gd[0];

@@ -29,6 +29,10 @@ public:
 	static unsigned int *pPartitionMarker;
 	static unsigned int *pnKey;
 
+	//keep track of arranged fvalue and instance ids
+	static int* m_pArrangedInsId_d;
+	static float_point* m_pArrangedFvalue_d;
+
 public:
 	//compute indices for each feature value in feature lists
 	static void ComputeIdxGPU(int numNode, int maxNumSN, int bagId);

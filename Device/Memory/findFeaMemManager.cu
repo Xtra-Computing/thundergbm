@@ -11,8 +11,8 @@
 
 #include "findFeaMemManager.h"
 #include "../../DeviceHost/MyAssert.h"
-#include "../KernelConf.h"
 #include "../../DeviceHost/svm-shared/MemInfo.h"
+#include "../../SharedUtility/KernelConf.h"
 #include "../../SharedUtility/HostUtility.h"
 
 #ifdef testing

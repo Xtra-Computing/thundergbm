@@ -8,9 +8,9 @@
 
 #include "BagManager.h"
 #include "BagBuilder.h"
-#include "../KernelConf.h"
 #include "../Memory/gpuMemManager.h"
 #include "../../DeviceHost/MyAssert.h"
+#include "../../SharedUtility/KernelConf.h"
 #include "../../SharedUtility/GetCudaError.h"
 
 int *BagManager::m_pInsWeight = NULL;

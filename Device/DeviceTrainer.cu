@@ -13,6 +13,7 @@
 #include "Memory/SNMemManager.h"
 #include "Memory/dtMemManager.h"
 #include "Bagging/BagManager.h"
+#include "FindSplit/IndexComputer.h"
 
 #define testing
 //#undef testing
@@ -76,6 +77,10 @@ void DeviceTrainer::GrowTree(RegTree &tree, void *pStream, int bagId)
 	//copy the root node to GPU
 	BagManager bagManager;
 	GBDTGPUMemManager manager;
+	checkCudaErrors(cudaMemcpy(IndexComputer::m_pArrangedInsId_d, manager.m_pDInsId,
+							   sizeof(int) * bagManager.m_numFeaValue, cudaMemcpyDeviceToDevice));
+	checkCudaErrors(cudaMemcpy(IndexComputer::m_pArrangedFvalue_d, manager.m_pdDFeaValue,
+							   sizeof(float_point) * bagManager.m_numFeaValue, cudaMemcpyDeviceToDevice));
 
 	InitRootNode<<<1, 1, 0, (*(cudaStream_t*)pStream)>>>(//snManager.m_pTreeNode, snManager.m_pCurNumofNode_d);
 							bagManager.m_pNodeTreeOnTrainingEachBag + bagId * bagManager.m_maxNumNode,
