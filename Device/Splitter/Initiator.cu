@@ -8,7 +8,7 @@
 
 #include <stdio.h>
 #include "Initiator.h"
-#include "../ErrorChecker.h"
+#include "../../SharedUtility/CudaMacro.h"
 #include "../DeviceHashing.h"
 
 __global__ void SaveToPredBuffer(const float_point *pfCurTreePredValue, int numPredIns, float_point *pfPreTreePredValue)

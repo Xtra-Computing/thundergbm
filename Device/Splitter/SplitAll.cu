@@ -18,7 +18,7 @@
 #include "../Memory/gbdtGPUMemManager.h"
 #include "../../DeviceHost/MyAssert.h"
 #include "../../SharedUtility/KernelConf.h"
-#include "../../SharedUtility/GetCudaError.h"
+#include "../../SharedUtility/CudaMacro.h"
 
 using std::cout;
 using std::cerr;

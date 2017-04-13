@@ -8,7 +8,7 @@
 #include <helper_cuda.h>
 #include <cuda.h>
 #include <iostream>
-#include "GetCudaError.h"
+#include "CudaMacro.h"
 
 using std::cout;
 using std::cerr;

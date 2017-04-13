@@ -11,7 +11,7 @@
 #include "../Memory/gpuMemManager.h"
 #include "../../DeviceHost/MyAssert.h"
 #include "../../SharedUtility/KernelConf.h"
-#include "../../SharedUtility/GetCudaError.h"
+#include "../../SharedUtility/CudaMacro.h"
 
 int *BagManager::m_pInsWeight = NULL;
 int BagManager::m_numBag = -1;

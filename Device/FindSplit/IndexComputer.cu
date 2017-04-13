@@ -17,11 +17,10 @@
 #include "../Bagging/BagManager.h"
 #include "../Memory/gbdtGPUMemManager.h"
 #include "../../DeviceHost/MyAssert.h"
+#include "../../SharedUtility/CudaMacro.h"
 #include "../../SharedUtility/KernelConf.h"
 #include "../../SharedUtility/powerOfTwo.h"
-#include "../../SharedUtility/KernelMacro.h"
 #include "../../SharedUtility/HostUtility.h"
-#include "../../SharedUtility/GetCudaError.h"
 
 using std::vector;
 
@@ -156,12 +155,12 @@ __global__ void ComputeEachFeaInfo(const unsigned int *pPartitionMarker, const u
 								   const unsigned int *pHistogram_d, int totalNumThd,
 								   int *pEachFeaLenEachNode, long long *pEachFeaStartPosEachNode,
 								   long long *pNumFeaValueEachSN){
-	int previousSNId = threadIdx.x; //each thread corresponds to a splittable node
+	int previousPid = threadIdx.x; //each thread corresponds to a splittable node
 	extern __shared__ unsigned int eachFeaLenEachNewNode[];
 
 	//get pids for this node
-	int start = pFvalueStartPosEachSN[previousSNId];
-	int lenofSN = pNumFeaValueEachSN[previousSNId];
+	int start = pFvalueStartPosEachSN[previousPid];
+	int lenofSN = pNumFeaValueEachSN[previousPid];
 	int pid1 = pPartitionMarker[start];
 	int pid2 = -1;
 	for(int i = 0; i < lenofSN; i++){
@@ -188,7 +187,7 @@ __global__ void ComputeEachFeaInfo(const unsigned int *pPartitionMarker, const u
 	unsigned int startPosofCurFeaPid2 = startPosPartition2;
 	for(int f = 0; f < numFea; f++){
 		//get lengths for f in the two partitions
-		unsigned int feaPos = previousSNId * numFea + f;
+		unsigned int feaPos = previousPid * numFea + f;
 		unsigned int numFvalueThisSN = pEachFeaLenEachNode[feaPos];
 		unsigned int posOfLastFValue = pEachFeaStartPosEachNode[feaPos] + numFvalueThisSN - 1;
 		int lastFvaluePid = pPartitionMarker[posOfLastFValue];

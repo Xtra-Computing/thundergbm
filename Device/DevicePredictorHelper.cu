@@ -7,7 +7,7 @@
  */
 
 #include "DevicePredictorHelper.h"
-#include "ErrorChecker.h"
+#include "../SharedUtility/CudaMacro.h"
 #include "DeviceHashing.h"
 
 __device__ int GetNext(const TreeNode *pNode, float_point feaValue)
@@ -26,7 +26,7 @@ __global__ void FillDense(const float_point *pdSparseInsValue, const int *pnSpar
 						  float_point *pdDenseIns, const int *pSortedUsedFea, const int *pHashFeaIdToDenseInsPos, int totalUsedFea)
 {
 	//for each value in the sparse instance
-	ErrorChecker(numofFeaValue - 1, __PRETTY_FUNCTION__, "numofFeaValue <= 0");
+	ECHECKER(numofFeaValue - 1);
 	int curDenseTop = 0;
 	for(int i = 0; i < numofFeaValue; i++)
 	{
@@ -73,7 +73,7 @@ __global__ void PredMultiTarget(float_point *pdTargetValue, int numofDenseIns, c
 	while(curNode->featureId != -1)//!curNode->isLeaf()
 	{
 		int fid = curNode->featureId;
-		ErrorChecker(fid, __PRETTY_FUNCTION__, "fid < 0");
+		ECHECKER(fid);
 
 		int maxNumofUsedFea = numofUsedFea;
 		int pos = GetBufferId(pnHashFeaIdToPos, fid, maxNumofUsedFea);
@@ -109,7 +109,7 @@ __global__ void FillMultiDense(const float_point *pdSparseInsValue, const long l
 
 	int insId = startInsId + nGlobalThreadId;
 	long long startPos = pInsStartPos[insId];
-	ErrorChecker(startPos, __PRETTY_FUNCTION__, "startPos < 0");
+	ECHECKER(startPos);
 	int numofFeaValue = pNumofFeaValue[insId];
 	int denseInsStartPos = nGlobalThreadId * numofUsedFea;
 
@@ -119,7 +119,7 @@ __global__ void FillMultiDense(const float_point *pdSparseInsValue, const long l
 	{
 		int feaId = pnSpareInsFeaId[startPos + i];
 
-		ErrorCond(curDenseTop < numofUsedFea, __PRETTY_FUNCTION__, "curDenseTop > numofUsedFea");
+		CONCHECKER(curDenseTop < numofUsedFea);
 		while(feaId > pSortedUsedFea[curDenseTop])
 		{
 			int pos = GetBufferId(pHashFeaIdToDenseInsPos, pSortedUsedFea[curDenseTop], numofUsedFea);
@@ -129,7 +129,7 @@ __global__ void FillMultiDense(const float_point *pdSparseInsValue, const long l
 				return;
 		}
 
-		ErrorCond(curDenseTop < numofUsedFea, __PRETTY_FUNCTION__, "curDenseTop > numofUsedFea");
+		CONCHECKER(curDenseTop < numofUsedFea);
 		if(feaId == pSortedUsedFea[curDenseTop])
 		{//this is a feature needed to be stored in dense instance
 			int pos = GetBufferId(pHashFeaIdToDenseInsPos, pSortedUsedFea[curDenseTop], numofUsedFea);

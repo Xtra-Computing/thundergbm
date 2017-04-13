@@ -20,7 +20,7 @@
 #include "../../DeviceHost/SparsePred/DenseInstance.h"
 #include "../../SharedUtility/powerOfTwo.h"
 #include "../../SharedUtility/KernelConf.h"
-#include "../../SharedUtility/GetCudaError.h"
+#include "../../SharedUtility/CudaMacro.h"
 
 using std::cerr;
 using std::endl;
