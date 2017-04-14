@@ -21,7 +21,7 @@ public:
 	//memory for instances (key on feature id)
 	static int *m_pDInsId, *m_pDNumofKeyValue;
 	static float_point *m_pdDFeaValue;
-	static long long *m_pFeaStartPos;
+	static unsigned int *m_pFeaStartPos;
 	//memory for instances (key on instance id)
 	static int *m_pDFeaId, *m_pDNumofFea;
 	static float_point *m_pdDInsValue;

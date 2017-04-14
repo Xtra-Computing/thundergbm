@@ -182,7 +182,7 @@ __global__ void GetUniqueFid(TreeNode *pAllTreeNode, TreeNode *pSplittableNode, 
  * @brief: assign instances (which have non-zero values on the feature of interest) to new nodes
  */
 __global__ void InsToNewNode(const TreeNode *pAllTreeNode, const float_point *pdFeaValue, const int *pInsId,
-							 const long long *pFeaStartPos, const int *pNumofKeyValue,
+							 const unsigned int *pFeaStartPos, const int *pNumofKeyValue,
 							 const int *pSNIdToBuffId, const SplitPoint *pBestSplitPoint,
 							 const int *pUniqueFidVec, const int *pNumofUniqueFid,
 							 const int *pParentId, const int *pLChildId, const int *pRChildId,
@@ -203,7 +203,7 @@ __global__ void InsToNewNode(const TreeNode *pAllTreeNode, const float_point *pd
 		return;
 
 	//for each instance that has value on the feature
-	long long curFeaStartPos = pFeaStartPos[ufid];
+	unsigned int curFeaStartPos = pFeaStartPos[ufid];
 	const float_point *pdCurFeaValue = pdFeaValue + curFeaStartPos;//fvalue start pos in the global memory
 	const int *pCurFeaInsId = pInsId + curFeaStartPos;//ins_id of this fea start pos in the global memory
 

@@ -17,7 +17,7 @@ private:
 	static int *m_pInsId;
 	static float_point *m_pfValue;
 	static int *m_pNumofKeyValue;
-	static long long *m_plFeaStartPos;//get start position of each feature
+	static unsigned int *m_plFeaStartPos;//get start position of each feature
 
 	//instances for prediction
 	static int *m_pFeaId;
@@ -44,14 +44,14 @@ private:
 	static string strInsLabel;
 	static string strDataSetInfo;
 public:
-	static void SetMembers(int *pInsId, float_point *pdValue, int *pNumofKeyValue, long long *plFeaStartPos,
+	static void SetMembers(int *pInsId, float_point *pdValue, int *pNumofKeyValue, unsigned int *plFeaStartPos,
 						   int *pFeaId, float_point *pfFeaValue, int *pNumofFea, long long *plInsStartPos,
 						   float_point *pfTrueLabel,
 						   int nNumofFeatures, int nNumofExamples, long long numFeaValue);
 	static void WriteBufferFile(string strFolder);
 
 	static void ReadDataInfo(string strFolder, int &numFeature, int &numExample, long long &numFeaValue);
-	static void ReadBufferFile(string strFolder, int *pInsId, float_point *pdValue, int *pNumofKeyValue, long long *plFeaStartPos,
+	static void ReadBufferFile(string strFolder, int *pInsId, float_point *pdValue, int *pNumofKeyValue, unsigned int *plFeaStartPos,
 							   int *pFeaId, float_point *pfFeaValue, int *pNumofFea, long long *plInsStartPos,
 							   float_point *pfTrueLabel,
 							   int nNumofFeatures, int nNumofExamples, long long numFeaValue);

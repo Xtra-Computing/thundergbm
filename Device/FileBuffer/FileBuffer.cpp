@@ -16,7 +16,7 @@ using std::endl;
 int *FileBuffer::m_pInsId = NULL;
 float_point *FileBuffer::m_pfValue = NULL;
 int *FileBuffer::m_pNumofKeyValue = NULL;
-long long *FileBuffer::m_plFeaStartPos = NULL;//get start position of each feature
+unsigned int *FileBuffer::m_plFeaStartPos = NULL;//get start position of each feature
 
 //instances for prediction
 int *FileBuffer::m_pFeaId = NULL;
@@ -45,7 +45,7 @@ string FileBuffer::strDataSetInfo = "data-info.buffer";
 /**
  * @brief: set all the members of this class
  */
-void FileBuffer::SetMembers(int *pInsId, float_point *pdValue, int *pNumofKeyValue, long long *plFeaStartPos,
+void FileBuffer::SetMembers(int *pInsId, float_point *pdValue, int *pNumofKeyValue, unsigned int *plFeaStartPos,
 							int *pFeaId, float_point *pfFeaValue, int *pNumofFea, long long *plInsStartPos,
 							float_point *pfTrueLabel,
 							int nNumofFeatures, int nNumofExamples, long long numFeaValue)
@@ -93,7 +93,7 @@ void FileBuffer::WriteBufferFile(string strFolder)
 	writeFile.clear();
 
 	writeFile.open(strFolder + strFeaStartPos);
-	CFileOps::WriteToFile(writeFile, m_plFeaStartPos, sizeof(long long) * m_nNumofFeatures);
+	CFileOps::WriteToFile(writeFile, m_plFeaStartPos, sizeof(unsigned int) * m_nNumofFeatures);
 	writeFile.close();
 	writeFile.clear();
 
@@ -160,7 +160,7 @@ void FileBuffer::ReadDataInfo(string strFolder, int &numFeature, int &numExample
 /**
  * @brief: read buffer files
  */
-void FileBuffer::ReadBufferFile(string strFolder, int *pInsId, float_point *pdValue, int *pNumofKeyValue, long long *plFeaStartPos,
+void FileBuffer::ReadBufferFile(string strFolder, int *pInsId, float_point *pdValue, int *pNumofKeyValue, unsigned int *plFeaStartPos,
 								int *pFeaId, float_point *pfFeaValue, int *pNumofFea, long long *plInsStartPos,
 								float_point *pfTrueLabel,
 								int numFeature, int numExample, long long numFeaValue)

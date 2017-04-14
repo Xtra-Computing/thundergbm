@@ -16,7 +16,6 @@ class IndexComputer
 public:
 	//host
 	static int m_totalFeaValue;
-	static long long *m_pFeaStartPos;
 	static int m_numFea;
 	static int m_maxNumofSN;
 	static long long m_total_copy;
@@ -27,11 +26,17 @@ public:
 
 	//device memory
 	static unsigned int *pPartitionMarker;
-	static unsigned int *pnKey;
+	static unsigned int *m_pnKey;
 
 	//keep track of arranged fvalue and instance ids
 	static int* m_pArrangedInsId_d;
 	static float_point* m_pArrangedFvalue_d;
+
+	//histogram based partitioning
+	static unsigned int *m_pHistogram_d;
+	static unsigned int m_numElementEachThd;
+	static unsigned int m_totalNumEffectiveThd;
+	static unsigned int *m_pEachNodeStartPos_d;
 
 public:
 	//compute indices for each feature value in feature lists

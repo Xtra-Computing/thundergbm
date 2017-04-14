@@ -84,7 +84,7 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 
 	//compute index for each feature value
 	IndexComputer indexComp;
-	long long *pFeaValueStartPosEachNode_h = new long long[bagManager.m_numFeaValue * bagManager.m_maxNumSplittable];
+	unsigned int *pFeaValueStartPosEachNode_h = new unsigned int[bagManager.m_maxNumSplittable];
 
 	KernelConf conf;
 	int blockSizeLoadGD;
@@ -98,9 +98,9 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 		clock_t comIdx_end = clock();
 		total_com_idx_t += (comIdx_end - comIdx_start);
 
-		long long *pTmpFvalueStartPosEachNode = bagManager.m_pFvalueStartPosEachNodeEachBag_d + bagId * bagManager.m_maxNumSplittable;
+		unsigned int *pTmpFvalueStartPosEachNode = bagManager.m_pFvalueStartPosEachNodeEachBag_d + bagId * bagManager.m_maxNumSplittable;
 		checkCudaErrors(cudaMemcpy(pFeaValueStartPosEachNode_h, pTmpFvalueStartPosEachNode,
-								   sizeof(long long) * bagManager.m_maxNumSplittable, cudaMemcpyDeviceToHost));
+								   sizeof(unsigned int) * bagManager.m_maxNumSplittable, cudaMemcpyDeviceToHost));
 	
 		//copy # of feature values of each node
 		manager.MemcpyHostToDeviceAsync(indexComp.m_pNumFeaValueEachNode_dh, bagManager.m_pNumFvalueEachNodeEachBag_d + bagId * bagManager.m_maxNumSplittable,
@@ -115,7 +115,7 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 		clock_t start_gd = clock();
 		//scatter operation
 		//total fvalue to load may be smaller than m_totalFeaValue, due to some nodes becoming leaves.
-		int numFvToLoad = pFeaValueStartPosEachNode_h[numofSNode - 1] + indexComp.m_pNumFeaValueEachNode_dh[numofSNode - 1];
+		int numFvToLoad = (int)(pFeaValueStartPosEachNode_h[numofSNode - 1]) + (int)(indexComp.m_pNumFeaValueEachNode_dh[numofSNode - 1]);
 		LoadGDHessFvalue<<<dimNumofBlockToLoadGD, blockSizeLoadGD, 0, (*(cudaStream_t*)pStream)>>>(bagManager.m_pInsGradEachBag + bagId * bagManager.m_numIns, 
 															   bagManager.m_pInsHessEachBag + bagId * bagManager.m_numIns, 
 															   bagManager.m_numIns, indexComp.m_pArrangedInsId_d, indexComp.m_pArrangedFvalue_d,
@@ -157,10 +157,10 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 										sizeof(long long), pStream);
 		//copy feature value start position of each node
 		manager.MemcpyDeviceToDeviceAsync(manager.m_pFeaStartPos, bagManager.m_pFvalueStartPosEachNodeEachBag_d + bagId * bagManager.m_maxNumSplittable,
-									 	 sizeof(long long), pStream);
+									 	 sizeof(unsigned int), pStream);
 		//copy each feature start position in each node
 		manager.MemcpyDeviceToDeviceAsync(manager.m_pFeaStartPos, bagManager.m_pEachFeaStartPosEachNodeEachBag_d + bagId * bagManager.m_maxNumSplittable * bagManager.m_numFea,
-										sizeof(long long) * nNumofFeature, pStream);
+										sizeof(unsigned int) * nNumofFeature, pStream);
 		//copy # of feature values of each feature in each node
 		manager.MemcpyDeviceToDeviceAsync(manager.m_pDNumofKeyValue, bagManager.m_pEachFeaLenEachNodeEachBag_d + bagId * bagManager.m_maxNumSplittable * bagManager.m_numFea,
 									    sizeof(int) * nNumofFeature, pStream);
@@ -197,9 +197,9 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 	int *pnKey_d;
 	int keyFlag = 0;
 	checkCudaErrors(cudaMalloc((void**)&pnKey_d, bagManager.m_numFeaValue * sizeof(int)));
-	long long *pTempEachFeaStartEachNode = bagManager.m_pEachFeaStartPosEachNodeEachBag_d + bagId * bagManager.m_maxNumSplittable * bagManager.m_numFea;
-	long long *pTempEachFeaStartEachNode_h = new long long[totalNumArray];
-	checkCudaErrors(cudaMemcpy(pTempEachFeaStartEachNode_h, pTempEachFeaStartEachNode, sizeof(long long) * totalNumArray, cudaMemcpyDeviceToHost));
+	unsigned int *pTempEachFeaStartEachNode = bagManager.m_pEachFeaStartPosEachNodeEachBag_d + bagId * bagManager.m_maxNumSplittable * bagManager.m_numFea;
+	unsigned int *pTempEachFeaStartEachNode_h = new unsigned int[totalNumArray];
+	checkCudaErrors(cudaMemcpy(pTempEachFeaStartEachNode_h, pTempEachFeaStartEachNode, sizeof(unsigned int) * totalNumArray, cudaMemcpyDeviceToHost));
 	for(int m = 0; m < totalNumArray; m++){
 		unsigned int arrayLen = bagManager.m_pEachFeaLenEachNodeEachBag_dh[m];
 		unsigned int arrayStartPos = pTempEachFeaStartEachNode_h[m];

@@ -116,7 +116,7 @@ int main(int argc, char *argv[])
 	int *pInsId = new int[numFeaValue];
 	float_point *pdValue = new float_point[numFeaValue];
 	int *pNumofKeyValue = new int[numFea];
-	long long *plFeaStartPos = new long long[numFea];//get start position of each feature
+	unsigned int *plFeaStartPos = new unsigned int[numFea];//get start position of each feature
 
 	//instances for prediction
 	int *pFeaId = new int[numFeaValue];
@@ -201,7 +201,6 @@ int main(int argc, char *argv[])
 	//initialise index computer object
 	IndexComputer indexCom;
 	indexCom.m_totalFeaValue = numFeaValue;
-	indexCom.m_pFeaStartPos = plFeaStartPos;
 	indexCom.m_total_copy = 0;
 	indexCom.AllocMem(numIns, numFea, maxNumofSplittableNode);
 
@@ -209,7 +208,7 @@ int main(int argc, char *argv[])
 	cudaMemcpy(memAllocator.m_pDInsId, pInsId, numFeaValue * sizeof(int), cudaMemcpyHostToDevice);
 	cudaMemcpy(memAllocator.m_pdDFeaValue, pdValue, numFeaValue * sizeof(float_point), cudaMemcpyHostToDevice);
 	cudaMemcpy(memAllocator.m_pDNumofKeyValue, pNumofKeyValue, numFea * sizeof(int), cudaMemcpyHostToDevice);
-	cudaMemcpy(memAllocator.m_pFeaStartPos, plFeaStartPos, numFea * sizeof(long long), cudaMemcpyHostToDevice);
+	cudaMemcpy(memAllocator.m_pFeaStartPos, plFeaStartPos, numFea * sizeof(unsigned int), cudaMemcpyHostToDevice);
 
 	//copy instance key-value to device memory for prediction
 	cudaMemcpy(memAllocator.m_pDFeaId, pFeaId, numFeaValue * sizeof(int), cudaMemcpyHostToDevice);
