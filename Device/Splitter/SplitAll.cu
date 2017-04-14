@@ -209,12 +209,11 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 									  bagManager.m_pNewSplittableNodeEachBag + bagId * bagManager.m_maxNumSplittable,
 									  bagManager.m_pNewNodeStatEachBag + bagId * bagManager.m_maxNumSplittable,
 									  	  bagManager.m_pSNIdToBuffIdEachBag + bagId * bagManager.m_maxNumSplittable,
-									  //manager.m_pSNodeStat, snManager.m_pNumofNewNode, manager.m_pBuffIdVec, manager.m_pNumofBuffId,
 									  bagManager.m_pSNodeStatEachBag + bagId * bagManager.m_maxNumSplittable,
 									  	  bagManager.m_pNumofNewNodeTreeOnTrainingEachBag + bagId,
 									  	  bagManager.m_pPartitionId2SNPosEachBag + bagId * bagManager.m_maxNumSplittable, bagManager.m_pNumofBuffIdEachBag + bagId,
-									  //manager.m_maxNumofSplittable, manager.m_nSNLock);
-									  bagManager.m_maxNumSplittable, bagManager.m_nSNLockEachBag + bagId);
+									  bagManager.m_maxNumSplittable, bagManager.m_nSNLockEachBag + bagId,
+									  preMaxNodeId);
 		cudaStreamSynchronize((*(cudaStream_t*)pStream));
 		clock_t update_new_sp_end = clock();
 		total_update_new_splittable_t += (update_new_sp_end - update_new_sp_start);

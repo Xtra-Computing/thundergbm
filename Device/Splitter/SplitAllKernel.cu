@@ -290,7 +290,7 @@ __global__ void InsToNewNodeByDefault(TreeNode *pAllTreeNode, int *pInsIdToNodeI
 
 __global__ void UpdateNewSplittable(TreeNode *pNewSplittableNode, nodeStat *pNewNodeStat, int *pSNIdToBuffId,
 								   	    nodeStat *pSNodeStat, int *pNumofNewNode, int *pPartitionId2SNPos, int *pPartitionCounter,
-								   	    int maxNumofSplittable, int *pnLock)
+								   	    int maxNumofSplittable, int *pnLock, int preMaxNodeId)
 {
 	int numofNewNode = *pNumofNewNode;
 	int nGlobalThreadId = (blockIdx.y * gridDim.x + blockIdx.x) * blockDim.x + threadIdx.x;
@@ -303,29 +303,17 @@ __global__ void UpdateNewSplittable(TreeNode *pNewSplittableNode, nodeStat *pNew
 	ECHECKER(nid);
 
 
-	bool bLeaveLoop = false;
-	while(bLeaveLoop == false)
-	{
-		//critical region when assigning hash value
-		if(atomicExch(pnLock, 1) == 0)
-		{
-			bool bIsNew = false;
-			int snPos = AssignHashValue(pSNIdToBuffId, nid, maxNumofSplittable, bIsNew);//#### can't be simply replaced by "nid%maxSN"
-			if(snPos != nid % maxNumofSplittable)
-				printf("oh shit ###################################\n");
+	bool bIsNew = false;
+	int snPos = AssignHashValue(pSNIdToBuffId, nid, maxNumofSplittable, bIsNew);//#### can't be simply replaced by "nid%maxSN"
+	if(snPos != nid % maxNumofSplittable)
+		printf("oh shit ###################################\n");
 
-			ECHECKER(snPos);
-			pSNodeStat[snPos] = pNewNodeStat[nGlobalThreadId];
-			if(bIsNew == true)
-			{
-				int partitionId = atomicAdd(pPartitionCounter, 1);
-				ECHECKER(partitionId);
-				pPartitionId2SNPos[partitionId] = snPos;
-			}
-			bLeaveLoop = true;
-			atomicExch(pnLock, 0);
-		}
-	}
+	ECHECKER(snPos);
+	pSNodeStat[snPos] = pNewNodeStat[nGlobalThreadId];
+
+	ECHECKER(nid - preMaxNodeId - 1);
+	pPartitionId2SNPos[nid - preMaxNodeId - 1] = snPos;
+
 	//for computing node size
 	pNewSplittableNode[nGlobalThreadId].numIns = pNewNodeStat[nGlobalThreadId].sum_hess;//Will this have problems? sum_hess is count on fvalue != 0, while numIns may be bigger.
 }
