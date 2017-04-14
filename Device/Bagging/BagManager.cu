@@ -109,6 +109,8 @@ int BagManager::m_maxNumUsedFeaATree = -1;	//for reserving GPU memory; maximum n
 //temp host variable
 float_point *BagManager::m_pTrueLabel_h = NULL;
 
+int *BagManager::m_pPreMaxNid_h = NULL;
+
 int *BagManager::m_pHashFeaIdToDenseInsPosBag = NULL;	//hash map for used feature ids of all trees to the dense instance position
 int *BagManager::m_pSortedUsedFeaIdBag = NULL;			//sorted used feature ids
 
@@ -283,6 +285,8 @@ void BagManager::AllocMem()
 
 	/***** memory for others******/
 	checkCudaErrors(cudaMalloc((void**)&m_pSNBufferEachBag, sizeof(TreeNode) * m_maxNumSplittable * m_numBag));
+
+	m_pPreMaxNid_h = new int[m_numBag];
 }
 
 void BagManager::FreeMem()

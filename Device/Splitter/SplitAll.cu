@@ -37,8 +37,9 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 {
 	int preMaxNodeId = m_nNumofNode - 1;
 	PROCESS_ERROR(preMaxNodeId >= 0);
-
 	BagManager bagManager;
+	bagManager.m_pPreMaxNid_h[bagId] = preMaxNodeId;
+
 	GBDTGPUMemManager manager;
 //	SNGPUManager snManager;//splittable node memory manager
 
