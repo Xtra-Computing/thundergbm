@@ -61,7 +61,7 @@ int *BagManager::m_pEachFeaLenEachNodeEachBag_dh = NULL;//each feature value len
 
 //for pinned memory; for computing indices in multiple level tree
 unsigned int *BagManager::m_pIndicesEachBag_d = NULL;	//indices for multiple level tree of each bag
-long long *BagManager::m_pNumFvalueEachNodeEachBag_d = NULL;	//the number of feature values of each (splittable?) node
+unsigned int *BagManager::m_pNumFvalueEachNodeEachBag_d = NULL;	//the number of feature values of each (splittable?) node
 unsigned int *BagManager::m_pFvalueStartPosEachNodeEachBag_d = NULL;//the start position of each node
 unsigned int *BagManager::m_pEachFeaStartPosEachNodeEachBag_d = NULL;//the start position of each feature in a node
 int *BagManager::m_pEachFeaLenEachNodeEachBag_d = NULL;	//the number of values of each feature in each node
@@ -218,7 +218,7 @@ void BagManager::AllocMem()
 
 	//corresponding to pinned memory; for computing indices of more than one level trees
 	checkCudaErrors(cudaMalloc((void**)&m_pIndicesEachBag_d, sizeof(unsigned int) * m_numFeaValue * m_numBag));
-	checkCudaErrors(cudaMalloc((void**)&m_pNumFvalueEachNodeEachBag_d, sizeof(long long) * m_maxNumSplittable * m_numBag));
+	checkCudaErrors(cudaMalloc((void**)&m_pNumFvalueEachNodeEachBag_d, sizeof(unsigned int) * m_maxNumSplittable * m_numBag));
 	checkCudaErrors(cudaMalloc((void**)&m_pFvalueStartPosEachNodeEachBag_d, sizeof(unsigned int) * m_maxNumSplittable * m_numBag));
 	checkCudaErrors(cudaMalloc((void**)&m_pEachFeaStartPosEachNodeEachBag_d, sizeof(unsigned int) * m_maxNumSplittable * m_numBag * m_numFea));
 	checkCudaErrors(cudaMalloc((void**)&m_pEachFeaLenEachNodeEachBag_d, sizeof(int) * m_maxNumSplittable * m_numBag * m_numFea));

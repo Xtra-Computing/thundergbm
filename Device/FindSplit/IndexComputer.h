@@ -21,7 +21,7 @@ public:
 	static long long m_total_copy;
 
 	//pinned memory
-	static long long *m_pNumFeaValueEachNode_dh;
+	static unsigned int *m_pNumFeaValueEachNode_dh;
 	static int *m_pPosToBuffId_dh;
 
 	//device memory
@@ -43,6 +43,7 @@ public:
 	static void ComputeIdxGPU(int numNode, int maxNumSN, int bagId);
 
 	static void AllocMem(int nNumofExamples, int nNumofFeatures, int maxNumofSpittableNode);
+	static void FreeMem();
 };
 
 

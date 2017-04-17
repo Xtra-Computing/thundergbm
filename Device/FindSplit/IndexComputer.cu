@@ -29,7 +29,7 @@ int IndexComputer::m_numFea = -1;	//number of features
 int IndexComputer::m_maxNumofSN = -1;
 long long IndexComputer::m_total_copy = -1;
 
-long long *IndexComputer::m_pNumFeaValueEachNode_dh = NULL;	//# of feature values of each node
+unsigned int *IndexComputer::m_pNumFeaValueEachNode_dh = NULL;	//# of feature values of each node
 unsigned int *IndexComputer::pPartitionMarker = NULL;
 unsigned int *IndexComputer::m_pnKey = NULL;
 
@@ -88,7 +88,7 @@ __global__ void PartitionHistogram(unsigned int *pPartitionMarker, unsigned int 
 	}
 }
 
-__global__ void ComputeNumFvalueEachNode(const unsigned int *pHistogram_d, unsigned int totalNumThd, long long *pNumFeaValueEachSN){
+__global__ void ComputeNumFvalueEachNode(const unsigned int *pHistogram_d, unsigned int totalNumThd, unsigned int *pNumFeaValueEachSN){
 	//update number of feature values of each new node
 	pNumFeaValueEachSN[threadIdx.x] = pHistogram_d[threadIdx.x * totalNumThd + totalNumThd - 1];
 }
@@ -243,10 +243,6 @@ void IndexComputer::ComputeIdxGPU(int numSNode, int maxNumSN, int bagId){
 	PartitionHistogram<<<numBlkDim, numThdPerBlk, numSNode * numThdPerBlk * sizeof(unsigned int)>>>(pPartitionMarker, m_totalFeaValue, numSNode,
 																	     	 m_numElementEachThd, m_totalNumEffectiveThd, m_pHistogram_d);
 	GETERROR("after PartitionHistogram");
-	for(int i = 0; i < numSNode; i++){
-		int flag = (i % 2 == 0 ? 0:(-1));
-		checkCudaErrors(cudaMemset(m_pnKey + i * m_totalNumEffectiveThd, flag, sizeof(unsigned int) * m_totalNumEffectiveThd));
-	}
 	//compute prefix sum for one array
 	thrust::inclusive_scan_by_key(thrust::system::cuda::par, m_pnKey, m_pnKey + m_totalNumEffectiveThd * numSNode,
 								  m_pHistogram_d, m_pHistogram_d);//in place prefix sum
@@ -254,12 +250,8 @@ void IndexComputer::ComputeIdxGPU(int numSNode, int maxNumSN, int bagId){
 	//get number of fvalue in each partition (i.e. each new node)
 	ComputeNumFvalueEachNode<<<1, numSNode>>>(m_pHistogram_d, m_totalNumEffectiveThd, m_pNumFeaValueEachNode_dh);
 	cudaDeviceSynchronize();//this is very important
-	unsigned int *temp4Debugging = new unsigned int[numSNode];
-	for(int i = 0; i < numSNode; i++){
-		temp4Debugging[i] = m_pNumFeaValueEachNode_dh[i];
-	}
 
-	checkCudaErrors(cudaMemcpy(m_pEachNodeStartPos_d, temp4Debugging, sizeof(unsigned int) * numSNode, cudaMemcpyHostToDevice));
+	checkCudaErrors(cudaMemcpy(m_pEachNodeStartPos_d, m_pNumFeaValueEachNode_dh, sizeof(unsigned int) * numSNode, cudaMemcpyHostToDevice));
 	thrust::exclusive_scan(thrust::system::cuda::par, m_pEachNodeStartPos_d, m_pEachNodeStartPos_d + numSNode, m_pEachNodeStartPos_d);
 
 	//write to gather index
@@ -285,7 +277,6 @@ void IndexComputer::ComputeIdxGPU(int numSNode, int maxNumSN, int bagId){
 
 	//get feature values start position of each new node
 	checkCudaErrors(cudaMemcpy(pTmpFvalueStartPosEachNode, m_pEachNodeStartPos_d, sizeof(unsigned int) * numSNode, cudaMemcpyDeviceToDevice));
-	delete[] temp4Debugging;
 }
 
 /**
@@ -296,7 +287,7 @@ void IndexComputer::AllocMem(int nNumofExamples, int nNumofFeatures, int maxNumo
 	m_numFea = nNumofFeatures;
 	m_maxNumofSN = maxNumofSplittableNode;
 
-	checkCudaErrors(cudaMallocHost((void**)&m_pNumFeaValueEachNode_dh, sizeof(long long) * m_maxNumofSN));
+	checkCudaErrors(cudaMallocHost((void**)&m_pNumFeaValueEachNode_dh, sizeof(unsigned int) * m_maxNumofSN));
 
 	checkCudaErrors(cudaMalloc((void**)&pPartitionMarker, sizeof(unsigned int) * m_totalFeaValue));
 
@@ -305,9 +296,31 @@ void IndexComputer::AllocMem(int nNumofExamples, int nNumofFeatures, int maxNumo
 
 	//histogram based partitioning
 	m_numElementEachThd = 16;
+	if(m_maxNumofSN > m_numElementEachThd)
+		m_numElementEachThd = m_maxNumofSN;//make sure the memory usage is the same as the training data set
 	m_totalNumEffectiveThd = Ceil(m_totalFeaValue, m_numElementEachThd);
 	checkCudaErrors(cudaMalloc((void**)&m_pHistogram_d, sizeof(unsigned int) * m_maxNumofSN * m_totalNumEffectiveThd));
 	checkCudaErrors(cudaMalloc((void**)&m_pnKey, sizeof(unsigned int) * m_maxNumofSN * m_totalNumEffectiveThd));
+	for(int i = 0; i < m_maxNumofSN; i++){//memset for prefix sum on each partition
+		int flag = (i % 2 == 0 ? 0:(-1));
+		checkCudaErrors(cudaMemset(m_pnKey + i * m_totalNumEffectiveThd, flag, sizeof(unsigned int) * m_totalNumEffectiveThd));
+	}
 
 	checkCudaErrors(cudaMalloc((void**)&m_pEachNodeStartPos_d, sizeof(unsigned int) * m_maxNumofSN));
+}
+
+//free memory
+void IndexComputer::FreeMem()
+{
+
+	checkCudaErrors(cudaFree(pPartitionMarker));
+	checkCudaErrors(cudaFree(m_pArrangedInsId_d));
+	checkCudaErrors(cudaFree(m_pArrangedFvalue_d));
+	//histogram based partitioning
+	checkCudaErrors(cudaFree(m_pHistogram_d));
+	checkCudaErrors(cudaFree(m_pnKey));
+	checkCudaErrors(cudaFree(m_pEachNodeStartPos_d));
+
+	//cause error here; so we do use the following line
+	//checkCudaErrors(cudaFree(m_pNumFeaValueEachNode_dh));
 }

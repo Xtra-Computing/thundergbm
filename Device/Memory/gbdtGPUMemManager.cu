@@ -33,7 +33,7 @@ int *GBDTGPUMemManager::m_pSortedUsedFeaId = NULL;			//sorted used feature ids
 int GBDTGPUMemManager::m_maxUsedFeaInTrees = -1;		//maximum number of used features in all the trees
 
 int *GBDTGPUMemManager::m_pInsIdToNodeId = NULL; 		//map instance id to node id
-long long GBDTGPUMemManager::m_totalNumofValues = -1;
+unsigned int GBDTGPUMemManager::m_totalNumofValues = 0;
 int GBDTGPUMemManager::m_numofIns = -1;
 int GBDTGPUMemManager::m_numofFea = -1;
 

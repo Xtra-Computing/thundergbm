@@ -179,7 +179,7 @@ __global__ void FirstFeaGain(const unsigned int *pEachFeaStartPosEachNode, int n
  * @brief: pick best feature of this batch for all the splittable nodes
  * Each block.y processes one node, a thread processes a reduction.
  */
-__global__ void PickLocalBestSplitEachNode(const long long *pnNumFeaValueEachNode, const unsigned int *pFeaStartPosEachNode,
+__global__ void PickLocalBestSplitEachNode(const unsigned int *pnNumFeaValueEachNode, const unsigned int *pFeaStartPosEachNode,
 										   const float_point *pGainOnEachFeaValue,
 								   	   	   float_point *pfLocalBestGain, int *pnLocalBestGainKey)
 {
@@ -198,7 +198,7 @@ __global__ void PickLocalBestSplitEachNode(const long long *pnNumFeaValueEachNod
 		pnLocalBestGainKey[blockId] = -1;
 	}
 
-	long long numValueThisNode = pnNumFeaValueEachNode[snId];//get the number of feature value of this node
+	unsigned int numValueThisNode = pnNumFeaValueEachNode[snId];//get the number of feature value of this node
 	long long tidForEachNode = (blockIdx.y * gridDim.x + blockIdx.x) * blockDim.x + threadIdx.x;
 
 	unsigned int nPos = pFeaStartPosEachNode[snId] + tidForEachNode;//feature value gain position

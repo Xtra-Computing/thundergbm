@@ -104,7 +104,7 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 	
 		//copy # of feature values of each node
 		manager.MemcpyHostToDeviceAsync(indexComp.m_pNumFeaValueEachNode_dh, bagManager.m_pNumFvalueEachNodeEachBag_d + bagId * bagManager.m_maxNumSplittable,
-										sizeof(long long) * bagManager.m_maxNumSplittable, pStream);
+										sizeof(unsigned int) * bagManager.m_maxNumSplittable, pStream);
 		//copy feature value start position of each node
 		//copy (in pinned mem) of feature values for each feature in each node
 		manager.MemcpyHostToDeviceAsync(bagManager.m_pEachFeaLenEachNodeEachBag_d + bagId * bagManager.m_maxNumSplittable * bagManager.m_numFea,
@@ -115,7 +115,7 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 		clock_t start_gd = clock();
 		//scatter operation
 		//total fvalue to load may be smaller than m_totalFeaValue, due to some nodes becoming leaves.
-		int numFvToLoad = (int)(pFeaValueStartPosEachNode_h[numofSNode - 1]) + (int)(indexComp.m_pNumFeaValueEachNode_dh[numofSNode - 1]);
+		int numFvToLoad = pFeaValueStartPosEachNode_h[numofSNode - 1] + indexComp.m_pNumFeaValueEachNode_dh[numofSNode - 1];
 		LoadGDHessFvalue<<<dimNumofBlockToLoadGD, blockSizeLoadGD, 0, (*(cudaStream_t*)pStream)>>>(bagManager.m_pInsGradEachBag + bagId * bagManager.m_numIns, 
 															   bagManager.m_pInsHessEachBag + bagId * bagManager.m_numIns, 
 															   bagManager.m_numIns, indexComp.m_pArrangedInsId_d, indexComp.m_pArrangedFvalue_d,
@@ -154,7 +154,7 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 		clock_t comIdx_start = clock();
 		//copy # of feature values of a node
 		manager.MemcpyHostToDeviceAsync(&manager.m_totalNumofValues, bagManager.m_pNumFvalueEachNodeEachBag_d + bagId * bagManager.m_maxNumSplittable,
-										sizeof(long long), pStream);
+										sizeof(unsigned int), pStream);
 		//copy feature value start position of each node
 		manager.MemcpyDeviceToDeviceAsync(manager.m_pFeaStartPos, bagManager.m_pFvalueStartPosEachNodeEachBag_d + bagId * bagManager.m_maxNumSplittable,
 									 	 sizeof(unsigned int), pStream);
@@ -218,6 +218,7 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 	thrust::inclusive_scan_by_key(thrust::system::cuda::par, pnKey_d, pnKey_d + bagManager.m_numFeaValue, pTempHessSum, pTempHessSum);
 
 	cudaStreamSynchronize((*(cudaStream_t*)pStream));
+	checkCudaErrors(cudaFree(pnKey_d));
 	clock_t end_scan = clock();
 	total_scan_t += (end_scan - start_scan);
 
@@ -259,7 +260,7 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 //	cout << "searching" << endl;
 	clock_t start_search = clock();
 	//compute # of blocks for each node
-	int maxNumFeaValueOneNode = -1;
+	unsigned int maxNumFeaValueOneNode = 0;
 	for(int n = 0; n < numofSNode; n++)
 	{//find the node with the max number of element
 		if(maxNumFeaValueOneNode < indexComp.m_pNumFeaValueEachNode_dh[n])

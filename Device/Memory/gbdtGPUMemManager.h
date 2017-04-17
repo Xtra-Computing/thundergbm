@@ -38,7 +38,7 @@ public:
 	static int m_maxUsedFeaInTrees;
 
 	static int *m_pInsIdToNodeId;
-	static long long m_totalNumofValues;
+	static unsigned int m_totalNumofValues;
 	static int m_numofIns, m_numofFea;
 
 	//memory for gradient and hessian

@@ -44,9 +44,6 @@ int main(int argc, char *argv[])
 	
 	cout << "processing this file: " << strFileName << endl;
 
-//	mainPureHost(strFileName);
-//	return 1;
-
 	CUcontext context;
 	if(!InitCUDA(context))
 	{
@@ -298,14 +295,13 @@ int main(int argc, char *argv[])
 
 	memAllocator.releaseHostMemory();
 	ffManager.freeMemForFindFea();
+	indexCom.FreeMem();
 
-	ReleaseCuda(context);
 	//free host memory
 	delete []pInsId;
 	delete []plFeaStartPos;
-//	cudaFreeHost(indexCom.m_pIndices_dh);
-//	cudaFreeHost(indexCom.m_insIdToNodeId_dh);
 
+	ReleaseCuda(context);
 	return 0;
 }
 

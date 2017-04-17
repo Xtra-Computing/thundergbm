@@ -27,7 +27,7 @@ __global__ void ComputeGainDense(const nodeStat *pSNodeStat, const unsigned int 
 							const float_point *pGDPrefixSumOnEachFeaValue, const float_point *pHessPrefixSumOnEachFeaValue,
 							const float_point *pDenseFeaValue, int numofDenseValue, float_point *pGainOnEachFeaValue);
 __global__ void FirstFeaGain(const unsigned int *pEachFeaStartPosEachNode, int numFeaStartPos, float_point *pGainOnEachFeaValue);
-__global__ void PickLocalBestSplitEachNode(const long long *pnNumFeaValueEachNode, const unsigned int *pFeaStartPosEachNode,
+__global__ void PickLocalBestSplitEachNode(const unsigned int *pnNumFeaValueEachNode, const unsigned int *pFeaStartPosEachNode,
 										   const float_point *pGainOnEachFeaValue,
 								   	   	   float_point *pfLocalBestGain, int *pnLocalBestGainKey);
 __global__ void PickGlobalBestSplitEachNode(const float_point *pfLocalBestGain, const int *pnLocalBestGainKey,

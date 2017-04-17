@@ -41,7 +41,6 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 	bagManager.m_pPreMaxNid_h[bagId] = preMaxNodeId;
 
 	GBDTGPUMemManager manager;
-//	SNGPUManager snManager;//splittable node memory manager
 
 	//compute the base_weight of tree node, also determines if a node is a leaf.
 //	cout << "compute weight" << endl;
