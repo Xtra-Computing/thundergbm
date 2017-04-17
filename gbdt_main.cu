@@ -18,9 +18,7 @@
 #include "DeviceHost/svm-shared/fileOps.h"
 
 #include "Device/Memory/gbdtGPUMemManager.h"
-#include "Device/Memory/SNMemManager.h"
 #include "Device/Memory/dtMemManager.h"
-#include "Device/Memory/findFeaMemManager.h"
 #include "Device/Bagging/BagManager.h"
 #include "Device/GPUTask/GBDTTask.h"
 #include "Device/DeviceTrainer.h"
@@ -45,8 +43,7 @@ int main(int argc, char *argv[])
 	cout << "processing this file: " << strFileName << endl;
 
 	CUcontext context;
-	if(!InitCUDA(context))
-	{
+	if(!InitCUDA(context)){
 		cerr << "cannot initialise GPU" << endl;
 		return 0;
 	}
@@ -84,15 +81,13 @@ int main(int argc, char *argv[])
 	vector<vector<KeyValue> > v_vInsSparse;
 	clock_t start_init, end_init;
 	//read the file the first time
-	if(bBufferFileExist == false)
-	{
+	if(bBufferFileExist == false){
 		dataReader.GetDataInfo(strFileName, numFea, numIns, numFeaValue);
 		dataReader.ReadLibSVMFormatSparse(v_vInsSparse, v_fLabel, strFileName, numFea, numIns);
 		trainer.m_vvInsSparse = v_vInsSparse;//later used in sorting values for each feature
 		trainer.m_vTrueValue = v_fLabel;
 	}
-	else
-	{
+	else{
 		//read data set info
 		FileBuffer::ReadDataInfo(strFolder, numFea, numIns, numFeaValue);
 	}
@@ -126,10 +121,8 @@ int main(int argc, char *argv[])
 	if(bBufferFileExist == false)
 	{
 		KeyValue::VecToArray(trainer.splitter->m_vvFeaInxPair, pInsId, pdValue, pNumofKeyValue, plFeaStartPos);
-//		KeyValue::TestVecToArray(trainer.splitter->m_vvFeaInxPair, pInsId, pdValue, pNumofKeyValue);
 		//store sparse instances to GPU memory for prediction
 		KeyValue::VecToArray(trainer.m_vvInsSparse, pFeaId, pfFeaValue, pNumofFea, plInsStartPos);
-	//	KeyValue::TestVecToArray(trainer.m_vvInsSparse, pFeaId, pdFeaValue, pNumofFea);
 
 		for(int i = 0; i < numIns; i++)
 		{
@@ -150,21 +143,6 @@ int main(int argc, char *argv[])
 								   pFeaId, pfFeaValue, pNumofFea, plInsStartPos,
 								   pTrueLabel,
 								   numFea, numIns, numFeaValue);
-
-#if 0
-		dataReader.ReadLibSVMFormatSparse(v_vInsSparse, v_fLabel, strFileName, numFea, numIns);
-		vector<vector<KeyValue> > m_vvFeaInxPair;
-		KeyValue::SortFeaValue(numFea, v_vInsSparse, m_vvFeaInxPair);
-		KeyValue::TestVecToArray(m_vvFeaInxPair, pInsId, pdValue, pNumofKeyValue);
-		//store sparse instances to GPU memory for prediction
-		printf("# of ins=%d\n", v_vInsSparse.size());
-		KeyValue::TestVecToArray(v_vInsSparse, pFeaId, pfFeaValue, pNumofFea);
-
-		for(int i = 0; i < numIns; i++)
-		{
-			PROCESS_ERROR(pTrueLabel[i] == v_fLabel[i]);
-		}
-#endif
 	}
 	bagManager.m_pTrueLabel_h = pTrueLabel;
 
@@ -184,11 +162,6 @@ int main(int argc, char *argv[])
 	memAllocator.allocMemForSplittableNode(maxNumofSplittableNode);//use in find features (i.e. best split points) process
 	memAllocator.allocHostMemory();//allocate reusable host memory
 	//allocate numofFeature*numofSplittabeNode
-
-	FFMemManager ffManager;
-	ffManager.m_totalNumFeaValue = numFeaValue;
-	ffManager.getMaxNumofSN(numFeaValue, maxNumofSplittableNode);
-	ffManager.allocMemForFindFea(numFeaValue, numIns, numFea, maxNumofSplittableNode);
 
 	begin_whole = clock();
 	cout << "start training..." << endl;
@@ -294,7 +267,6 @@ int main(int argc, char *argv[])
 
 
 	memAllocator.releaseHostMemory();
-	ffManager.freeMemForFindFea();
 	indexCom.FreeMem();
 
 	//free host memory

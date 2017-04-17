@@ -14,7 +14,6 @@
 #include "../Preparator.h"
 #include "../Hashing.h"
 #include "../Bagging/BagManager.h"
-#include "../Memory/SNMemManager.h"
 #include "../Memory/gbdtGPUMemManager.h"
 #include "../../DeviceHost/MyAssert.h"
 #include "../../SharedUtility/KernelConf.h"
@@ -42,8 +41,6 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 
 	GBDTGPUMemManager manager;
 
-	//compute the base_weight of tree node, also determines if a node is a leaf.
-//	cout << "compute weight" << endl;
 	KernelConf conf;
 	int threadPerBlock;
 	dim3 dimNumofBlock;
@@ -95,9 +92,7 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 //	cout << "get unique fid" << endl;
 	//find all used unique feature ids. We will use these features to organise instances into new nodes.
 	manager.MemsetAsync(bagManager.m_pFeaIdToBuffIdEachBag + bagId * bagManager.m_maxNumUsedFeaATree, -1, sizeof(int) * bagManager.m_maxNumUsedFeaATree, pStream);
-	//manager.Memset(snManager.m_pUniqueFeaIdVec, -1, sizeof(int) * snManager.m_maxNumofUsedFea);
 	manager.MemsetAsync(bagManager.m_pUniqueFeaIdVecEachBag + bagId * bagManager.m_maxNumUsedFeaATree, -1, sizeof(int) * bagManager.m_maxNumUsedFeaATree, pStream);
-	//manager.Memset(snManager.m_pNumofUniqueFeaId, 0, sizeof(int));
 	manager.MemsetAsync(bagManager.m_pNumofUniqueFeaIdEachBag + bagId, 0, sizeof(int), pStream);
 	if(dimNumofBlock.x > 1 || dimNumofBlock.y > 1 || dimNumofBlock.z > 1)
 	{
@@ -122,7 +117,6 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 
 	//for each used feature to move instances to new nodes
 	int numofUniqueFea = -1;
-	//manager.MemcpyDeviceToHost(snManager.m_pNumofUniqueFeaId, &numofUniqueFea, sizeof(int));
 	manager.MemcpyDeviceToHostAsync(bagManager.m_pNumofUniqueFeaIdEachBag + bagId, &numofUniqueFea, sizeof(int), pStream);
 
 	if(numofUniqueFea == 0)
@@ -196,10 +190,8 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 //		printf("new sn=%d, blocksize=%d, blocks=%d\n", numofNewSplittableNode, blockSizeNSN, dimGridThreadForEachNewSN.x * dimGridThreadForEachNewSN.y * dimGridThreadForEachNewSN.z);
 //		cout << "update new splittable" << endl;
 		//reset nodeId to bufferId
-		//manager.Memset(manager.m_pSNIdToBuffId, -1, sizeof(int) * manager.m_maxNumofSplittable);
 		manager.MemsetAsync(bagManager.m_pSNIdToBuffIdEachBag + bagId * bagManager.m_maxNumSplittable, -1,
 							sizeof(int) * bagManager.m_maxNumSplittable, pStream);
-		//manager.Memset(manager.m_pNumofBuffId, 0, sizeof(int));
 		manager.MemsetAsync(bagManager.m_pNumofBuffIdEachBag + bagId, 0, sizeof(int), pStream);
 		//reset nodeStat
 		manager.MemsetAsync(bagManager.m_pSNodeStatEachBag + bagId * bagManager.m_maxNumSplittable, 0,
@@ -219,7 +211,6 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 		total_update_new_splittable_t += (update_new_sp_end - update_new_sp_start);
 		GETERROR("in UpdateNewSplittable");
 
-		//manager.MemcpyDeviceToDevice(snManager.m_pNewSplittableNode, manager.m_pSplittableNode, sizeof(TreeNode) * manager.m_maxNumofSplittable);
 		manager.MemcpyDeviceToDeviceAsync(bagManager.m_pNewSplittableNodeEachBag + bagId * bagManager.m_maxNumSplittable,
 									 bagManager.m_pSplittableNodeEachBag + bagId * bagManager.m_maxNumSplittable,
 									 sizeof(TreeNode) * bagManager.m_maxNumSplittable, pStream);

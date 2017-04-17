@@ -8,7 +8,6 @@
 
 #include "Preparator.h"
 #include "Memory/gbdtGPUMemManager.h"
-#include "Memory/SNMemManager.h"
 #include "../DeviceHost/MyAssert.h"
 #include "Splitter/DeviceSplitter.h"
 #include "Hashing.h"
