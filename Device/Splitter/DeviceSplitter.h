@@ -44,9 +44,6 @@ public:
 	virtual void SplitAll(vector<TreeNode*> &splittableNode, const vector<SplitPoint> &vBest, RegTree &tree, int &m_nNumofNode,
 				  	  	  const vector<nodeStat> &rchildStat, const vector<nodeStat> &lchildStat, bool bLastLevel, void *pStream, int bagId);
 	virtual void ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> > & vvInsSparse,  void *stream, int bagId);
-
-private:
-	void ComputeMaxNumValuePerFea(int *pnEachFeaLen, int numFea, int bagId);
 };
 
 

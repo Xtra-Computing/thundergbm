@@ -46,15 +46,17 @@ unsigned int *IndexComputer::m_pEachNodeStartPos_d;
   *@brief: mark feature values beloning to node with id=snId by 1
   */
 __global__ void MarkPartition(int preMaxNid, int *pFvToInsId, int *pInsIdToNodeId,
-							int totalNumFv,	int maxNumSN, unsigned int *pParitionMarker){
+							int totalNumFv, unsigned int *pParitionMarker){
 	int gTid = GLOBAL_TID();
 	if(gTid >= totalNumFv)//thread has nothing to mark 
 		return;
 
 	unsigned int insId = pFvToInsId[gTid];
 	int nid = pInsIdToNodeId[insId];
-	if(nid < 0)
+	if(nid < 0){//instance in leaf node
+		pParitionMarker[gTid] = 0xffff;
 		return;
+	}
 	int partitionId = nid - preMaxNid - 1;
 	ECHECKER(partitionId);
 	pParitionMarker[gTid] = partitionId;
@@ -79,6 +81,8 @@ __global__ void PartitionHistogram(unsigned int *pPartitionMarker, unsigned int 
 			break;
 		}
 		int pid = pPartitionMarker[gTid * numEleEachThd + i];
+		if(pid >= numParition)//this is possible, because some elements are "marked" as leaves.
+			continue;//skip this element
 		counters[tid * numParition + pid]++;
 	}
 	//store counters to global memory
@@ -121,6 +125,10 @@ __global__ void CollectGatherIdx(const unsigned int *pPartitionMarker, unsigned 
 		if(elePos >= markerLen)//no element to process
 			return;
 		int pid = pPartitionMarker[elePos];
+		if(pid >= numParition){
+			pGatherIdx[elePos] = 0xffff;
+			continue;//skip this element, as element is marked as leaf.
+		}
 		unsigned int writeIdx = tid * numParition + pid;
 		pGatherIdx[elePos] = eleDst[writeIdx];//element destination ###### can be improved by shared memory
 		eleDst[writeIdx]++;
@@ -130,7 +138,7 @@ __global__ void CollectGatherIdx(const unsigned int *pPartitionMarker, unsigned 
 /**
   *@brief: compute length and start position of each feature in each node
   */
-__global__ void ComputeEachFeaInfo(const unsigned int *pPartitionMarker, const unsigned int *pGatherIdx, int totalNumFvalue,
+__global__ void ComputeEachFeaInfo(const unsigned int *pPartitionMarker, const unsigned int *pGatherIdx,
 								   const unsigned int *pFvalueStartPosEachSN, int numFea,
 								   const unsigned int *pHistogram_d, int totalNumThd,
 								   int *pEachFeaLenEachNode, unsigned int *pEachFeaStartPosEachNode){
@@ -140,6 +148,9 @@ __global__ void ComputeEachFeaInfo(const unsigned int *pPartitionMarker, const u
 	//get pids for this node
 	int start = pFvalueStartPosEachSN[previousPid];
 	int pid1 = pPartitionMarker[start];
+	if(pid1 == 0xffff)//elements are in a leaf
+		return;
+
 	int pid2 = -1;
 	//the difference between pid1 and pid2 is always 1, as they are from the same parent node
 	if(pid1 % 2 == 0)
@@ -224,9 +235,7 @@ __global__ void ComputeEachFeaInfo(const unsigned int *pPartitionMarker, const u
 void IndexComputer::ComputeIdxGPU(int numSNode, int maxNumSN, int bagId){
 	PROCESS_ERROR(m_totalFeaValue > 0 && numSNode > 0 && maxNumSN >= 0 && maxNumSN == m_maxNumofSN);
 	
-	int flags = -1;//all bits are 1
 	BagManager bagManager;
-
 	KernelConf conf;
 	int blockSizeForFvalue;
 	dim3 dimNumofBlockForFvalue;
@@ -234,7 +243,7 @@ void IndexComputer::ComputeIdxGPU(int numSNode, int maxNumSN, int bagId){
 
 	int *pTmpInsIdToNodeId = bagManager.m_pInsIdToNodeIdEachBag + bagId * bagManager.m_numIns;
 	MarkPartition<<<dimNumofBlockForFvalue, blockSizeForFvalue>>>(bagManager.m_pPreMaxNid_h[bagId], m_pArrangedInsId_d, pTmpInsIdToNodeId,
-																  m_totalFeaValue, maxNumSN, pPartitionMarker);
+																  m_totalFeaValue, pPartitionMarker);
 	GETERROR("after MarkPartition");
 
 	dim3 numBlkDim;
@@ -256,6 +265,7 @@ void IndexComputer::ComputeIdxGPU(int numSNode, int maxNumSN, int bagId){
 
 	//write to gather index
 	unsigned int *pTmpGatherIdx = bagManager.m_pIndicesEachBag_d + bagId * bagManager.m_numFeaValue;
+	int flags = -1;//all bits are 1
 	checkCudaErrors(cudaMemset(pTmpGatherIdx, flags, sizeof(unsigned int) * m_totalFeaValue));//when leaves appear, this is effective.
 	CollectGatherIdx<<<numBlkDim, numThdPerBlk, numSNode * numThdPerBlk * sizeof(unsigned int)>>>(pPartitionMarker, m_totalFeaValue,
 												  m_pHistogram_d, m_pEachNodeStartPos_d, numSNode,
@@ -268,8 +278,10 @@ void IndexComputer::ComputeIdxGPU(int numSNode, int maxNumSN, int bagId){
 								  bagId * bagManager.m_maxNumSplittable * bagManager.m_numFea;
 	unsigned int * pTmpEachFeaStartPosEachNode = bagManager.m_pEachFeaStartPosEachNodeEachBag_d +
 											  bagId * bagManager.m_maxNumSplittable * bagManager.m_numFea;
-	int numThd = Ceil(numSNode, 2);
-	ComputeEachFeaInfo<<<1, numThd, numSNode * m_numFea * sizeof(unsigned int)>>>(pPartitionMarker, pTmpGatherIdx, m_totalFeaValue,
+
+	unsigned int numThd;
+	smallReductionKernelConf(numThd, numSNode);//numThd is power of 2 to handle some elements in leaf nodes.
+	ComputeEachFeaInfo<<<1, numThd, numSNode * m_numFea * sizeof(unsigned int)>>>(pPartitionMarker, pTmpGatherIdx,
 										pTmpFvalueStartPosEachNode, m_numFea,
 										m_pHistogram_d, m_totalNumEffectiveThd,
 										pTmpEachFeaLenEachNode, pTmpEachFeaStartPosEachNode);
@@ -321,6 +333,6 @@ void IndexComputer::FreeMem()
 	checkCudaErrors(cudaFree(m_pnKey));
 	checkCudaErrors(cudaFree(m_pEachNodeStartPos_d));
 
-	//cause error here; so we do use the following line
+	//cause error here; so we don't use the following line
 	//checkCudaErrors(cudaFree(m_pNumFeaValueEachNode_dh));
 }

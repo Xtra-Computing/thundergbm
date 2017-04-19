@@ -90,6 +90,8 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 	conf.ConfKernel(indexComp.m_totalFeaValue, blockSizeLoadGD, dimNumofBlockToLoadGD);
 	if(numofSNode > 1)
 	{
+		if(numofSNode == 126)
+			printf("hi\n");
 		clock_t comIdx_start = clock();
 		//compute gather index via GPUs
 		indexComp.ComputeIdxGPU(numofSNode, maxNumofSplittable, bagId);
@@ -187,9 +189,6 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 	//compute the feature with the maximum number of values
 	int totalNumArray = indexComp.m_numFea * numofSNode;
 	cudaStreamSynchronize((*(cudaStream_t*)pStream));//wait until the pinned memory (m_pEachFeaLenEachNodeEachBag_dh) is filled
-	ComputeMaxNumValuePerFea(bagManager.m_pEachFeaLenEachNodeEachBag_dh + bagId * bagManager.m_maxNumSplittable * bagManager.m_numFea, totalNumArray, bagId);
-	//cout << "max # of values per fea is " << bagManager.m_pMaxNumValuePerFeaEachBag[bagId] <<"; # of arrays is " << totalNumArray << endl;
-	cudaDeviceSynchronize();
 
 	//construct keys for exclusive scan
 	int *pnKey_d;
@@ -201,6 +200,10 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 	for(int m = 0; m < totalNumArray; m++){
 		unsigned int arrayLen = bagManager.m_pEachFeaLenEachNodeEachBag_dh[m];
 		unsigned int arrayStartPos = pTempEachFeaStartEachNode_h[m];
+		if(arrayLen == 0){
+			PROCESS_ERROR(arrayStartPos == pTempEachFeaStartEachNode_h[m - 1]);
+			continue;
+		}
 		checkCudaErrors(cudaMemset(pnKey_d + arrayStartPos, keyFlag, sizeof(int) * arrayLen));
 		if(keyFlag == 0)
 			keyFlag = -1;

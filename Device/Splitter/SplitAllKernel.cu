@@ -6,7 +6,6 @@
  *		@brief: 
  */
 
-#include <stdio.h>
 #include "DeviceSplitAllKernel.h"
 #include "../Memory/gbdtGPUMemManager.h"
 #include "../DeviceHashing.h"
@@ -19,30 +18,27 @@
 /**
  * @brief: compute the base_weight of tree node, also determines if a node is a leaf.
  */
-__global__ void ComputeWeight(TreeNode *pAllTreeNode, TreeNode *pSplittableNode, const int *pSNIdToBufferId,
-								  SplitPoint *pBestSplitPoint, nodeStat *pSNodeStat, float_point rt_eps, int flag_LEAFNODE,
-								  float_point lambda, int numofSplittableNode, bool bLastLevel, int maxNumofSplittableNode)
+__global__ void ComputeWeight(TreeNode *pAllTreeNode, TreeNode *pSplittableNode,
+							  SplitPoint *pBestSplitPoint, nodeStat *pSNodeStat, float_point rt_eps, int flag_LEAFNODE,
+							  float_point lambda, int numofSplittableNode, bool bLastLevel, int maxNumofSN)
 {
-	int nGlobalThreadId = (blockIdx.y * gridDim.x + blockIdx.x) * blockDim.x + threadIdx.x;
+	int nGlobalThreadId = GLOBAL_TID();
 	if(nGlobalThreadId >= numofSplittableNode)//one thread per splittable node
 		return;
 
 	int nid = pSplittableNode[nGlobalThreadId].nodeId;
 	ECHECKER(nid);
 
-	int bufferPos = GetBufferId(pSNIdToBufferId, nid, maxNumofSplittableNode);
-	if(bufferPos != nid % maxNumofSplittableNode)
-		printf("ohhhhhhhhhhhhhhhhhhhhhhhhhhhh: bufferPos is unexpected\n");
-
-	ECHECKER(bufferPos);
+	int snIdPos = nid % maxNumofSN;
+	ECHECKER(snIdPos);
 
 	//mark the node as a leaf node if (1) the gain is negative or (2) the tree reaches maximum depth.
-	pAllTreeNode[nid].loss = pBestSplitPoint[bufferPos].m_fGain;
-	ECHECKER(pSNodeStat[bufferPos].sum_hess);
+	pAllTreeNode[nid].loss = pBestSplitPoint[snIdPos].m_fGain;
+	ECHECKER(pSNodeStat[snIdPos].sum_hess);
 
-	float_point nodeWeight = (-pSNodeStat[bufferPos].sum_gd / (pSNodeStat[bufferPos].sum_hess + lambda));
+	float_point nodeWeight = (-pSNodeStat[snIdPos].sum_gd / (pSNodeStat[snIdPos].sum_hess + lambda));
 	pAllTreeNode[nid].base_weight = nodeWeight;
-	if(pBestSplitPoint[bufferPos].m_fGain <= rt_eps || bLastLevel == true)
+	if(pBestSplitPoint[snIdPos].m_fGain <= rt_eps || bLastLevel == true)
 	{
 		//weight of a leaf node
 		pAllTreeNode[nid].predValue = pAllTreeNode[nid].base_weight;
@@ -143,7 +139,7 @@ __global__ void GetUniqueFid(TreeNode *pAllTreeNode, TreeNode *pSplittableNode, 
 								 int *pFeaIdToBuffId, int *pUniqueFidVec, int *pNumofUniqueFid,
 								 int maxNumofUsedFea, int flag_LEAFNODE, int *pnLock)
 {
-	int nGlobalThreadId = (blockIdx.y * gridDim.x + blockIdx.x) * blockDim.x + threadIdx.x;
+	int nGlobalThreadId = GLOBAL_TID();
 	if(nGlobalThreadId >= nNumofSplittableNode)//one thread per splittable node
 		return;	
 
@@ -161,17 +157,14 @@ __global__ void GetUniqueFid(TreeNode *pAllTreeNode, TreeNode *pSplittableNode, 
 	while(bLeaveLoop == false)
 	{
 		//critical region when assigning hash value
-//		printf("lock is %d\n", *pnLock);
-		if(atomicExch(pnLock, 1) == 0)
+		if(atomicCAS(pnLock, 0, 1) == 0)
 		{
-			bool bIsNew = false;
-			int hashValue = AssignHashValue(pFeaIdToBuffId, fid, maxNumofUsedFea, bIsNew);
-			if(bIsNew == true)
-			{
+			CONCHECKER(fid < maxNumofUsedFea);//#### if this error appears, the code needs upgrading (e.g. handle high dimension)
+			if(pFeaIdToBuffId[fid] == -1){
+				pFeaIdToBuffId[fid] = fid;
 				int numofUniqueFid = atomicAdd(pNumofUniqueFid, 1);
 				pUniqueFidVec[numofUniqueFid] = fid;
 			}
-			ECHECKER(hashValue);
 			bLeaveLoop = true;
 			atomicExch(pnLock, 0);
 		}

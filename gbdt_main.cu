@@ -146,10 +146,6 @@ int main(int argc, char *argv[])
 	}
 	bagManager.m_pTrueLabel_h = pTrueLabel;
 
-	//allocate memory for trees
-	//DTGPUMemManager treeMemManager;
-	//treeMemManager.allocMemForTrees(nNumofTree, maxNumofNodePerTree, nMaxDepth);
-
 	//initialise gpu memory allocator
 	GBDTGPUMemManager memAllocator;
 	PROCESS_ERROR(numFeaValue > 0);
@@ -161,7 +157,6 @@ int main(int argc, char *argv[])
 	memAllocator.allocMemForIns(numFeaValue, numIns, numFea);
 	memAllocator.allocMemForSplittableNode(maxNumofSplittableNode);//use in find features (i.e. best split points) process
 	memAllocator.allocHostMemory();//allocate reusable host memory
-	//allocate numofFeature*numofSplittabeNode
 
 	begin_whole = clock();
 	cout << "start training..." << endl;
@@ -195,12 +190,9 @@ int main(int argc, char *argv[])
 	delete []plInsStartPos;
 
 	//copy true labels to gpu memory
-//	memAllocator.MemcpyHostToDevice(pTrueLabel, memAllocator.m_pdTrueTargetValue, numIns * sizeof(float_point));//###should be removed
 	for(int i = 0; i < numBag; i++)
 		cudaMemcpy(bagManager.m_pdTrueTargetValueEachBag + i * bagManager.m_numIns, pTrueLabel, numIns * sizeof(float_point), cudaMemcpyHostToDevice);
 
-	//training trees
-	vector<RegTree> v_Tree;
 	clock_t start_train_time = clock();
 
 	//using multiple CPU threads
@@ -242,7 +234,6 @@ int main(int argc, char *argv[])
 		if(nCreateTd != 0)
 			cerr << "creating thread failed" << endl;
 		vTid.push_back(tid);
-//		trainer.TrainGBDT(v_Tree);
 	}
 	//synchronise threads
 	for(int i = 0; i < numBag; i++)

@@ -58,7 +58,6 @@ public:
 	static int *m_pnLocalBestGainKeyEachBag_d;
 	static float_point *m_pfGlobalBestGainEachBag_d;
 	static int *m_pnGlobalBestGainKeyEachBag_d;
-	static int *m_pMaxNumValuePerFeaEachBag;//use in (1) prefix sum computation and (2) ins2node kernel configuration.
 	static int *m_pEachFeaLenEachNodeEachBag_dh;//each feature value length in each node
 
 	//for pinned memory; for computing indices in multiple level tree

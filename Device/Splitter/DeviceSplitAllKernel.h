@@ -15,7 +15,7 @@
 #include "../../DeviceHost/NodeStat.h"
 
 
-__global__ void ComputeWeight(TreeNode *pAllTreeNode, TreeNode *pSplittableNode, const int *pSNIdToBufferId,
+__global__ void ComputeWeight(TreeNode *pAllTreeNode, TreeNode *pSplittableNode,
 		  	  	  	  	  	  	  SplitPoint *pBestSplitPoint, nodeStat *pSNodeStat, float_point rt_eps, int flag_LEAFNODE,
 		  	  	  	  	  	  	  float_point lambda, int numofSplittableNode, bool bLastLevel, int maxNumofSplittableNode);
 
