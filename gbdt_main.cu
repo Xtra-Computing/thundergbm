@@ -147,16 +147,14 @@ int main(int argc, char *argv[])
 	bagManager.m_pTrueLabel_h = pTrueLabel;
 
 	//initialise gpu memory allocator
-	GBDTGPUMemManager memAllocator;
+	GBDTGPUMemManager manager;
 	PROCESS_ERROR(numFeaValue > 0);
-	memAllocator.m_totalNumofValues = numFeaValue;
-	memAllocator.maxNumofDenseIns = numIns;
-	memAllocator.m_maxUsedFeaInTrees = maxNumofUsedFeature;
+	manager.m_numFeaValue = numFeaValue;
+	manager.m_maxUsedFeaInTrees = maxNumofUsedFeature;
+	manager.m_maxNumofSplittable = maxNumofSplittableNode;//use in find features (i.e. best split points) process
 
 	//allocate memory for instances
-	memAllocator.allocMemForIns(numFeaValue, numIns, numFea);
-	memAllocator.allocMemForSplittableNode(maxNumofSplittableNode);//use in find features (i.e. best split points) process
-	memAllocator.allocHostMemory();//allocate reusable host memory
+	manager.allocMemForIns(numFeaValue, numIns, numFea);
 
 	begin_whole = clock();
 	cout << "start training..." << endl;
@@ -170,16 +168,16 @@ int main(int argc, char *argv[])
 	indexCom.AllocMem(numIns, numFea, maxNumofSplittableNode);
 
 	//copy feature key-value to device memory
-	cudaMemcpy(memAllocator.m_pDInsId, pInsId, numFeaValue * sizeof(int), cudaMemcpyHostToDevice);
-	cudaMemcpy(memAllocator.m_pdDFeaValue, pdValue, numFeaValue * sizeof(float_point), cudaMemcpyHostToDevice);
-	cudaMemcpy(memAllocator.m_pDNumofKeyValue, pNumofKeyValue, numFea * sizeof(int), cudaMemcpyHostToDevice);
-	cudaMemcpy(memAllocator.m_pFeaStartPos, plFeaStartPos, numFea * sizeof(unsigned int), cudaMemcpyHostToDevice);
+	cudaMemcpy(manager.m_pDInsId, pInsId, numFeaValue * sizeof(int), cudaMemcpyHostToDevice);
+	cudaMemcpy(manager.m_pdDFeaValue, pdValue, numFeaValue * sizeof(float_point), cudaMemcpyHostToDevice);
+	cudaMemcpy(manager.m_pDNumofKeyValue, pNumofKeyValue, numFea * sizeof(int), cudaMemcpyHostToDevice);
+	cudaMemcpy(manager.m_pFeaStartPos, plFeaStartPos, numFea * sizeof(unsigned int), cudaMemcpyHostToDevice);
 
 	//copy instance key-value to device memory for prediction
-	cudaMemcpy(memAllocator.m_pDFeaId, pFeaId, numFeaValue * sizeof(int), cudaMemcpyHostToDevice);
-	cudaMemcpy(memAllocator.m_pdDInsValue, pfFeaValue, numFeaValue * sizeof(float_point), cudaMemcpyHostToDevice);
-	cudaMemcpy(memAllocator.m_pDNumofFea, pNumofFea, numIns * sizeof(int), cudaMemcpyHostToDevice);
-	cudaMemcpy(memAllocator.m_pInsStartPos, plInsStartPos, numIns * sizeof(long long), cudaMemcpyHostToDevice);
+	cudaMemcpy(manager.m_pDFeaId, pFeaId, numFeaValue * sizeof(int), cudaMemcpyHostToDevice);
+	cudaMemcpy(manager.m_pdDInsValue, pfFeaValue, numFeaValue * sizeof(float_point), cudaMemcpyHostToDevice);
+	cudaMemcpy(manager.m_pDNumofFea, pNumofFea, numIns * sizeof(int), cudaMemcpyHostToDevice);
+	cudaMemcpy(manager.m_pInsStartPos, plInsStartPos, numIns * sizeof(long long), cudaMemcpyHostToDevice);
 
 	//free host memory
 	delete []pdValue;
@@ -256,8 +254,7 @@ int main(int argc, char *argv[])
 	cout << "all sec = " << total_all << endl;
 	cout << "Done" << endl;
 
-
-	memAllocator.releaseHostMemory();
+	manager.freeMemForIns();
 	indexCom.FreeMem();
 
 	//free host memory

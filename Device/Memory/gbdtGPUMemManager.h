@@ -28,51 +28,20 @@ public:
 	static long long *m_pInsStartPos;
 
 	//memory for prediction
-	static float_point *m_pPredBuffer;
-	static float_point *m_pdTrueTargetValue;
-	static float_point *m_pdDenseIns;
-	static float_point *m_pTargetValue;
-	static int maxNumofDenseIns;
-	static int *m_pHashFeaIdToDenseInsPos;
-	static int *m_pSortedUsedFeaId;
 	static int m_maxUsedFeaInTrees;
 
-	static int *m_pInsIdToNodeId;
-	static unsigned int m_totalNumofValues;
+	static unsigned int m_numFeaValue;
 	static int m_numofIns, m_numofFea;
-
-	//memory for gradient and hessian
-	static float_point *m_pGrad, *m_pHess;
-
-	//memory for initialisation
-	static float_point *m_pGDBlockSum, *m_pHessBlockSum;
 
 	//memory for splittable nodes
 	static int m_maxNumofSplittable;
-	static int m_curNumofSplitable;
-	static TreeNode *m_pSplittableNode;
-	static SplitPoint *m_pBestSplitPoint;
-	static nodeStat *m_pSNodeStat, *m_pRChildStat, *m_pLChildStat, *m_pTempRChildStat;
-	static float_point *m_pLastValue;
-	static int *m_nSNLock;
-
-	//map splittable node id to buffer position
-	static int *m_pSNIdToBuffId, *m_pBuffIdVec, *m_pNumofBuffId;
 
 	//model param
 	static float_point m_lambda;
 
-	//for host memory (use to reset GPU memory)
-	static SplitPoint *m_pBestPointHost;
-
 public:
 	void allocMemForIns(int nTotalNumofValue, int numofIns, int numofFeature);
-	void allocMemForSplittableNode(int nMaxNumofSplittableNode);
-	void allocMemForSNForEachThread(int maxNumofThread, int maxNumofSplittable);
-	void freeMemForSNForEachThread();
-
-	void allocHostMemory();
-	void releaseHostMemory();
+	void freeMemForIns();
 };
 
 

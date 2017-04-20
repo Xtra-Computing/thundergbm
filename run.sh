@@ -43,14 +43,14 @@ case $1 in
         D=${D}"8"
 		NUMTREE=${NUMTREE}"4"
 		BAG=${BAG}"1"
-        FILENAME=${DATASET_DIR}/"YearPredictionMSD" #8 features and 20640 instances
+        FILENAME=${DATASET_DIR}/"YearPredictionMSD" #90 features and 41M instances
         ;;
-    epsilon)
+    e2006)
 		GAMMA=${GAMMA}"1"
-        D=${D}"2"
-		NUMTREE=${NUMTREE}"1"
+        D=${D}"8"
+		NUMTREE=${NUMTREE}"4"
 		BAG=${BAG}"1"
-        FILENAME=${DATASET_DIR}/"log1p.E2006.train" #8 features and 20640 instances
+        FILENAME=${DATASET_DIR}/"E2006.train" #150360 features and 16087 instances
         ;;
     w8a)
         GAMMA=${GAMMA}"0.5"

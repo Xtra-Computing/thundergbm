@@ -27,7 +27,6 @@ int BagManager::m_maxTreeDepth = -1;
 
 //device memory
 cudaStream_t *BagManager::m_pStream = NULL;
-TreeNode *BagManager::m_pSNBufferEachBag = NULL;
 int *BagManager::m_pInsIdToNodeIdEachBag = NULL;	//instance to node id
 int *BagManager::m_pInsWeight_d = NULL;
 TreeNode *BagManager::m_pAllTreeEachBag = NULL;
@@ -281,15 +280,11 @@ void BagManager::AllocMem()
 	checkCudaErrors(cudaMemset(m_pHashFeaIdToDenseInsPosBag, -1, sizeof(int) * m_maxNumUsedFeaATree * m_numBag));
 	checkCudaErrors(cudaMalloc((void**)&m_pSortedUsedFeaIdBag, sizeof(int) * m_maxNumUsedFeaATree * m_numBag));
 
-	/***** memory for others******/
-	checkCudaErrors(cudaMalloc((void**)&m_pSNBufferEachBag, sizeof(TreeNode) * m_maxNumSplittable * m_numBag));
-
 	m_pPreMaxNid_h = new int[m_numBag];
 }
 
 void BagManager::FreeMem()
 {
-	cudaFree(m_pSNBufferEachBag);
 	cudaFree(m_pInsIdToNodeIdEachBag);
 	cudaFree(m_pInsWeight_d);
 	cudaFree(m_pAllTreeEachBag);

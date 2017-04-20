@@ -153,7 +153,7 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 
 		clock_t comIdx_start = clock();
 		//copy # of feature values of a node
-		manager.MemcpyHostToDeviceAsync(&manager.m_totalNumofValues, bagManager.m_pNumFvalueEachNodeEachBag_d + bagId * bagManager.m_maxNumSplittable,
+		manager.MemcpyHostToDeviceAsync(&manager.m_numFeaValue, bagManager.m_pNumFvalueEachNodeEachBag_d + bagId * bagManager.m_maxNumSplittable,
 										sizeof(unsigned int), pStream);
 		//copy feature value start position of each node
 		manager.MemcpyDeviceToDeviceAsync(manager.m_pFeaStartPos, bagManager.m_pFvalueStartPosEachNodeEachBag_d + bagId * bagManager.m_maxNumSplittable,
@@ -171,7 +171,7 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 
 		//set indexComp
 		pFeaValueStartPosEachNode_h[0] = 0;
-		indexComp.m_pNumFeaValueEachNode_dh[0] = manager.m_totalNumofValues;
+		indexComp.m_pNumFeaValueEachNode_dh[0] = manager.m_numFeaValue;
 		clock_t comIdx_end = clock();
 		total_com_idx_t += (comIdx_end - comIdx_start);
 	}
@@ -179,10 +179,10 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 	//initialise values for gd and hess prefix sum computing
 	manager.MemcpyDeviceToDeviceAsync(bagManager.m_pGDEachFvalueEachBag + bagId * bagManager.m_numFeaValue,
 									bagManager.m_pGDPrefixSumEachBag + bagId * bagManager.m_numFeaValue,
-									sizeof(float_point) * manager.m_totalNumofValues, pStream);
+									sizeof(float_point) * manager.m_numFeaValue, pStream);
 	manager.MemcpyDeviceToDeviceAsync(bagManager.m_pHessEachFvalueEachBag + bagId * bagManager.m_numFeaValue,
 									bagManager.m_pHessPrefixSumEachBag + bagId * bagManager.m_numFeaValue,
-									sizeof(float_point) * manager.m_totalNumofValues, pStream);
+									sizeof(float_point) * manager.m_numFeaValue, pStream);
 
 //	cout << "prefix sum" << endl;
 	clock_t start_scan = clock();
@@ -312,9 +312,6 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 	total_search_t += end_search - start_search;
 
 //	cout << "construct split point" << endl;
-	//construct split points; memset for split points
-	manager.MemcpyHostToDeviceAsync(manager.m_pBestPointHost, bagManager.m_pBestSplitPointEachBag + bagId * bagManager.m_maxNumSplittable,
-									sizeof(SplitPoint) * bagManager.m_maxNumSplittable, pStream);
 	FindSplitInfo<<<1, numofSNode, 0, (*(cudaStream_t*)pStream)>>>(
 									 bagManager.m_pEachFeaStartPosEachNodeEachBag_d + bagId * bagManager.m_maxNumSplittable * bagManager.m_numFea,
 									 bagManager.m_pEachFeaLenEachNodeEachBag_d + bagId * bagManager.m_maxNumSplittable * bagManager.m_numFea,
