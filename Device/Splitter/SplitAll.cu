@@ -88,10 +88,7 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 	manager.MemsetAsync(bagManager.m_pFeaIdToBuffIdEachBag + bagId * bagManager.m_maxNumUsedFeaATree, -1, sizeof(int) * bagManager.m_maxNumUsedFeaATree, pStream);
 	manager.MemsetAsync(bagManager.m_pUniqueFeaIdVecEachBag + bagId * bagManager.m_maxNumUsedFeaATree, -1, sizeof(int) * bagManager.m_maxNumUsedFeaATree, pStream);
 	manager.MemsetAsync(bagManager.m_pNumofUniqueFeaIdEachBag + bagId, 0, sizeof(int), pStream);
-	if(dimNumofBlock.x > 1 || dimNumofBlock.y > 1 || dimNumofBlock.z > 1){
-		printf("Bug: block for get uniqueFid is too large. dim.x=%d, dim.y=%d, dim.z=%d\n", dimNumofBlock.x, dimNumofBlock.y, dimNumofBlock.z);
-//		exit(0);
-	}
+
 	clock_t unique_id_start = clock();
 	GetUniqueFid<<<1, bagManager.m_curNumofSplitableEachBag_h[bagId], 0, (*(cudaStream_t*)pStream)>>>(
 							 bagManager.m_pNodeTreeOnTrainingEachBag + bagId * bagManager.m_maxNumNode,

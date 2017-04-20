@@ -153,22 +153,26 @@ __global__ void GetUniqueFid(TreeNode *pAllTreeNode, TreeNode *pSplittableNode, 
 	}
 	ECHECKER(fid);
 
-	bool bLeaveLoop = false;
-	while(bLeaveLoop == false)
-	{
-		//critical region when assigning hash value
-		if(atomicCAS(pnLock, 0, 1) == 0)
-		{
-			CONCHECKER(fid < maxNumofUsedFea);//#### if this error appears, the code needs upgrading (e.g. handle high dimension)
-			if(pFeaIdToBuffId[fid] == -1){
-				pFeaIdToBuffId[fid] = fid;
-				int numofUniqueFid = atomicAdd(pNumofUniqueFid, 1);
-				pUniqueFidVec[numofUniqueFid] = fid;
-			}
-			bLeaveLoop = true;
-			atomicExch(pnLock, 0);
-		}
-	}
+    int laneid = (threadIdx.x & 31);
+
+    for(int i = 0; i < 32; i++){
+    	if (i == laneid){
+    		bool bLeaveLoop = false;
+    		while(bLeaveLoop == false){
+    			//critical region when assigning hash value
+    			if(atomicCAS(pnLock, 0, 1) == 0){
+    				CONCHECKER(fid < maxNumofUsedFea);//#### if this error appears, the code needs upgrading (e.g. handle high dimension)
+    				if(pFeaIdToBuffId[fid] == -1){
+    					pFeaIdToBuffId[fid] = fid;
+    					int numofUniqueFid = atomicAdd(pNumofUniqueFid, 1);
+    					pUniqueFidVec[numofUniqueFid] = fid;
+    				}
+    				atomicExch(pnLock, 0);
+    				bLeaveLoop = true;
+    			}
+    		}
+        }
+    }
 }
 
 /**
