@@ -1,5 +1,5 @@
 #include "DeviceUtility.h"
-#include "../../Device/KernelConst.h"
+#include "../../SharedUtility/CudaMacro.h"
 
 __device__ void GetMinValueOriginal(float_point *pfValues, int *pnKey, int nNumofBlock)
 {

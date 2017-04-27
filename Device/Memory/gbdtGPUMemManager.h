@@ -20,6 +20,7 @@ class GBDTGPUMemManager: public GPUMemManager
 public:
 	//memory for instances (key on feature id)
 	static int *m_pDInsId, *m_pDNumofKeyValue;
+	static int *m_pFvalueFid_d;
 	static float_point *m_pdDFeaValue;
 	static unsigned int *m_pFeaStartPos;
 	//memory for instances (key on instance id)
@@ -35,9 +36,6 @@ public:
 
 	//memory for splittable nodes
 	static int m_maxNumofSplittable;
-
-	//model param
-	static float_point m_lambda;
 
 public:
 	void allocMemForIns(int nTotalNumofValue, int numofIns, int numofFeature);

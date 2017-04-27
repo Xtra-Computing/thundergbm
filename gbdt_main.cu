@@ -111,7 +111,7 @@ int main(int argc, char *argv[])
 	unsigned int *plFeaStartPos = new unsigned int[numFea];//get start position of each feature
 
 	//instances for prediction
-	int *pFeaId = new int[numFeaValue];
+	int *pFeaId = new int[numFeaValue];//continuous elements for each instance
 	float_point *pfFeaValue = new float_point[numFeaValue];
 	int *pNumofFea = new int[numIns];
 	long long *plInsStartPos = new long long[numIns];
@@ -146,6 +146,11 @@ int main(int argc, char *argv[])
 	}
 	bagManager.m_pTrueLabel_h = pTrueLabel;
 
+	int *pFvalueFid = new int[numFeaValue];
+	for(int f = 0; f < numFea; f++){
+		std::fill_n(pFvalueFid + plFeaStartPos[f], pNumofKeyValue[f], f);
+	}
+
 	//initialise gpu memory allocator
 	GBDTGPUMemManager manager;
 	PROCESS_ERROR(numFeaValue > 0);
@@ -170,6 +175,7 @@ int main(int argc, char *argv[])
 	//copy feature key-value to device memory
 	cudaMemcpy(manager.m_pDInsId, pInsId, numFeaValue * sizeof(int), cudaMemcpyHostToDevice);
 	cudaMemcpy(manager.m_pdDFeaValue, pdValue, numFeaValue * sizeof(float_point), cudaMemcpyHostToDevice);
+	cudaMemcpy(manager.m_pFvalueFid_d, pFvalueFid, numFeaValue * sizeof(int), cudaMemcpyHostToDevice);
 	cudaMemcpy(manager.m_pDNumofKeyValue, pNumofKeyValue, numFea * sizeof(int), cudaMemcpyHostToDevice);
 	cudaMemcpy(manager.m_pFeaStartPos, plFeaStartPos, numFea * sizeof(unsigned int), cudaMemcpyHostToDevice);
 
@@ -182,6 +188,7 @@ int main(int argc, char *argv[])
 	//free host memory
 	delete []pdValue;
 	delete []pNumofKeyValue;
+	delete []pFvalueFid;
 	delete []pFeaId;
 	delete []pfFeaValue;
 	delete []pNumofFea;

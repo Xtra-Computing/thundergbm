@@ -29,8 +29,9 @@ using std::cerr;
 /**
  * @brief: rearrange marker for computing feature length and start pos of each node
  */
-__global__ void RearrangeData(const int *pOldInsId, const float_point *pOldFvalue, const unsigned int *pDstIndexEachFeaValue,
-							  int numFeaValue, int *pNewInsId, float_point *pNewFvalue)
+__global__ void RearrangeData(const int *pOldInsId, const float_point *pOldFvalue, const int *pOldFeaId,
+							  const unsigned int *pDstIndexEachFeaValue,
+							  int numFeaValue, int *pNewInsId, float_point *pNewFvalue, int *pNewFeaId)
 {
 	//one thread loads one value
 	//## global id looks ok, but need to be careful
@@ -47,6 +48,7 @@ __global__ void RearrangeData(const int *pOldInsId, const float_point *pOldFvalu
 	//scatter: store GD, Hess and the feature value.
 	pNewInsId[idx] = pOldInsId[gTid];
 	pNewFvalue[idx] = pOldFvalue[gTid];
+	pNewFeaId[idx] = pOldFeaId[gTid];
 }
 
 /**
@@ -90,8 +92,6 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 	conf.ConfKernel(indexComp.m_totalFeaValue, blockSizeLoadGD, dimNumofBlockToLoadGD);
 	if(numofSNode > 1)
 	{
-		if(numofSNode == 126)
-			printf("hi\n");
 		clock_t comIdx_start = clock();
 		//compute gather index via GPUs
 		indexComp.ComputeIdxGPU(numofSNode, maxNumofSplittable, bagId);
@@ -128,15 +128,19 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 		total_fill_gd_t += (end_gd - start_gd);
 		int *pNewInsId;
 		float_point *pNewFvalue;
+		int *pNewFeaId;
 		checkCudaErrors(cudaMalloc((void**)&pNewInsId, sizeof(int) * numFvToLoad));
 		checkCudaErrors(cudaMalloc((void**)&pNewFvalue, sizeof(float_point) * numFvToLoad));
-		RearrangeData<<<dimNumofBlockToLoadGD, blockSizeLoadGD>>>(indexComp.m_pArrangedInsId_d, indexComp.m_pArrangedFvalue_d,
+		checkCudaErrors(cudaMalloc((void**)&pNewFeaId, sizeof(int) * numFvToLoad));
+		RearrangeData<<<dimNumofBlockToLoadGD, blockSizeLoadGD>>>(indexComp.m_pArrangedInsId_d, indexComp.m_pArrangedFvalue_d, indexComp.m_pArrangedFeaId_d,
 																  bagManager.m_pIndicesEachBag_d, numFvToLoad,
-																  pNewInsId, pNewFvalue);
+																  pNewInsId, pNewFvalue, pNewFeaId);
 		checkCudaErrors(cudaMemcpy(indexComp.m_pArrangedInsId_d, pNewInsId, sizeof(int) * numFvToLoad, cudaMemcpyDeviceToDevice));
 		checkCudaErrors(cudaMemcpy(indexComp.m_pArrangedFvalue_d, pNewFvalue, sizeof(float_point) * numFvToLoad, cudaMemcpyDeviceToDevice));
+		checkCudaErrors(cudaMemcpy(indexComp.m_pArrangedFeaId_d, pNewFeaId, sizeof(int) * numFvToLoad, cudaMemcpyDeviceToDevice));
 		checkCudaErrors(cudaFree(pNewInsId));
 		checkCudaErrors(cudaFree(pNewFvalue));
+		checkCudaErrors(cudaFree(pNewFeaId));
 	}
 	else
 	{
@@ -201,9 +205,15 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 		unsigned int arrayLen = bagManager.m_pEachFeaLenEachNodeEachBag_dh[m];
 		unsigned int arrayStartPos = pTempEachFeaStartEachNode_h[m];
 		if(arrayLen == 0){
-			PROCESS_ERROR(arrayStartPos == pTempEachFeaStartEachNode_h[m - 1]);
+			if(m == totalNumArray - 1)
+				continue;
+			if(arrayStartPos != pTempEachFeaStartEachNode_h[m + 1])
+				printf("%u v.s. %u, m=%d, totalNumArray=%d\n", arrayStartPos, pTempEachFeaStartEachNode_h[m + 1], m,
+						totalNumArray);
+			PROCESS_ERROR(arrayStartPos == pTempEachFeaStartEachNode_h[m + 1]);
 			continue;
 		}
+//		printf("start=%d, len=%d, m=%d, totalNumArray=%d\n", arrayStartPos, arrayLen, m, totalNumArray);
 		checkCudaErrors(cudaMemset(pnKey_d + arrayStartPos, keyFlag, sizeof(int) * arrayLen));
 		if(keyFlag == 0)
 			keyFlag = -1;

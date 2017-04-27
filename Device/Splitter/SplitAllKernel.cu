@@ -239,18 +239,23 @@ __global__ void InsToNewNode(const TreeNode *pAllTreeNode, const float_point *pd
 	}
 
 	if(nid == pParentId[bufferPos]){//internal node (needs to split)
-		CONCHECKER(pRChildId[bufferPos] == pLChildId[bufferPos] + 1);//right child id > than left child id
-		CONCHECKER(pAllTreeNode[nid].rightChildId != flag_LEAFNODE);
-		double fPivot = pBestSplitPoint[bufferPos].m_fSplitValue;
-		double fvalue = pdCurFeaValue[perFeaTid];
-
-		if(fvalue >= fPivot){
-			pInsIdToNodeId[insId] = pRChildId[bufferPos];//right child id
-//			atomicAdd(numInsR + bufferPos, 1);//increase numIns in right child
+		if(pAllTreeNode[nid].rightChildId == flag_LEAFNODE){//newly constructed leaf
+			pInsIdToNodeId[insId] = -1;
 		}
 		else{
-			pInsIdToNodeId[insId] = pLChildId[bufferPos];//left child id
-//			atomicAdd(numInsL + bufferPos, 1);
+			CONCHECKER(pRChildId[bufferPos] == pLChildId[bufferPos] + 1);//right child id > than left child id
+			CONCHECKER(pAllTreeNode[nid].rightChildId != flag_LEAFNODE);
+			double fPivot = pBestSplitPoint[bufferPos].m_fSplitValue;
+			double fvalue = pdCurFeaValue[perFeaTid];
+
+			if(fvalue >= fPivot){
+				pInsIdToNodeId[insId] = pRChildId[bufferPos];//right child id
+	//			atomicAdd(numInsR + bufferPos, 1);//increase numIns in right child
+			}
+			else{
+				pInsIdToNodeId[insId] = pLChildId[bufferPos];//left child id
+	//			atomicAdd(numInsL + bufferPos, 1);
+			}
 		}
 	}
 }

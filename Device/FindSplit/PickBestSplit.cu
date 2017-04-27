@@ -9,8 +9,8 @@
 #include <float.h>
 #include <stdio.h>
 #include "FindFeaKernel.h"
-#include "../KernelConst.h"
 #include "../../DeviceHost/svm-shared/DeviceUtility.h"
+#include "../../SharedUtility/CudaMacro.h"
 
 __device__ void CopyNodeStat(nodeStat *pDest, const nodeStat *pSrc)
 {

@@ -80,6 +80,8 @@ void DeviceTrainer::GrowTree(RegTree &tree, void *pStream, int bagId)
 							   sizeof(int) * bagManager.m_numFeaValue, cudaMemcpyDeviceToDevice));
 	checkCudaErrors(cudaMemcpy(IndexComputer::m_pArrangedFvalue_d, manager.m_pdDFeaValue,
 							   sizeof(float_point) * bagManager.m_numFeaValue, cudaMemcpyDeviceToDevice));
+	checkCudaErrors(cudaMemcpy(IndexComputer::m_pArrangedFeaId_d, manager.m_pFvalueFid_d,
+							   sizeof(int) * bagManager.m_numFeaValue, cudaMemcpyDeviceToDevice));
 
 	InitRootNode<<<1, 1, 0, (*(cudaStream_t*)pStream)>>>(//snManager.m_pTreeNode, snManager.m_pCurNumofNode_d);
 							bagManager.m_pNodeTreeOnTrainingEachBag + bagId * bagManager.m_maxNumNode,

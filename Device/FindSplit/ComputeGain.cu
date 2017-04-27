@@ -10,10 +10,10 @@
 #include <iomanip>
 #include <unistd.h>
 #include "FindFeaKernel.h"
-#include "../KernelConst.h"
 #include "../DeviceHashing.h"
 #include "../Splitter/DeviceSplitter.h"
 #include "../Memory/gpuMemManager.h"
+#include "../../SharedUtility/CudaMacro.h"
 
 const float rt_2eps = 2.0 * DeviceSplitter::rt_eps;
 

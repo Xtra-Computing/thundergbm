@@ -10,9 +10,8 @@
 #include <float.h>
 #include <limits>
 #include "FindFeaKernel.h"
-#include "../KernelConst.h"
-#include "../../DeviceHost/svm-shared/DeviceUtility.h"
 #include "../Splitter/DeviceSplitter.h"
+#include "../../DeviceHost/svm-shared/DeviceUtility.h"
 #include "../../SharedUtility/CudaMacro.h"
 
 const float rt_2eps = 2.0 * DeviceSplitter::rt_eps;

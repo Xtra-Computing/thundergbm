@@ -163,7 +163,6 @@ void BagManager::InitBagManager(int numIns, int numFea, int numTree, int numBag,
 	AllocMem();
 
 	//initialise device memory
-	GPUMemManager manager;
 	cudaMemcpy(m_pInsWeight_d, m_pInsWeight, sizeof(int) * m_numIns * m_numBag, cudaMemcpyHostToDevice);
 	cudaMemset(m_pInsIdToNodeIdEachBag, 0, sizeof(int) * m_numIns * m_numBag);
 }

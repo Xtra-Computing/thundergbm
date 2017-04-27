@@ -9,10 +9,10 @@
 #include <float.h>
 #include <stdio.h>
 #include "FindFeaKernel.h"
-#include "../KernelConst.h"
 #include "../DeviceHashing.h"
 #include "../../DeviceHost/svm-shared/DeviceUtility.h"
 #include "../../DeviceHost/NodeStat.h"
+#include "../../SharedUtility/CudaMacro.h"
 
 
 /**

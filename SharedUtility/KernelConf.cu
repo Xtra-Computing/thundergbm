@@ -8,7 +8,7 @@
 
 #include <iostream>
 #include "KernelConf.h"
-#include "../Device/KernelConst.h"
+#include "../SharedUtility/CudaMacro.h"
 #include "../SharedUtility/HostUtility.h"
 
 using std::cout;

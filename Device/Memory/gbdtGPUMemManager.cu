@@ -14,6 +14,7 @@
 //memory for instances (key on feature id)
 int *GBDTGPUMemManager::m_pDInsId = NULL;				//all the instance ids for each key-value pair
 float_point *GBDTGPUMemManager::m_pdDFeaValue = NULL; 	//all the feature values
+int *GBDTGPUMemManager::m_pFvalueFid_d = NULL;			//all the feature id for each key-value pair
 int *GBDTGPUMemManager::m_pDNumofKeyValue = NULL;		//the number of key-value pairs of each feature
 unsigned int *GBDTGPUMemManager::m_pFeaStartPos = NULL;	//start key-value position of each feature
 //memory for instances (key on instance id)
@@ -46,6 +47,7 @@ void GBDTGPUMemManager::allocMemForIns(int nTotalNumofValue, int numofIns, int n
 	//memory for instances (key on feature id)
 	checkCudaErrors(cudaMalloc((void**)&m_pDInsId, sizeof(int) * m_numFeaValue));
 	checkCudaErrors(cudaMalloc((void**)&m_pdDFeaValue, sizeof(float_point) * m_numFeaValue));
+	checkCudaErrors(cudaMalloc((void**)&m_pFvalueFid_d, sizeof(int) * m_numFeaValue));
 	checkCudaErrors(cudaMalloc((void**)&m_pDNumofKeyValue, sizeof(int) * m_numofFea));
 	checkCudaErrors(cudaMalloc((void**)&m_pFeaStartPos, sizeof(unsigned int) * m_numofFea));
 	//memory for instances (key on instance id)
@@ -59,6 +61,7 @@ void GBDTGPUMemManager::freeMemForIns(){
 	//memory for instances (key on feature id)
 	checkCudaErrors(cudaFree(m_pDInsId));
 	checkCudaErrors(cudaFree(m_pdDFeaValue));
+	checkCudaErrors(cudaFree(m_pFvalueFid_d));
 	checkCudaErrors(cudaFree(m_pDNumofKeyValue));
 	checkCudaErrors(cudaFree(m_pFeaStartPos));
 	//memory for instances (key on instance id)

@@ -3,6 +3,8 @@
 
 #define _DEBUG
 
+#define BLOCK_SIZE 64
+
 //get global thread id
 #define GLOBAL_TID() (blockIdx.y * gridDim.x + blockIdx.x) * blockDim.x + threadIdx.x
 

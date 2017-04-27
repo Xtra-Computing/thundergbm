@@ -35,6 +35,7 @@ unsigned int *IndexComputer::m_pnKey = NULL;
 
 int* IndexComputer::m_pArrangedInsId_d = NULL;
 float_point* IndexComputer::m_pArrangedFvalue_d = NULL;
+int* IndexComputer::m_pArrangedFeaId_d = NULL;
 
 //histogram based partitioning
 unsigned int *IndexComputer::m_pHistogram_d = NULL;
@@ -133,6 +134,24 @@ __global__ void CollectGatherIdx(const unsigned int *pPartitionMarker, unsigned 
 		pGatherIdx[elePos] = eleDst[writeIdx];//element destination ###### can be improved by shared memory
 		eleDst[writeIdx]++;
 	}
+}
+
+/**
+  * @brief: store gather indices
+  */
+__global__ void EachFeaLenEachNode(const unsigned int *pPartitionMarker, unsigned int markerLen,
+								 const int *pFeaId, int *pEachFeaLenEachNode, unsigned int numFea,
+								 unsigned int numParition){
+	int gTid = GLOBAL_TID();
+	if(gTid >= markerLen)//thread has nothing to collect
+		return;
+
+	int pid = pPartitionMarker[gTid];
+	if(pid >= numParition){
+		return;//skip this element, as element is marked as leaf.
+	}
+	int feaId = pFeaId[gTid];
+	atomicAdd(&pEachFeaLenEachNode[pid * numFea + feaId], 1);
 }
 
 /**
@@ -279,13 +298,17 @@ void IndexComputer::ComputeIdxGPU(int numSNode, int maxNumSN, int bagId){
 	unsigned int * pTmpEachFeaStartPosEachNode = bagManager.m_pEachFeaStartPosEachNodeEachBag_d +
 											  bagId * bagManager.m_maxNumSplittable * bagManager.m_numFea;
 
-	unsigned int numThd;
+/*	unsigned int numThd;
 	smallReductionKernelConf(numThd, numSNode);//numThd is power of 2 to handle some elements in leaf nodes.
 	ComputeEachFeaInfo<<<1, numThd, numSNode * m_numFea * sizeof(unsigned int)>>>(pPartitionMarker, pTmpGatherIdx,
 										pTmpFvalueStartPosEachNode, m_numFea,
 										m_pHistogram_d, m_totalNumEffectiveThd,
 										pTmpEachFeaLenEachNode, pTmpEachFeaStartPosEachNode);
-	GETERROR("after ComputeEachFeaInfo");
+*/
+	checkCudaErrors(cudaMemset(pTmpEachFeaLenEachNode, 0, sizeof(int) * bagManager.m_maxNumSplittable * m_numFea));
+	EachFeaLenEachNode<<<dimNumofBlockForFvalue, blockSizeForFvalue>>>(pPartitionMarker, m_totalFeaValue, m_pArrangedFeaId_d, pTmpEachFeaLenEachNode, m_numFea, numSNode);
+	thrust::exclusive_scan(thrust::system::cuda::par, pTmpEachFeaLenEachNode, pTmpEachFeaLenEachNode + m_numFea * numSNode, pTmpEachFeaStartPosEachNode);
+	GETERROR("after EachFeaLenEachNode");
 
 	//get feature values start position of each new node
 	checkCudaErrors(cudaMemcpy(pTmpFvalueStartPosEachNode, m_pEachNodeStartPos_d, sizeof(unsigned int) * numSNode, cudaMemcpyDeviceToDevice));
@@ -305,6 +328,7 @@ void IndexComputer::AllocMem(int nNumofExamples, int nNumofFeatures, int maxNumo
 
 	checkCudaErrors(cudaMalloc((void**)&m_pArrangedInsId_d, sizeof(int) * m_totalFeaValue));
 	checkCudaErrors(cudaMalloc((void**)&m_pArrangedFvalue_d, sizeof(float_point) * m_totalFeaValue));
+	checkCudaErrors(cudaMalloc((void**)&m_pArrangedFeaId_d, sizeof(int) * m_totalFeaValue));
 
 	//histogram based partitioning
 	m_numElementEachThd = 16;
@@ -328,6 +352,7 @@ void IndexComputer::FreeMem()
 	checkCudaErrors(cudaFree(pPartitionMarker));
 	checkCudaErrors(cudaFree(m_pArrangedInsId_d));
 	checkCudaErrors(cudaFree(m_pArrangedFvalue_d));
+	checkCudaErrors(cudaFree(m_pArrangedFeaId_d));
 	//histogram based partitioning
 	checkCudaErrors(cudaFree(m_pHistogram_d));
 	checkCudaErrors(cudaFree(m_pnKey));
