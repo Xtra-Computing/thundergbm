@@ -57,7 +57,7 @@ __global__ void CreateNewNode(TreeNode *pAllTreeNode, TreeNode *pSplittableNode,
 								  float_point rt_eps, int nNumofSplittableNode, bool bLastLevel, int maxNumofSplittableNode)
 {
 	//for each splittable node, assign lchild and rchild ids
-	int nGlobalThreadId = (blockIdx.y * gridDim.x + blockIdx.x) * blockDim.x + threadIdx.x;
+	int nGlobalThreadId = GLOBAL_TID();
 	if(nGlobalThreadId >= nNumofSplittableNode)//one thread per splittable node
 		return;
 
@@ -195,7 +195,7 @@ __global__ void InsToNewNode(const TreeNode *pAllTreeNode, const float_point *pd
 	ECHECKER(numofFea - ufid);
 
 	int nNumofPair = pNumofKeyValue[ufid];//number of feature values in the form of (ins_id, fvalue)
-	int perFeaTid = (blockIdx.y * gridDim.x + blockIdx.x) * blockDim.x + threadIdx.x;
+	int perFeaTid = GLOBAL_TID();
 	if(perFeaTid >= nNumofPair)//one thread per feaValue
 		return;
 
@@ -264,7 +264,7 @@ __global__ void InsToNewNodeByDefault(TreeNode *pAllTreeNode, int *pInsIdToNodeI
 										   int *pParentId, int *pLChildId,
 										   int preMaxNodeId, int numofIns, int flag_LEAFNODE)
 {
-	int nGlobalThreadId = (blockIdx.y * gridDim.x + blockIdx.x) * blockDim.x + threadIdx.x;
+	int nGlobalThreadId = GLOBAL_TID();
 	if(nGlobalThreadId >= numofIns)//not used threads
 		return;
 
@@ -280,7 +280,7 @@ __global__ void InsToNewNodeByDefault(TreeNode *pAllTreeNode, int *pInsIdToNodeI
 	}
 	else
 	{
-		printf("ins to new node by default: ################## nid=%d, maxNid=%d, rcid=%d, flag=%d\n", nid, preMaxNodeId, pAllTreeNode[nid].rightChildId, flag_LEAFNODE);
+//		printf("ins to new node by default: ################## nid=%d, maxNid=%d, rcid=%d, flag=%d\n", nid, preMaxNodeId, pAllTreeNode[nid].rightChildId, flag_LEAFNODE);
 		int bufferPos = pSNIdToBuffId[nid];
 		//if(pInsIdToNodeId[nGlobalThreadId] * 2 + 1 != pLChildId[bufferPos])
 		pInsIdToNodeId[nGlobalThreadId] = pLChildId[bufferPos];//by default the instance with unknown feature value going to left child
@@ -295,7 +295,7 @@ __global__ void UpdateNewSplittable(TreeNode *pNewSplittableNode, nodeStat *pNew
 								   	    int maxNumofSplittable, int *pnLock, int preMaxNodeId)
 {
 	int numofNewNode = *pNumofNewNode;
-	int nGlobalThreadId = (blockIdx.y * gridDim.x + blockIdx.x) * blockDim.x + threadIdx.x;
+	int nGlobalThreadId = GLOBAL_TID();
 	if(nGlobalThreadId >= numofNewNode)//one thread per splittable node
 		return;
 

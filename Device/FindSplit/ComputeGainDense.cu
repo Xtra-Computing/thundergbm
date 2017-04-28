@@ -157,7 +157,7 @@ __global__ void ComputeGainDense(const nodeStat *pSNodeStat, const unsigned int 
 /**
  * @brief: change the gain of the first value of each feature to 0
  */
-__global__ void FirstFeaGain(const unsigned int *pEachFeaStartPosEachNode, int numFeaStartPos, float_point *pGainOnEachFeaValue)
+__global__ void FirstFeaGain(const unsigned int *pEachFeaStartPosEachNode, int numFeaStartPos, float_point *pGainOnEachFeaValue, long long numFeaValue)
 {
 	int gTid = GLOBAL_TID();
 
@@ -166,8 +166,11 @@ __global__ void FirstFeaGain(const unsigned int *pEachFeaStartPosEachNode, int n
 		return;
 	}
 	unsigned int gainPos = pEachFeaStartPosEachNode[gTid];
+	if(gainPos > numFeaValue){
+		printf("oh shitting ##############\n");
+	}
 //	printf("gTid=%d, gainPos=%ld\n", gTid, gainPos);
-//	printf("change %f to 0 pos at %d, gainPos=%ld\n", pGainOnEachFeaValue[gainPos], pEachFeaStartPosEachNode[gTid], gainPos);
+	printf("change %f to 0 pos at %d, gainPos=%u\n", pGainOnEachFeaValue[gainPos], pEachFeaStartPosEachNode[gTid], gainPos);
 	pGainOnEachFeaValue[gainPos] = 0;
 //	if(gTid == 0){
 //		printf("pEachFeaStartPosEachNode[8]=%f\n", pEachFeaStartPosEachNode[8]);

@@ -28,11 +28,6 @@ public:
 	static unsigned int *pPartitionMarker;
 	static unsigned int *m_pnKey;
 
-	//keep track of arranged fvalue and instance ids
-	static int* m_pArrangedInsId_d;
-	static float_point* m_pArrangedFvalue_d;
-	static int* m_pArrangedFeaId_d;
-
 	//histogram based partitioning
 	static unsigned int *m_pHistogram_d;
 	static unsigned int m_numElementEachThd;

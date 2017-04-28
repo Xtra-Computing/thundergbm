@@ -118,7 +118,7 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 		int numFvToLoad = pFeaValueStartPosEachNode_h[numofSNode - 1] + indexComp.m_pNumFeaValueEachNode_dh[numofSNode - 1];
 		LoadGDHessFvalue<<<dimNumofBlockToLoadGD, blockSizeLoadGD, 0, (*(cudaStream_t*)pStream)>>>(bagManager.m_pInsGradEachBag + bagId * bagManager.m_numIns, 
 															   bagManager.m_pInsHessEachBag + bagId * bagManager.m_numIns, 
-															   bagManager.m_numIns, indexComp.m_pArrangedInsId_d, indexComp.m_pArrangedFvalue_d,
+															   bagManager.m_numIns, manager.m_pDInsId, manager.m_pdDFeaValue,
 															   bagManager.m_pIndicesEachBag_d, numFvToLoad,
 															   bagManager.m_pGDEachFvalueEachBag + bagId * bagManager.m_numFeaValue, 
 															   bagManager.m_pHessEachFvalueEachBag + bagId * bagManager.m_numFeaValue, 
@@ -126,28 +126,13 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 		cudaStreamSynchronize((*(cudaStream_t*)pStream));
 		clock_t end_gd = clock();
 		total_fill_gd_t += (end_gd - start_gd);
-		int *pNewInsId;
-		float_point *pNewFvalue;
-		int *pNewFeaId;
-		checkCudaErrors(cudaMalloc((void**)&pNewInsId, sizeof(int) * numFvToLoad));
-		checkCudaErrors(cudaMalloc((void**)&pNewFvalue, sizeof(float_point) * numFvToLoad));
-		checkCudaErrors(cudaMalloc((void**)&pNewFeaId, sizeof(int) * numFvToLoad));
-		RearrangeData<<<dimNumofBlockToLoadGD, blockSizeLoadGD>>>(indexComp.m_pArrangedInsId_d, indexComp.m_pArrangedFvalue_d, indexComp.m_pArrangedFeaId_d,
-																  bagManager.m_pIndicesEachBag_d, numFvToLoad,
-																  pNewInsId, pNewFvalue, pNewFeaId);
-		checkCudaErrors(cudaMemcpy(indexComp.m_pArrangedInsId_d, pNewInsId, sizeof(int) * numFvToLoad, cudaMemcpyDeviceToDevice));
-		checkCudaErrors(cudaMemcpy(indexComp.m_pArrangedFvalue_d, pNewFvalue, sizeof(float_point) * numFvToLoad, cudaMemcpyDeviceToDevice));
-		checkCudaErrors(cudaMemcpy(indexComp.m_pArrangedFeaId_d, pNewFeaId, sizeof(int) * numFvToLoad, cudaMemcpyDeviceToDevice));
-		checkCudaErrors(cudaFree(pNewInsId));
-		checkCudaErrors(cudaFree(pNewFvalue));
-		checkCudaErrors(cudaFree(pNewFeaId));
 	}
 	else
 	{
 		clock_t start_gd = clock();
 		LoadGDHessFvalueRoot<<<dimNumofBlockToLoadGD, blockSizeLoadGD, 0, (*(cudaStream_t*)pStream)>>>(bagManager.m_pInsGradEachBag + bagId * bagManager.m_numIns,
 															   	   	bagManager.m_pInsHessEachBag + bagId * bagManager.m_numIns, bagManager.m_numIns,
-															   		indexComp.m_pArrangedInsId_d, indexComp.m_pArrangedFvalue_d, indexComp.m_totalFeaValue,
+															   	   	manager.m_pDInsId, manager.m_pdDFeaValue, indexComp.m_totalFeaValue,
 															   		bagManager.m_pGDEachFvalueEachBag + bagId * bagManager.m_numFeaValue,
 															   	   	bagManager.m_pHessEachFvalueEachBag + bagId * bagManager.m_numFeaValue,
 															   	   	bagManager.m_pDenseFValueEachBag + bagId * bagManager.m_numFeaValue);
@@ -254,14 +239,15 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 	GETERROR("after ComputeGainDense");
 
 	//change the gain of the first feature value to 0
-	int numFeaStartPos = indexComp.m_numFea * numofSNode;
+	int numFeaStartPos = bagManager.m_numFea * numofSNode;
 //	printf("num of feature start positions=%d\n", numFeaStartPos);
 	int blockSizeFirstGain;
 	dim3 dimNumofBlockFirstGain;
 	conf.ConfKernel(numFeaStartPos, blockSizeFirstGain, dimNumofBlockFirstGain);
 	FirstFeaGain<<<dimNumofBlockFirstGain, blockSizeFirstGain, 0, (*(cudaStream_t*)pStream)>>>(
 																bagManager.m_pEachFeaStartPosEachNodeEachBag_d + bagId * bagManager.m_maxNumSplittable * bagManager.m_numFea,
-																numFeaStartPos, bagManager.m_pGainEachFvalueEachBag + bagId * bagManager.m_numFeaValue);
+																numFeaStartPos, bagManager.m_pGainEachFvalueEachBag + bagId * bagManager.m_numFeaValue,
+																bagManager.m_numFeaValue);
 	cudaStreamSynchronize((*(cudaStream_t*)pStream));
 	GETERROR("after FirstFeaGain");
 
