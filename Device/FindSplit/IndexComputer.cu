@@ -305,8 +305,7 @@ void IndexComputer::ComputeIdxGPU(int numSNode, int maxNumSN, int bagId){
 	checkCudaErrors(cudaMemset(pTmpEachFeaLenEachNode, 0, sizeof(int) * bagManager.m_maxNumSplittable * m_numFea));
 	EachFeaLenEachNode<<<dimNumofBlockForFvalue, blockSizeForFvalue>>>(pPartitionMarker, m_totalFeaValue, manager.m_pFvalueFid_d, pTmpEachFeaLenEachNode, m_numFea, numSNode);
 	thrust::exclusive_scan(thrust::system::cuda::par, pTmpEachFeaLenEachNode, pTmpEachFeaLenEachNode + m_numFea * numSNode, pTmpEachFeaStartPosEachNode);
-	GETERROR("after EachFeaLenEachNode");
-
+	
 	//get feature values start position of each new node
 	checkCudaErrors(cudaMemcpy(pTmpFvalueStartPosEachNode, m_pEachNodeStartPos_d, sizeof(unsigned int) * numSNode, cudaMemcpyDeviceToDevice));
 }

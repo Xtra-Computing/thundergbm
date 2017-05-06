@@ -16,17 +16,6 @@
 
 const float rt_2eps = 2.0 * DeviceSplitter::rt_eps;
 
-#define testing
-
-
-__global__ void ComputeIndex(int *pDstIndexEachFeaValue, long long totalFeaValue)
-{
-	long long gTid = (blockIdx.y * gridDim.x + blockIdx.x) * blockDim.x + threadIdx.x;
-	if(gTid >= totalFeaValue)
-		return;
-	pDstIndexEachFeaValue[gTid] = gTid;
-}
-
 /**
  * @brief: copy the gd, hess and feaValue for each node based on some features on similar number of values
  */
@@ -166,11 +155,9 @@ __global__ void FirstFeaGain(const unsigned int *pEachFeaStartPosEachNode, int n
 		return;
 	}
 	unsigned int gainPos = pEachFeaStartPosEachNode[gTid];
-	if(gainPos > numFeaValue){
-		printf("oh shitting ##############\n");
+	if(gainPos >= numFeaValue){
+		return;//there may be some ending 0s (e.g. the last node has some features with any values).
 	}
-//	printf("gTid=%d, gainPos=%ld\n", gTid, gainPos);
-	printf("change %f to 0 pos at %d, gainPos=%u\n", pGainOnEachFeaValue[gainPos], pEachFeaStartPosEachNode[gTid], gainPos);
 	pGainOnEachFeaValue[gainPos] = 0;
 //	if(gTid == 0){
 //		printf("pEachFeaStartPosEachNode[8]=%f\n", pEachFeaStartPosEachNode[8]);
@@ -202,14 +189,16 @@ __global__ void PickLocalBestSplitEachNode(const unsigned int *pnNumFeaValueEach
 
 	unsigned int numValueThisNode = pnNumFeaValueEachNode[snId];//get the number of feature value of this node
 	long long tidForEachNode = (blockIdx.y * gridDim.x + blockIdx.x) * blockDim.x + threadIdx.x;
-
 	unsigned int nPos = pFeaStartPosEachNode[snId] + tidForEachNode;//feature value gain position
 
 	if(tidForEachNode >= numValueThisNode){//no gain to load
-		return;
+		pfGain[localTid] = 0;
+		pnBetterGainKey[localTid] = INT_MAX;
 	}
-	pfGain[localTid] = -pGainOnEachFeaValue[nPos];//change to find min of -gain
-	pnBetterGainKey[localTid] = nPos;//############ need to be long long
+	else{
+		pfGain[localTid] = -pGainOnEachFeaValue[nPos];//change to find min of -gain
+		pnBetterGainKey[localTid] = nPos;
+	}
 	__syncthreads();
 
 	//find the local best split point
@@ -265,9 +254,9 @@ __global__ void PickGlobalBestSplitEachNode(const float_point *pfLocalBestGain, 
 		pfGlobalBestGain[snId] = -pfGain[0];//make the gain back to its original sign
 		pnGlobalBestGainKey[snId] = pnBetterGainKey[0];
 		ECHECKER(pnBetterGainKey[0]);
-//		if(pnBetterGainKey[0] < 0)
-//		printf("negative key: snId=%d, gain=%f, key=%d, blockDim.x=%d, blockSize=%d, blockpPerNode=%d, numSN=%d\n",
-//			snId, pfGain[0], pnBetterGainKey[0], blockDim.x, BLOCK_SIZE, numBlockPerNode, numofSNode);
+		if(pnBetterGainKey[0] < 0)
+			printf("negative key: snId=%d, gain=%f, key=%d, blockDim.x=%d, blockSize=%d, blockpPerNode=%d, numSN=%d\n",
+			snId, pfGain[0], pnBetterGainKey[0], blockDim.x, BLOCK_SIZE, numBlockPerNode, numofSNode);
 	}
 }
 
@@ -316,14 +305,13 @@ __global__ void FindSplitInfo(const unsigned int *pEachFeaStartPosEachNode, cons
 	int idxPreSum = key - 1;//follow xgboost using exclusive
 	pLChildStat[buffId].sum_gd = snNodeStat[buffId].sum_gd - pPrefixSumGD[idxPreSum];
 	pLChildStat[buffId].sum_hess = snNodeStat[buffId].sum_hess - pPrefixSumHess[idxPreSum];
-//	if(pLChildStat[buffId].sum_hess == 1)
-//		printf("Have a look at here\n");
 	pRChildStat[buffId].sum_gd = pPrefixSumGD[idxPreSum];
 	pRChildStat[buffId].sum_hess = pPrefixSumHess[idxPreSum];
+	printf("lgd=%f, rgd=%f\n", pLChildStat[buffId].sum_gd, pRChildStat[buffId].sum_gd);
 	ECHECKER(pLChildStat[buffId].sum_hess);
 	ECHECKER(pRChildStat[buffId].sum_hess);
 //	if(pLChildStat[buffId].sum_hess < 0 || pRChildStat[buffId].sum_hess < 0)
 //		printf("Error: hess is negative l hess=%d, r hess=%d\n", pLChildStat[buffId].sum_hess, pRChildStat[buffId].sum_hess);
-//	printf("split: f=%d, value=%f, gain=%f, gd=%f v.s. %f, hess=%f v.s. %f, buffId=%d, key=%d\n", bestFeaId, pBestSplitPoint[buffId].m_fSplitValue,
-//			pBestSplitPoint[buffId].m_fGain, pLChildStat[buffId].sum_gd, pRChildStat[buffId].sum_gd, pLChildStat[buffId].sum_hess, pRChildStat[buffId].sum_hess, buffId, key);
+	printf("split: f=%d, value=%f, gain=%f, gd=%f v.s. %f, hess=%f v.s. %f, buffId=%d, key=%d\n", bestFeaId, pBestSplitPoint[buffId].m_fSplitValue,
+			pBestSplitPoint[buffId].m_fGain, pLChildStat[buffId].sum_gd, pRChildStat[buffId].sum_gd, pLChildStat[buffId].sum_hess, pRChildStat[buffId].sum_hess, buffId, key);
 }

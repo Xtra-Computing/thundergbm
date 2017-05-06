@@ -38,6 +38,7 @@ void DeviceSplitter::ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> >
 
 	//hash feature id to position id
 	int numofUsedFea = denseInsConverter.usedFeaSet.size();
+	printf("# of used fea=%d\n", numofUsedFea);
 	PROCESS_ERROR(numofUsedFea <= manager.m_maxUsedFeaInTrees);
 	int *pHashUsedFea = NULL;
 	int *pSortedUsedFea = NULL;
@@ -51,15 +52,12 @@ void DeviceSplitter::ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> >
 	//the last learned tree
 	int numofNodeOfLastTree = 0;
 	TreeNode *pLastTree = NULL;
-	//DTGPUMemManager treeManager;
-	//int numofTreeLearnt = treeManager.m_numofTreeLearnt;
 	int numofTreeLearnt = bagManager.m_pNumofTreeLearntEachBag_h[bagId];
 	int treeId = numofTreeLearnt - 1;
 	pred.GetTreeInfo(pLastTree, numofNodeOfLastTree, treeId, pStream, bagId);
 
 	KernelConf conf;
 	//start prediction
-//	checkCudaErrors(cudaMemsetAsync(manager.m_pTargetValue, 0, sizeof(float_point) * nNumofIns, *tempStream));
 	checkCudaErrors(cudaMemsetAsync(bagManager.m_pTargetValueEachBag + bagId * bagManager.m_numIns, 0,
 									sizeof(float_point) * nNumofIns, (*(cudaStream_t*)pStream)));
 	if(nNumofTree > 0 && numofUsedFea >0)//numofUsedFea > 0 means the tree has more than one node.
@@ -80,11 +78,9 @@ void DeviceSplitter::ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> >
 
 		FillMultiDense<<<dimGridThreadForEachIns, sharedMemSizeEachIns, 0, (*(cudaStream_t*)pStream)>>>(
 											  pDevInsValue, pInsStartPos, pDevFeaId, pNumofFea,
-											  	  bagManager.m_pdDenseInsEachBag + bagId * bagManager.m_maxNumUsedFeaATree * bagManager.m_numIns,
-											  	  bagManager.m_pSortedUsedFeaIdBag + bagId * bagManager.m_maxNumUsedFeaATree,
-											  	  bagManager.m_pHashFeaIdToDenseInsPosBag + bagId * bagManager.m_maxNumUsedFeaATree,
-											  //pDevInsValue, pInsStartPos, pDevFeaId, pNumofFea, manager.m_pdDenseIns,
-											  //manager.m_pSortedUsedFeaId, manager.m_pHashFeaIdToDenseInsPos,
+										  	  bagManager.m_pdDenseInsEachBag + bagId * bagManager.m_maxNumUsedFeaATree * bagManager.m_numIns,
+										  	  bagManager.m_pSortedUsedFeaIdBag + bagId * bagManager.m_maxNumUsedFeaATree,
+										  	  bagManager.m_pHashFeaIdToDenseInsPosBag + bagId * bagManager.m_maxNumUsedFeaATree,
 											  numofUsedFea, startInsId, numofInsToFill);
 		GETERROR("after FillMultiDense");
 	}
@@ -99,12 +95,10 @@ void DeviceSplitter::ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> >
 		int sharedMemSizeEachIns = 1;
 		PredMultiTarget<<<dimGridThreadForEachIns, sharedMemSizeEachIns, 0, (*(cudaStream_t*)pStream)>>>(
 											  bagManager.m_pTargetValueEachBag + bagId * bagManager.m_numIns,
-											  	  numofInsToPre, pLastTree,
-											  	  bagManager.m_pdDenseInsEachBag + bagId * bagManager.m_maxNumUsedFeaATree * bagManager.m_numIns,
-											  //manager.m_pTargetValue, numofInsToPre, pLastTree, manager.m_pdDenseIns,
+										  	  numofInsToPre, pLastTree,
+										  	  bagManager.m_pdDenseInsEachBag + bagId * bagManager.m_maxNumUsedFeaATree * bagManager.m_numIns,
 											  numofUsedFea, bagManager.m_pHashFeaIdToDenseInsPosBag + bagId * bagManager.m_maxNumUsedFeaATree,
-											  	  bagManager.m_maxTreeDepth);
-											  //numofUsedFea, manager.m_pHashFeaIdToDenseInsPos, treeManager.m_maxTreeDepth);
+										  	  bagManager.m_maxTreeDepth);
 		GETERROR("after PredMultiTarget");
 
 		//save to buffer
@@ -117,7 +111,6 @@ void DeviceSplitter::ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> >
 		//update the final prediction
 		manager.MemcpyDeviceToDeviceAsync(bagManager.m_pPredBufferEachBag + bagId * bagManager.m_numIns,
 									 bagManager.m_pTargetValueEachBag + bagId * bagManager.m_numIns, sizeof(float_point) * nNumofIns, pStream);
-		//manager.MemcpyDeviceToDevice(manager.m_pPredBuffer, manager.m_pTargetValue, sizeof(float_point) * nNumofIns);
 	}
 
 	if(pHashUsedFea != NULL)
@@ -130,22 +123,16 @@ void DeviceSplitter::ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> >
 	dim3 dimNumBlockComGD;
 	conf.ConfKernel(nNumofIns, blockSizeCompGD, dimNumBlockComGD);
 	ComputeGDKernel<<<dimNumBlockComGD, blockSizeCompGD, 0, (*(cudaStream_t*)pStream)>>>(
-								//nNumofIns, manager.m_pTargetValue, manager.m_pdTrueTargetValue,
 								nNumofIns, bagManager.m_pTargetValueEachBag + bagId * bagManager.m_numIns,
-										   bagManager.m_pdTrueTargetValueEachBag + bagId * bagManager.m_numIns,
+								bagManager.m_pdTrueTargetValueEachBag + bagId * bagManager.m_numIns,
 								bagManager.m_pInsGradEachBag + bagId * bagManager.m_numIns, bagManager.m_pInsHessEachBag + bagId * bagManager.m_numIns);
-								//manager.m_pGrad, manager.m_pHess);
 
 	//copy splittable nodes to GPU memory
-		//SNodeStat, SNIdToBuffId, pBuffIdVec need to be reset.
-	//manager.Memset(manager.m_pSNodeStat, 0, sizeof(nodeStat) * manager.m_maxNumofSplittable);
+	//SNodeStat, SNIdToBuffId, pBuffIdVec need to be reset.
 	manager.MemsetAsync(bagManager.m_pSNodeStatEachBag + bagId * bagManager.m_maxNumSplittable, 0,
 						sizeof(nodeStat) * bagManager.m_maxNumSplittable, pStream);
-	//manager.Memset(manager.m_pSNIdToBuffId, -1, sizeof(int) * manager.m_maxNumofSplittable);
 	manager.MemsetAsync(bagManager.m_pSNIdToBuffIdEachBag + bagId * bagManager.m_maxNumSplittable, -1, sizeof(int) * bagManager.m_maxNumSplittable, pStream);
-	//manager.Memset(manager.m_pBuffIdVec, -1, sizeof(int) * manager.m_maxNumofSplittable);
 	manager.MemsetAsync(bagManager.m_pPartitionId2SNPosEachBag + bagId * bagManager.m_maxNumSplittable, -1, sizeof(int) * bagManager.m_maxNumSplittable, pStream);
-	//manager.Memset(manager.m_pNumofBuffId, 0, sizeof(int));
 	manager.MemsetAsync(bagManager.m_pNumofBuffIdEachBag + bagId, 0, sizeof(int), pStream);
 
 	//compute number of blocks
@@ -229,15 +216,13 @@ void DeviceSplitter::ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> >
 	delete []pHess_h;
 #endif
 
-	InitNodeStat<<<1, 1, 0, (*(cudaStream_t*)pStream)>>>(//manager.m_pGDBlockSum, manager.m_pHessBlockSum,
+	InitNodeStat<<<1, 1, 0, (*(cudaStream_t*)pStream)>>>(
 						   bagManager.m_pGDBlockSumEachBag + bagId * bagManager.m_numBlockForBlockSum,
-						   	   bagManager.m_pHessBlockSumEachBag + bagId * bagManager.m_numBlockForBlockSum,
-						   //manager.m_pSNodeStat, manager.m_pSNIdToBuffId, manager.m_maxNumofSplittable,
+						   bagManager.m_pHessBlockSumEachBag + bagId * bagManager.m_numBlockForBlockSum,
 						   bagManager.m_pSNodeStatEachBag + bagId * bagManager.m_maxNumSplittable,
-						   	   bagManager.m_pSNIdToBuffIdEachBag + bagId * bagManager.m_maxNumSplittable, manager.m_maxNumofSplittable,
-						   //manager.m_pBuffIdVec, manager.m_pNumofBuffId
+						   bagManager.m_pSNIdToBuffIdEachBag + bagId * bagManager.m_maxNumSplittable, manager.m_maxNumofSplittable,
 						   bagManager.m_pPartitionId2SNPosEachBag + bagId * bagManager.m_maxNumSplittable,
-						   	   bagManager.m_pNumofBuffIdEachBag + bagId);
+						   bagManager.m_pNumofBuffIdEachBag + bagId);
 
 	cudaStreamSynchronize((*(cudaStream_t*)pStream));
 	GETERROR("after InitNodeStat");

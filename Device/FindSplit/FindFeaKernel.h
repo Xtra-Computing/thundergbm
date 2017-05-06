@@ -15,7 +15,6 @@
 #include "../../DeviceHost/NodeStat.h"
 
 //dense array
-__global__ void ComputeIndex(int *pDstIndexEachFeaValue, long long totalFeaValue);
 __global__ void LoadGDHessFvalueRoot(const float_point *pInsGD, const float_point *pInsHess, int numIns,
 						   const int *pInsId, const float_point *pAllFeaValue, int numFeaValue,
 						   float_point *pGDEachFeaValue, float_point *pHessEachFeaValue, float_point *pDenseFeaValue);

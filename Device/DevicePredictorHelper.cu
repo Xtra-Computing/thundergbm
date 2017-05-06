@@ -22,37 +22,6 @@ __device__ int GetNext(const TreeNode *pNode, float_point feaValue)
     }
 }
 
-__global__ void FillDense(const float_point *pdSparseInsValue, const int *pnSpareInsFeaId, int numofFeaValue,
-						  float_point *pdDenseIns, const int *pSortedUsedFea, const int *pHashFeaIdToDenseInsPos, int totalUsedFea)
-{
-	//for each value in the sparse instance
-	ECHECKER(numofFeaValue - 1);
-	int curDenseTop = 0;
-	for(int i = 0; i < numofFeaValue; i++)
-	{
-		int feaId = pnSpareInsFeaId[i];
-
-		while(feaId > pSortedUsedFea[curDenseTop])
-		{
-			int pos = GetBufferId(pHashFeaIdToDenseInsPos, pSortedUsedFea[curDenseTop], totalUsedFea);
-			pdDenseIns[pos] = 0;
-			curDenseTop++;
-			if(curDenseTop >= totalUsedFea)//all the used features have been assigned values
-				return;
-		}
-
-		if(feaId == pSortedUsedFea[curDenseTop])
-		{//this is a feature needed to be stored in dense instance
-			int pos = GetBufferId(pHashFeaIdToDenseInsPos, pSortedUsedFea[curDenseTop], totalUsedFea);
-			pdDenseIns[pos] = pdSparseInsValue[i];
-			curDenseTop++;
-			if(curDenseTop >= totalUsedFea)//all the used features have been assigned values
-				return;
-		}
-	}
-
-}
-
 __global__ void PredMultiTarget(float_point *pdTargetValue, int numofDenseIns, const TreeNode *pAllTreeNode,
 								const float_point *pDenseIns, int numofUsedFea,
 								const int *pnHashFeaIdToPos, int maxDepth)
@@ -139,6 +108,4 @@ __global__ void FillMultiDense(const float_point *pdSparseInsValue, const long l
 				return;
 		}
 	}
-
 }
-

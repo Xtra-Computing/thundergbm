@@ -40,6 +40,7 @@ __global__ void ComputeWeight(TreeNode *pAllTreeNode, TreeNode *pSplittableNode,
 	pAllTreeNode[nid].base_weight = nodeWeight;
 	if(pBestSplitPoint[snIdPos].m_fGain <= rt_eps || bLastLevel == true)
 	{
+		printf("gd=%f, hess=%f, lambda=%f; w=%f\n", pSNodeStat[snIdPos].sum_gd, pSNodeStat[snIdPos].sum_hess, lambda, nodeWeight);
 		//weight of a leaf node
 		pAllTreeNode[nid].predValue = pAllTreeNode[nid].base_weight;
 		pAllTreeNode[nid].rightChildId = flag_LEAFNODE;
@@ -228,7 +229,7 @@ __global__ void InsToNewNode(const TreeNode *pAllTreeNode, const float_point *pd
 
 	if(nid != pParentId[bufferPos])//node doesn't need to split (leaf node or new node)
 	{
-		printf("nid=%d, pid=%d ######################\n", nid, pParentId[bufferPos]);
+		printf("nid=%d, pid=%d, buffPos=%d, preMaxNid=%d ######################\n", nid, pParentId[bufferPos], bufferPos, preMaxNodeId);
 		if(pAllTreeNode[nid].rightChildId != flag_LEAFNODE)
 		{
 			ECHECKER(preMaxNodeId - nid);

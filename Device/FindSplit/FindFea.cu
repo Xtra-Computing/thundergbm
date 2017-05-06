@@ -222,7 +222,7 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 	clock_t start_comp_gain = clock();
 	//# of feature values that need to compute gains; the code below cannot be replaced by indexComp.m_totalNumFeaValue, due to some nodes becoming leaves.
 	int numofDenseValue = pFeaValueStartPosEachNode_h[numofSNode - 1] + indexComp.m_pNumFeaValueEachNode_dh[numofSNode - 1];
-	delete []pFeaValueStartPosEachNode_h;
+
 	int blockSizeComGain;
 	dim3 dimNumofBlockToComGain;
 	conf.ConfKernel(numofDenseValue, blockSizeComGain, dimNumofBlockToComGain);
@@ -240,7 +240,7 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 
 	//change the gain of the first feature value to 0
 	int numFeaStartPos = bagManager.m_numFea * numofSNode;
-//	printf("num of feature start positions=%d\n", numFeaStartPos);
+	printf("num fea start pos=%d (%d * %d)\n", numFeaStartPos, bagManager.m_numFea, numofSNode);
 	int blockSizeFirstGain;
 	dim3 dimNumofBlockFirstGain;
 	conf.ConfKernel(numFeaStartPos, blockSizeFirstGain, dimNumofBlockFirstGain);
@@ -258,11 +258,17 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 	clock_t start_search = clock();
 	//compute # of blocks for each node
 	unsigned int maxNumFeaValueOneNode = 0;
+	unsigned int testTotalFeaValue = 0;
 	for(int n = 0; n < numofSNode; n++)
 	{//find the node with the max number of element
 		if(maxNumFeaValueOneNode < indexComp.m_pNumFeaValueEachNode_dh[n])
 			maxNumFeaValueOneNode = indexComp.m_pNumFeaValueEachNode_dh[n];
+		testTotalFeaValue += indexComp.m_pNumFeaValueEachNode_dh[n];
+		printf("fv start=%u, len=%d\t", pFeaValueStartPosEachNode_h[n], indexComp.m_pNumFeaValueEachNode_dh[n]);
 	}
+	printf("monitored total fvalue: %u\n", testTotalFeaValue);
+	delete []pFeaValueStartPosEachNode_h;
+
 	PROCESS_ERROR(maxNumFeaValueOneNode > 0);
 	int blockSizeLocalBestGain;
 	dim3 dimNumofBlockLocalBestGain;

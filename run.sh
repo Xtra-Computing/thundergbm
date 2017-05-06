@@ -68,9 +68,11 @@ case $1 in
         FILENAME=${DATASET_DIR}/"cov1"
         ;;
     real-sim)
-        GAMMA=${GAMMA}"4"
-        C=${C}"0.5"
-        FILENAME=${DATASET_DIR}/"real-sim"
+		GAMMA=${GAMMA}"1"
+        D=${D}"8"
+		NUMTREE=${NUMTREE}"4"
+		BAG=${BAG}"1"
+        FILENAME=${DATASET_DIR}/"real-sim" #
         ;;
     *)
         echo "undefined dataset, use GAMMA=0.5, C=10"

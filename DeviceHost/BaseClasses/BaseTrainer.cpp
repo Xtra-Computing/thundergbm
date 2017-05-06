@@ -16,6 +16,10 @@
 #include "../../Host/Tree/PrintTree.h"
 #include "../../Host/Evaluation/RMSE.h"
 #include "../../Device/Splitter/DeviceSplitter.h"
+#include "../../Device/DevicePredictor.h"
+#include "../../Host/Evaluation/RMSE.h"
+#include "../../Device/Bagging/BagManager.h"
+
 
 int BaseTrainer::m_nMaxNumofTree = -1;
 int BaseTrainer::m_nMaxDepth = -1;
@@ -66,15 +70,7 @@ void BaseTrainer::TrainGBDT(vector<RegTree> & vTree, void *pStream, int bagId)
 
 		//predict the data by the existing trees
 		begin_gd = clock();
-		if(splitter->SpliterType().compare("host") == 0)
-		{
-			((HostSplitter*)splitter)->m_vPredBuffer = m_vPredBuffer;
-			((HostSplitter*)splitter)->m_vTrueValue = m_vTrueValue;
-			splitter->ComputeGD(vTree, m_vvInsSparse, NULL, 0);
-			m_vPredBuffer = ((HostSplitter*)splitter)->m_vPredBuffer;
-		}
-		else
-			splitter->ComputeGD(vTree, m_vvInsSparse, pStream, bagId);
+		splitter->ComputeGD(vTree, m_vvInsSparse, pStream, bagId);
 		end_gd = clock();
 		total_gd += (double(end_gd - begin_gd) / CLOCKS_PER_SEC);
 
@@ -95,6 +91,22 @@ void BaseTrainer::TrainGBDT(vector<RegTree> & vTree, void *pStream, int bagId)
 		cout << "elapsed time of round " << i << " is " << (double(end_round - start_round) / CLOCKS_PER_SEC) << endl;
 		total_find_fea += total_find_fea_t;
 		total_split += total_split_t;
+
+		//run the GBDT prediction process
+		DevicePredictor pred;
+		clock_t begin_pre, end_pre;
+		vector<float_point> v_fPredValue;
+
+		begin_pre = clock();
+		vector<vector<KeyValue> > dummy;
+		pred.PredictSparseIns(dummy, vTree, v_fPredValue, pStream, bagId);
+		end_pre = clock();
+		double prediction_time = (double(end_pre - begin_pre) / CLOCKS_PER_SEC);
+		cout << "prediction sec = " << prediction_time << endl;
+
+		EvalRMSE rmse;
+		float fRMSE = rmse.Eval(v_fPredValue, BagManager::m_pTrueLabel_h, v_fPredValue.size());
+		cout << "rmse=" << fRMSE << endl;
 	}
 
 	cout << "total: comp gd = " << total_gd << "; grow = " << total_grow << "; find fea = " << total_find_fea
