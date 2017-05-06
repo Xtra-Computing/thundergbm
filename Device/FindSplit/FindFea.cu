@@ -240,7 +240,7 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 
 	//change the gain of the first feature value to 0
 	int numFeaStartPos = bagManager.m_numFea * numofSNode;
-	printf("num fea start pos=%d (%d * %d)\n", numFeaStartPos, bagManager.m_numFea, numofSNode);
+//	printf("num fea start pos=%d (%d * %d)\n", numFeaStartPos, bagManager.m_numFea, numofSNode);
 	int blockSizeFirstGain;
 	dim3 dimNumofBlockFirstGain;
 	conf.ConfKernel(numFeaStartPos, blockSizeFirstGain, dimNumofBlockFirstGain);
@@ -264,10 +264,31 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 		if(maxNumFeaValueOneNode < indexComp.m_pNumFeaValueEachNode_dh[n])
 			maxNumFeaValueOneNode = indexComp.m_pNumFeaValueEachNode_dh[n];
 		testTotalFeaValue += indexComp.m_pNumFeaValueEachNode_dh[n];
-		printf("fv start=%u, len=%d\t", pFeaValueStartPosEachNode_h[n], indexComp.m_pNumFeaValueEachNode_dh[n]);
+//		printf("fv start=%u, len=%d\t", pFeaValueStartPosEachNode_h[n], indexComp.m_pNumFeaValueEachNode_dh[n]);
 	}
-	printf("monitored total fvalue: %u\n", testTotalFeaValue);
+//	printf("monitored total fvalue: %u\n", testTotalFeaValue);
 	delete []pFeaValueStartPosEachNode_h;
+
+	//print gain
+	float *pGain = new float[bagManager.m_numFeaValue];
+	cudaMemcpy(pGain, bagManager.m_pGainEachFvalueEachBag, bagManager.m_numFeaValue * sizeof(float), cudaMemcpyDeviceToHost);
+	if(numofSNode == 2){
+		int firstNodeSize = indexComp.m_pNumFeaValueEachNode_dh[0];
+		float min = 0; int id = -1;
+		for(int i = 0; i < indexComp.m_pNumFeaValueEachNode_dh[1]; i++){
+			if(pGain[i + firstNodeSize] > min){
+				min = pGain[i + firstNodeSize];
+				id = i;
+			}
+			/*if(pGain[i + firstNodeSize] != 0){
+			printf("i=%d, %f\t", i, pGain[i + firstNodeSize]);
+			if((i + 1) % 20 == 0)
+				printf("\n");
+			}*/
+		}
+		printf("id=%d, gain=%f\n", id, min);
+	}
+	delete []pGain;
 
 	PROCESS_ERROR(maxNumFeaValueOneNode > 0);
 	int blockSizeLocalBestGain;
@@ -313,7 +334,6 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 	clock_t end_search = clock();
 	total_search_t += end_search - start_search;
 
-//	cout << "construct split point" << endl;
 	FindSplitInfo<<<1, numofSNode, 0, (*(cudaStream_t*)pStream)>>>(
 									 bagManager.m_pEachFeaStartPosEachNodeEachBag_d + bagId * bagManager.m_maxNumSplittable * bagManager.m_numFea,
 									 bagManager.m_pEachFeaLenEachNodeEachBag_d + bagId * bagManager.m_maxNumSplittable * bagManager.m_numFea,
@@ -328,5 +348,4 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 				  	  	  	  	  	 bagManager.m_pRChildStatEachBag + bagId * bagManager.m_maxNumSplittable,
 				  	  	  	  	  	 bagManager.m_pLChildStatEachBag + bagId * bagManager.m_maxNumSplittable);
 	cudaStreamSynchronize((*(cudaStream_t*)pStream));
-//	cout << "Done find split" << endl;
 }

@@ -307,11 +307,8 @@ __global__ void FindSplitInfo(const unsigned int *pEachFeaStartPosEachNode, cons
 	pLChildStat[buffId].sum_hess = snNodeStat[buffId].sum_hess - pPrefixSumHess[idxPreSum];
 	pRChildStat[buffId].sum_gd = pPrefixSumGD[idxPreSum];
 	pRChildStat[buffId].sum_hess = pPrefixSumHess[idxPreSum];
-	printf("lgd=%f, rgd=%f\n", pLChildStat[buffId].sum_gd, pRChildStat[buffId].sum_gd);
 	ECHECKER(pLChildStat[buffId].sum_hess);
 	ECHECKER(pRChildStat[buffId].sum_hess);
-//	if(pLChildStat[buffId].sum_hess < 0 || pRChildStat[buffId].sum_hess < 0)
-//		printf("Error: hess is negative l hess=%d, r hess=%d\n", pLChildStat[buffId].sum_hess, pRChildStat[buffId].sum_hess);
 	printf("split: f=%d, value=%f, gain=%f, gd=%f v.s. %f, hess=%f v.s. %f, buffId=%d, key=%d\n", bestFeaId, pBestSplitPoint[buffId].m_fSplitValue,
 			pBestSplitPoint[buffId].m_fGain, pLChildStat[buffId].sum_gd, pRChildStat[buffId].sum_gd, pLChildStat[buffId].sum_hess, pRChildStat[buffId].sum_hess, buffId, key);
 }

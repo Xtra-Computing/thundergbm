@@ -40,7 +40,7 @@ __global__ void ComputeWeight(TreeNode *pAllTreeNode, TreeNode *pSplittableNode,
 	pAllTreeNode[nid].base_weight = nodeWeight;
 	if(pBestSplitPoint[snIdPos].m_fGain <= rt_eps || bLastLevel == true)
 	{
-		printf("gd=%f, hess=%f, lambda=%f; w=%f\n", pSNodeStat[snIdPos].sum_gd, pSNodeStat[snIdPos].sum_hess, lambda, nodeWeight);
+//		printf("gd=%f, hess=%f, lambda=%f; w=%f\n", pSNodeStat[snIdPos].sum_gd, pSNodeStat[snIdPos].sum_hess, lambda, nodeWeight);
 		//weight of a leaf node
 		pAllTreeNode[nid].predValue = pAllTreeNode[nid].base_weight;
 		pAllTreeNode[nid].rightChildId = flag_LEAFNODE;

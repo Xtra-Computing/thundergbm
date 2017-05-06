@@ -110,7 +110,6 @@ void DevicePredictor::PredictSparseIns(vector<vector<KeyValue> > &v_vInstance, v
 	}
 
 	float_point *pTempTarget = new float_point[nNumofIns];
-	//manager.MemcpyDeviceToHost(manager.m_pTargetValue, pTempTarget, sizeof(float_point) * nNumofIns);
 	manager.MemcpyDeviceToHostAsync(bagManager.m_pTargetValueEachBag + bagId * bagManager.m_numIns,
 									pTempTarget, sizeof(float_point) * nNumofIns, pStream);
 
@@ -172,12 +171,4 @@ void DevicePredictor::GetTreeInfo(TreeNode *&pTree, int &numofNodeOfTheTree, int
 	manager.MemcpyDeviceToHostAsync(bagManager.m_pStartPosOfEachTreeEachBag + bagId * bagManager.m_numTreeEachBag + treeId,
 								&startPosOfLastTree, sizeof(int), pStream);
 	pTree = bagManager.m_pAllTreeEachBag + startPosOfLastTree;
-	//print tree
-	TreeNode *pAll = new TreeNode[numofNodeOfTheTree];
-	manager.MemcpyDeviceToHostAsync(pTree, pAll, sizeof(TreeNode) * numofNodeOfTheTree, pStream);
-	for(int i = 0; i < numofNodeOfTheTree; i++){
-		printf("i=%d, nid=%d\t", i, pAll[i].nodeId);
-	}
-	printf("\n");
-	delete[] pAll;
 }

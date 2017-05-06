@@ -47,8 +47,8 @@ case $1 in
         ;;
     e2006)
 		GAMMA=${GAMMA}"1"
-        D=${D}"8"
-		NUMTREE=${NUMTREE}"4"
+        D=${D}"2"
+		NUMTREE=${NUMTREE}"2"
 		BAG=${BAG}"1"
         FILENAME=${DATASET_DIR}/"E2006.train" #150360 features and 16087 instances
         ;;
