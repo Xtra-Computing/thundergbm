@@ -11,7 +11,6 @@
 #include <thrust/execution_policy.h>
 
 #include "FindFeaKernel.h"
-#include "../partialSum.h"
 #include "../DevicePredictor.h"
 #include "../Bagging/BagManager.h"
 #include "../Splitter/Initiator.h"

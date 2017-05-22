@@ -238,8 +238,8 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 	GETERROR("after ComputeGainDense");
 	
 	//for testing gain before fixing
-	float *pGain = new float[bagManager.m_numFeaValue];
-	cudaMemcpy(pGain, bagManager.m_pGainEachFvalueEachBag, bagManager.m_numFeaValue * sizeof(float), cudaMemcpyDeviceToHost);
+	float_point *pGain = new float_point[bagManager.m_numFeaValue];
+	cudaMemcpy(pGain, bagManager.m_pGainEachFvalueEachBag, bagManager.m_numFeaValue * sizeof(float_point), cudaMemcpyDeviceToHost);
 
 	//change the gain of the first feature value to 0
 	int numFeaStartPos = bagManager.m_numFea * numofSNode;
@@ -273,7 +273,6 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 
 	//print gain
 //	float *pGain = new float[bagManager.m_numFeaValue];
-//	cudaMemcpy(pGain, bagManager.m_pGainEachFvalueEachBag, bagManager.m_numFeaValue * sizeof(float), cudaMemcpyDeviceToHost);
 	if(numofSNode == 2){
 		int firstNodeSize = indexComp.m_pNumFeaValueEachNode_dh[0];
 		printf("1st ns=%d, s=%d, e=%d\n", firstNodeSize, pTempEachFeaStartEachNode_h[bagManager.m_numFea + 1977], pTempEachFeaStartEachNode_h[bagManager.m_numFea + 1978]);

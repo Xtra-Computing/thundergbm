@@ -26,7 +26,10 @@ __global__ void ComputeGDKernel(int numofIns, const float_point *pfPredValue, co
 	if(gTid >= numofIns)//each thread computes one gd
 		return;
 
+
 	pGrad[gTid] = pfPredValue[gTid] - pfTrueValue[gTid];
+	if(gTid <= 10)
+		printf("gd=%f\n", pGrad[gTid]);
 	pHess[gTid] = 1;
 }
 

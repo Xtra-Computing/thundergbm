@@ -197,6 +197,13 @@ int main(int argc, char *argv[])
 	//copy true labels to gpu memory
 	for(int i = 0; i < numBag; i++)
 		cudaMemcpy(bagManager.m_pdTrueTargetValueEachBag + i * bagManager.m_numIns, pTrueLabel, numIns * sizeof(float_point), cudaMemcpyHostToDevice);
+	//for testing
+	double gd = 0;
+	for(int i = 0; i < numIns; i++){
+		gd += pTrueLabel[i];
+	}
+	gd = gd - 1998.381714 * bagManager.m_numIns;
+	printf("sum gd = %lf\n", gd);
 
 	clock_t start_train_time = clock();
 
