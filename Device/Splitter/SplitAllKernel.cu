@@ -40,7 +40,7 @@ __global__ void ComputeWeight(TreeNode *pAllTreeNode, TreeNode *pSplittableNode,
 	pAllTreeNode[nid].base_weight = nodeWeight;
 	if(pBestSplitPoint[snIdPos].m_fGain <= rt_eps || bLastLevel == true)
 	{
-//		printf("gd=%f, hess=%f, lambda=%f; w=%f\n", pSNodeStat[snIdPos].sum_gd, pSNodeStat[snIdPos].sum_hess, lambda, nodeWeight);
+		printf("gd=%f, hess=%f, lambda=%f; w=%f\n", pSNodeStat[snIdPos].sum_gd, pSNodeStat[snIdPos].sum_hess, lambda, nodeWeight);
 		//weight of a leaf node
 		pAllTreeNode[nid].predValue = pAllTreeNode[nid].base_weight;
 		pAllTreeNode[nid].rightChildId = flag_LEAFNODE;
@@ -201,7 +201,7 @@ __global__ void InsToNewNode(const TreeNode *pAllTreeNode, const float_point *pd
 		return;
 
 	//for each instance that has value on the feature
-	unsigned int curFeaStartPos = pFeaStartPos[ufid];
+	unsigned int curFeaStartPos = pFeaStartPos[ufid];//this start pos is never changed (i.e. always the same as the original)
 	const float_point *pdCurFeaValue = pdFeaValue + curFeaStartPos;//fvalue start pos in the global memory
 	const int *pCurFeaInsId = pInsId + curFeaStartPos;//ins_id of this fea start pos in the global memory
 
@@ -227,11 +227,9 @@ __global__ void InsToNewNode(const TreeNode *pAllTreeNode, const float_point *pd
 	if(fid != ufid)//this feature is not the splitting feature for the instance.
 		return;
 
-	if(nid != pParentId[bufferPos])//node doesn't need to split (leaf node or new node)
-	{
+	if(nid != pParentId[bufferPos]){//node doesn't need to split (leaf node or new node)
 		printf("nid=%d, pid=%d, buffPos=%d, preMaxNid=%d ######################\n", nid, pParentId[bufferPos], bufferPos, preMaxNodeId);
-		if(pAllTreeNode[nid].rightChildId != flag_LEAFNODE)
-		{
+		if(pAllTreeNode[nid].rightChildId != flag_LEAFNODE){
 			ECHECKER(preMaxNodeId - nid);
 			return;
 		}

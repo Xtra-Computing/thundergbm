@@ -7,6 +7,8 @@
  */
 
 #include <iostream>
+#include <thrust/reduce.h>
+#include <thrust/execution_policy.h>
 
 #include "FindFeaKernel.h"
 #include "../partialSum.h"
@@ -127,6 +129,13 @@ void DeviceSplitter::ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> >
 								bagManager.m_pdTrueTargetValueEachBag + bagId * bagManager.m_numIns,
 								bagManager.m_pInsGradEachBag + bagId * bagManager.m_numIns, bagManager.m_pInsHessEachBag + bagId * bagManager.m_numIns);
 
+	//for gd and hess sum
+	float_point *pTempGD = bagManager.m_pInsGradEachBag + bagId * bagManager.m_numIns;
+	float_point gdSum = thrust::reduce(thrust::system::cuda::par, pTempGD, pTempGD + bagManager.m_numIns);
+	float_point *pTempHess = bagManager.m_pInsHessEachBag + bagId * bagManager.m_numIns;
+	float_point hessSum = thrust::reduce(thrust::system::cuda::par, pTempHess, pTempHess + bagManager.m_numIns);
+	printf("sum_gd=%f, sum_hess=%f\n", gdSum, hessSum);
+
 	//copy splittable nodes to GPU memory
 	//SNodeStat, SNIdToBuffId, pBuffIdVec need to be reset.
 	manager.MemsetAsync(bagManager.m_pSNodeStatEachBag + bagId * bagManager.m_maxNumSplittable, 0,
@@ -135,90 +144,7 @@ void DeviceSplitter::ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> >
 	manager.MemsetAsync(bagManager.m_pPartitionId2SNPosEachBag + bagId * bagManager.m_maxNumSplittable, -1, sizeof(int) * bagManager.m_maxNumSplittable, pStream);
 	manager.MemsetAsync(bagManager.m_pNumofBuffIdEachBag + bagId, 0, sizeof(int), pStream);
 
-	//compute number of blocks
-	int thdPerBlockSum;
-	dim3 dimNumBlockSum;
-	conf.ConfKernel(ceil(nNumofIns/2.0), thdPerBlockSum, dimNumBlockSum);//one thread adds two values
-	blockSum<<<dimNumBlockSum, thdPerBlockSum, thdPerBlockSum * 2 * sizeof(float_point), (*(cudaStream_t*)pStream)>>>(
-												//manager.m_pGrad, manager.m_pGDBlockSum, nNumofIns, false);
-												bagManager.m_pInsGradEachBag + bagId * bagManager.m_numIns,
-													bagManager.m_pGDBlockSumEachBag + bagId * bagManager.m_numBlockForBlockSum, nNumofIns, false);
-	int numBlockForBlockSum = dimNumBlockSum.x * dimNumBlockSum.y;
-	if(bagManager.m_numBlockForBlockSum < numBlockForBlockSum)
-	{
-		cerr << "default number of blocks for block sum is too small" << endl;
-		exit(0);
-	}
-	int numThdFinalSum;
-	dim3 dimDummy;
-	conf.ConfKernel(ceil(numBlockForBlockSum/2.0), numThdFinalSum, dimDummy);//one thread adds two values
-	if(numThdFinalSum >= conf.m_maxBlockSize)
-		numThdFinalSum = conf.m_maxBlockSize;
-	else
-	{
-		unsigned int tempNumThd;
-		smallReductionKernelConf(tempNumThd, numBlockForBlockSum);
-		numThdFinalSum = tempNumThd;
-	}
-#if false
-	float_point *pGDBlockSum_d = new float_point[numBlockForBlockSum];
-	manager.MemcpyDeviceToHost(manager.m_pGDBlockSum, pGDBlockSum_d, sizeof(float_point) * numBlockForBlockSum);
-	float_point totalBlockSum = 0;
-	for(int b = 0; b < numBlockForBlockSum; b++)
-	{
-		totalBlockSum +=pGDBlockSum_d[b];
-	}
-	cerr << "total gd block sum is " << totalBlockSum << endl;
-#endif
-
-	blockSum<<<1, numThdFinalSum, numThdFinalSum * 2 * sizeof(float_point), (*(cudaStream_t*)pStream)>>>(
-												//manager.m_pGDBlockSum, manager.m_pGDBlockSum, numBlockForBlockSum, true);
-												bagManager.m_pGDBlockSumEachBag + bagId * bagManager.m_numBlockForBlockSum,
-													bagManager.m_pGDBlockSumEachBag + bagId * bagManager.m_numBlockForBlockSum, numBlockForBlockSum, true);
-
-
-	//compute hessian block sum and final sum
-	blockSum<<<dimNumBlockSum, thdPerBlockSum, thdPerBlockSum * 2 * sizeof(float_point), (*(cudaStream_t*)pStream)>>>(
-												//manager.m_pHess, manager.m_pHessBlockSum, nNumofIns, false);
-												bagManager.m_pInsHessEachBag + bagId * bagManager.m_numIns,
-													bagManager.m_pHessBlockSumEachBag + bagId * bagManager.m_numBlockForBlockSum,
-													nNumofIns, false);
-	blockSum<<<1, numThdFinalSum, numThdFinalSum * 2 * sizeof(float_point), (*(cudaStream_t*)pStream)>>>(
-												//manager.m_pHessBlockSum, manager.m_pHessBlockSum, numBlockForBlockSum, true);
-												bagManager.m_pHessBlockSumEachBag + bagId * bagManager.m_numBlockForBlockSum,
-													bagManager.m_pHessBlockSumEachBag + bagId * bagManager.m_numBlockForBlockSum, numBlockForBlockSum, true);
-
-#if false
-	float_point *pGD_h = new float_point[nNumofIns];
-	float_point *pHess_h = new float_point[nNumofIns];
-
-	manager.MemcpyDeviceToHost(manager.m_pGrad, pGD_h, sizeof(float_point) * nNumofIns);
-	manager.MemcpyDeviceToHost(manager.m_pHess, pHess_h, sizeof(float_point) * nNumofIns);
-
-	float_point sumGD_h = 0;
-	float_point sumHess_h = 0;
-	for(int i = 0; i < nNumofIns; i++)
-	{
-		sumGD_h += pGD_h[i];
-		sumHess_h += pHess_h[i];
-	}
-
-	float_point sumGD_d, sumHess_d;
-	manager.MemcpyDeviceToHost(manager.m_pGDBlockSum, &sumGD_d, sizeof(float_point));
-	manager.MemcpyDeviceToHost(manager.m_pHessBlockSum, &sumHess_d, sizeof(float_point));
-
-	if(sumGD_d != sumGD_h || sumHess_d != sumHess_h)
-	{
-		cerr << "host and device have different results: " << sumGD_d << " v.s. " << sumGD_h << "; " << sumHess_d << " v.s. " << sumHess_h << endl;
-	}
-
-	delete []pGD_h;
-	delete []pHess_h;
-#endif
-
-	InitNodeStat<<<1, 1, 0, (*(cudaStream_t*)pStream)>>>(
-						   bagManager.m_pGDBlockSumEachBag + bagId * bagManager.m_numBlockForBlockSum,
-						   bagManager.m_pHessBlockSumEachBag + bagId * bagManager.m_numBlockForBlockSum,
+	InitNodeStat<<<1, 1, 0, (*(cudaStream_t*)pStream)>>>(gdSum, hessSum,
 						   bagManager.m_pSNodeStatEachBag + bagId * bagManager.m_maxNumSplittable,
 						   bagManager.m_pSNIdToBuffIdEachBag + bagId * bagManager.m_maxNumSplittable, manager.m_maxNumofSplittable,
 						   bagManager.m_pPartitionId2SNPosEachBag + bagId * bagManager.m_maxNumSplittable,

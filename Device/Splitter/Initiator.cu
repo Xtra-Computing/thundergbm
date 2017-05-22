@@ -30,7 +30,7 @@ __global__ void ComputeGDKernel(int numofIns, const float_point *pfPredValue, co
 	pHess[gTid] = 1;
 }
 
-__global__ void InitNodeStat(const float_point *root_sum_gd, const float_point *root_sum_hess,
+__global__ void InitNodeStat(const float_point root_sum_gd, const float_point root_sum_hess,
 							 nodeStat *pSNodeStat, int *pSNIdToBuffId, int maxNumofSplittable,
 							 int *pBuffId, int *pNumofBuffId)
 {
@@ -42,8 +42,8 @@ __global__ void InitNodeStat(const float_point *root_sum_gd, const float_point *
 
 	if(buffId != 0)
 		printf("buffId = %d\n", buffId);
-	pSNodeStat[buffId].sum_gd = root_sum_gd[0];
-	pSNodeStat[buffId].sum_hess = root_sum_hess[0];
+	pSNodeStat[buffId].sum_gd = root_sum_gd;
+	pSNodeStat[buffId].sum_hess = root_sum_hess;
 	pBuffId[0] = buffId;//here we only initialise the root node
 	pNumofBuffId[0] = 1;
 }
