@@ -34,9 +34,6 @@ int *BagManager::m_pNumofTreeLearntEachBag_h = NULL;
 
 //for gd/hessian computation
 //memory for initialisation
-float_point *BagManager::m_pGDBlockSumEachBag = NULL;	//for initialising root node
-float_point *BagManager::m_pHessBlockSumEachBag = NULL;//for initialising root node
-int BagManager::m_numBlockForBlockSum = -1;
 float_point *BagManager::m_pPredBufferEachBag = NULL;
 float_point *BagManager::m_pdDenseInsEachBag = NULL;
 float_point *BagManager::m_pdTrueTargetValueEachBag = NULL;	//true target value of each instance
@@ -186,9 +183,6 @@ void BagManager::AllocMem()
 	checkCudaErrors(cudaMalloc((void**)&m_pdTrueTargetValueEachBag, sizeof(float_point) * m_numIns * m_numBag));
 	checkCudaErrors(cudaMalloc((void**)&m_pInsGradEachBag, sizeof(float_point) * m_numIns * m_numBag));
 	checkCudaErrors(cudaMalloc((void**)&m_pInsHessEachBag, sizeof(float_point) * m_numIns * m_numBag));
-	m_numBlockForBlockSum = ceil(m_numIns / 64.0);
-	checkCudaErrors(cudaMalloc((void**)&m_pGDBlockSumEachBag, sizeof(float_point) * m_numBlockForBlockSum  * m_numBag));//64 is the min # of elements for a block sum
-	checkCudaErrors(cudaMalloc((void**)&m_pHessBlockSumEachBag, sizeof(float_point) * m_numBlockForBlockSum  * m_numBag));
 
 	//gradient and hessian prefix sum
 	checkCudaErrors(cudaMalloc((void**)&m_pGDEachFvalueEachBag, sizeof(float_point) * m_numFeaValue * m_numBag));
