@@ -13,7 +13,7 @@
  * @brief: prediction function for sparse instances
  */
 void BasePredictor::PredictSparseInsByLastTree(vector<vector<KeyValue> > &v_vInstance, vector<RegTree> &vTree,
-								 vector<float_point> &v_fPredValue, vector<float_point> &v_predBuffer)
+								 vector<real> &v_fPredValue, vector<real> &v_predBuffer)
 {
 	DenseInsConverter denseInsConverter(vTree);
 	//for each tree
@@ -21,12 +21,12 @@ void BasePredictor::PredictSparseInsByLastTree(vector<vector<KeyValue> > &v_vIns
 
 	for(int i = 0; i < nNumofIns; i++)
 	{
-		float_point fValue = v_predBuffer[i];
+		real fValue = v_predBuffer[i];
 
 		//start prediction ###############
 		int nNumofTree = vTree.size();
 
-		vector<float_point> vDense;
+		vector<real> vDense;
 		if(nNumofTree > 0)
 		{
 			denseInsConverter.SparseToDense(v_vInstance[i], vDense);

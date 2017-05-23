@@ -34,23 +34,21 @@ int *BagManager::m_pNumofTreeLearntEachBag_h = NULL;
 
 //for gd/hessian computation
 //memory for initialisation
-float_point *BagManager::m_pPredBufferEachBag = NULL;
-float_point *BagManager::m_pdDenseInsEachBag = NULL;
-float_point *BagManager::m_pdTrueTargetValueEachBag = NULL;	//true target value of each instance
-float_point *BagManager::m_pTargetValueEachBag = NULL;	//predicted target value of each instance
-float_point *BagManager::m_pInsGradEachBag = NULL;
-float_point *BagManager::m_pInsHessEachBag = NULL;
-float_point *BagManager::m_pGDEachFvalueEachBag = NULL;		//gd of each feature value
-float_point *BagManager::m_pHessEachFvalueEachBag = NULL;	//hessian of each feature value
-float_point *BagManager::m_pDenseFValueEachBag = NULL;		//feature values of consideration (use for computing the split?)
-float_point *BagManager::m_pGDPrefixSumEachBag = NULL;		//gd prefix sum for each feature
-float_point *BagManager::m_pHessPrefixSumEachBag = NULL;	//hessian prefix sum for each feature
-float_point *BagManager::m_pGainEachFvalueEachBag = NULL;	//gain for each feature value of each bag
+real *BagManager::m_pPredBufferEachBag = NULL;
+real *BagManager::m_pdDenseInsEachBag = NULL;
+real *BagManager::m_pdTrueTargetValueEachBag = NULL;	//true target value of each instance
+real *BagManager::m_pTargetValueEachBag = NULL;	//predicted target value of each instance
+real *BagManager::m_pInsGradEachBag = NULL;
+real *BagManager::m_pInsHessEachBag = NULL;
+real *BagManager::m_pDenseFValueEachBag = NULL;		//feature values of consideration (use for computing the split?)
+double *BagManager::m_pdGDPrefixSumEachBag = NULL;		//gd prefix sum for each feature
+real *BagManager::m_pHessPrefixSumEachBag = NULL;	//hessian prefix sum for each feature
+real *BagManager::m_pGainEachFvalueEachBag = NULL;	//gain for each feature value of each bag
 //for finding the best split
-float_point *BagManager::m_pfLocalBestGainEachBag_d = NULL;	//local best gain of each bag
+real *BagManager::m_pfLocalBestGainEachBag_d = NULL;	//local best gain of each bag
 int *BagManager::m_pnLocalBestGainKeyEachBag_d = NULL;		//local best gain key of each bag
 int BagManager::m_maxNumofBlockPerNode = -1;				//number of blocks
-float_point *BagManager::m_pfGlobalBestGainEachBag_d = NULL;//global best gain of each bag
+real *BagManager::m_pfGlobalBestGainEachBag_d = NULL;//global best gain of each bag
 int *BagManager::m_pnGlobalBestGainKeyEachBag_d = NULL;		//global best gain key of each bag
 int *BagManager::m_pEachFeaLenEachNodeEachBag_dh = NULL;//each feature value length in each node
 
@@ -72,7 +70,7 @@ nodeStat *BagManager::m_pSNodeStatEachBag = NULL;	//splittable node statistics
 nodeStat *BagManager::m_pRChildStatEachBag = NULL;
 nodeStat *BagManager::m_pLChildStatEachBag = NULL;
 nodeStat *BagManager::m_pTempRChildStatEachBag = NULL;//(require memset!) store temporary statistics of right child
-float_point *BagManager::m_pLastValueEachBag = NULL;//store the last processed value (for computing split point)
+real *BagManager::m_pLastValueEachBag = NULL;//store the last processed value (for computing split point)
 int *BagManager::m_nSNLockEachBag = NULL;
 int *BagManager::m_curNumofSplitableEachBag_h = NULL; //number of splittable node of current tree
 int *BagManager::m_pSNIdToBuffIdEachBag = NULL;	//(require memset!) map splittable node id to buffer position
@@ -102,7 +100,7 @@ int *BagManager::m_pNumofUniqueFeaIdEachBag = NULL;//(require memset!)store the 
 int BagManager::m_maxNumUsedFeaATree = -1;	//for reserving GPU memory; maximum number of used features in a tree
 
 //temp host variable
-float_point *BagManager::m_pTrueLabel_h = NULL;
+real *BagManager::m_pTrueLabel_h = NULL;
 
 int *BagManager::m_pPreMaxNid_h = NULL;
 
@@ -176,30 +174,28 @@ void BagManager::AllocMem()
 
 	/******* memory for find split ******/
 	//predicted value, gradient, hessian
-	checkCudaErrors(cudaMalloc((void**)&m_pPredBufferEachBag, sizeof(float_point) * m_numIns * m_numBag));
-	checkCudaErrors(cudaMemset(m_pPredBufferEachBag, 0, sizeof(float_point) * m_numIns * m_numBag));
-	checkCudaErrors(cudaMalloc((void**)&m_pdDenseInsEachBag, sizeof(float_point) * m_maxNumUsedFeaATree * m_numIns * m_numBag));
-	checkCudaErrors(cudaMalloc((void**)&m_pTargetValueEachBag, sizeof(float_point) * m_numIns * m_numBag));
-	checkCudaErrors(cudaMalloc((void**)&m_pdTrueTargetValueEachBag, sizeof(float_point) * m_numIns * m_numBag));
-	checkCudaErrors(cudaMalloc((void**)&m_pInsGradEachBag, sizeof(float_point) * m_numIns * m_numBag));
-	checkCudaErrors(cudaMalloc((void**)&m_pInsHessEachBag, sizeof(float_point) * m_numIns * m_numBag));
+	checkCudaErrors(cudaMalloc((void**)&m_pPredBufferEachBag, sizeof(real) * m_numIns * m_numBag));
+	checkCudaErrors(cudaMemset(m_pPredBufferEachBag, 0, sizeof(real) * m_numIns * m_numBag));
+	checkCudaErrors(cudaMalloc((void**)&m_pdDenseInsEachBag, sizeof(real) * m_maxNumUsedFeaATree * m_numIns * m_numBag));
+	checkCudaErrors(cudaMalloc((void**)&m_pTargetValueEachBag, sizeof(real) * m_numIns * m_numBag));
+	checkCudaErrors(cudaMalloc((void**)&m_pdTrueTargetValueEachBag, sizeof(real) * m_numIns * m_numBag));
+	checkCudaErrors(cudaMalloc((void**)&m_pInsGradEachBag, sizeof(real) * m_numIns * m_numBag));
+	checkCudaErrors(cudaMalloc((void**)&m_pInsHessEachBag, sizeof(real) * m_numIns * m_numBag));
 
 	//gradient and hessian prefix sum
-	checkCudaErrors(cudaMalloc((void**)&m_pGDEachFvalueEachBag, sizeof(float_point) * m_numFeaValue * m_numBag));
-	checkCudaErrors(cudaMalloc((void**)&m_pHessEachFvalueEachBag, sizeof(float_point) * m_numFeaValue * m_numBag));
-	checkCudaErrors(cudaMalloc((void**)&m_pDenseFValueEachBag, sizeof(float_point) * m_numFeaValue * m_numBag));
-	checkCudaErrors(cudaMalloc((void**)&m_pGDPrefixSumEachBag, sizeof(float_point) * m_numFeaValue * m_numBag));
-	checkCudaErrors(cudaMalloc((void**)&m_pHessPrefixSumEachBag, sizeof(float_point) * m_numFeaValue * m_numBag));
-	checkCudaErrors(cudaMalloc((void**)&m_pGainEachFvalueEachBag, sizeof(float_point) * m_numFeaValue * m_numBag));
+	checkCudaErrors(cudaMalloc((void**)&m_pDenseFValueEachBag, sizeof(real) * m_numFeaValue * m_numBag));
+	checkCudaErrors(cudaMalloc((void**)&m_pdGDPrefixSumEachBag, sizeof(double) * m_numFeaValue * m_numBag));
+	checkCudaErrors(cudaMalloc((void**)&m_pHessPrefixSumEachBag, sizeof(real) * m_numFeaValue * m_numBag));
+	checkCudaErrors(cudaMalloc((void**)&m_pGainEachFvalueEachBag, sizeof(real) * m_numFeaValue * m_numBag));
 	//for finding the best split
 	int blockSizeLocalBest;
 	dim3 tempNumofBlockLocalBest;
 	KernelConf conf;
 	conf.ConfKernel(m_numFeaValue, blockSizeLocalBest, tempNumofBlockLocalBest);
 	m_maxNumofBlockPerNode = tempNumofBlockLocalBest.x * tempNumofBlockLocalBest.y;
-	checkCudaErrors(cudaMalloc((void**)&m_pfLocalBestGainEachBag_d, sizeof(float_point) * m_maxNumofBlockPerNode * m_maxNumSplittable * m_numBag));
+	checkCudaErrors(cudaMalloc((void**)&m_pfLocalBestGainEachBag_d, sizeof(real) * m_maxNumofBlockPerNode * m_maxNumSplittable * m_numBag));
 	checkCudaErrors(cudaMalloc((void**)&m_pnLocalBestGainKeyEachBag_d, sizeof(int) * m_maxNumofBlockPerNode * m_maxNumSplittable * m_numBag));
-	checkCudaErrors(cudaMalloc((void**)&m_pfGlobalBestGainEachBag_d, sizeof(float_point) * m_maxNumSplittable * m_numBag));
+	checkCudaErrors(cudaMalloc((void**)&m_pfGlobalBestGainEachBag_d, sizeof(real) * m_maxNumSplittable * m_numBag));
 	checkCudaErrors(cudaMalloc((void**)&m_pnGlobalBestGainKeyEachBag_d, sizeof(int) * m_maxNumSplittable * m_numBag));
 
 	checkCudaErrors(cudaMallocHost((void**)&m_pEachFeaLenEachNodeEachBag_dh, sizeof(int) * m_maxNumSplittable * m_numFea * m_numBag));
@@ -228,8 +224,8 @@ void BagManager::AllocMem()
 	checkCudaErrors(cudaMalloc((void**)&m_pLChildStatEachBag, sizeof(nodeStat) * m_maxNumSplittable * m_numBag));
 	//temporary space for splittable nodes
 	checkCudaErrors(cudaMalloc((void**)&m_pTempRChildStatEachBag, sizeof(nodeStat) * m_maxNumSplittable * m_numBag));
-	checkCudaErrors(cudaMalloc((void**)&m_pLastValueEachBag, sizeof(float_point) * m_maxNumSplittable * m_numBag));
-	checkCudaErrors(cudaMemset(m_pLastValueEachBag, 0, sizeof(float_point) * m_maxNumSplittable * m_numBag));
+	checkCudaErrors(cudaMalloc((void**)&m_pLastValueEachBag, sizeof(real) * m_maxNumSplittable * m_numBag));
+	checkCudaErrors(cudaMemset(m_pLastValueEachBag, 0, sizeof(real) * m_maxNumSplittable * m_numBag));
 	m_curNumofSplitableEachBag_h = new int[m_numBag];
 	checkCudaErrors(cudaMalloc((void**)&m_nSNLockEachBag, sizeof(int) * m_numBag));//a lock for critical region
 	checkCudaErrors(cudaMemset(m_nSNLockEachBag, 0, sizeof(int) * m_numBag));

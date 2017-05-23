@@ -19,10 +19,10 @@
  * @brief: pick best feature of this batch for all the splittable nodes
  * Each block.y processes one node, a thread processes a reduction.
  */
-__global__ void PickFeaLocalBestSplit(const int *pnNumofKeyValues, const long long *pnFeaStartPos, const float_point *pGainOnEachFeaValue,
+__global__ void PickFeaLocalBestSplit(const int *pnNumofKeyValues, const long long *pnFeaStartPos, const real *pGainOnEachFeaValue,
 								   const int *pBuffId, int smallestFeaId, int feaBatch,
 								   int numofSNInProgress, int smallestNodeId, int maxNumofSplittable,
-								   float_point *pfBestGain, int *pnBestGainKey)
+								   real *pfBestGain, int *pnBestGainKey)
 {
 	//blockIdx.x corresponds to a feature which has multiple values
 	//blockIdx.y corresponds to a feature id
@@ -38,7 +38,7 @@ __global__ void PickFeaLocalBestSplit(const int *pnNumofKeyValues, const long lo
 	if(pBuffId[snId + smallestNodeId] < 0 || pBuffId[snId + smallestNodeId] >= maxNumofSplittable)
 		printf("Error in PickBestFea\n");
 
-	__shared__ float_point pfGain[BLOCK_SIZE];
+	__shared__ real pfGain[BLOCK_SIZE];
 	__shared__ int pnBetterGainKey[BLOCK_SIZE];
 	int localTid = threadIdx.x;
 	pfGain[localTid] = FLT_MAX;//initialise to a large positive number
@@ -91,8 +91,8 @@ __global__ void PickFeaLocalBestSplit(const int *pnNumofKeyValues, const long lo
  * @brief: pick best feature of this batch for all the splittable nodes
  */
 __global__ void PickFeaGlobalBestSplit(int feaBatch, int numofSNode,
-								   const float_point *pfLocalBestGain, const int *pnLocalBestGainKey,
-								   float_point *pfFeaGlobalBestGain, int *pnFeaGlobalBestGainKey,
+								   const real *pfLocalBestGain, const int *pnLocalBestGainKey,
+								   real *pfFeaGlobalBestGain, int *pnFeaGlobalBestGainKey,
 								   int nLocalBlockPerFeaInBatch)
 {
 	//blockIdx.x (==1) corresponds to a feature which has multiple values
@@ -108,7 +108,7 @@ __global__ void PickFeaGlobalBestSplit(int feaBatch, int numofSNode,
 	if(blockIdx.x > 0 || gridDim.x != 1)
 		printf("#### one block is not enough to find global best split for a feature!\n");
 
-	__shared__ float_point pfGain[BLOCK_SIZE];
+	__shared__ real pfGain[BLOCK_SIZE];
 	__shared__ int pnBetterGainKey[BLOCK_SIZE];
 	int localTid = threadIdx.x;
 	pfGain[localTid] = FLT_MAX;//initialise to a large positive number
@@ -144,8 +144,8 @@ __global__ void PickFeaGlobalBestSplit(int feaBatch, int numofSNode,
  * @brief: pick best feature of this batch for all the splittable nodes
  */
 __global__ void PickLocalBestFeaBestSplit(int feaBatch, int numofSNode,
-								   const float_point *pfFeaGlobalBestGain, const int *pnFeaGlobalBestGainKey,
-								   float_point *pfBlockBestFea, int *pnBlockBestKey)
+								   const real *pfFeaGlobalBestGain, const int *pnFeaGlobalBestGainKey,
+								   real *pfBlockBestFea, int *pnBlockBestKey)
 {
 	//blockIdx.y corresponds to a splittable node id
 
@@ -154,7 +154,7 @@ __global__ void PickLocalBestFeaBestSplit(int feaBatch, int numofSNode,
 	if(snId >= numofSNode)
 		printf("Error in PickBestFea: kernel split %d nods, but only %d splittable nodes\n", snId, numofSNode);
 
-	__shared__ float_point pfGain[BLOCK_SIZE];
+	__shared__ real pfGain[BLOCK_SIZE];
 	__shared__ int pnBetterGainKey[BLOCK_SIZE];
 	int localTid = threadIdx.x;
 	pfGain[localTid] = FLT_MAX;//initalise to a large positive number
@@ -184,15 +184,15 @@ __global__ void PickLocalBestFeaBestSplit(int feaBatch, int numofSNode,
 }
 
 __global__ void PickGlobalBestFeaBestSplit(int numofSNode, int nBlockPerNode,
-								   const float_point *pfBlockBestFea, const int *pnBlockBestFeaKey,
-								   float_point *pfGlobalBestFea, int *pnGlobalBestKey)
+								   const real *pfBlockBestFea, const int *pnBlockBestFeaKey,
+								   real *pfGlobalBestFea, int *pnGlobalBestKey)
 {
 	int localTId = threadIdx.x;
 	int snId = blockIdx.x;//a block per splittable node
 	if(snId >= numofSNode)
 		printf("numof block is larger than the numof splittable nodes! %d v.s. %d \n", snId, numofSNode);
 
-	__shared__ float_point pfGain[BLOCK_SIZE];
+	__shared__ real pfGain[BLOCK_SIZE];
 	__shared__ int pnBetterGainKey[BLOCK_SIZE];
 	pfGain[localTId] = FLT_MAX;
 	pnBetterGainKey[localTId] = -1;
@@ -217,66 +217,3 @@ __global__ void PickGlobalBestFeaBestSplit(int numofSNode, int nBlockPerNode,
 	}
 }
 
-
-__global__ void FindSplitInfo(const int *pnKeyValue, const long long *plFeaStartPos, const float_point *pFeaValue,
-							  int feaBatch, int smallestFeaId, int smallestNodeId,
-							  const float_point *pfGlobalBestFea, const int *pnGlobalBestKey, const int *pBuffId,
-							  const nodeStat *snNodeStat, const float_point *pPrefixSumGD, const float_point *pPrefixSumHess,
-							  SplitPoint *pBestSplitPoint, nodeStat *pRChildStat, nodeStat *pLChildStat,
-							  float_point *pLastValue, const float_point *pGainOnEachFeaValue_d)
-{
-
-	//get current fea batch size
-/*	long long startPosOfSmallest = plFeaStartPos[smallestFeaId];
-	int largestFeaId = smallestFeaId + feaBatch - 1;
-	long long startPosOfLargest = plFeaStartPos[largestFeaId];
-	int batchSize = startPosOfLargest - startPosOfSmallest + pnKeyValue[largestFeaId];
-*/	int batchSize;
-	int tempFirstFeaStartPos;//it is for satisfying the function call
-	GetBatchInfo(feaBatch, smallestFeaId, 0, pnKeyValue, plFeaStartPos, tempFirstFeaStartPos, batchSize);
-
-	int snId = threadIdx.x;
-	int key = pnGlobalBestKey[snId];//position in a batch for one node.
-	int buffId = pBuffId[snId + smallestNodeId];
-
-	//compute feature id
-	int bestFeaId = -1;
-	int valuePos = -1;
-	for(int f = smallestFeaId; f < feaBatch + smallestFeaId; f++)
-	{
-		int numofKeyValue = pnKeyValue[f];
-		if(plFeaStartPos[f] + numofKeyValue < key)
-			continue;
-		else
-		{
-			bestFeaId = f;
-			valuePos = key - plFeaStartPos[f];
-			break;
-		}
-	}
-
-	pBestSplitPoint[buffId].m_fGain = -pfGlobalBestFea[snId];//change the gain back to positive
-	if(-pfGlobalBestFea[snId] <= 0)//no gain
-	{
-		return;
-	}
-	pBestSplitPoint[buffId].m_nFeatureId = bestFeaId;
-	int svPos = plFeaStartPos[bestFeaId] + valuePos;
-	if(svPos <= 0)
-		printf("Error in FindSplitInfo: split point is at %d!\n", svPos);
-	pBestSplitPoint[buffId].m_fSplitValue = 0.5f * (pFeaValue[svPos] + pFeaValue[svPos - 1]);
-
-	pLastValue[buffId] = pFeaValue[svPos];
-
-	//child node stat
-	int posInWholeBatch = batchSize * snId + key - 1;
-	if(posInWholeBatch < 0)
-		printf("posInWholeBatch is negative: %d!\n", posInWholeBatch);
-
-	pLChildStat[buffId].sum_gd = snNodeStat[buffId].sum_gd - pPrefixSumGD[posInWholeBatch];
-	pLChildStat[buffId].sum_hess = snNodeStat[buffId].sum_hess - pPrefixSumHess[posInWholeBatch];
-	pRChildStat[buffId].sum_gd = pPrefixSumGD[posInWholeBatch];
-	pRChildStat[buffId].sum_hess = pPrefixSumHess[posInWholeBatch];
-	if(pLChildStat[buffId].sum_hess < 0 || pRChildStat[buffId].sum_hess < 0)
-		printf("Error: hess is negative l hess=%d, r hess=%d, svPos=%d\n", pLChildStat[buffId].sum_hess, pRChildStat[buffId].sum_hess, svPos);
-}

@@ -13,8 +13,8 @@
 /**
  * @brief: when the array is too large to store in shared memory, one thread loads multiple values
  */
-__device__ void GetGlobalMinPreprocessing(int nArraySize, const float_point *pfBlockMinValue, const int *pnBlockMinKey,
-										  float_point *pfSharedMinValue, int *pnSharedMinKey)
+__device__ void GetGlobalMinPreprocessing(int nArraySize, const real *pfBlockMinValue, const int *pnBlockMinKey,
+										  real *pfSharedMinValue, int *pnSharedMinKey)
 {
 	int localTid = threadIdx.x;
 	if(nArraySize > BLOCK_SIZE)
@@ -22,11 +22,11 @@ __device__ void GetGlobalMinPreprocessing(int nArraySize, const float_point *pfB
 		if(BLOCK_SIZE != blockDim.x)
 			printf("Error: Block size inconsistent in PickFeaGlobalBestSplit\n");
 
-		float_point fTempMin = pfSharedMinValue[localTid];
+		real fTempMin = pfSharedMinValue[localTid];
 		int nTempMinKey = pnSharedMinKey[localTid];
 		for(int i = localTid + BLOCK_SIZE; i < nArraySize; i += blockDim.x)
 		{
-			float_point fTempBlockMin = pfBlockMinValue[i];
+			real fTempBlockMin = pfBlockMinValue[i];
 			if(fTempBlockMin < fTempMin)
 			{
 				if(pnBlockMinKey[i] < 0)
@@ -45,8 +45,8 @@ __device__ void GetGlobalMinPreprocessing(int nArraySize, const float_point *pfB
  * @brief: load to shared memory
  */
 __device__ void LoadToSharedMem(int nArraySize, int gainStartPos,
-								const float_point *pfBlockMinValue, const int *pnBlockMinKey,
-		  	  	  	  	  	    float_point *pfSharedMinValue, int *pnSharedMinKey)
+								const real *pfBlockMinValue, const int *pnBlockMinKey,
+		  	  	  	  	  	    real *pfSharedMinValue, int *pnSharedMinKey)
 {
 	int localTId = threadIdx.x;
 	int firstElementPos = gainStartPos + localTId;

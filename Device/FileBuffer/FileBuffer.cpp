@@ -14,16 +14,16 @@ using std::cerr;
 using std::endl;
 
 int *FileBuffer::m_pInsId = NULL;
-float_point *FileBuffer::m_pfValue = NULL;
+real *FileBuffer::m_pfValue = NULL;
 int *FileBuffer::m_pNumofKeyValue = NULL;
 unsigned int *FileBuffer::m_plFeaStartPos = NULL;//get start position of each feature
 
 //instances for prediction
 int *FileBuffer::m_pFeaId = NULL;
-float_point *FileBuffer::m_pfFeaValue = NULL;
+real *FileBuffer::m_pfFeaValue = NULL;
 int *FileBuffer::m_pNumofFea = NULL;
 long long *FileBuffer::m_plInsStartPos = NULL;
-float_point *FileBuffer::m_pfTrueLabel = NULL;	//labels of training instances
+real *FileBuffer::m_pfTrueLabel = NULL;	//labels of training instances
 
 //some lengths
 int FileBuffer::m_nNumofFeatures = -1;
@@ -45,9 +45,9 @@ string FileBuffer::strDataSetInfo = "data-info.buffer";
 /**
  * @brief: set all the members of this class
  */
-void FileBuffer::SetMembers(int *pInsId, float_point *pdValue, int *pNumofKeyValue, unsigned int *plFeaStartPos,
-							int *pFeaId, float_point *pfFeaValue, int *pNumofFea, long long *plInsStartPos,
-							float_point *pfTrueLabel,
+void FileBuffer::SetMembers(int *pInsId, real *pdValue, int *pNumofKeyValue, unsigned int *plFeaStartPos,
+							int *pFeaId, real *pfFeaValue, int *pNumofFea, long long *plInsStartPos,
+							real *pfTrueLabel,
 							int nNumofFeatures, int nNumofExamples, long long numFeaValue)
 {
 	m_pInsId = pInsId;
@@ -83,7 +83,7 @@ void FileBuffer::WriteBufferFile(string strFolder)
 	writeFile.clear();
 
 	writeFile.open(strFolder + strFeaValueInsId);
-	CFileOps::WriteToFile(writeFile, m_pfValue, sizeof(float_point) * m_numFeaValue);
+	CFileOps::WriteToFile(writeFile, m_pfValue, sizeof(real) * m_numFeaValue);
 	writeFile.close();
 	writeFile.clear();
 
@@ -104,7 +104,7 @@ void FileBuffer::WriteBufferFile(string strFolder)
 	writeFile.clear();
 
 	writeFile.open(strFolder + strFeaValueFeaId);
-	CFileOps::WriteToFile(writeFile, m_pfFeaValue, sizeof(float_point) * m_numFeaValue);
+	CFileOps::WriteToFile(writeFile, m_pfFeaValue, sizeof(real) * m_numFeaValue);
 	writeFile.close();
 	writeFile.clear();
 
@@ -160,9 +160,9 @@ void FileBuffer::ReadDataInfo(string strFolder, int &numFeature, int &numExample
 /**
  * @brief: read buffer files
  */
-void FileBuffer::ReadBufferFile(string strFolder, int *pInsId, float_point *pdValue, int *pNumofKeyValue, unsigned int *plFeaStartPos,
-								int *pFeaId, float_point *pfFeaValue, int *pNumofFea, long long *plInsStartPos,
-								float_point *pfTrueLabel,
+void FileBuffer::ReadBufferFile(string strFolder, int *pInsId, real *pdValue, int *pNumofKeyValue, unsigned int *plFeaStartPos,
+								int *pFeaId, real *pfFeaValue, int *pNumofFea, long long *plInsStartPos,
+								real *pfTrueLabel,
 								int numFeature, int numExample, long long numFeaValue)
 {
 	FILE *readFile = fopen((strFolder + strInsId).c_str(), "rb");

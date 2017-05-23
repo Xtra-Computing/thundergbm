@@ -30,18 +30,18 @@ public:
 	LibSVMDataReader(){}
 	~LibSVMDataReader(){}
 
-	void ReadLibSVMDataFormat(vector<vector<float_point> > &v_vSample, vector<float_point> &v_fValue,
+	void ReadLibSVMDataFormat(vector<vector<real> > &v_vSample, vector<real> &v_fValue,
 							  string strFileName, int nNumofFeatures, int nNumofInstance);
 
 
 
-	void ReadLibSVMFormatSparse(vector<vector<KeyValue> > &v_vSample, vector<float_point> &v_fValue,
+	void ReadLibSVMFormatSparse(vector<vector<KeyValue> > &v_vSample, vector<real> &v_fValue,
 			  	  	  	  	  	string strFileName, int nNumofFeatures, int nNumofInstance);
 
 private:
-	void ReaderHelper(vector<vector<KeyValue> > &v_vSample, vector<float_point> &v_fValue,
+	void ReaderHelper(vector<vector<KeyValue> > &v_vSample, vector<real> &v_fValue,
 	  	  	  		  string strFileName, int nNumofFeatures, int nNumofInstance, bool bUseDense);
-	void Push(int feaId, float_point value, vector<KeyValue> &vIns);
+	void Push(int feaId, real value, vector<KeyValue> &vIns);
 };
 
 #endif /* TRAININGDATAIO_H_ */

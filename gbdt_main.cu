@@ -77,7 +77,7 @@ int main(int argc, char *argv[])
 	bool bBufferFileExist = CFileOps::IsFileExist(bufferFileName);
 	bool bUsedBuffer = bBufferFileExist;
 
-	vector<float_point> v_fLabel;
+	vector<real> v_fLabel;
 	vector<vector<KeyValue> > v_vInsSparse;
 	clock_t start_init, end_init;
 	//read the file the first time
@@ -106,17 +106,17 @@ int main(int argc, char *argv[])
 
 	//store feature key-value into array
 	int *pInsId = new int[numFeaValue];
-	float_point *pdValue = new float_point[numFeaValue];
+	real *pdValue = new real[numFeaValue];
 	int *pNumofKeyValue = new int[numFea];
 	unsigned int *plFeaStartPos = new unsigned int[numFea];//get start position of each feature
 
 	//instances for prediction
 	int *pFeaId = new int[numFeaValue];//continuous elements for each instance
-	float_point *pfFeaValue = new float_point[numFeaValue];
+	real *pfFeaValue = new real[numFeaValue];
 	int *pNumofFea = new int[numIns];
 	long long *plInsStartPos = new long long[numIns];
 
-	float_point *pTrueLabel = new float_point[numIns];
+	real *pTrueLabel = new real[numIns];
 
 	if(bBufferFileExist == false)
 	{
@@ -174,14 +174,14 @@ int main(int argc, char *argv[])
 
 	//copy feature key-value to device memory
 	cudaMemcpy(manager.m_pDInsId, pInsId, numFeaValue * sizeof(int), cudaMemcpyHostToDevice);
-	cudaMemcpy(manager.m_pdDFeaValue, pdValue, numFeaValue * sizeof(float_point), cudaMemcpyHostToDevice);
+	cudaMemcpy(manager.m_pdDFeaValue, pdValue, numFeaValue * sizeof(real), cudaMemcpyHostToDevice);
 	cudaMemcpy(manager.m_pFvalueFid_d, pFvalueFid, numFeaValue * sizeof(int), cudaMemcpyHostToDevice);
 	cudaMemcpy(manager.m_pDNumofKeyValue, pNumofKeyValue, numFea * sizeof(int), cudaMemcpyHostToDevice);
 	cudaMemcpy(manager.m_pFeaStartPos, plFeaStartPos, numFea * sizeof(unsigned int), cudaMemcpyHostToDevice);
 
 	//copy instance key-value to device memory for prediction
 	cudaMemcpy(manager.m_pDFeaId, pFeaId, numFeaValue * sizeof(int), cudaMemcpyHostToDevice);
-	cudaMemcpy(manager.m_pdDInsValue, pfFeaValue, numFeaValue * sizeof(float_point), cudaMemcpyHostToDevice);
+	cudaMemcpy(manager.m_pdDInsValue, pfFeaValue, numFeaValue * sizeof(real), cudaMemcpyHostToDevice);
 	cudaMemcpy(manager.m_pDNumofFea, pNumofFea, numIns * sizeof(int), cudaMemcpyHostToDevice);
 	cudaMemcpy(manager.m_pInsStartPos, plInsStartPos, numIns * sizeof(long long), cudaMemcpyHostToDevice);
 
@@ -196,7 +196,7 @@ int main(int argc, char *argv[])
 
 	//copy true labels to gpu memory
 	for(int i = 0; i < numBag; i++)
-		cudaMemcpy(bagManager.m_pdTrueTargetValueEachBag + i * bagManager.m_numIns, pTrueLabel, numIns * sizeof(float_point), cudaMemcpyHostToDevice);
+		cudaMemcpy(bagManager.m_pdTrueTargetValueEachBag + i * bagManager.m_numIns, pTrueLabel, numIns * sizeof(real), cudaMemcpyHostToDevice);
 	//for testing
 	double gd = 0;
 	for(int i = 0; i < numIns; i++){

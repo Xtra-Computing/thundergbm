@@ -20,7 +20,7 @@ using std::vector;
 class DevicePredictor: public BasePredictor
 {
 public:
-	virtual void PredictSparseIns(vector<vector<KeyValue> > &v_vInstance, vector<RegTree> &vTree, vector<float_point> &v_fPredValue, void *pStream, int bagId);
+	virtual void PredictSparseIns(vector<vector<KeyValue> > &v_vInstance, vector<RegTree> &vTree, vector<real> &v_fPredValue, void *pStream, int bagId);
 	static void GetUsedFeature(vector<int> &v_usedFeaSortedId, int *&pHashUsedFea, int *&pSortedUsedFea, void *pStream, int bagId);
 	static void GetTreeInfo(TreeNode *&pTree, int &numofNodeOfTheTree, int treeId, void *pStream, int bagId);
 };

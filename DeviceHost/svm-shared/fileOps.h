@@ -29,9 +29,9 @@ using std::setprecision;
 class CFileOps
 {
 public:
-	static bool WriteToFile(ofstream &writeOut, float_point *pContent, int nNumofRows, int nNumofColumns);
+	static bool WriteToFile(ofstream &writeOut, real *pContent, int nNumofRows, int nNumofColumns);
 
-	static bool ReadRowsFromFile(FILE *&readIn, float_point *&pContent, const int &nNumofElementsPerRow,
+	static bool ReadRowsFromFile(FILE *&readIn, real *&pContent, const int &nNumofElementsPerRow,
 						  int nNumofRowsToRead, const int &nIndexofRow);
 	//static bool ReadPartOfRowFromFile(boost::interprocess::mapped_region*, float_point *pContent, int nFullRowSize, int nNumofElementsToRead, long long nIndexof1stElement);
 

@@ -34,7 +34,7 @@ int mainPureHost(string strFileName)
 	dataReader.GetDataInfo(strFileName, nNumofFeatures, nNumofExamples, nNumofValue);
 //	dataReader.ReadLibSVMDataFormat(v_vInstance, v_fLabel, strFileName, nNumofFeatures, nNumofExamples);
 
-	vector<float_point> v_fLabel;
+	vector<real> v_fLabel;
 	vector<vector<KeyValue> > v_vInsSparse;
 	dataReader.ReadLibSVMFormatSparse(v_vInsSparse, v_fLabel, strFileName, nNumofFeatures, nNumofExamples);
 
@@ -78,7 +78,7 @@ int mainPureHost(string strFileName)
 	//run the GBDT prediction process
 	clock_t begin_pre, end_pre;
 	HostPredictor pred;
-	vector<float_point> v_fPredValue;
+	vector<real> v_fPredValue;
 
 	begin_pre = clock();
 	pred.PredictSparseIns(v_vInsSparse, v_Tree, v_fPredValue, NULL, -1);
@@ -87,7 +87,7 @@ int mainPureHost(string strFileName)
 	cout << "prediction sec = " << prediction_time << endl;
 
 	EvalRMSE rmse;
-	float_point fRMSE = rmse.Eval(v_fPredValue, &v_fLabel[0], v_fLabel.size());
+	real fRMSE = rmse.Eval(v_fPredValue, &v_fLabel[0], v_fLabel.size());
 	cout << "rmse=" << fRMSE << endl;
 
 	trainer.ReleaseTree(v_Tree);

@@ -1,7 +1,7 @@
 #include "DeviceUtility.h"
 #include "../../SharedUtility/CudaMacro.h"
 
-__device__ void GetMinValueOriginal(float_point *pfValues, int *pnKey, int nNumofBlock)
+__device__ void GetMinValueOriginal(real *pfValues, int *pnKey, int nNumofBlock)
 {
 	/*if(1024 < BLOCK_SIZE)
 	{
@@ -93,7 +93,7 @@ __device__ void GetMinValueOriginal(float_point *pfValues, int *pnKey, int nNumo
 
 }
 
-__device__ void GetMinValueOriginal(float_point *pfValues, int nNumofBlock)
+__device__ void GetMinValueOriginal(real *pfValues, int nNumofBlock)
 {
 	/*if(1024 < BLOCK_SIZE)
 	{
@@ -179,9 +179,9 @@ __device__ void GetMinValueOriginal(float_point *pfValues, int nNumofBlock)
 /**
  * @brief: swap two values if applicable
  */
-__device__ void Swap(float_point *pfValues, int *pnKey, float_point &fValue1, const int &nTid, const int &compOffset)
+__device__ void Swap(real *pfValues, int *pnKey, real &fValue1, const int &nTid, const int &compOffset)
 {
-	float_point fValue2 = pfValues[compOffset];
+	real fValue2 = pfValues[compOffset];
 	if(fValue2 < fValue1 || (fValue2 == fValue1 && pnKey[nTid] > pnKey[compOffset]))
 	{
 		pnKey[nTid] = pnKey[compOffset];
@@ -196,7 +196,7 @@ __device__ void Swap(float_point *pfValues, int *pnKey, float_point &fValue1, co
  * @param: pfValues: a pointer to a set of data
  * @param: pnKey:	 a pointer to the index of the set of data. It's for getting the location of min.
  */
-__device__ void GetMinValue(float_point *pfValues, int *pnKey, int nNumofBlock)
+__device__ void GetMinValue(real *pfValues, int *pnKey, int nNumofBlock)
 {
 	/*if(1024 < BLOCK_SIZE)
 	{
@@ -206,7 +206,7 @@ __device__ void GetMinValue(float_point *pfValues, int *pnKey, int nNumofBlock)
 	//Reduce by a factor of 2, and minimize step size
 	int nTid = threadIdx.x;
 	int compOffset;
-	float_point fValue1, fValue2;
+	real fValue1, fValue2;
 	fValue1 = pfValues[nTid];
 
 	if(BLOCK_SIZE == 128)
@@ -261,7 +261,7 @@ __device__ void GetMinValue(float_point *pfValues, int *pnKey, int nNumofBlock)
 		}
 }
 
-__device__ void GetMinValue(float_point *pfValues, int nNumofBlock)
+__device__ void GetMinValue(real *pfValues, int nNumofBlock)
 {
 	/*if(1024 < BLOCK_SIZE)
 	{
@@ -271,7 +271,7 @@ __device__ void GetMinValue(float_point *pfValues, int nNumofBlock)
 	//Reduce by a factor of 2, and minimize step size
 	int nTid = threadIdx.x;
 	int compOffset;
-	float_point fValue1, fValue2;
+	real fValue1, fValue2;
 	fValue1 = pfValues[nTid];
 
 	if(BLOCK_SIZE == 128)

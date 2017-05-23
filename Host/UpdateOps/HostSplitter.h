@@ -26,8 +26,8 @@ using std::map;
 class HostSplitter: public BaseSplitter
 {
 public:
-	vector<float_point> m_vPredBuffer;
-	vector<float_point> m_vTrueValue;
+	vector<real> m_vPredBuffer;
+	vector<real> m_vTrueValue;
 
 public:
 	virtual string SpliterType(){return "host";}
@@ -36,7 +36,7 @@ public:
 	virtual void SplitAll(vector<TreeNode*> &splittableNode, const vector<SplitPoint> &vBest, RegTree &tree, int &m_nNumofNode,
 				  	  	  const vector<nodeStat> &rchildStat, const vector<nodeStat> &lchildStat, bool bLastLevel, void *pStream, int bagId);
 	virtual void ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> > &vvInsSparse, void *, int bagId);
-	void ComputeGDSparse(vector<float_point> &v_fPredValue, vector<float_point> &m_vTrueValue_fixedPos);
+	void ComputeGDSparse(vector<real> &v_fPredValue, vector<real> &m_vTrueValue_fixedPos);
 };
 
 

@@ -12,7 +12,7 @@
 /**
  * @brief: get the leaf index given a sparse instance
  */
-int RegTree::GetLeafIdSparseInstance(vector<float_point> &ins, map<int, int> &fidToDensePos)
+int RegTree::GetLeafIdSparseInstance(vector<real> &ins, map<int, int> &fidToDensePos)
 {
 	int pid = 0; //node id
 	TreeNode *curNode = (*this)[pid];

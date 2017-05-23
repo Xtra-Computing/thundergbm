@@ -42,19 +42,20 @@ public:
 	static TreeNode *m_pAllTreeEachBag;
 
 	//for gradient and hessian
-	static float_point *m_pPredBufferEachBag;
-	static float_point *m_pdDenseInsEachBag;
-	static float_point *m_pTargetValueEachBag;
-	static float_point *m_pdTrueTargetValueEachBag;
-	static float_point *m_pInsGradEachBag, *m_pInsHessEachBag;
-	static float_point *m_pGDEachFvalueEachBag, *m_pHessEachFvalueEachBag, *m_pDenseFValueEachBag;
-	static float_point *m_pGDPrefixSumEachBag, *m_pHessPrefixSumEachBag;
-	static float_point *m_pGainEachFvalueEachBag;
+	static real *m_pPredBufferEachBag;
+	static real *m_pdDenseInsEachBag;
+	static real *m_pTargetValueEachBag;
+	static real *m_pdTrueTargetValueEachBag;
+	static real *m_pInsGradEachBag, *m_pInsHessEachBag;
+	static real *m_pDenseFValueEachBag;
+	static double *m_pdGDPrefixSumEachBag;
+	static real *m_pHessPrefixSumEachBag;
+	static real *m_pGainEachFvalueEachBag;
 	//for finding the best split
-	static float_point *m_pfLocalBestGainEachBag_d;
+	static real *m_pfLocalBestGainEachBag_d;
 	static int m_maxNumofBlockPerNode;
 	static int *m_pnLocalBestGainKeyEachBag_d;
-	static float_point *m_pfGlobalBestGainEachBag_d;
+	static real *m_pfGlobalBestGainEachBag_d;
 	static int *m_pnGlobalBestGainKeyEachBag_d;
 	static int *m_pEachFeaLenEachNodeEachBag_dh;//each feature value length in each node
 
@@ -73,7 +74,7 @@ public:
 	static nodeStat *m_pLChildStatEachBag;
 	//temporary space for splittable nodes
 	static nodeStat *m_pTempRChildStatEachBag;
-	static float_point *m_pLastValueEachBag;
+	static real *m_pLastValueEachBag;
 	static int *m_nSNLockEachBag;//a lock for critical region
 	static int *m_curNumofSplitableEachBag_h;
 	//map splittable node to buffer id
@@ -110,7 +111,7 @@ public:
 	static int *m_pSortedUsedFeaIdBag;
 
 	//temp memory
-	static float_point *m_pTrueLabel_h;
+	static real *m_pTrueLabel_h;
 
 	//preMaxNid
 	static int *m_pPreMaxNid_h;

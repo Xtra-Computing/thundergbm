@@ -9,7 +9,7 @@
 #ifndef DEFINE_H_
 #define DEFINE_H_
 
-typedef double float_point;
+typedef float real;
 
 
 

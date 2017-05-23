@@ -24,7 +24,7 @@
  * @brief: prediction function for sparse instances
  */
 void DevicePredictor::PredictSparseIns(vector<vector<KeyValue> > &v_vInstance, vector<RegTree> &vTree,
-									   vector<float_point> &v_fPredValue, void *pStream, int bagId)
+									   vector<real> &v_fPredValue, void *pStream, int bagId)
 {
 	BagManager bagManager;
 	GBDTGPUMemManager manager;
@@ -56,14 +56,14 @@ void DevicePredictor::PredictSparseIns(vector<vector<KeyValue> > &v_vInstance, v
 
 	//start prediction
 	//checkCudaErrors(cudaMemset(manager.m_pTargetValue, 0, sizeof(float_point) * nNumofIns));
-	manager.MemsetAsync(bagManager.m_pTargetValueEachBag + bagId * bagManager.m_numIns, 0, sizeof(float_point) * nNumofIns, pStream);
+	manager.MemsetAsync(bagManager.m_pTargetValueEachBag + bagId * bagManager.m_numIns, 0, sizeof(real) * nNumofIns, pStream);
 
 	long long startPos = 0;
 	int startInsId = 0;
 	long long *pInsStartPos = manager.m_pInsStartPos + startInsId;
 	manager.MemcpyDeviceToHostAsync(pInsStartPos, &startPos, sizeof(long long), pStream);
 //			cout << "start pos ins" << insId << "=" << startPos << endl;
-	float_point *pDevInsValue = manager.m_pdDInsValue + startPos;
+	real *pDevInsValue = manager.m_pdDInsValue + startPos;
 	int *pDevFeaId = manager.m_pDFeaId + startPos;
 	int *pNumofFea = manager.m_pDNumofFea + startInsId;
 	int numofInsToFill = nNumofIns;
@@ -109,9 +109,9 @@ void DevicePredictor::PredictSparseIns(vector<vector<KeyValue> > &v_vInstance, v
 		cudaStreamSynchronize((*(cudaStream_t*)pStream));
 	}
 
-	float_point *pTempTarget = new float_point[nNumofIns];
+	real *pTempTarget = new real[nNumofIns];
 	manager.MemcpyDeviceToHostAsync(bagManager.m_pTargetValueEachBag + bagId * bagManager.m_numIns,
-									pTempTarget, sizeof(float_point) * nNumofIns, pStream);
+									pTempTarget, sizeof(real) * nNumofIns, pStream);
 
 	for(int i = 0; i < nNumofIns; i++)
 	{

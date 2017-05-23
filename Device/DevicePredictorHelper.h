@@ -14,14 +14,14 @@
 #include "../DeviceHost/DefineConst.h"
 #include "../DeviceHost/TreeNode.h"
 
-__global__ void PredTarget(TreeNode *pAllTreeNode, int totalNode, float_point *pDenseIns, int nNumofFea,
-						  int *pnHashFeaIdToPos, float_point *pdTargetValue, int maxDepth);
-__global__ void PredMultiTarget(float_point *pdTargetValue, int numofDenseIns, const TreeNode *pAllTreeNode,
-								const float_point *pDenseIns, int numofFea,
+__global__ void PredTarget(TreeNode *pAllTreeNode, int totalNode, real *pDenseIns, int nNumofFea,
+						  int *pnHashFeaIdToPos, real *pdTargetValue, int maxDepth);
+__global__ void PredMultiTarget(real *pdTargetValue, int numofDenseIns, const TreeNode *pAllTreeNode,
+								const real *pDenseIns, int numofFea,
 								const int *pnHashFeaIdToPos, int maxDepth);
 
-__global__ void FillMultiDense(const float_point *pdSparseInsValue, const long long *pInsStartPos, const int *pnSpareInsFeaId,
-							   const int *pNumofFeaValue, float_point *pdDenseIns, const int *pSortedUsedFea,
+__global__ void FillMultiDense(const real *pdSparseInsValue, const long long *pInsStartPos, const int *pnSpareInsFeaId,
+							   const int *pNumofFeaValue, real *pdDenseIns, const int *pSortedUsedFea,
 							   const int *pHashFeaIdToDenseInsPos, int numofUsedFea,
 						  	   int startInsId, int numofInsToFill);
 

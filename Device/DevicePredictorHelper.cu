@@ -10,7 +10,7 @@
 #include "../SharedUtility/CudaMacro.h"
 #include "DeviceHashing.h"
 
-__device__ int GetNext(const TreeNode *pNode, float_point feaValue)
+__device__ int GetNext(const TreeNode *pNode, real feaValue)
 {
     if(feaValue < pNode->fSplitValue)
     {
@@ -22,8 +22,8 @@ __device__ int GetNext(const TreeNode *pNode, float_point feaValue)
     }
 }
 
-__global__ void PredMultiTarget(float_point *pdTargetValue, int numofDenseIns, const TreeNode *pAllTreeNode,
-								const float_point *pDenseIns, int numofUsedFea,
+__global__ void PredMultiTarget(real *pdTargetValue, int numofDenseIns, const TreeNode *pAllTreeNode,
+								const real *pDenseIns, int numofUsedFea,
 								const int *pnHashFeaIdToPos, int maxDepth)
 {
 	int nGlobalThreadId = (blockIdx.y * gridDim.x + blockIdx.x) * blockDim.x + threadIdx.x;
@@ -65,8 +65,8 @@ __global__ void PredMultiTarget(float_point *pdTargetValue, int numofDenseIns, c
 	pdTargetValue[targetId] += pAllTreeNode[pid].predValue;
 }
 
-__global__ void FillMultiDense(const float_point *pdSparseInsValue, const long long *pInsStartPos, const int *pnSpareInsFeaId,
-							   const int *pNumofFeaValue, float_point *pdDenseIns, const int *pSortedUsedFea,
+__global__ void FillMultiDense(const real *pdSparseInsValue, const long long *pInsStartPos, const int *pnSpareInsFeaId,
+							   const int *pNumofFeaValue, real *pdDenseIns, const int *pSortedUsedFea,
 							   const int *pHashFeaIdToDenseInsPos, int numofUsedFea,
 						  	   int startInsId, int numofInsToFill)
 {

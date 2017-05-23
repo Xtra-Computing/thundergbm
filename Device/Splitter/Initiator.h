@@ -13,11 +13,11 @@
 #include "../../DeviceHost/TreeNode.h"
 #include "../../DeviceHost/NodeStat.h"
 
-__global__ void SaveToPredBuffer(const float_point *pfCurTreePredValue, int numInsToPred, float_point *pfPreTreePredValue);
+__global__ void SaveToPredBuffer(const real *pfCurTreePredValue, int numInsToPred, real *pfPreTreePredValue);
 
-__global__ void ComputeGDKernel(int numofIns, const float_point *pfPredValue, const float_point *pfTrueValue,
-								float_point *pGrad, float_point *pHess);
-__global__ void InitNodeStat(const float_point root_sum_gd, const float_point root_sum_hess,
+__global__ void ComputeGDKernel(int numofIns, const real *pfPredValue, const real *pfTrueValue,
+								real *pGrad, real *pHess);
+__global__ void InitNodeStat(const real root_sum_gd, const real root_sum_hess,
 							 nodeStat *pSNodeStat, int *pSNIdToBuffId, int maxNumofSplittable,
 							 int *pBuffId, int *pNumofBuffId);
 __global__ void InitRootNode(TreeNode *pAllTreeNode, int *pCurNumofNode, int numofIns);

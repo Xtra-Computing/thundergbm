@@ -20,8 +20,8 @@ using std::endl;
 
 class nodeStat{
 public:
-	float_point sum_gd;
-	float_point sum_hess;
+	real sum_gd;
+	real sum_hess;
 
 	nodeStat()
 	{
@@ -40,7 +40,7 @@ public:
 		sum_hess = parent.sum_hess - r_child.sum_hess;
 //		PROCESS_ERROR(sum_hess >= 0);
 	}
-	void Add(float_point gd, float_point hess)
+	void Add(real gd, real hess)
 	{
 		sum_gd += gd;
 		sum_hess += hess;

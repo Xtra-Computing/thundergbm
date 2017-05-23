@@ -62,7 +62,7 @@ void* GBDTTask::ProcessTask(void* pInputParam)
 	//run the GBDT prediction process
 	DevicePredictor pred;
 	clock_t begin_pre, end_pre;
-	vector<float_point> v_fPredValue;
+	vector<real> v_fPredValue;
 
 	begin_pre = clock();
 	vector<vector<KeyValue> > dummy;

@@ -95,7 +95,7 @@ void BaseTrainer::TrainGBDT(vector<RegTree> & vTree, void *pStream, int bagId)
 		//run the GBDT prediction process
 		DevicePredictor pred;
 		clock_t begin_pre, end_pre;
-		vector<float_point> v_fPredValue;
+		vector<real> v_fPredValue;
 
 		begin_pre = clock();
 		vector<vector<KeyValue> > dummy;
@@ -148,7 +148,7 @@ void BaseTrainer::SaveModel(string fileName, const vector<RegTree> &v_Tree)
 /**
  * @brief: print the predicted values
  */
-void BaseTrainer::PrintPrediction(const vector<float_point> &vPred)
+void BaseTrainer::PrintPrediction(const vector<real> &vPred)
 {
 	int n = vPred.size();
 	ofstream out("prediction.txt");

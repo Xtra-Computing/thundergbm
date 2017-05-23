@@ -15,27 +15,27 @@
 const float rt_2eps = 2.0 * DeviceSplitter::rt_eps;
 
 //helper functions on device
-__device__ float_point CalGain(const nodeStat &parent, const nodeStat &r_child,
-						  const float_point &l_child_GD, const float_point &l_child_Hess, const float_point &lambda);
+__device__ real CalGain(const nodeStat &parent, const nodeStat &r_child,
+						  const real &l_child_GD, const real &l_child_Hess, const real &lambda);
 
-__device__ bool UpdateSplitPoint(SplitPoint &curBest, float_point fGain, float_point fSplitValue, int nFeatureId);
+__device__ bool UpdateSplitPoint(SplitPoint &curBest, real fGain, real fSplitValue, int nFeatureId);
 
 __device__ void UpdateLRStat(nodeStat &RChildStat, nodeStat &LChildStat,
-							 const nodeStat &TempRChildStat, const float_point &grad, const float_point &hess);
+							 const nodeStat &TempRChildStat, const real &grad, const real &hess);
 __device__ void UpdateSplitInfo(const nodeStat &snStat, SplitPoint &bestSP, nodeStat &RChildStat, nodeStat &LChildStat,
-								const nodeStat &TempRChildStat, const float_point &tempGD, const float_point &temHess,
-								const float_point &lambda, const float_point &sv, const int &featureId);
+								const nodeStat &TempRChildStat, const real &tempGD, const real &temHess,
+								const real &lambda, const real &sv, const int &featureId);
 
 /**
  * @brief: each thread processes one feature
  */
-__global__ void FindFeaSplitValue(const int *pnNumofKeyValues, const long long *pnFeaStartPos, const int *pInsId, const float_point *pFeaValue,
-								  const int *pInsIdToNodeId, const float_point *pGD, const float_point *pHess,
-								  nodeStat *pTempRChildStatPerThread, float_point *pLastValuePerThread,
+__global__ void FindFeaSplitValue(const int *pnNumofKeyValues, const long long *pnFeaStartPos, const int *pInsId, const real *pFeaValue,
+								  const int *pInsIdToNodeId, const real *pGD, const real *pHess,
+								  nodeStat *pTempRChildStatPerThread, real *pLastValuePerThread,
 								  const nodeStat *pSNodeStatPerThread, SplitPoint *pBestSplitPointPerThread,
 								  nodeStat *pRChildStatPerThread, nodeStat *pLChildStatPerThread,
 								  const int *pSNIdToBuffId, int maxNumofSplittable, const int *pBuffId, int numofSNode,
-								  float_point lambda, int numofFea)
+								  real lambda, int numofFea)
 {
 	int nGlobalThreadId = (blockIdx.y * gridDim.x + blockIdx.x) * blockDim.x + threadIdx.x;
 	int feaId = nGlobalThreadId;
@@ -57,7 +57,7 @@ __global__ void FindFeaSplitValue(const int *pnNumofKeyValues, const long long *
 	}
 	long long startPosOfCurFea = startPosOfPrevFea + numofPreFeaKeyValues;
 	const int *InsIdStartAddress = pInsId + startPosOfCurFea;
-	const float_point *pInsValueStartAddress = pFeaValue + startPosOfCurFea;
+	const real *pInsValueStartAddress = pFeaValue + startPosOfCurFea;
 
     for(int i = 0; i < pnNumofKeyValues[nGlobalThreadId]; i++)
     {
@@ -72,7 +72,7 @@ __global__ void FindFeaSplitValue(const int *pnNumofKeyValues, const long long *
 			continue;
 
 		// start working
-		float_point fvalue = pInsValueStartAddress[i];
+		real fvalue = pInsValueStartAddress[i];
 
 		// get the buffer id of node nid
 		int hashValue = GetBufferId(pSNIdToBuffId, nid, maxNumofSplittable);
@@ -90,14 +90,14 @@ __global__ void FindFeaSplitValue(const int *pnNumofKeyValues, const long long *
 			if(fabs(fvalue - pLastValuePerThread[bufferPos]) > rt_2eps)
 			{
 				//SNodeStatPerThread is the same for all the features, so using hashValue is fine and can save memory
-				float_point tempGD = pSNodeStatPerThread[hashValue].sum_gd - pTempRChildStatPerThread[bufferPos].sum_gd;
-				float_point tempHess = pSNodeStatPerThread[hashValue].sum_hess - pTempRChildStatPerThread[bufferPos].sum_hess;
+				real tempGD = pSNodeStatPerThread[hashValue].sum_gd - pTempRChildStatPerThread[bufferPos].sum_gd;
+				real tempHess = pSNodeStatPerThread[hashValue].sum_hess - pTempRChildStatPerThread[bufferPos].sum_hess;
 				bool needUpdate = NeedUpdate(pTempRChildStatPerThread[bufferPos].sum_hess, tempHess);
 				if(needUpdate == true)
 				{
-					float_point sv = (fvalue + pLastValuePerThread[bufferPos]) * 0.5f;
+					real sv = (fvalue + pLastValuePerThread[bufferPos]) * 0.5f;
 
-					float_point loss_chg = CalGain(pSNodeStatPerThread[hashValue], pTempRChildStatPerThread[bufferPos], tempGD, tempHess, lambda);
+					real loss_chg = CalGain(pSNodeStatPerThread[hashValue], pTempRChildStatPerThread[bufferPos], tempGD, tempHess, lambda);
 
 		            UpdateSplitInfo(pSNodeStatPerThread[hashValue], pBestSplitPointPerThread[bufferPos], pRChildStatPerThread[bufferPos],
 		            							  pLChildStatPerThread[bufferPos], pTempRChildStatPerThread[bufferPos], tempGD, tempHess,
@@ -120,13 +120,13 @@ __global__ void FindFeaSplitValue(const int *pnNumofKeyValues, const long long *
 
     	int hashVaue = pBuffId[i];
     	int buffId = hashVaue + feaId * maxNumofSplittable;//an id in the buffer
-    	float_point tempGD = pSNodeStatPerThread[hashVaue].sum_gd - pTempRChildStatPerThread[buffId].sum_gd;
-    	float_point tempHess = pSNodeStatPerThread[hashVaue].sum_hess - pTempRChildStatPerThread[buffId].sum_hess;
+    	real tempGD = pSNodeStatPerThread[hashVaue].sum_gd - pTempRChildStatPerThread[buffId].sum_gd;
+    	real tempHess = pSNodeStatPerThread[hashVaue].sum_hess - pTempRChildStatPerThread[buffId].sum_hess;
     	bool needUpdate = NeedUpdate(pTempRChildStatPerThread[buffId].sum_hess, tempHess);
         if(needUpdate == true)
         {
             const float delta = fabs(pLastValuePerThread[buffId]) + DeviceSplitter::rt_eps;
-            float_point sv = delta;
+            real sv = delta;
 
             UpdateSplitInfo(pSNodeStatPerThread[hashVaue], pBestSplitPointPerThread[buffId], pRChildStatPerThread[buffId], pLChildStatPerThread[buffId],
             							  pTempRChildStatPerThread[buffId], tempGD, tempHess, lambda, sv, feaId);
@@ -136,9 +136,9 @@ __global__ void FindFeaSplitValue(const int *pnNumofKeyValues, const long long *
 
 
 
-__device__ float_point CalGain(const nodeStat &parent, const nodeStat &r_child,
-						  const float_point &l_child_GD, const float_point &l_child_Hess,
-						  const float_point &lambda)
+__device__ real CalGain(const nodeStat &parent, const nodeStat &r_child,
+						  const real &l_child_GD, const real &l_child_Hess,
+						  const real &lambda)
 {
 //	PROCESS_ERROR(abs(parent.sum_gd - l_child_GD - r_child.sum_gd) < 0.0001);
 //	PROCESS_ERROR(parent.sum_hess == l_child_Hess + r_child.sum_hess);
@@ -147,7 +147,7 @@ __device__ float_point CalGain(const nodeStat &parent, const nodeStat &r_child,
 //			r_child.sum_gd, r_child.sum_hess, parent.sum_gd, parent.sum_hess, lambda);
 
 	//compute the gain
-	float_point fGain = (l_child_GD * l_child_GD)/(l_child_Hess + lambda) +
+	real fGain = (l_child_GD * l_child_GD)/(l_child_Hess + lambda) +
 				   (r_child.sum_gd * r_child.sum_gd)/(r_child.sum_hess + lambda) -
 				   (parent.sum_gd * parent.sum_gd)/(parent.sum_hess + lambda);
 //	if(fGain > -10)
@@ -161,7 +161,7 @@ __device__ float_point CalGain(const nodeStat &parent, const nodeStat &r_child,
 }
 
 
- __device__ bool UpdateSplitPoint(SplitPoint &curBest, float_point fGain, float_point fSplitValue, int nFeatureId)
+ __device__ bool UpdateSplitPoint(SplitPoint &curBest, real fGain, real fSplitValue, int nFeatureId)
 {
 	if(fGain > curBest.m_fGain )//|| (fGain == m_fGain && nFeatureId == m_nFeatureId) NOT USE (second condition is for updating to a new split value)
 	{
@@ -174,14 +174,14 @@ __device__ float_point CalGain(const nodeStat &parent, const nodeStat &r_child,
 }
 
 __device__ void UpdateLRStat(nodeStat &RChildStat, nodeStat &LChildStat,
-							 const nodeStat &TempRChildStat, const float_point &grad, const float_point &hess)
+							 const nodeStat &TempRChildStat, const real &grad, const real &hess)
 {
 	LChildStat.sum_gd = grad;
 	LChildStat.sum_hess = hess;
 	RChildStat = TempRChildStat;
 }
 
-__device__ bool NeedUpdate(float_point &RChildHess, float_point &LChildHess)
+__device__ bool NeedUpdate(real &RChildHess, real &LChildHess)
 {
 	if(LChildHess >= DeviceSplitter::min_child_weight && RChildHess >= DeviceSplitter::min_child_weight)
 		return true;
@@ -189,10 +189,10 @@ __device__ bool NeedUpdate(float_point &RChildHess, float_point &LChildHess)
 }
 
 __device__ void UpdateSplitInfo(const nodeStat &snStat, SplitPoint &bestSP, nodeStat &RChildStat, nodeStat &LChildStat,
-								const nodeStat &TempRChildStat, const float_point &tempGD, const float_point &tempHess,
-								const float_point &lambda, const float_point &sv, const int &featureId)
+								const nodeStat &TempRChildStat, const real &tempGD, const real &tempHess,
+								const real &lambda, const real &sv, const int &featureId)
 {
-	float_point loss_chg = CalGain(snStat, TempRChildStat, tempGD, tempHess, lambda);
+	real loss_chg = CalGain(snStat, TempRChildStat, tempGD, tempHess, lambda);
 
     bool bUpdated = UpdateSplitPoint(bestSP, loss_chg, sv, featureId);
 	if(bUpdated == true)

@@ -19,9 +19,9 @@ const float rt_2eps = 2.0 * DeviceSplitter::rt_eps;
 /**
  * @brief: copy the gd, hess and feaValue for each node based on some features on similar number of values
  */
-__global__ void LoadGDHessFvalueRoot(const float_point *pInsGD, const float_point *pInsHess, int numIns,
-						   const int *pInsId, const float_point *pAllFeaValue, int numFeaValue,
-						   float_point *pGDEachFeaValue, float_point *pHessEachFeaValue, float_point *pDenseFeaValue)
+__global__ void LoadGDHessFvalueRoot(const real *pInsGD, const real *pInsHess, int numIns,
+						   const int *pInsId, const real *pAllFeaValue, int numFeaValue,
+						   double *pGDEachFeaValue, real *pHessEachFeaValue, real *pDenseFeaValue)
 {
 	//one thread loads one value
 	int gTid = GLOBAL_TID();
@@ -42,9 +42,9 @@ __global__ void LoadGDHessFvalueRoot(const float_point *pInsGD, const float_poin
 /**
  * @brief: copy the gd, hess and feaValue for each node based on some features on similar number of values
  */
-__global__ void LoadGDHessFvalue(const float_point *pInsGD, const float_point *pInsHess, int numIns,
-						   const int *pInsId, const float_point *pAllFeaValue, const unsigned int *pDstIndexEachFeaValue, int numFeaValue,
-						   float_point *pGDEachFeaValue, float_point *pHessEachFeaValue, float_point *pDenseFeaValue)
+__global__ void LoadGDHessFvalue(const real *pInsGD, const real *pInsHess, int numIns,
+						   const int *pInsId, const real *pAllFeaValue, const unsigned int *pDstIndexEachFeaValue, int numFeaValue,
+						   double *pGDEachFeaValue, real *pHessEachFeaValue, real *pDenseFeaValue)
 {
 	//one thread loads one value
 	int gTid = GLOBAL_TID();
@@ -74,9 +74,9 @@ __global__ void LoadGDHessFvalue(const float_point *pInsGD, const float_point *p
  * @brief: compute the gain in parallel, each gain is computed by a thread.
  */
 __global__ void ComputeGainDense(const nodeStat *pSNodeStat, const unsigned int *pFeaValueStartPosEachNode, int numSN,
-							const int *pBuffId, float_point lambda,
-							const float_point *pGDPrefixSumOnEachFeaValue, const float_point *pHessPrefixSumOnEachFeaValue,
-							const float_point *pDenseFeaValue, int numofDenseValue, float_point *pGainOnEachFeaValue)
+							const int *pBuffId, real lambda,
+							const double *pGDPrefixSumOnEachFeaValue, const real *pHessPrefixSumOnEachFeaValue,
+							const real *pDenseFeaValue, int numofDenseValue, real *pGainOnEachFeaValue)
 {
 	//one thread loads one value
 	long long gTid = GLOBAL_TID();
@@ -120,16 +120,16 @@ __global__ void ComputeGainDense(const nodeStat *pSNodeStat, const unsigned int 
 
 	int exclusiveSumPos = gTid - 1;//following xgboost using exclusive sum on gd and hess
 
-	float_point rChildGD = pGDPrefixSumOnEachFeaValue[exclusiveSumPos];
-	float_point rChildHess = pHessPrefixSumOnEachFeaValue[exclusiveSumPos];
-	float_point parentGD = pSNodeStat[hashVaue].sum_gd;
-	float_point parentHess = pSNodeStat[hashVaue].sum_hess;
-	float_point tempGD = parentGD - rChildGD;
-	float_point tempHess = parentHess - rChildHess;
+	double rChildGD = pGDPrefixSumOnEachFeaValue[exclusiveSumPos];
+	real rChildHess = pHessPrefixSumOnEachFeaValue[exclusiveSumPos];
+	real parentGD = pSNodeStat[hashVaue].sum_gd;
+	real parentHess = pSNodeStat[hashVaue].sum_hess;
+	real tempGD = parentGD - rChildGD;
+	real tempHess = parentHess - rChildHess;
 	bool needUpdate = NeedUpdate(rChildHess, tempHess);
     if(needUpdate == true)//need to compute the gain
     {
-		float_point tempGain = (tempGD * tempGD)/(tempHess + lambda) + 
+		real tempGain = (tempGD * tempGD)/(tempHess + lambda) + 
 						  	   (rChildGD * rChildGD)/(rChildHess + lambda) -
 	  						   (parentGD * parentGD)/(parentHess + lambda);
     	pGainOnEachFeaValue[gTid] = tempGain; 
@@ -146,7 +146,7 @@ __global__ void ComputeGainDense(const nodeStat *pSNodeStat, const unsigned int 
 /**
  * @brief: change the gain of the first value of each feature to 0
  */
-__global__ void FirstFeaGain(const unsigned int *pEachFeaStartPosEachNode, int numFeaStartPos, float_point *pGainOnEachFeaValue, long long numFeaValue)
+__global__ void FirstFeaGain(const unsigned int *pEachFeaStartPosEachNode, int numFeaStartPos, real *pGainOnEachFeaValue, long long numFeaValue)
 {
 	int gTid = GLOBAL_TID();
 
@@ -169,14 +169,14 @@ __global__ void FirstFeaGain(const unsigned int *pEachFeaStartPosEachNode, int n
  * Each block.y processes one node, a thread processes a reduction.
  */
 __global__ void PickLocalBestSplitEachNode(const unsigned int *pnNumFeaValueEachNode, const unsigned int *pFeaStartPosEachNode,
-										   const float_point *pGainOnEachFeaValue,
-								   	   	   float_point *pfLocalBestGain, int *pnLocalBestGainKey)
+										   const real *pGainOnEachFeaValue,
+								   	   	   real *pfLocalBestGain, int *pnLocalBestGainKey)
 {
 	//best gain of each node is search by a few blocks
 	//blockIdx.z corresponds to a splittable node id
 	int snId = blockIdx.z;
 
-	__shared__ float_point pfGain[BLOCK_SIZE];
+	__shared__ real pfGain[BLOCK_SIZE];
 	__shared__ int pnBetterGainKey[BLOCK_SIZE];
 	int localTid = threadIdx.x;
 	pfGain[localTid] = FLT_MAX;//initialise to a large positive number
@@ -219,8 +219,8 @@ __global__ void PickLocalBestSplitEachNode(const unsigned int *pnNumFeaValueEach
 /**
  * @brief: pick best feature of this batch for all the splittable nodes
  */
-__global__ void PickGlobalBestSplitEachNode(const float_point *pfLocalBestGain, const int *pnLocalBestGainKey,
-								   	   	    float_point *pfGlobalBestGain, int *pnGlobalBestGainKey,
+__global__ void PickGlobalBestSplitEachNode(const real *pfLocalBestGain, const int *pnLocalBestGainKey,
+								   	   	    real *pfGlobalBestGain, int *pnGlobalBestGainKey,
 								   	   	    int numBlockPerNode, int numofSNode)
 {
 	//a block for finding the best gain of a node
@@ -230,7 +230,7 @@ __global__ void PickGlobalBestSplitEachNode(const float_point *pfLocalBestGain, 
 	CONCHECKER(blockIdx.y <= 1);
 	CONCHECKER(snId < numofSNode);
 
-	__shared__ float_point pfGain[BLOCK_SIZE];
+	__shared__ real pfGain[BLOCK_SIZE];
 	__shared__ int pnBetterGainKey[BLOCK_SIZE];
 	int localTid = threadIdx.x;
 	pfGain[localTid] = FLT_MAX;//initialise to a large positive number
@@ -264,9 +264,9 @@ __global__ void PickGlobalBestSplitEachNode(const float_point *pfLocalBestGain, 
  * @brief: find split points
  */
 __global__ void FindSplitInfo(const unsigned int *pEachFeaStartPosEachNode, const int *pEachFeaLenEachNode,
-							  const float_point *pDenseFeaValue, const float_point *pfGlobalBestGain, const int *pnGlobalBestGainKey,
+							  const real *pDenseFeaValue, const real *pfGlobalBestGain, const int *pnGlobalBestGainKey,
 							  const int *pPartitionId2SNPos, const int numFea,
-							  const nodeStat *snNodeStat, const float_point *pPrefixSumGD, const float_point *pPrefixSumHess,
+							  const nodeStat *snNodeStat, const double *pPrefixSumGD, const real *pPrefixSumHess,
 							  SplitPoint *pBestSplitPoint, nodeStat *pRChildStat, nodeStat *pLChildStat)
 {
 	//a thread for constructing a split point

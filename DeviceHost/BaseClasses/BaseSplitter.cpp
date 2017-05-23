@@ -28,8 +28,8 @@ unordered_map<int, int> BaseSplitter::mapNodeIdToBufferPos;
 vector<int> BaseSplitter::m_nodeIds; //instance id to node id
 vector<gdpair> BaseSplitter::m_vGDPair_fixedPos;
 vector<nodeStat> BaseSplitter::m_nodeStat; //all the constructed tree nodes
-float_point BaseSplitter::m_lambda;//the weight of the cost of complexity of a tree
-float_point BaseSplitter::m_gamma;//the weight of the cost of the number of trees
+real BaseSplitter::m_lambda;//the weight of the cost of complexity of a tree
+real BaseSplitter::m_gamma;//the weight of the cost of the number of trees
 
 /**
  * @brief: update the node statistics and buffer positions.

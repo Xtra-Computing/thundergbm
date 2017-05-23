@@ -18,9 +18,9 @@ class EvalRMSE
 {
 public:
   char *Name(void);
-  float EvalRow(float_point label, float_point pred);
-  float GetFinal(float_point esum, float_point wsum);
-  float Eval(const vector<float_point> &preds, float_point *labels, int numofIns);
+  float EvalRow(real label, real pred);
+  float GetFinal(real esum, real wsum);
+  float Eval(const vector<real> &preds, real *labels, int numofIns);
 };
 
 

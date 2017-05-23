@@ -21,11 +21,11 @@ public:
 	//memory for instances (key on feature id)
 	static int *m_pDInsId, *m_pDNumofKeyValue;
 	static int *m_pFvalueFid_d;
-	static float_point *m_pdDFeaValue;
+	static real *m_pdDFeaValue;
 	static unsigned int *m_pFeaStartPos;
 	//memory for instances (key on instance id)
 	static int *m_pDFeaId, *m_pDNumofFea;
-	static float_point *m_pdDInsValue;
+	static real *m_pdDInsValue;
 	static long long *m_pInsStartPos;
 
 	//memory for prediction

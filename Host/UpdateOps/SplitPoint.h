@@ -19,8 +19,8 @@ using std::ostream;
  */
 class SplitPoint{
 public:
-	float_point m_fGain;
-	float_point m_fSplitValue;
+	real m_fGain;
+	real m_fSplitValue;
 	int m_nFeatureId;
 
 	SplitPoint()
@@ -33,7 +33,7 @@ public:
 	/**
 	 * @brief: return true if values are updated; otherwise false.
 	 */
-	bool UpdateSplitPoint(float_point fGain, float_point fSplitValue, int nFeatureId)
+	bool UpdateSplitPoint(real fGain, real fSplitValue, int nFeatureId)
 	{
 		if(fGain > m_fGain )//|| (fGain == m_fGain && nFeatureId == m_nFeatureId) NOT USE (second condition is for updating to a new split value)
 		{

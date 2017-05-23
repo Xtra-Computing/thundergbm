@@ -16,27 +16,27 @@ char *EvalRMSE::Name(void)
     return "rmse";
 }
 
-float EvalRMSE::EvalRow(float_point label, float_point pred)
+float EvalRMSE::EvalRow(real label, real pred)
 {
-	float_point diff = label - pred;
+	real diff = label - pred;
     return diff * diff;
 }
 
-float EvalRMSE::GetFinal(float_point esum, float_point wsum)
+float EvalRMSE::GetFinal(real esum, real wsum)
 {
     return sqrt(esum / wsum);
 }
 
-float EvalRMSE::Eval(const vector<float_point> &preds, float_point *labels, int numofIns)
+float EvalRMSE::Eval(const vector<real> &preds, real *labels, int numofIns)
 {
-	float_point sum = 0.0, wsum = 0.0;
+	real sum = 0.0, wsum = 0.0;
 	int ndata = numofIns;
 	for (int i = 0; i < ndata; ++i)
 	{
 		sum += EvalRow(labels[i], preds[i]);
 		wsum += 1;
 	}
-	float_point dat[2]; dat[0] = sum, dat[1] = wsum;
+	real dat[2]; dat[0] = sum, dat[1] = wsum;
 	return GetFinal(dat[0], dat[1]);
 }
 

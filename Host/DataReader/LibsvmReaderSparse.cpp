@@ -18,7 +18,7 @@ using std::endl;
 /**
  * @brief: represent the data in a sparse form
  */
-void LibSVMDataReader::ReadLibSVMFormatSparse(vector<vector<KeyValue> > &v_vInstance, vector<float_point> &v_fValue,
+void LibSVMDataReader::ReadLibSVMFormatSparse(vector<vector<KeyValue> > &v_vInstance, vector<real> &v_fValue,
 											  string strFileName, int nNumofFeatures, int nNumofInstance)
 {
 	ReaderHelper(v_vInstance, v_fValue, strFileName, nNumofFeatures, nNumofInstance, false);
@@ -27,7 +27,7 @@ void LibSVMDataReader::ReadLibSVMFormatSparse(vector<vector<KeyValue> > &v_vInst
 /**
  * @brief: store the instances in a dense form
  */
-void LibSVMDataReader::ReadLibSVMDataFormat(vector<vector<float_point> > &v_vInstance, vector<float_point> &v_fValue,
+void LibSVMDataReader::ReadLibSVMDataFormat(vector<vector<real> > &v_vInstance, vector<real> &v_fValue,
 									  	    string strFileName, int nNumofFeatures, int nNumofExamples)
 {
 	vector<vector<KeyValue> > v_vInstanceKeyValue;
@@ -36,7 +36,7 @@ void LibSVMDataReader::ReadLibSVMDataFormat(vector<vector<float_point> > &v_vIns
 	//convert key values to values only.
 	for(int i = 0; i < nNumofExamples; i++)
 	{
-		vector<float_point> vIns;
+		vector<real> vIns;
 		for(int j = 0; j < nNumofFeatures; j++)
 		{
 			vIns.push_back(v_vInstanceKeyValue[i][j].featureValue);
@@ -48,7 +48,7 @@ void LibSVMDataReader::ReadLibSVMDataFormat(vector<vector<float_point> > &v_vIns
 /**
  * @brief: a function to read instances from libsvm format as either sparse or dense instances.
  */
-void LibSVMDataReader::ReaderHelper(vector<vector<KeyValue> > &v_vInstance, vector<float_point> &v_fValue,
+void LibSVMDataReader::ReaderHelper(vector<vector<KeyValue> > &v_vInstance, vector<real> &v_fValue,
 									string strFileName, int nNumofFeatures, int nNumofInstance, bool bUseDense)
 {
 	ifstream readIn;
@@ -70,13 +70,13 @@ void LibSVMDataReader::ReaderHelper(vector<vector<KeyValue> > &v_vInstance, vect
 		istringstream in(str);
 		int i = 0;
 //		bool bMiss = false;
-		float_point fValue = 0;
+		real fValue = 0;
 		in >> fValue;
 		v_fValue.push_back(fValue);
 
 		//get features of a sample
 		int nFeature;
-		float_point x;
+		real x;
 		while (in >> nFeature >> cColon >> x)
 		{
 			//assert(x > 0 && x <= 1);
@@ -128,7 +128,7 @@ void LibSVMDataReader::ReaderHelper(vector<vector<KeyValue> > &v_vInstance, vect
 /**
  * @brief:
  */
-void LibSVMDataReader::Push(int feaId, float_point value, vector<KeyValue> &vIns)
+void LibSVMDataReader::Push(int feaId, real value, vector<KeyValue> &vIns)
 {
 	KeyValue pair;
 	pair.id = feaId;

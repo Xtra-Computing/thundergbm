@@ -132,7 +132,7 @@ if(nNumofInstance == 53500)
 
 
 	cout << " cache size is: " << nSizeofCache << " max: " << nMaxCacheSize << "; percentage of cached samples: "
-		 << ((float_point)100 * nSizeofCache) / nNumofInstance << "%" << endl;
+		 << ((real)100 * nSizeofCache) / nNumofInstance << "%" << endl;
 
 	return nSizeofCache;
 }

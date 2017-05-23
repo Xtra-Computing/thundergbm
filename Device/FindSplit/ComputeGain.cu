@@ -20,10 +20,10 @@ const float rt_2eps = 2.0 * DeviceSplitter::rt_eps;
 /**
  * @brief: copy the gd, hess and feaValue for each node based on some features on similar number of values
  */
-__global__ void ObtainGDEachNode(const int *pnNumofKeyValues, const long long *pnFeaStartPos, const int *pInsId, const float_point *pFeaValue,
-		  const int *pInsIdToNodeId, const float_point *pGD, const float_point *pHess, const int *pBuffId, const int *pSNIdToBuffId,
+__global__ void ObtainGDEachNode(const int *pnNumofKeyValues, const long long *pnFeaStartPos, const int *pInsId, const real *pFeaValue,
+		  const int *pInsIdToNodeId, const real *pGD, const real *pHess, const int *pBuffId, const int *pSNIdToBuffId,
 		  int maxNumofSplittable, int numofSNodeInProgress, int smallestNodeId, int smallestFeaId, int totalNumofFea, int feaBatch,
-		  float_point *pGDOnEachFeaValue, float_point *pHessOnEachFeaValue, float_point *pValueOneEachFeaValue)
+		  real *pGDOnEachFeaValue, real *pHessOnEachFeaValue, real *pValueOneEachFeaValue)
 {
 	//blockIdx.x corresponds to a feature which has multiple values
 	//blockIdx.y corresponds to a feature id
@@ -68,7 +68,7 @@ __global__ void ObtainGDEachNode(const int *pnNumofKeyValues, const long long *p
 
 	long long startPosOfCurFea = startPosOfPrevFea + numofPreFeaKeyValues;
 	const int *InsIdStartAddress = pInsId + startPosOfCurFea;
-	const float_point *pInsValueStartAddress = pFeaValue + startPosOfCurFea;
+	const real *pInsValueStartAddress = pFeaValue + startPosOfCurFea;
 
 	int insId = InsIdStartAddress[tidForEachFeaValue];
 	int nid = pInsIdToNodeId[insId];
@@ -132,10 +132,10 @@ __global__ void GetInfoEachFeaInBatch(const int *pnNumofKeyValues, const long lo
  */
 __global__ void ComputeGain(const int *pnNumofKeyValues, const long long *pnFeaStartPos, const nodeStat *pSNodeStat,
 							int smallestFeaId, int feaBatch, const int *pBuffId,
-							int numofSNInProgress, int smallestNodeId, float_point lambda,
-							const float_point *pGDPrefixSumOnEachFeaValue, const float_point *pHessPrefixSumOnEachFeaValue,
-							const float_point *pHessOnEachFeaValue, const float_point *pFeaValue,
-							float_point *pGainOnEachFeaValue)
+							int numofSNInProgress, int smallestNodeId, real lambda,
+							const real *pGDPrefixSumOnEachFeaValue, const real *pHessPrefixSumOnEachFeaValue,
+							const real *pHessOnEachFeaValue, const real *pFeaValue,
+							real *pGainOnEachFeaValue)
 {
 	//blockIdx.x corresponds to a feature which has multiple values
 	//blockIdx.y corresponds to a feature id
@@ -169,17 +169,17 @@ __global__ void ComputeGain(const int *pnNumofKeyValues, const long long *pnFeaS
 	int exclusiveSumPos = bufferPos - 1;//following xgboost using exclusive sum on gd and hess
 	if(exclusiveSumPos < 0)
 		printf("Index to get prefix sum is negative: %d\n", exclusiveSumPos);
-	float_point rChildGD = pGDPrefixSumOnEachFeaValue[exclusiveSumPos];
-	float_point rChildHess = pHessPrefixSumOnEachFeaValue[exclusiveSumPos];
-	float_point snGD = pSNodeStat[hashVaue].sum_gd;
-	float_point snHess = pSNodeStat[hashVaue].sum_hess;
-	float_point tempGD = snGD - rChildGD;
-	float_point tempHess = snHess - rChildHess;
+	real rChildGD = pGDPrefixSumOnEachFeaValue[exclusiveSumPos];
+	real rChildHess = pHessPrefixSumOnEachFeaValue[exclusiveSumPos];
+	real snGD = pSNodeStat[hashVaue].sum_gd;
+	real snHess = pSNodeStat[hashVaue].sum_hess;
+	real tempGD = snGD - rChildGD;
+	real tempHess = snHess - rChildHess;
 	bool needUpdate = NeedUpdate(rChildHess, tempHess);
     if(needUpdate == true)//need to compute the gain
     {
     	int elePos = curFeaStartPosInBatch + tidForEachFeaValue;
-    	float_point fvalue = pFeaValue[elePos];
+    	real fvalue = pFeaValue[elePos];
     	int previousElePos = elePos - 1;
     	int previousBufferPos = bufferPos - 1;
 //    	if(fabs(pFeaValue[previousElePos] - fvalue) <= rt_2eps && pHessOnEachFeaValue[previousBufferPos] == 1)
@@ -204,8 +204,8 @@ __global__ void ComputeGain(const int *pnNumofKeyValues, const long long *pnFeaS
  */
 __global__ void FixedGain(const int *pnNumofKeyValues, const long long *pnFeaStartPos,
 						  int smallestFeaId, int feaBatch, int numofSNInProgress, int smallestNodeId,
-						  const float_point *pHessOnEachFeaValue, const float_point *pFeaValue,
-						  float_point *pGainOnEachFeaValue, float_point *pLastBiggerValue)
+						  const real *pHessOnEachFeaValue, const real *pFeaValue,
+						  real *pGainOnEachFeaValue, real *pLastBiggerValue)
 {
 	//blockIdx.x corresponds to a feature which has multiple values
 	//blockIdx.y corresponds to a feature id
@@ -232,7 +232,7 @@ __global__ void FixedGain(const int *pnNumofKeyValues, const long long *pnFeaSta
 	if(pGainOnEachFeaValue[bufferPos] == 0)//gain is zero; don't need to fix
 		return;
 
-	float_point fvalue = pFeaValue[elePos];
+	real fvalue = pFeaValue[elePos];
 	int previousElePos = elePos - 1;
 	int previousBufferPos = bufferPos - 1;
     while(previousElePos >= curFeaStartPosInBatch)//try if we can erase this gain

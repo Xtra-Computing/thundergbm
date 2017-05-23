@@ -19,7 +19,7 @@ using std::vector;
 class KeyValue
 {
 public:
-	float_point featureValue;
+	real featureValue;
 	int id;//This id may be used as feature id or instance id
 
 public:
@@ -32,7 +32,7 @@ public:
 	 * @pNumofKeyValue: number of key-value pairs of each feature
 	 */
 	template<class T>
-	static void VecToArray(vector<vector<KeyValue> > &vvKeyValuePair, int *pId, float_point *pdValue, int *pNumofKeyValue, T *plStartPos)
+	static void VecToArray(vector<vector<KeyValue> > &vvKeyValuePair, int *pId, real *pdValue, int *pNumofKeyValue, T *plStartPos)
 	{
 		PROCESS_ERROR(pId != NULL);
 		PROCESS_ERROR(pdValue != NULL);
@@ -60,7 +60,7 @@ public:
 		}
 	}
 
-	static void TestVecToArray(vector<vector<KeyValue> > &vvFeaInxPair, int *pInsId, float_point *pdValue, int *pNumofKeyValue);
+	static void TestVecToArray(vector<vector<KeyValue> > &vvFeaInxPair, int *pInsId, real *pdValue, int *pNumofKeyValue);
 };
 
 

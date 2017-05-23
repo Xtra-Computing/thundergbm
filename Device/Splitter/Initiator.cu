@@ -11,7 +11,7 @@
 #include "../../SharedUtility/CudaMacro.h"
 #include "../DeviceHashing.h"
 
-__global__ void SaveToPredBuffer(const float_point *pfCurTreePredValue, int numPredIns, float_point *pfPreTreePredValue)
+__global__ void SaveToPredBuffer(const real *pfCurTreePredValue, int numPredIns, real *pfPreTreePredValue)
 {
 
 	int gTid = (blockIdx.y * gridDim.x + blockIdx.x) * blockDim.x + threadIdx.x;
@@ -20,7 +20,7 @@ __global__ void SaveToPredBuffer(const float_point *pfCurTreePredValue, int numP
 	pfPreTreePredValue[gTid] += pfCurTreePredValue[gTid];//accumulate the current prediction to the buffer
 }
 
-__global__ void ComputeGDKernel(int numofIns, const float_point *pfPredValue, const float_point *pfTrueValue, float_point *pGrad, float_point *pHess)
+__global__ void ComputeGDKernel(int numofIns, const real *pfPredValue, const real *pfTrueValue, real *pGrad, real *pHess)
 {
 	int gTid = (blockIdx.y * gridDim.x + blockIdx.x) * blockDim.x + threadIdx.x;
 	if(gTid >= numofIns)//each thread computes one gd
@@ -33,7 +33,7 @@ __global__ void ComputeGDKernel(int numofIns, const float_point *pfPredValue, co
 	pHess[gTid] = 1;
 }
 
-__global__ void InitNodeStat(const float_point root_sum_gd, const float_point root_sum_hess,
+__global__ void InitNodeStat(const real root_sum_gd, const real root_sum_hess,
 							 nodeStat *pSNodeStat, int *pSNIdToBuffId, int maxNumofSplittable,
 							 int *pBuffId, int *pNumofBuffId)
 {

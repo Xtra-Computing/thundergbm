@@ -32,7 +32,7 @@ void DenseInsConverter::InitDenseInsConverter(const vector<RegTree>& vTree)
  * @brief: construct a dense instance from a sparse instance
  *
  */
-void DenseInsConverter::SparseToDense(const vector<KeyValue> &sparseIns, vector<float_point> &denseIns)
+void DenseInsConverter::SparseToDense(const vector<KeyValue> &sparseIns, vector<real> &denseIns)
 {
 	//Caution! @denseIns: can be empty when sparseIns has no features in usedFeaSet
 
@@ -71,7 +71,7 @@ void DenseInsConverter::SparseToDense(const vector<KeyValue> &sparseIns, vector<
 /**
  * @brief: push a value to the dense instance
  */
-void DenseInsConverter::PushDenseIns(vector<float_point> &denseIns, int &curDenseTop, float_point value)
+void DenseInsConverter::PushDenseIns(vector<real> &denseIns, int &curDenseTop, real value)
 {
 	denseIns.push_back(value);
 	curDenseTop++;
@@ -150,7 +150,7 @@ void DenseInsConverter::PrintFeatureVector()
 	cout << endl;
 }
 
-void DenseInsConverter::PrintDenseVec(const vector<float_point> &vDense)
+void DenseInsConverter::PrintDenseVec(const vector<real> &vDense)
 {
 	cout << "dense vector: ";
 	for(int i = 0; i < vDense.size(); i++)

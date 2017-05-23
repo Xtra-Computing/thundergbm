@@ -60,7 +60,7 @@ void DeviceSplitter::ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> >
 	KernelConf conf;
 	//start prediction
 	checkCudaErrors(cudaMemsetAsync(bagManager.m_pTargetValueEachBag + bagId * bagManager.m_numIns, 0,
-									sizeof(float_point) * nNumofIns, (*(cudaStream_t*)pStream)));
+									sizeof(real) * nNumofIns, (*(cudaStream_t*)pStream)));
 	if(nNumofTree > 0 && numofUsedFea >0)//numofUsedFea > 0 means the tree has more than one node.
 	{
 		long long startPos = 0;
@@ -68,7 +68,7 @@ void DeviceSplitter::ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> >
 		long long *pInsStartPos = manager.m_pInsStartPos + startInsId;
 		manager.MemcpyDeviceToHostAsync(pInsStartPos, &startPos, sizeof(long long), pStream);
 	//			cout << "start pos ins" << insId << "=" << startPos << endl;
-		float_point *pDevInsValue = manager.m_pdDInsValue + startPos;
+		real *pDevInsValue = manager.m_pdDInsValue + startPos;
 		int *pDevFeaId = manager.m_pDFeaId + startPos;
 		int *pNumofFea = manager.m_pDNumofFea + startInsId;
 		int numofInsToFill = nNumofIns;
@@ -111,7 +111,7 @@ void DeviceSplitter::ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> >
 														 //(manager.m_pTargetValue, nNumofIns, manager.m_pPredBuffer);
 		//update the final prediction
 		manager.MemcpyDeviceToDeviceAsync(bagManager.m_pPredBufferEachBag + bagId * bagManager.m_numIns,
-									 bagManager.m_pTargetValueEachBag + bagId * bagManager.m_numIns, sizeof(float_point) * nNumofIns, pStream);
+									 bagManager.m_pTargetValueEachBag + bagId * bagManager.m_numIns, sizeof(real) * nNumofIns, pStream);
 	}
 
 	if(pHashUsedFea != NULL)
@@ -129,10 +129,18 @@ void DeviceSplitter::ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> >
 								bagManager.m_pInsGradEachBag + bagId * bagManager.m_numIns, bagManager.m_pInsHessEachBag + bagId * bagManager.m_numIns);
 
 	//for gd and hess sum
-	float_point *pTempGD = bagManager.m_pInsGradEachBag + bagId * bagManager.m_numIns;
-	float_point gdSum = thrust::reduce(thrust::system::cuda::par, pTempGD, pTempGD + bagManager.m_numIns);
-	float_point *pTempHess = bagManager.m_pInsHessEachBag + bagId * bagManager.m_numIns;
-	float_point hessSum = thrust::reduce(thrust::system::cuda::par, pTempHess, pTempHess + bagManager.m_numIns);
+	real *pTempGD = bagManager.m_pInsGradEachBag + bagId * bagManager.m_numIns;
+	vector<real> hostGD(bagManager.m_numIns);
+	cudaMemcpy(hostGD.data(), pTempGD, sizeof(real) * bagManager.m_numIns, cudaMemcpyDeviceToHost);
+	vector<double> dHostGD(hostGD.begin(), hostGD.end());
+	double *pdTempGD;
+	cudaMalloc((void**)&pdTempGD, sizeof(double) * bagManager.m_numIns);
+	cudaMemcpy(pdTempGD, dHostGD.data(), sizeof(double) * bagManager.m_numIns, cudaMemcpyHostToDevice);
+	real gdSum = thrust::reduce(thrust::system::cuda::par, pdTempGD, pdTempGD + bagManager.m_numIns);
+	cudaFree(pdTempGD);
+
+	real *pTempHess = bagManager.m_pInsHessEachBag + bagId * bagManager.m_numIns;
+	real hessSum = thrust::reduce(thrust::system::cuda::par, pTempHess, pTempHess + bagManager.m_numIns);
 	printf("sum_gd=%f, sum_hess=%f\n", gdSum, hessSum);
 
 	//copy splittable nodes to GPU memory

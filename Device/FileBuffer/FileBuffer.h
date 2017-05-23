@@ -15,18 +15,18 @@ class FileBuffer
 {
 private:
 	static int *m_pInsId;
-	static float_point *m_pfValue;
+	static real *m_pfValue;
 	static int *m_pNumofKeyValue;
 	static unsigned int *m_plFeaStartPos;//get start position of each feature
 
 	//instances for prediction
 	static int *m_pFeaId;
-	static float_point *m_pfFeaValue;
+	static real *m_pfFeaValue;
 	static int *m_pNumofFea;
 	static long long *m_plInsStartPos;
 
 	//labels of training instances
-	static float_point *m_pfTrueLabel;
+	static real *m_pfTrueLabel;
 
 	//some lengths
 	static int m_nNumofFeatures;
@@ -44,16 +44,16 @@ private:
 	static string strInsLabel;
 	static string strDataSetInfo;
 public:
-	static void SetMembers(int *pInsId, float_point *pdValue, int *pNumofKeyValue, unsigned int *plFeaStartPos,
-						   int *pFeaId, float_point *pfFeaValue, int *pNumofFea, long long *plInsStartPos,
-						   float_point *pfTrueLabel,
+	static void SetMembers(int *pInsId, real *pdValue, int *pNumofKeyValue, unsigned int *plFeaStartPos,
+						   int *pFeaId, real *pfFeaValue, int *pNumofFea, long long *plInsStartPos,
+						   real *pfTrueLabel,
 						   int nNumofFeatures, int nNumofExamples, long long numFeaValue);
 	static void WriteBufferFile(string strFolder);
 
 	static void ReadDataInfo(string strFolder, int &numFeature, int &numExample, long long &numFeaValue);
-	static void ReadBufferFile(string strFolder, int *pInsId, float_point *pdValue, int *pNumofKeyValue, unsigned int *plFeaStartPos,
-							   int *pFeaId, float_point *pfFeaValue, int *pNumofFea, long long *plInsStartPos,
-							   float_point *pfTrueLabel,
+	static void ReadBufferFile(string strFolder, int *pInsId, real *pdValue, int *pNumofKeyValue, unsigned int *plFeaStartPos,
+							   int *pFeaId, real *pfFeaValue, int *pNumofFea, long long *plInsStartPos,
+							   real *pfTrueLabel,
 							   int nNumofFeatures, int nNumofExamples, long long numFeaValue);
 };
 

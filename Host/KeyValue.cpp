@@ -84,7 +84,7 @@ void KeyValue::SortFeaValue(int nNumofDim, vector<vector<KeyValue> > &vvInsSpars
 /**
  * @brief: a function to test VecToArry
  */
-void KeyValue::TestVecToArray(vector<vector<KeyValue> > &vvFeaInxPair, int *pInsId, float_point *pdValue, int *pNumofKeyValue)
+void KeyValue::TestVecToArray(vector<vector<KeyValue> > &vvFeaInxPair, int *pInsId, real *pdValue, int *pNumofKeyValue)
 {
 	PROCESS_ERROR(pInsId != NULL);
 	PROCESS_ERROR(pdValue != NULL);

@@ -19,8 +19,8 @@
  * @brief: compute the base_weight of tree node, also determines if a node is a leaf.
  */
 __global__ void ComputeWeight(TreeNode *pAllTreeNode, TreeNode *pSplittableNode,
-							  SplitPoint *pBestSplitPoint, nodeStat *pSNodeStat, float_point rt_eps, int flag_LEAFNODE,
-							  float_point lambda, int numofSplittableNode, bool bLastLevel, int maxNumofSN)
+							  SplitPoint *pBestSplitPoint, nodeStat *pSNodeStat, real rt_eps, int flag_LEAFNODE,
+							  real lambda, int numofSplittableNode, bool bLastLevel, int maxNumofSN)
 {
 	int nGlobalThreadId = GLOBAL_TID();
 	if(nGlobalThreadId >= numofSplittableNode)//one thread per splittable node
@@ -36,7 +36,7 @@ __global__ void ComputeWeight(TreeNode *pAllTreeNode, TreeNode *pSplittableNode,
 	pAllTreeNode[nid].loss = pBestSplitPoint[snIdPos].m_fGain;
 	ECHECKER(pSNodeStat[snIdPos].sum_hess);
 
-	float_point nodeWeight = (-pSNodeStat[snIdPos].sum_gd / (pSNodeStat[snIdPos].sum_hess + lambda));
+	real nodeWeight = (-pSNodeStat[snIdPos].sum_gd / (pSNodeStat[snIdPos].sum_hess + lambda));
 	pAllTreeNode[nid].base_weight = nodeWeight;
 	if(pBestSplitPoint[snIdPos].m_fGain <= rt_eps || bLastLevel == true)
 	{
@@ -55,7 +55,7 @@ __global__ void CreateNewNode(TreeNode *pAllTreeNode, TreeNode *pSplittableNode,
 								  int *pParentId, int *pLChildId, int *pRChildId,
 								  const nodeStat *pLChildStat, const nodeStat *pRChildStat, nodeStat *pNewNodeStat,
 								  int *pNumofNode, int *pNumofNewNode,
-								  float_point rt_eps, int nNumofSplittableNode, bool bLastLevel, int maxNumofSplittableNode)
+								  real rt_eps, int nNumofSplittableNode, bool bLastLevel, int maxNumofSplittableNode)
 {
 	//for each splittable node, assign lchild and rchild ids
 	int nGlobalThreadId = GLOBAL_TID();
@@ -179,7 +179,7 @@ __global__ void GetUniqueFid(TreeNode *pAllTreeNode, TreeNode *pSplittableNode, 
 /**
  * @brief: assign instances (which have non-zero values on the feature of interest) to new nodes
  */
-__global__ void InsToNewNode(const TreeNode *pAllTreeNode, const float_point *pdFeaValue, const int *pInsId,
+__global__ void InsToNewNode(const TreeNode *pAllTreeNode, const real *pdFeaValue, const int *pInsId,
 							 const unsigned int *pFeaStartPos, const int *pNumofKeyValue,
 							 const int *pSNIdToBuffId, const SplitPoint *pBestSplitPoint,
 							 const int *pUniqueFidVec, const int *pNumofUniqueFid,
@@ -202,7 +202,7 @@ __global__ void InsToNewNode(const TreeNode *pAllTreeNode, const float_point *pd
 
 	//for each instance that has value on the feature
 	unsigned int curFeaStartPos = pFeaStartPos[ufid];//this start pos is never changed (i.e. always the same as the original)
-	const float_point *pdCurFeaValue = pdFeaValue + curFeaStartPos;//fvalue start pos in the global memory
+	const real *pdCurFeaValue = pdFeaValue + curFeaStartPos;//fvalue start pos in the global memory
 	const int *pCurFeaInsId = pInsId + curFeaStartPos;//ins_id of this fea start pos in the global memory
 
 	int insId = pCurFeaInsId[perFeaTid];

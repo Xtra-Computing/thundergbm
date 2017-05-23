@@ -24,7 +24,7 @@ __device__ void CopyNodeStat(nodeStat *pDest, const nodeStat *pSrc)
  */
 __global__ void PickLocalBestFea(const SplitPoint *pBestSplitPointPerThread, const int *pBuffId,
 								 int numofSNode, int numofFea, int maxNumofSplittable,
-								 float_point *pfBestGain, int *pnBestGainKey)
+								 real *pfBestGain, int *pnBestGainKey)
 {
 	int blockId = blockIdx.y * gridDim.x + blockIdx.x;
 	int snId = blockIdx.y;
@@ -33,7 +33,7 @@ __global__ void PickLocalBestFea(const SplitPoint *pBestSplitPointPerThread, con
 	if(pBuffId[snId] < 0 || pBuffId[snId] >= maxNumofSplittable)
 		printf("Error in PickBestFea\n");
 
-	__shared__ float_point pfGain[BLOCK_SIZE];
+	__shared__ real pfGain[BLOCK_SIZE];
 	__shared__ int pnBetterGainKey[BLOCK_SIZE];
 	int localTid = threadIdx.x;
 	pfGain[localTid] = FLT_MAX;//initalise to a large positive number
@@ -78,10 +78,10 @@ __global__ void PickLocalBestFea(const SplitPoint *pBestSplitPointPerThread, con
  * @brief: find the best split point
  * use one block for each node
  */
-__global__ void PickGlobalBestFea(float_point *pLastValuePerThread,
+__global__ void PickGlobalBestFea(real *pLastValuePerThread,
 							SplitPoint *pBestSplitPointPerThread, nodeStat *pRChildStatPerThread, nodeStat *pLChildStatPerThread,
 							const int *pBuffId, int numofSNode,
-							const float_point *pfBestGain, const int *pnBestGainKey, int numofBlockPerNode)
+							const real *pfBestGain, const int *pnBestGainKey, int numofBlockPerNode)
 {
 	int localTId = threadIdx.x;
 	int snId = blockIdx.x;
@@ -89,7 +89,7 @@ __global__ void PickGlobalBestFea(float_point *pLastValuePerThread,
 		printf("numof block is larger than the numof splittable nodes! %d v.s. %d \n", snId, numofSNode);
 	int firstElementPos = snId * numofBlockPerNode + threadIdx.x;
 
-	__shared__ float_point pfGain[BLOCK_SIZE];
+	__shared__ real pfGain[BLOCK_SIZE];
 	__shared__ int pnBetterGainKey[BLOCK_SIZE];
 	pfGain[localTId] = pfBestGain[firstElementPos];
 	pnBetterGainKey[localTId] = pnBestGainKey[firstElementPos];

@@ -24,11 +24,11 @@ long long MemInfo::GetFreeGPUMem()
 {
 	size_t nFreeMem, nTotalMem;
 	checkCudaErrors(cuMemGetInfo_v2(&nFreeMem, &nTotalMem));
-	cout << "GPU has " << float_point(nFreeMem)/(1024*1024*1024) << "GB(s) of free memory; ";
+	cout << "GPU has " << real(nFreeMem)/(1024*1024*1024) << "GB(s) of free memory; ";
 	if(nTotalMem > 0)
 		cout << 100.0 * (double)nFreeMem/nTotalMem << "% of the total memory" << endl;
 //	long long nMaxNumofFloatPoint = 0.9 * nFreeMem / sizeof(float_point);
-	long long nMaxNumofFloatPoint = nFreeMem / sizeof(float_point);
+	long long nMaxNumofFloatPoint = nFreeMem / sizeof(real);
 	return nMaxNumofFloatPoint;
 }
 
