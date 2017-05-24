@@ -68,6 +68,7 @@ bool InitCUDA(CUcontext &context, char gpuType = 'T')
     int count;
 
     checkCudaErrors(cudaGetDeviceCount(&count));
+    GETERROR("after get device count");
     if(count == 0) {
         fprintf(stderr, "There is no device.\n");
         return false;

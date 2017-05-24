@@ -141,7 +141,6 @@ void DeviceSplitter::ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> >
 
 	real *pTempHess = bagManager.m_pInsHessEachBag + bagId * bagManager.m_numIns;
 	real hessSum = thrust::reduce(thrust::system::cuda::par, pTempHess, pTempHess + bagManager.m_numIns);
-	printf("sum_gd=%f, sum_hess=%f\n", gdSum, hessSum);
 
 	//copy splittable nodes to GPU memory
 	//SNodeStat, SNIdToBuffId, pBuffIdVec need to be reset.

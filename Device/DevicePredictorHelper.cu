@@ -12,6 +12,13 @@
 
 __device__ int GetNext(const TreeNode *pNode, real feaValue)
 {
+	if(feaValue > LARGE_REAL_NUM - 2){//this is a missing value
+		if(pNode->m_bDefault2Right == false)
+			return pNode->leftChildId;
+		else
+			return pNode->rightChildId;
+	}
+
     if(feaValue < pNode->fSplitValue)
     {
       return pNode->leftChildId;
@@ -51,7 +58,7 @@ __global__ void PredMultiTarget(real *pdTargetValue, int numofDenseIns, const Tr
 		if(pos < numofUsedFea)//feature value is available in the dense vector
 			pid = GetNext(curNode, pDenseIns[targetId * numofUsedFea + pos]);
 		else//feature value is stored in the dense vector (due to truncating)
-			pid = GetNext(curNode, 0);
+			pid = GetNext(curNode, LARGE_REAL_NUM);
 		curNode = pAllTreeNode + pid;
 
 		counter++;
@@ -89,10 +96,10 @@ __global__ void FillMultiDense(const real *pdSparseInsValue, const long long *pI
 		int feaId = pnSpareInsFeaId[startPos + i];
 
 		CONCHECKER(curDenseTop < numofUsedFea);
-		while(feaId > pSortedUsedFea[curDenseTop])
+		while(feaId > pSortedUsedFea[curDenseTop])//handle missing values
 		{
 			int pos = GetBufferId(pHashFeaIdToDenseInsPos, pSortedUsedFea[curDenseTop], numofUsedFea);
-			pdDenseIns[denseInsStartPos + pos] = 0;
+			pdDenseIns[denseInsStartPos + pos] = LARGE_REAL_NUM;//assign a very large number for missing values
 			curDenseTop++;
 			if(curDenseTop >= numofUsedFea)//all the used features have been assigned values
 				return;

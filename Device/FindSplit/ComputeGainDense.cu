@@ -76,7 +76,8 @@ __global__ void LoadGDHessFvalue(const real *pInsGD, const real *pInsHess, int n
 __global__ void ComputeGainDense(const nodeStat *pSNodeStat, const unsigned int *pFeaValueStartPosEachNode, int numSN,
 							const int *pBuffId, real lambda,
 							const double *pGDPrefixSumOnEachFeaValue, const real *pHessPrefixSumOnEachFeaValue,
-							const real *pDenseFeaValue, int numofDenseValue, real *pGainOnEachFeaValue)
+							const real *pDenseFeaValue, int numofDenseValue, const unsigned int *pnLastFvalueOfThisFvalue,
+							real *pGainOnEachFeaValue, bool *pDefault2Right)
 {
 	//one thread loads one value
 	long long gTid = GLOBAL_TID();
@@ -120,6 +121,7 @@ __global__ void ComputeGainDense(const nodeStat *pSNodeStat, const unsigned int 
 
 	int exclusiveSumPos = gTid - 1;//following xgboost using exclusive sum on gd and hess
 
+	//forward consideration (fvalues are sorted descendingly)
 	double rChildGD = pGDPrefixSumOnEachFeaValue[exclusiveSumPos];
 	real rChildHess = pHessPrefixSumOnEachFeaValue[exclusiveSumPos];
 	real parentGD = pSNodeStat[hashVaue].sum_gd;
@@ -133,13 +135,41 @@ __global__ void ComputeGainDense(const nodeStat *pSNodeStat, const unsigned int 
 						  	   (rChildGD * rChildGD)/(rChildHess + lambda) -
 	  						   (parentGD * parentGD)/(parentHess + lambda);
     	pGainOnEachFeaValue[gTid] = tempGain; 
-//    	if(pGainOnEachFeaValue[gTid] > 0 && ((rChildHess == 463714 && tempHess == 1) || (rChildHess == 1 && tempHess == 463714)))
- //   		printf("gain=%f, gid=%d, rhess=%f, lhess=%f\n", pGainOnEachFeaValue[gTid], gTid, rChildHess, tempHess);
     }
-    else
-    {
+    else{
     	//assign gain to 0
     	pGainOnEachFeaValue[gTid] = 0;
+    }
+
+    //backward consideration
+    unsigned int lastFvaluePos = pnLastFvalueOfThisFvalue[gTid];
+    real totalMissingGD = parentGD - pGDPrefixSumOnEachFeaValue[lastFvaluePos];
+    real totalMissingHess = parentHess - pHessPrefixSumOnEachFeaValue[lastFvaluePos];
+    if(totalMissingHess < 1)//there is no instance with missing values
+    	return;
+
+    rChildGD = totalMissingGD + pGDPrefixSumOnEachFeaValue[exclusiveSumPos];
+    rChildHess = totalMissingHess + pHessPrefixSumOnEachFeaValue[exclusiveSumPos];
+    tempGD = parentGD - rChildGD;
+    tempHess = parentHess - rChildHess;
+    needUpdate = NeedUpdate(rChildHess, tempHess);
+    if(needUpdate == true){
+    	real tempGain = (tempGD * tempGD)/(tempHess + lambda) +
+			  	   	    (rChildGD * rChildGD)/(rChildHess + lambda) -
+			  	   	    (parentGD * parentGD)/(parentHess + lambda);
+    	if(tempGain > 0 && tempGain - pGainOnEachFeaValue[gTid] > 1.0){
+    		real rNodeWeight = (-rChildGD / (rChildHess + lambda));
+    		real lNodeWeight = (-tempGD / (tempHess + lambda));
+    		if(lNodeWeight < -0.885 && lNodeWeight > -0.89 && rNodeWeight < -3.58 && rNodeWeight > -3.59)
+    		printf("old gain=%f, new gain=%f, missGD=%f, missHess=%f, totalGD=%f, parentGD=%f, \
+    				parentHess=%f, totalHess=%f, fealen=%d, rweight=%f, lweight=%f, rChildGD=%f, rChildHess=%f, gTid=%d\n",
+    				pGainOnEachFeaValue[gTid], tempGain,
+    				totalMissingGD, totalMissingHess, pGDPrefixSumOnEachFeaValue[lastFvaluePos], parentGD,
+    				parentHess, pHessPrefixSumOnEachFeaValue[lastFvaluePos], lastFvaluePos,
+    				rNodeWeight, lNodeWeight, rChildGD, rChildHess, gTid);
+    		pGainOnEachFeaValue[gTid] = tempGain;
+    		pDefault2Right[gTid] = true;
+    	}
     }
 }
 
@@ -267,6 +297,7 @@ __global__ void FindSplitInfo(const unsigned int *pEachFeaStartPosEachNode, cons
 							  const real *pDenseFeaValue, const real *pfGlobalBestGain, const int *pnGlobalBestGainKey,
 							  const int *pPartitionId2SNPos, const int numFea,
 							  const nodeStat *snNodeStat, const double *pPrefixSumGD, const real *pPrefixSumHess,
+							  const bool *pDefault2Right, const unsigned int *pnLastFvalueOfThisFvalue,
 							  SplitPoint *pBestSplitPoint, nodeStat *pRChildStat, nodeStat *pLChildStat)
 {
 	//a thread for constructing a split point
@@ -300,13 +331,35 @@ __global__ void FindSplitInfo(const unsigned int *pEachFeaStartPosEachNode, cons
 	pBestSplitPoint[buffId].m_nFeatureId = bestFeaId;
 	ECHECKER(key);
 	pBestSplitPoint[buffId].m_fSplitValue = 0.5f * (pDenseFeaValue[key] + pDenseFeaValue[key - 1]);
+	pBestSplitPoint[buffId].m_bDefault2Right = false;
 
 	//child node stat
 	int idxPreSum = key - 1;//follow xgboost using exclusive
-	pLChildStat[buffId].sum_gd = snNodeStat[buffId].sum_gd - pPrefixSumGD[idxPreSum];
-	pLChildStat[buffId].sum_hess = snNodeStat[buffId].sum_hess - pPrefixSumHess[idxPreSum];
-	pRChildStat[buffId].sum_gd = pPrefixSumGD[idxPreSum];
-	pRChildStat[buffId].sum_hess = pPrefixSumHess[idxPreSum];
+	if(pDefault2Right[key] == false){
+		pLChildStat[buffId].sum_gd = snNodeStat[buffId].sum_gd - pPrefixSumGD[idxPreSum];
+		pLChildStat[buffId].sum_hess = snNodeStat[buffId].sum_hess - pPrefixSumHess[idxPreSum];
+		pRChildStat[buffId].sum_gd = pPrefixSumGD[idxPreSum];
+		pRChildStat[buffId].sum_hess = pPrefixSumHess[idxPreSum];
+	}
+	else{
+		pBestSplitPoint[buffId].m_bDefault2Right = true;
+
+		real parentGD = snNodeStat[buffId].sum_gd;
+		real parentHess = snNodeStat[buffId].sum_hess;
+		unsigned int lastFvaluePos = pnLastFvalueOfThisFvalue[key];
+		real totalMissingGD = parentGD - pPrefixSumGD[lastFvaluePos];
+		real totalMissingHess = parentHess - pPrefixSumHess[lastFvaluePos];
+
+		double rChildGD = totalMissingGD + pPrefixSumGD[idxPreSum];
+		real rChildHess = totalMissingHess + pPrefixSumHess[idxPreSum];
+		real lChildGD = parentGD - rChildGD;
+		real lChildHess = parentHess - rChildHess;
+
+		pRChildStat[buffId].sum_gd = rChildGD;
+		pRChildStat[buffId].sum_hess = rChildHess;
+		pLChildStat[buffId].sum_gd = lChildGD;
+		pLChildStat[buffId].sum_hess = lChildHess;
+	}
 	ECHECKER(pLChildStat[buffId].sum_hess);
 	ECHECKER(pRChildStat[buffId].sum_hess);
 	printf("split: f=%d, value=%f, gain=%f, gd=%f v.s. %f, hess=%f v.s. %f, buffId=%d, key=%d\n", bestFeaId, pBestSplitPoint[buffId].m_fSplitValue,

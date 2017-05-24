@@ -31,6 +31,7 @@ public:
 	double base_weight;
 
 	unsigned int numIns;
+	bool m_bDefault2Right;	//instances with missing values go to left node by default
 
 public:
 
@@ -45,6 +46,9 @@ public:
 		rightChildId = -1;
 
 		loss = -1.0;
+		base_weight = -1;
+		numIns = 0;
+		m_bDefault2Right = false;
 	}
 
 

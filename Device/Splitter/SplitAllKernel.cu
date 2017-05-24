@@ -40,7 +40,7 @@ __global__ void ComputeWeight(TreeNode *pAllTreeNode, TreeNode *pSplittableNode,
 	pAllTreeNode[nid].base_weight = nodeWeight;
 	if(pBestSplitPoint[snIdPos].m_fGain <= rt_eps || bLastLevel == true)
 	{
-		printf("gd=%f, hess=%f, lambda=%f; w=%f\n", pSNodeStat[snIdPos].sum_gd, pSNodeStat[snIdPos].sum_hess, lambda, nodeWeight);
+		//printf("gd=%f, hess=%f, lambda=%f; w=%f\n", pSNodeStat[snIdPos].sum_gd, pSNodeStat[snIdPos].sum_hess, lambda, nodeWeight);
 		//weight of a leaf node
 		pAllTreeNode[nid].predValue = pAllTreeNode[nid].base_weight;
 		pAllTreeNode[nid].rightChildId = flag_LEAFNODE;
@@ -126,6 +126,10 @@ __global__ void CreateNewNode(TreeNode *pAllTreeNode, TreeNode *pSplittableNode,
 
 		pAllTreeNode[nid].featureId = pBestSplitPoint[bufferPos].m_nFeatureId;
 		pAllTreeNode[nid].fSplitValue = pBestSplitPoint[bufferPos].m_fSplitValue;
+		//instances with missing values go to left node by default
+		pAllTreeNode[nid].m_bDefault2Right = false;
+		if(pBestSplitPoint[bufferPos].m_bDefault2Right == true)
+			pAllTreeNode[nid].m_bDefault2Right = true;
 
 		//this is used in finding unique feature ids
 		pSplittableNode[nGlobalThreadId].featureId = pBestSplitPoint[bufferPos].m_nFeatureId;
@@ -260,8 +264,9 @@ __global__ void InsToNewNode(const TreeNode *pAllTreeNode, const real *pdFeaValu
 }
 
 __global__ void InsToNewNodeByDefault(TreeNode *pAllTreeNode, int *pInsIdToNodeId, const int *pSNIdToBuffId,
-										   int *pParentId, int *pLChildId,
-										   int preMaxNodeId, int numofIns, int flag_LEAFNODE)
+									  int *pParentId, int *pLChildId, int *pRChildId,
+									  int preMaxNodeId, int numofIns, int flag_LEAFNODE,
+									  const SplitPoint *pBestSplitPoint)
 {
 	int nGlobalThreadId = GLOBAL_TID();
 	if(nGlobalThreadId >= numofIns)//not used threads
@@ -281,8 +286,10 @@ __global__ void InsToNewNodeByDefault(TreeNode *pAllTreeNode, int *pInsIdToNodeI
 	{
 //		printf("ins to new node by default: ################## nid=%d, maxNid=%d, rcid=%d, flag=%d\n", nid, preMaxNodeId, pAllTreeNode[nid].rightChildId, flag_LEAFNODE);
 		int bufferPos = pSNIdToBuffId[nid];
-		//if(pInsIdToNodeId[nGlobalThreadId] * 2 + 1 != pLChildId[bufferPos])
-		pInsIdToNodeId[nGlobalThreadId] = pLChildId[bufferPos];//by default the instance with unknown feature value going to left child
+		if(pBestSplitPoint[bufferPos].m_bDefault2Right == false)
+			pInsIdToNodeId[nGlobalThreadId] = pLChildId[bufferPos];//by default the instance with unknown feature value going to left child
+		else
+			pInsIdToNodeId[nGlobalThreadId] = pRChildId[bufferPos];
 		CONCHECKER(bufferPos != -1);
 //		atomicAdd(numInsL + bufferPos, 1);
 	}

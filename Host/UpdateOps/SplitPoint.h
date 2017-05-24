@@ -22,12 +22,14 @@ public:
 	real m_fGain;
 	real m_fSplitValue;
 	int m_nFeatureId;
+	bool m_bDefault2Right;
 
 	SplitPoint()
 	{
 		m_fGain = 0;
 		m_fSplitValue = 0;
 		m_nFeatureId = -1;
+		m_bDefault2Right = false;
 	}
 
 	/**

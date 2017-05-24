@@ -28,8 +28,6 @@ __global__ void ComputeGDKernel(int numofIns, const real *pfPredValue, const rea
 
 
 	pGrad[gTid] = pfPredValue[gTid] - pfTrueValue[gTid];
-	if(gTid <= 10)
-		printf("gd=%f\n", pGrad[gTid]);
 	pHess[gTid] = 1;
 }
 

@@ -153,7 +153,9 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 									bagManager.m_pSNIdToBuffIdEachBag + bagId * bagManager.m_maxNumSplittable,
 									bagManager.m_pParentIdEachBag + bagId * bagManager.m_maxNumSplittable,
 									bagManager.m_pLeftChildIdEachBag + bagId * bagManager.m_maxNumSplittable,
-			   	   	   	   	   	   	preMaxNodeId, manager.m_numofIns, LEAFNODE);
+									bagManager.m_pRightChildIdEachBag + bagId * bagManager.m_maxNumSplittable,
+			   	   	   	   	   	   	preMaxNodeId, manager.m_numofIns, LEAFNODE,
+			   	   	   	   	   	   	bagManager.m_pBestSplitPointEachBag + bagId * bagManager.m_maxNumSplittable);
 	cudaStreamSynchronize((*(cudaStream_t*)pStream));
 	clock_t ins2default_end = clock();
 	total_ins2default_t += (ins2default_end - ins2default_start);

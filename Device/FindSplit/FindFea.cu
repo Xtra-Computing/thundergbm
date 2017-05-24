@@ -170,7 +170,9 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 	//construct keys for exclusive scan
 	int *pnKey_d;
 	int keyFlag = 0;
+	unsigned int *pnLastFvalueOfThisFvalue_d, *pnLastFvalueOfThisFvalue_h = new unsigned int[bagManager.m_numFeaValue];
 	checkCudaErrors(cudaMalloc((void**)&pnKey_d, bagManager.m_numFeaValue * sizeof(int)));
+	checkCudaErrors(cudaMalloc((void**)&pnLastFvalueOfThisFvalue_d, bagManager.m_numFeaValue * sizeof(unsigned int)));
 	unsigned int *pTempEachFeaStartEachNode = bagManager.m_pEachFeaStartPosEachNodeEachBag_d + bagId * bagManager.m_maxNumSplittable * bagManager.m_numFea;
 	unsigned int *pTempEachFeaStartEachNode_h = new unsigned int[totalNumArray];
 	checkCudaErrors(cudaMemcpy(pTempEachFeaStartEachNode_h, pTempEachFeaStartEachNode, sizeof(unsigned int) * totalNumArray, cudaMemcpyDeviceToHost));
@@ -192,7 +194,12 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 			keyFlag = -1;
 		else 
 			keyFlag = 0;
+		//assign fealen to each fvalue
+		for(int fv = 0; fv < arrayLen; fv++){
+			pnLastFvalueOfThisFvalue_h[fv + arrayStartPos] = arrayStartPos + arrayLen - 1;
+		}
 	}
+	checkCudaErrors(cudaMemcpy(pnLastFvalueOfThisFvalue_d, pnLastFvalueOfThisFvalue_h, sizeof(unsigned int) * bagManager.m_numFeaValue, cudaMemcpyHostToDevice));
 
 	//compute prefix sum for gd and hess (more than one arrays)
 	double *pTempGDSum = bagManager.m_pdGDPrefixSumEachBag + bagId * bagManager.m_numFeaValue;
@@ -205,7 +212,12 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 	clock_t end_scan = clock();
 	total_scan_t += (end_scan - start_scan);
 
-//	cout << "compute gain" << endl;
+	//default to left or right
+	bool *pDefault2Right;
+	checkCudaErrors(cudaMalloc((void**)&pDefault2Right, sizeof(bool) * bagManager.m_numFeaValue));
+	checkCudaErrors(cudaMemset(pDefault2Right, 0, sizeof(bool) * bagManager.m_numFeaValue));
+
+	//cout << "compute gain" << endl;
 	clock_t start_comp_gain = clock();
 	//# of feature values that need to compute gains; the code below cannot be replaced by indexComp.m_totalNumFeaValue, due to some nodes becoming leaves.
 	int numofDenseValue = pFeaValueStartPosEachNode_h[numofSNode - 1] + indexComp.m_pNumFeaValueEachNode_dh[numofSNode - 1];
@@ -220,11 +232,16 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 											bagManager.m_pPartitionId2SNPosEachBag + bagId * bagManager.m_maxNumSplittable,
 											DeviceSplitter::m_lambda, bagManager.m_pdGDPrefixSumEachBag + bagId * bagManager.m_numFeaValue,
 											bagManager.m_pHessPrefixSumEachBag + bagId * bagManager.m_numFeaValue,
-											bagManager.m_pDenseFValueEachBag + bagId * bagManager.m_numFeaValue, numofDenseValue,
-											bagManager.m_pGainEachFvalueEachBag + bagId * bagManager.m_numFeaValue);
+											bagManager.m_pDenseFValueEachBag + bagId * bagManager.m_numFeaValue,
+											numofDenseValue, pnLastFvalueOfThisFvalue_d,
+											bagManager.m_pGainEachFvalueEachBag + bagId * bagManager.m_numFeaValue,
+											pDefault2Right);
 	cudaStreamSynchronize((*(cudaStream_t*)pStream));
 	GETERROR("after ComputeGainDense");
 	
+	delete[] pnLastFvalueOfThisFvalue_h;
+	cudaDeviceSynchronize();
+
 	//for testing gain before fixing
 	real *pGain = new real[bagManager.m_numFeaValue];
 	cudaMemcpy(pGain, bagManager.m_pGainEachFvalueEachBag, bagManager.m_numFeaValue * sizeof(real), cudaMemcpyDeviceToHost);
@@ -260,7 +277,7 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 //	printf("monitored total fvalue: %u\n", testTotalFeaValue);
 
 	//print gain
-//	float *pGain = new float[bagManager.m_numFeaValue];
+	/*
 	if(numofSNode == 2){
 		int firstNodeSize = indexComp.m_pNumFeaValueEachNode_dh[0];
 		printf("1st ns=%d, s=%d, e=%d\n", firstNodeSize, pTempEachFeaStartEachNode_h[bagManager.m_numFea + 1977], pTempEachFeaStartEachNode_h[bagManager.m_numFea + 1978]);
@@ -275,7 +292,7 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 			if((i + 1) % 20 == 0)
 				printf("\n");
 			}*/
-			if(i + firstNodeSize >= pTempEachFeaStartEachNode_h[bagManager.m_numFea + 1977] && i + firstNodeSize < pTempEachFeaStartEachNode_h[bagManager.m_numFea + 1978]){
+	/*		if(i + firstNodeSize >= pTempEachFeaStartEachNode_h[bagManager.m_numFea + 1977] && i + firstNodeSize < pTempEachFeaStartEachNode_h[bagManager.m_numFea + 1978]){
 				printf("%f\t", pGain[i + firstNodeSize]);
 				if((i + 1) % 20 == 0)
 					printf("\n");
@@ -292,6 +309,7 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 		printf("id=%d, gain=%f, fea=%d, 1977s=%d, 78s=%d\n", id, min, f, pTempEachFeaStartEachNode_h[bagManager.m_numFea + 1977], pTempEachFeaStartEachNode_h[bagManager.m_numFea + 1978]);
 	}
 	delete []pGain;
+	*/
 	delete []pFeaValueStartPosEachNode_h;
 	delete[] pTempEachFeaStartEachNode_h;
 
@@ -349,8 +367,11 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 				  	  	  	  	  	 bagManager.m_pSNodeStatEachBag + bagId * bagManager.m_maxNumSplittable,
 				  	  	  	  	  	 bagManager.m_pdGDPrefixSumEachBag + bagId * bagManager.m_numFeaValue,
 				  	  	  	  	  	 bagManager.m_pHessPrefixSumEachBag + bagId * bagManager.m_numFeaValue,
+				  	  	  	  	  	 pDefault2Right, pnLastFvalueOfThisFvalue_d,
 				  	  	  	  	  	 bagManager.m_pBestSplitPointEachBag + bagId * bagManager.m_maxNumSplittable,
 				  	  	  	  	  	 bagManager.m_pRChildStatEachBag + bagId * bagManager.m_maxNumSplittable,
 				  	  	  	  	  	 bagManager.m_pLChildStatEachBag + bagId * bagManager.m_maxNumSplittable);
 	cudaStreamSynchronize((*(cudaStream_t*)pStream));
+	cudaFree(pnLastFvalueOfThisFvalue_d);
+	cudaFree(pDefault2Right);
 }

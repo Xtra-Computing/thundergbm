@@ -24,7 +24,8 @@ __global__ void LoadGDHessFvalue(const real *pInsGD, const real *pInsHess, int n
 __global__ void ComputeGainDense(const nodeStat *pSNodeStat, const unsigned int *pFeaValueStartPosEachNode, int numSN,
 							const int *pBuffId,	real lambda,
 							const double *pGDPrefixSumOnEachFeaValue, const real *pHessPrefixSumOnEachFeaValue,
-							const real *pDenseFeaValue, int numofDenseValue, real *pGainOnEachFeaValue);
+							const real *pDenseFeaValue, int numofDenseValue, const unsigned int *pnLastFvalueOfThisFvalue,
+							real *pGainOnEachFeaValue, bool *pDefault2Right);
 __global__ void FirstFeaGain(const unsigned int *pEachFeaStartPosEachNode, int numFeaStartPos, real *pGainOnEachFeaValue, long long numFeaValue);
 __global__ void PickLocalBestSplitEachNode(const unsigned int *pnNumFeaValueEachNode, const unsigned int *pFeaStartPosEachNode,
 										   const real *pGainOnEachFeaValue,
@@ -36,16 +37,10 @@ __global__ void FindSplitInfo(const unsigned int *pEachFeaStartPosEachNode, cons
 							  const real *pDenseFeaValue, const real *pfGlobalBestGain, const int *pnGlobalBestGainKey,
 							  const int *pPosToBuffId, const int numFea,
 							  const nodeStat *snNodeStat, const double *pPrefixSumGD, const real *pPrefixSumHess,
+							  const bool *pDefault2Right, const unsigned int *pnLastFvalueOfThisFvalue,
 							  SplitPoint *pBestSplitPoint, nodeStat *pRChildStat, nodeStat *pLChildStat);
 
 //early
-__global__ void FindFeaSplitValue(const int *pnNumofKeyValues, const long long *pnFeaStartPos, const int *pInsId, const real *pFeaValue,
-								  const int *pInsIdToNodeId, const real *pGD, const real *pHess,
-								  nodeStat *pTempRChildStatPerThread, real *pLastValuePerThread,
-								  const nodeStat *pSNodeStatPerThread, SplitPoint *pBestSplitPointPerThread,
-								  nodeStat *pRChildStatPerThread, nodeStat *pLChildStatPerThread,
-								  const int *pSNIdToBuffId, int maxNumofSplittable, const int *pBuffId, int numofSNode,
-								  real lambda, int numofFea);
 __global__ void PickLocalBestFea(const SplitPoint *pBestSplitPointPerThread, const int *pBuffId,
 								 int numofSNode, int numofFea, int maxNumofSplittable,
 								 real *pfBestGain, int *pnBestGainKey);
