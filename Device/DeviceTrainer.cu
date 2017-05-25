@@ -161,8 +161,8 @@ void DeviceTrainer::GrowTree(RegTree &tree, void *pStream, int bagId)
 	for(int n = 0; n < numofNode; n++){
 		ypAllNode[n] = &pAllNode[n];
 		tree.nodes.push_back(&pAllNode[n]);//for getting features of trees
-//		if(ypAllNode[n]->m_bDefault2Right == true)
-//			numDefault2Right++;
+		if(ypAllNode[n]->m_bDefault2Right == true)
+			numDefault2Right++;
 	}
 	printf("default to right = %d\n", numDefault2Right);
 	pruner.pruneLeaf(ypAllNode, numofNode);

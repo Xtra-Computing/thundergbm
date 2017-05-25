@@ -65,4 +65,5 @@ __global__ void InitRootNode(TreeNode *pAllTreeNode, int *pCurNumofNode, int num
 	pAllTreeNode[0].loss = -1.0;
 
 	pAllTreeNode[0].numIns = numIns;
+	pAllTreeNode[0].m_bDefault2Right = false;
 }

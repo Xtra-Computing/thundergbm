@@ -70,7 +70,7 @@ __global__ void CreateNewNode(TreeNode *pAllTreeNode, TreeNode *pSplittableNode,
 	int bufferPos = nid % maxNumofSplittableNode;
 
 	ECHECKER(bufferPos);
-
+	pAllTreeNode[nid].m_bDefault2Right = false;
 	if(!(pBestSplitPoint[bufferPos].m_fGain <= rt_eps || bLastLevel == true))
 	{
 		int childrenId = atomicAdd(pNumofNode, 2);
@@ -110,11 +110,13 @@ __global__ void CreateNewNode(TreeNode *pAllTreeNode, TreeNode *pSplittableNode,
 		leftChild.leftChildId = -1;
 		leftChild.rightChildId = -1;
 		leftChild.loss = -1.0;
+		leftChild.m_bDefault2Right = false;
 		rightChild.featureId = -1;
 		rightChild.fSplitValue = -1;
 		rightChild.leftChildId = -1;
 		rightChild.rightChildId = -1;
 		rightChild.loss = -1.0;
+		rightChild.m_bDefault2Right = false;
 
 		//they should just be pointers, not new content
 		pNewSplittableNode[leftNewNodeId] = leftChild;
@@ -127,7 +129,6 @@ __global__ void CreateNewNode(TreeNode *pAllTreeNode, TreeNode *pSplittableNode,
 		pAllTreeNode[nid].featureId = pBestSplitPoint[bufferPos].m_nFeatureId;
 		pAllTreeNode[nid].fSplitValue = pBestSplitPoint[bufferPos].m_fSplitValue;
 		//instances with missing values go to left node by default
-		pAllTreeNode[nid].m_bDefault2Right = false;
 		if(pBestSplitPoint[bufferPos].m_bDefault2Right == true)
 			pAllTreeNode[nid].m_bDefault2Right = true;
 
