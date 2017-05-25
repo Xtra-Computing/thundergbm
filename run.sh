@@ -47,15 +47,17 @@ case $1 in
         ;;
     e2006)
 		GAMMA=${GAMMA}"1"
-        D=${D}"4"
+        D=${D}"5"
 		NUMTREE=${NUMTREE}"1"
 		BAG=${BAG}"1"
         FILENAME=${DATASET_DIR}/"E2006.train" #150360 features and 16087 instances
         ;;
-    w8a)
-        GAMMA=${GAMMA}"0.5"
-        C=${C}"10"
-        FILENAME=${DATASET_DIR}/"w8a"
+    log1p)
+        GAMMA=${GAMMA}"1"
+        D=${D}"1"
+    	NUMTREE=${NUMTREE}"1"
+		BAG=${BAG}"1"
+	    FILENAME=${DATASET_DIR}/"log1p.E2006.train" #4,272,227 features and 16,087 instances
         ;;
     news20)
         GAMMA=${GAMMA}"0.5"

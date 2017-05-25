@@ -12,8 +12,6 @@
 
 __device__ int GetNext(const TreeNode *pNode, real feaValue)
 {
-	if(feaValue > LARGE_REAL_NUM + 1)
-		printf("Oh shit. This is unbelievable########################################\n");
 	if(feaValue > LARGE_REAL_NUM - 2){//this is a missing value
 		if(pNode->m_bDefault2Right == false)
 			return pNode->leftChildId;

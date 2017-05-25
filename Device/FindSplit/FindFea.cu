@@ -276,40 +276,6 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 	}
 //	printf("monitored total fvalue: %u\n", testTotalFeaValue);
 
-	//print gain
-	/*
-	if(numofSNode == 2){
-		int firstNodeSize = indexComp.m_pNumFeaValueEachNode_dh[0];
-		printf("1st ns=%d, s=%d, e=%d\n", firstNodeSize, pTempEachFeaStartEachNode_h[bagManager.m_numFea + 1977], pTempEachFeaStartEachNode_h[bagManager.m_numFea + 1978]);
-		float min = 0; int id = -1;
-		for(int i = 0; i < indexComp.m_pNumFeaValueEachNode_dh[1]; i++){
-			if(pGain[i + firstNodeSize] > min){
-				min = pGain[i + firstNodeSize];
-				id = i;
-			}
-			/*if(pGain[i + firstNodeSize] != 0){
-			printf("i=%d, %f\t", i, pGain[i + firstNodeSize]);
-			if((i + 1) % 20 == 0)
-				printf("\n");
-			}*/
-	/*		if(i + firstNodeSize >= pTempEachFeaStartEachNode_h[bagManager.m_numFea + 1977] && i + firstNodeSize < pTempEachFeaStartEachNode_h[bagManager.m_numFea + 1978]){
-				printf("%f\t", pGain[i + firstNodeSize]);
-				if((i + 1) % 20 == 0)
-					printf("\n");
-			}
-		}
-		int f = 0;
-		for(int i = 1; i < bagManager.m_numFea; i++){
-			if(id + firstNodeSize < pTempEachFeaStartEachNode_h[bagManager.m_numFea + i]){
-				f = i;
-			}
-			else
-				break;
-		}
-		printf("id=%d, gain=%f, fea=%d, 1977s=%d, 78s=%d\n", id, min, f, pTempEachFeaStartEachNode_h[bagManager.m_numFea + 1977], pTempEachFeaStartEachNode_h[bagManager.m_numFea + 1978]);
-	}
-	delete []pGain;
-	*/
 	delete []pFeaValueStartPosEachNode_h;
 	delete[] pTempEachFeaStartEachNode_h;
 
