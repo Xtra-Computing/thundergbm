@@ -26,7 +26,12 @@ void TreePrinter::WriteInternalNode(const TreeNode *node)
 	m_writeOut << node->nodeId << ":[f" << node->featureId + 1 << "<";
 	m_writeOut.precision(6);
 	m_writeOut << node->fSplitValue << "]";
-	m_writeOut << " yes=" << node->leftChildId << ",no=" << node->rightChildId << ",missing=" << node->leftChildId << "\n";
+
+	//decide where default values should go
+	int nodeId4MissingValue = node->leftChildId;
+	if(node->m_bDefault2Right == true)
+		nodeId4MissingValue = node->rightChildId;
+	m_writeOut << " yes=" << node->leftChildId << ",no=" << node->rightChildId << ",missing=" << nodeId4MissingValue << "\n";
 }
 
 void TreePrinter::WriteLeaf(const TreeNode *node)
