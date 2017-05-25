@@ -7,6 +7,7 @@
  */
 
 #include "FindFeaKernel.h"
+#include "../Splitter/DeviceSplitter.h"
 
 __device__ void GetBatchInfo(int feaBatch, int smallestFeaId, int feaId, const int *pnNumofKeyValues, const long long *pnFeaStartPos,
 							 int &curFeaStartPosInBatch, int &nFeaValueInBatch)
@@ -19,4 +20,9 @@ __device__ void GetBatchInfo(int feaBatch, int smallestFeaId, int feaId, const i
 }
 
 
-
+__device__ bool NeedUpdate(real &RChildHess, real &LChildHess)
+{
+	if(LChildHess >= DeviceSplitter::min_child_weight && RChildHess >= DeviceSplitter::min_child_weight)
+		return true;
+	return false;
+}
