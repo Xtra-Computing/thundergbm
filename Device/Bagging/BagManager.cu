@@ -83,8 +83,6 @@ TreeNode *BagManager::m_pNodeTreeOnTrainingEachBag = NULL;//reserve memory for a
 //current numof nodes
 int *BagManager::m_pCurNumofNodeTreeOnTrainingEachBag_d = NULL;
 int *BagManager::m_pNumofNewNodeTreeOnTrainingEachBag = NULL;
-//host memory for reset purposes
-TreeNode *BagManager::m_pNodeTreeOnTrainingEachBagHost = NULL;
 
 //memory for parent node to children ids
 int *BagManager::m_pParentIdEachBag = NULL;
@@ -252,8 +250,6 @@ void BagManager::AllocMem()
 	checkCudaErrors(cudaMalloc((void**)&m_pNodeTreeOnTrainingEachBag, sizeof(TreeNode) * m_maxNumNode * m_numBag));
 	checkCudaErrors(cudaMalloc((void**)&m_pCurNumofNodeTreeOnTrainingEachBag_d, sizeof(int) * m_numBag));
 	checkCudaErrors(cudaMalloc((void**)&m_pNumofNewNodeTreeOnTrainingEachBag, sizeof(int) * m_numBag));
-	//for reseting memory for the next tree
-	m_pNodeTreeOnTrainingEachBagHost = new TreeNode[m_maxNumNode * m_numBag];
 	//for final trees
 	checkCudaErrors(cudaMalloc((void**)&m_pAllTreeEachBag, sizeof(TreeNode) * m_numTreeEachBag * m_maxNumNode * m_numBag));
 	//memory set for all tree nodes

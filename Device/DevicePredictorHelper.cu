@@ -12,6 +12,8 @@
 
 __device__ int GetNext(const TreeNode *pNode, real feaValue)
 {
+	if(feaValue > LARGE_REAL_NUM + 1)
+		printf("Oh shit. This is unbelievable########################################\n");
 	if(feaValue > LARGE_REAL_NUM - 2){//this is a missing value
 		if(pNode->m_bDefault2Right == false)
 			return pNode->leftChildId;
@@ -88,6 +90,11 @@ __global__ void FillMultiDense(const real *pdSparseInsValue, const long long *pI
 	ECHECKER(startPos);
 	int numofFeaValue = pNumofFeaValue[insId];
 	int denseInsStartPos = nGlobalThreadId * numofUsedFea;
+
+	//memset
+	for(int s = 0; s < numofUsedFea; s++){
+		pdDenseIns[denseInsStartPos + s] = LARGE_REAL_NUM;
+	}
 
 	//for each value in the sparse instance
 	int curDenseTop = 0;

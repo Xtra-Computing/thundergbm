@@ -157,16 +157,7 @@ __global__ void ComputeGainDense(const nodeStat *pSNodeStat, const unsigned int 
     	real tempGain = (tempGD * tempGD)/(tempHess + lambda) +
 			  	   	    (rChildGD * rChildGD)/(rChildHess + lambda) -
 			  	   	    (parentGD * parentGD)/(parentHess + lambda);
-    	if(tempGain > 0 && tempGain - pGainOnEachFeaValue[gTid] > 1.0){
-    		real rNodeWeight = (-rChildGD / (rChildHess + lambda));
-    		real lNodeWeight = (-tempGD / (tempHess + lambda));
-    		if(lNodeWeight < -0.885 && lNodeWeight > -0.89 && rNodeWeight < -3.58 && rNodeWeight > -3.59)
-    		printf("old gain=%f, new gain=%f, missGD=%f, missHess=%f, totalGD=%f, parentGD=%f, \
-    				parentHess=%f, totalHess=%f, fealen=%d, rweight=%f, lweight=%f, rChildGD=%f, rChildHess=%f, gTid=%d\n",
-    				pGainOnEachFeaValue[gTid], tempGain,
-    				totalMissingGD, totalMissingHess, pGDPrefixSumOnEachFeaValue[lastFvaluePos], parentGD,
-    				parentHess, pHessPrefixSumOnEachFeaValue[lastFvaluePos], lastFvaluePos,
-    				rNodeWeight, lNodeWeight, rChildGD, rChildHess, gTid);
+    	if(tempGain > 0 && tempGain - pGainOnEachFeaValue[gTid] > 0.1){
     		pGainOnEachFeaValue[gTid] = tempGain;
     		pDefault2Right[gTid] = true;
     	}

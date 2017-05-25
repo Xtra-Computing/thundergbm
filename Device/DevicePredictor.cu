@@ -17,8 +17,8 @@
 #include "../DeviceHost/MyAssert.h"
 #include "../DeviceHost/DefineConst.h"
 #include "../DeviceHost/SparsePred/DenseInstance.h"
+#include "../SharedUtility/CudaMacro.h"
 #include "../SharedUtility/KernelConf.h"
-
 
 /**
  * @brief: prediction function for sparse instances
@@ -28,7 +28,6 @@ void DevicePredictor::PredictSparseIns(vector<vector<KeyValue> > &v_vInstance, v
 {
 	BagManager bagManager;
 	GBDTGPUMemManager manager;
-	//DTGPUMemManager treeManager;
 	DenseInsConverter denseInsConverter(vTree);
 	int numofUsedFea = denseInsConverter.usedFeaSet.size();
 
@@ -49,20 +48,17 @@ void DevicePredictor::PredictSparseIns(vector<vector<KeyValue> > &v_vInstance, v
 
 	//for each tree
 	int nNumofIns = manager.m_numofIns;
-	//int nNumofTree = treeManager.m_numofTreeLearnt;
 	int nNumofTree = bagManager.m_pNumofTreeLearntEachBag_h[bagId];
-	//PROCESS_ERROR(treeManager.m_numofTree == treeManager.m_numofTreeLearnt);
 	PROCESS_ERROR(nNumofTree > 0);
 
 	//start prediction
-	//checkCudaErrors(cudaMemset(manager.m_pTargetValue, 0, sizeof(float_point) * nNumofIns));
 	manager.MemsetAsync(bagManager.m_pTargetValueEachBag + bagId * bagManager.m_numIns, 0, sizeof(real) * nNumofIns, pStream);
 
 	long long startPos = 0;
 	int startInsId = 0;
 	long long *pInsStartPos = manager.m_pInsStartPos + startInsId;
 	manager.MemcpyDeviceToHostAsync(pInsStartPos, &startPos, sizeof(long long), pStream);
-//			cout << "start pos ins" << insId << "=" << startPos << endl;
+//	cout << "start pos ins" << insId << "=" << startPos << endl;
 	real *pDevInsValue = manager.m_pdDInsValue + startPos;
 	int *pDevFeaId = manager.m_pDFeaId + startPos;
 	int *pNumofFea = manager.m_pDNumofFea + startInsId;
@@ -72,9 +68,9 @@ void DevicePredictor::PredictSparseIns(vector<vector<KeyValue> > &v_vInstance, v
 	int threadPerBlock;
 	dim3 dimNumofBlock;
 	conf.ConfKernel(numofInsToFill, threadPerBlock, dimNumofBlock);
+	cudaDeviceSynchronize();
 
-	if(numofUsedFea > 0)
-	{
+	if(numofUsedFea > 0){
 		FillMultiDense<<<dimNumofBlock, threadPerBlock, 0, (*(cudaStream_t*)pStream)>>>(
 											  pDevInsValue, pInsStartPos, pDevFeaId, pNumofFea,
 										  	  bagManager.m_pdDenseInsEachBag + bagId * bagManager.m_maxNumUsedFeaATree * bagManager.m_numIns,
@@ -82,20 +78,11 @@ void DevicePredictor::PredictSparseIns(vector<vector<KeyValue> > &v_vInstance, v
 										  	  bagManager.m_pHashFeaIdToDenseInsPosBag + bagId * bagManager.m_maxNumUsedFeaATree,
 											  numofUsedFea, startInsId, numofInsToFill);
 	}
+	cudaDeviceSynchronize();
+	GETERROR("after FillMultiDense");
 
-#if testing
-		if(cudaGetLastError() != cudaSuccess)
-		{
-			cout << "error in FillMultiDense" << endl;
-			exit(0);
-		}
-#endif
-
-
-//		FillDenseIns(i, numofUsedFea);
-		//prediction using the last tree
-	for(int t = 0; t < nNumofTree; t++)
-	{
+	//prediction using the last tree
+	for(int t = 0; t < nNumofTree; t++){
 		int numofNodeOfTheTree = 0;
 		TreeNode *pTree = NULL;
 
@@ -113,8 +100,7 @@ void DevicePredictor::PredictSparseIns(vector<vector<KeyValue> > &v_vInstance, v
 	manager.MemcpyDeviceToHostAsync(bagManager.m_pTargetValueEachBag + bagId * bagManager.m_numIns,
 									pTempTarget, sizeof(real) * nNumofIns, pStream);
 
-	for(int i = 0; i < nNumofIns; i++)
-	{
+	for(int i = 0; i < nNumofIns; i++){
 		v_fPredValue.push_back(pTempTarget[i]);
 	}
 	delete []pTempTarget;

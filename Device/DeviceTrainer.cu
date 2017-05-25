@@ -58,8 +58,7 @@ void DeviceTrainer::GrowTree(RegTree &tree, void *pStream, int bagId)
 	//copy the root node to GPU
 	BagManager bagManager;
 	GBDTGPUMemManager manager;
-	InitRootNode<<<1, 1, 0, (*(cudaStream_t*)pStream)>>>(//snManager.m_pTreeNode, snManager.m_pCurNumofNode_d);
-							bagManager.m_pNodeTreeOnTrainingEachBag + bagId * bagManager.m_maxNumNode,
+	InitRootNode<<<1, 1, 0, (*(cudaStream_t*)pStream)>>>(bagManager.m_pNodeTreeOnTrainingEachBag + bagId * bagManager.m_maxNumNode,
 									bagManager.m_pCurNumofNodeTreeOnTrainingEachBag_d + bagId, bagManager.m_numIns);
 
 	manager.MemcpyDeviceToDeviceAsync(bagManager.m_pNodeTreeOnTrainingEachBag + bagId * bagManager.m_maxNumNode,
@@ -139,10 +138,14 @@ void DeviceTrainer::GrowTree(RegTree &tree, void *pStream, int bagId)
 									pAllNode, sizeof(TreeNode) * numofNode, pStream);
 	TreeNode **ypAllNode = new TreeNode*[numofNode];
 	PROCESS_ERROR(tree.nodes.size() == 0);
+	int nDefault2right = 0;
 	for(int n = 0; n < numofNode; n++){
 		ypAllNode[n] = &pAllNode[n];
 		tree.nodes.push_back(&pAllNode[n]);//for getting features of trees
+		if(pAllNode[n].m_bDefault2Right == true)
+			nDefault2right++;
 	}
+	printf("default to right %d\n", nDefault2right);
 	pruner.pruneLeaf(ypAllNode, numofNode);
 	delete []ypAllNode;
 	//########### can be improved by storing only the valid nodes afterwards

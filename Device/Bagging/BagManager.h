@@ -87,8 +87,6 @@ public:
 	static TreeNode *m_pNodeTreeOnTrainingEachBag;
 	static int *m_pCurNumofNodeTreeOnTrainingEachBag_d;
 	static int *m_pNumofNewNodeTreeOnTrainingEachBag;
-	//for reseting memory for the next tree
-	static TreeNode *m_pNodeTreeOnTrainingEachBagHost;
 	//memory for new node statistics
 	static nodeStat *m_pNewNodeStatEachBag;
 	static TreeNode *m_pNewSplittableNodeEachBag;
