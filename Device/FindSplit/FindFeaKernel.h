@@ -11,7 +11,7 @@
 
 #include "../../Host/UpdateOps/SplitPoint.h"
 #include "../../DeviceHost/BaseClasses/BaseSplitter.h"
-#include "../../DeviceHost/DefineConst.h"
+#include "../../SharedUtility/DataType.h"
 #include "../../DeviceHost/NodeStat.h"
 
 //dense array

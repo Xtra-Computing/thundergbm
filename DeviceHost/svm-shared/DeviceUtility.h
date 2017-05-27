@@ -10,7 +10,7 @@
 #define SVM_DEVUTILITY_H_
 //include files from the gpu sdk
 #include <cuda_runtime.h>
-#include "../../DeviceHost/DefineConst.h"
+#include "../../SharedUtility/DataType.h"
 
 __device__ void GetMinValueOriginal(real*, int*, int);
 __device__ void GetMinValueOriginal(real*, int);

@@ -14,7 +14,7 @@
 #include <iomanip>
 #include <assert.h>
 
-#include "../../DeviceHost/DefineConst.h"
+#include "../../SharedUtility/DataType.h"
 
 using std::string;
 using std::fstream;

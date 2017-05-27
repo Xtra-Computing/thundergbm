@@ -9,7 +9,7 @@
 #ifndef FILEBUFFER_H_
 #define FILEBUFFER_H_
 
-#include "../../DeviceHost/DefineConst.h"
+#include "../../SharedUtility/DataType.h"
 
 class FileBuffer
 {

@@ -9,7 +9,7 @@
 #ifndef GPUMEMALLOCATOR_H_
 #define GPUMEMALLOCATOR_H_
 
-#include "../../DeviceHost/DefineConst.h"
+#include "../../SharedUtility/DataType.h"
 
 
 class GPUMemManager

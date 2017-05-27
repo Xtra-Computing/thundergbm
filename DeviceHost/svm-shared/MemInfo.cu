@@ -12,7 +12,7 @@
 #include <cuda.h>
 #include <helper_cuda.h>
 
-#include "../../DeviceHost/DefineConst.h"
+#include "../../SharedUtility/DataType.h"
 
 using std::cout;
 using std::endl;

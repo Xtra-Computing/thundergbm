@@ -14,7 +14,7 @@
 #include <cuda.h>
 
 #include "../../DeviceHost/TreeNode.h"
-#include "../../DeviceHost/DefineConst.h"
+#include "../../SharedUtility/DataType.h"
 #include "../../DeviceHost/NodeStat.h"
 #include "../../Host/UpdateOps/SplitPoint.h"
 

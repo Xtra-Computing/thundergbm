@@ -60,6 +60,7 @@ int main(int argc, char *argv[])
 	double fGamma = parser.gamma;//minimum loss
 	int maxNumofNodePerTree = pow(2, nMaxDepth + 1) - 1;
 	int maxNumofSplittableNode = pow(2, nMaxDepth);//can be "nMaxDepth - 1" but changing causes bugs.
+	printf("max sn=%d\n", maxNumofSplittableNode);
 
 	DevicePredictor pred;
 

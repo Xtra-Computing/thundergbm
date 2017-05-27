@@ -11,7 +11,7 @@
 
 #include <helper_cuda.h>
 #include <cuda.h>
-#include "../DeviceHost/DefineConst.h"
+#include "../SharedUtility/DataType.h"
 #include "../DeviceHost/TreeNode.h"
 
 __global__ void PredTarget(TreeNode *pAllTreeNode, int totalNode, real *pDenseIns, int nNumofFea,

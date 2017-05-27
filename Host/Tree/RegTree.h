@@ -12,7 +12,7 @@
 #include <map>
 #include <vector>
 #include "../../DeviceHost/TreeNode.h"
-#include "../../DeviceHost/DefineConst.h"
+#include "../../SharedUtility/DataType.h"
 
 using std::vector;
 using std::map;

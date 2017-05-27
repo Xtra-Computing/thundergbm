@@ -9,10 +9,10 @@
 #ifndef DEVICESPLITALL_H_
 #define DEVICESPLITALL_H_
 
+#include "../../DeviceHost/NodeStat.h"
+#include "../../SharedUtility/DataType.h"
 #include "../../Host/UpdateOps/SplitPoint.h"
 #include "../../DeviceHost/BaseClasses/BaseSplitter.h"
-#include "../../DeviceHost/DefineConst.h"
-#include "../../DeviceHost/NodeStat.h"
 
 
 __global__ void ComputeWeight(TreeNode *pAllTreeNode, TreeNode *pSplittableNode,

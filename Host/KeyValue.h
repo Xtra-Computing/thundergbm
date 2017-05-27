@@ -10,7 +10,7 @@
 #define KEYVALUE_H_
 
 #include <vector>
-#include "../DeviceHost/DefineConst.h"
+#include "../SharedUtility/DataType.h"
 #include "../DeviceHost/MyAssert.h"
 
 

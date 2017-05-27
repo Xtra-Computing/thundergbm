@@ -10,7 +10,7 @@
 #define SPLITPOINT_H_
 
 #include <ostream>
-#include "../../DeviceHost/DefineConst.h"
+#include "../../SharedUtility/DataType.h"
 
 using std::ostream;
 

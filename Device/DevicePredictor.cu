@@ -15,8 +15,8 @@
 #include "Bagging/BagManager.h"
 #include "../DeviceHost/TreeNode.h"
 #include "../DeviceHost/MyAssert.h"
-#include "../DeviceHost/DefineConst.h"
 #include "../DeviceHost/SparsePred/DenseInstance.h"
+#include "../SharedUtility/DataType.h"
 #include "../SharedUtility/CudaMacro.h"
 #include "../SharedUtility/KernelConf.h"
 

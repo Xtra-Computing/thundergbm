@@ -9,7 +9,7 @@
 #ifndef DTMEMMANAGER_H_
 #define DTMEMMANAGER_H_
 
-#include "../../DeviceHost/DefineConst.h"
+#include "../../SharedUtility/DataType.h"
 #include "../../DeviceHost/TreeNode.h"
 
 class DTGPUMemManager

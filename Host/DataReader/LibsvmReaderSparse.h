@@ -14,7 +14,7 @@
 #include <vector>
 #include "../KeyValue.h"
 #include "BaseLibsvmReader.h"
-#include "../../DeviceHost/DefineConst.h"
+#include "../../SharedUtility/DataType.h"
 
 using std::string;
 using std::vector;

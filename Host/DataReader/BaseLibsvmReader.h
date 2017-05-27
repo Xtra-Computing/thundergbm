@@ -10,7 +10,7 @@
 #define BASELIBSVMREADER_H_
 
 #include <fstream>
-#include "../../DeviceHost/DefineConst.h"
+#include "../../SharedUtility/DataType.h"
 
 using std::string;
 using std::ifstream;

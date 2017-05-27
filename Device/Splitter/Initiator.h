@@ -9,7 +9,7 @@
 #ifndef DEVICEPREDKERNEL_H_
 #define DEVICEPREDKERNEL_H_
 
-#include "../../DeviceHost/DefineConst.h"
+#include "../../SharedUtility/DataType.h"
 #include "../../DeviceHost/TreeNode.h"
 #include "../../DeviceHost/NodeStat.h"
 

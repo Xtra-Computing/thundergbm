@@ -13,7 +13,7 @@
 #include <iostream>
 #include <stdlib.h>
 #include "MyAssert.h"
-#include "DefineConst.h"
+#include "../SharedUtility/DataType.h"
 
 using std::cout;
 using std::endl;

@@ -13,10 +13,10 @@
 #include <cuda.h>
 #include <helper_cuda.h>
 
-#include "storageManager.h"
-#include "../../SharedUtility/HostUtility.h"
 #include "MemInfo.h"
-#include "../../DeviceHost/DefineConst.h"
+#include "storageManager.h"
+#include "../../SharedUtility/DataType.h"
+#include "../../SharedUtility/HostUtility.h"
 
 using std::cout;
 using std::endl;

@@ -226,8 +226,14 @@ __global__ void InsToNewNode(const TreeNode *pAllTreeNode, const real *pdFeaValu
 
 	int bufferPos = pSNIdToBuffId[nid];
 
+	//test
+//	if(bufferPos >= 2){
+//		return;
+//	}
+
 	ECHECKER(bufferPos);
 
+	printf("bufferPos=%d, nid=%d, feaId=%d, perFeaTid=%d\n", bufferPos, nid, feaId, perFeaTid);
 	int fid = pBestSplitPoint[bufferPos].m_nFeatureId;
 	if(fid != ufid)//this feature is not the splitting feature for the instance.
 		return;
