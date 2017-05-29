@@ -151,7 +151,7 @@ void DeviceSplitter::ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> >
 
 	InitNodeStat<<<1, 1, 0, (*(cudaStream_t*)pStream)>>>(gdSum, hessSum,
 						   bagManager.m_pSNodeStatEachBag + bagId * bagManager.m_maxNumSplittable,
-						   bagManager.m_pSNIdToBuffIdEachBag + bagId * bagManager.m_maxNumSplittable, manager.m_maxNumofSplittable,
+						   bagManager.m_pSNIdToBuffIdEachBag + bagId * bagManager.m_maxNumSplittable, bagManager.m_maxNumSplittable,
 						   bagManager.m_pPartitionId2SNPosEachBag + bagId * bagManager.m_maxNumSplittable,
 						   bagManager.m_pNumofBuffIdEachBag + bagId);
 

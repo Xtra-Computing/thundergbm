@@ -32,6 +32,7 @@ public:
 	static int m_maxNumNode;
 	static int m_maxNumSplittable;
 	static int m_maxTreeDepth;
+	static int m_maxNumLeave;
 
 	//device memory
 	static cudaStream_t *m_pStream;
@@ -86,7 +87,7 @@ public:
 	static int *m_pNumofNewNodeTreeOnTrainingEachBag;
 	//memory for new node statistics
 	static nodeStat *m_pNewNodeStatEachBag;
-	static TreeNode *m_pNewSplittableNodeEachBag;
+	static TreeNode *m_pNewNodeEachBag;
 
 	//memory for each individual tree
 	static int *m_pNumofNodeEachTreeEachBag;	//the number of nodes of each tree

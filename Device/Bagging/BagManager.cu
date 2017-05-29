@@ -24,6 +24,7 @@ int BagManager::m_numTreeEachBag = -1;
 int BagManager::m_maxNumNode = -1;
 int BagManager::m_maxNumSplittable = -1;
 int BagManager::m_maxTreeDepth = -1;
+int BagManager::m_maxNumLeave = -1;
 
 //device memory
 cudaStream_t *BagManager::m_pStream = NULL;
@@ -86,7 +87,7 @@ int *BagManager::m_pLeftChildIdEachBag = NULL;
 int *BagManager::m_pRightChildIdEachBag = NULL;
 //memory for new node statistics
 nodeStat *BagManager::m_pNewNodeStatEachBag = NULL;
-TreeNode *BagManager::m_pNewSplittableNodeEachBag = NULL;
+TreeNode *BagManager::m_pNewNodeEachBag = NULL;
 //memory for used features in the current splittable nodes
 int *BagManager::m_pFeaIdToBuffIdEachBag = NULL;//(require memset!) map feature id to buffer id
 int *BagManager::m_pUniqueFeaIdVecEachBag = NULL;	//store all the used feature ids
@@ -121,6 +122,7 @@ void BagManager::InitBagManager(int numIns, int numFea, int numTree, int numBag,
 	//tree info
 	m_numTreeEachBag = numTree;
 	m_maxNumSplittable = maxNumSN;
+	m_maxNumLeave = maxNumSN * 2;//2 times of the number of splittables (i.e. internal nodes)
 	m_maxNumNode = maxNumNode;
 	m_maxTreeDepth = maxTreeDepth;
 
@@ -231,8 +233,8 @@ void BagManager::AllocMem()
 	checkCudaErrors(cudaMalloc((void**)&m_pLeftChildIdEachBag, sizeof(int) * m_maxNumSplittable * m_numBag));
 	checkCudaErrors(cudaMalloc((void**)&m_pRightChildIdEachBag, sizeof(int) * m_maxNumSplittable * m_numBag));
 	//memory for new node statistics
-	checkCudaErrors(cudaMalloc((void**)&m_pNewNodeStatEachBag, 2 * sizeof(nodeStat) * m_maxNumSplittable * m_numBag));//leaves are two times more than splittable
-	checkCudaErrors(cudaMalloc((void**)&m_pNewSplittableNodeEachBag, 2 * sizeof(TreeNode) * m_maxNumSplittable * m_numBag));//leaves are two times more than splittable
+	checkCudaErrors(cudaMalloc((void**)&m_pNewNodeStatEachBag, sizeof(nodeStat) * m_maxNumLeave * m_numBag));
+	checkCudaErrors(cudaMalloc((void**)&m_pNewNodeEachBag, sizeof(TreeNode) * m_maxNumLeave * m_numBag));
 	//map splittable node to buffer id
 	checkCudaErrors(cudaMalloc((void**)&m_pFeaIdToBuffIdEachBag, sizeof(int) * m_maxNumUsedFeaATree * m_numBag));
 	checkCudaErrors(cudaMalloc((void**)&m_pUniqueFeaIdVecEachBag, sizeof(int) * m_maxNumUsedFeaATree * m_numBag));

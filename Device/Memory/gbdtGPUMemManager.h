@@ -34,14 +34,9 @@ public:
 	static unsigned int m_numFeaValue;
 	static int m_numofIns, m_numofFea;
 
-	//memory for splittable nodes
-	static int m_maxNumofSplittable;
-
 public:
 	void allocMemForIns(int nTotalNumofValue, int numofIns, int numofFeature);
 	void freeMemForIns();
 };
-
-
 
 #endif /* GBDTMEMMANAGER_H_ */

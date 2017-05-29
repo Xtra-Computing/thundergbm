@@ -156,7 +156,6 @@ int main(int argc, char *argv[])
 	PROCESS_ERROR(numFeaValue > 0);
 	manager.m_numFeaValue = numFeaValue;
 	manager.m_maxUsedFeaInTrees = maxNumofUsedFeature;
-	manager.m_maxNumofSplittable = maxNumofSplittableNode;//use in find features (i.e. best split points) process
 
 	//allocate memory for instances
 	manager.allocMemForIns(numFeaValue, numIns, numFea);

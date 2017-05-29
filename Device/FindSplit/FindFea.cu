@@ -59,7 +59,7 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 	GBDTGPUMemManager manager;
 	BagManager bagManager;
 	int numofSNode = bagManager.m_curNumofSplitableEachBag_h[bagId];
-	int maxNumofSplittable = manager.m_maxNumofSplittable;
+	int maxNumofSplittable = bagManager.m_maxNumSplittable;
 //	cout << bagManager.m_maxNumSplittable << endl;
 	int nNumofFeature = manager.m_numofFea;
 	PROCESS_ERROR(nNumofFeature > 0);

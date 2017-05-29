@@ -30,9 +30,6 @@ unsigned int GBDTGPUMemManager::m_numFeaValue = 0;
 int GBDTGPUMemManager::m_numofIns = -1;
 int GBDTGPUMemManager::m_numofFea = -1;
 
-//memory for splittable nodes
-int GBDTGPUMemManager::m_maxNumofSplittable = -1;
-
 /**
  * @brief: allocate memory for instances
  */
