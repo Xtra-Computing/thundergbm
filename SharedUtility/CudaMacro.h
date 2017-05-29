@@ -14,8 +14,9 @@
 #define GETERROR(x) ((void)0)
 #else
 #define GETERROR(x) do {						\
-		if(cudaGetLastError() != cudaSuccess) {	\
-			printf("cuda error in: %s\n", x);	\
+		cudaError_t code = cudaGetLastError();	\
+		if(code != cudaSuccess) {											\
+			printf("cuda error \"%s\" in: %s\n", cudaGetErrorString(code), x);	\
 			printf(">>> REACH %s(%s:%d) <<<\n",	\
 			       __func__,__FILE__, __LINE__);\
 			exit(0);							\
