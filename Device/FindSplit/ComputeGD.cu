@@ -14,7 +14,6 @@
 #include "../DevicePredictor.h"
 #include "../Bagging/BagManager.h"
 #include "../Splitter/Initiator.h"
-#include "../Memory/dtMemManager.h"
 #include "../DevicePredictorHelper.h"
 #include "../Splitter/DeviceSplitter.h"
 #include "../Memory/gbdtGPUMemManager.h"

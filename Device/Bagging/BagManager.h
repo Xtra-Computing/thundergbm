@@ -73,15 +73,12 @@ public:
 	static nodeStat *m_pRChildStatEachBag;
 	static nodeStat *m_pLChildStatEachBag;
 	//temporary space for splittable nodes
-	static nodeStat *m_pTempRChildStatEachBag;
-	static real *m_pLastValueEachBag;
 	static int *m_nSNLockEachBag;//a lock for critical region
 	static int *m_curNumofSplitableEachBag_h;
 	//map splittable node to buffer id
 	static int *m_pSNIdToBuffIdEachBag;
 	static int *m_pPartitionId2SNPosEachBag;
 	static int *m_pNumofBuffIdEachBag;
-	static SplitPoint *m_pBestPointEachBagHost;
 
 	//memory for the tree on training
 	static TreeNode *m_pNodeTreeOnTrainingEachBag;

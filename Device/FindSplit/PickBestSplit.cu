@@ -11,6 +11,7 @@
 #include "FindFeaKernel.h"
 #include "../../DeviceHost/svm-shared/DeviceUtility.h"
 #include "../../SharedUtility/CudaMacro.h"
+#include "../../SharedUtility/getMin.h"
 
 __device__ void CopyNodeStat(nodeStat *pDest, const nodeStat *pSrc)
 {
@@ -63,7 +64,7 @@ __global__ void PickLocalBestFea(const SplitPoint *pBestSplitPointPerThread, con
 	__syncthreads();
 
 	//find the local best split point
-	GetMinValue(pfGain, pnBetterGainKey, blockDim.x);
+	GetMinValueOriginal(pfGain, pnBetterGainKey);
 	__syncthreads();
 	if(localTid == 0)//copy the best gain to global memory
 	{
@@ -113,7 +114,7 @@ __global__ void PickGlobalBestFea(real *pLastValuePerThread,
 	}
 	__syncthreads();
 	//find the local best split point
-	GetMinValue(pfGain, pnBetterGainKey, numofBlockPerNode);
+	GetMinValueOriginal(pfGain, pnBetterGainKey);
 	if(localTId == 0)//copy the best gain to global memory
 	{
 		int nBestGainKey = pnBetterGainKey[0];

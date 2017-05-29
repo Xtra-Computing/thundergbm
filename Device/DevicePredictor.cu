@@ -11,7 +11,6 @@
 #include "DevicePredictor.h"
 #include "DevicePredictorHelper.h"
 #include "Memory/gbdtGPUMemManager.h"
-#include "Memory/dtMemManager.h"
 #include "Bagging/BagManager.h"
 #include "../DeviceHost/TreeNode.h"
 #include "../DeviceHost/MyAssert.h"

@@ -10,7 +10,6 @@
 #include "Splitter/Initiator.h"
 #include "Splitter/DeviceSplitter.h"
 #include "Memory/gbdtGPUMemManager.h"
-#include "Memory/dtMemManager.h"
 #include "Bagging/BagManager.h"
 #include "FindSplit/IndexComputer.h"
 

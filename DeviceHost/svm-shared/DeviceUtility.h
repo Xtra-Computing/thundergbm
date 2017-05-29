@@ -12,16 +12,6 @@
 #include <cuda_runtime.h>
 #include "../../SharedUtility/DataType.h"
 
-__device__ void GetMinValueOriginal(real*, int*, int);
-__device__ void GetMinValueOriginal(real*, int);
-
-__device__ void GetMinValue(real*, int*, int);
-__device__ void GetMinValue(real*, int);
-
-
-//__device__ void GetBigMinValue(float_point*, int*);
-//__device__ void GetBigMinValue(float_point*);
-
 __device__ void GetGlobalMinPreprocessing(int nArraySize, const real *pfBlockMinValue, const int *pnBlockMinKey,
 		  	  	  	  	  	  	  	  	  real *pfSharedMinValue, int *pnSharedMinKey);
 __device__ void LoadToSharedMem(int nArraySize, int gainStartPos,

@@ -13,6 +13,7 @@
 #include "../../DeviceHost/svm-shared/DeviceUtility.h"
 #include "../../DeviceHost/NodeStat.h"
 #include "../../SharedUtility/CudaMacro.h"
+#include "../../SharedUtility/getMin.h"
 
 
 /**
@@ -74,7 +75,7 @@ __global__ void PickFeaLocalBestSplit(const int *pnNumofKeyValues, const long lo
 	__syncthreads();
 
 	//find the local best split point
-	GetMinValue(pfGain, pnBetterGainKey, blockDim.x);
+	GetMinValueOriginal(pfGain, pnBetterGainKey);
 	__syncthreads();
 	int blockId = blockIdx.z * gridDim.y * gridDim.x + blockIdx.y * gridDim.x + blockIdx.x;
 	if(localTid == 0)//copy the best gain to global memory
@@ -128,7 +129,7 @@ __global__ void PickFeaGlobalBestSplit(int feaBatch, int numofSNode,
 	 __syncthreads();	//wait until the thread within the block
 
 	//find the local best split point
-	GetMinValue(pfGain, pnBetterGainKey, blockDim.x);
+	GetMinValueOriginal(pfGain, pnBetterGainKey);
 	__syncthreads();
 	int feaBlockId = blockIdx.z * gridDim.y + blockIdx.y;//the best split for a feature
 	if(localTid == 0)//copy the best gain to global memory
@@ -172,7 +173,7 @@ __global__ void PickLocalBestFeaBestSplit(int feaBatch, int numofSNode,
 	__syncthreads();
 
 	//find the local best split point
-	GetMinValue(pfGain, pnBetterGainKey, blockDim.x);
+	GetMinValueOriginal(pfGain, pnBetterGainKey);
 	__syncthreads();
 	if(localTid == 0)//copy the best gain to global memory
 	{
@@ -208,7 +209,7 @@ __global__ void PickGlobalBestFeaBestSplit(int numofSNode, int nBlockPerNode,
 	__syncthreads();
 
 	//find the local best split point
-	GetMinValue(pfGain, pnBetterGainKey, nBlockPerNode);
+	GetMinValueOriginal(pfGain, pnBetterGainKey);
 	__syncthreads();
 	if(localTId == 0)//copy the best gain to global memory
 	{

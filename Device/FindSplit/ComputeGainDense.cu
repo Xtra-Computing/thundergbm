@@ -13,6 +13,7 @@
 #include "../Splitter/DeviceSplitter.h"
 #include "../../DeviceHost/svm-shared/DeviceUtility.h"
 #include "../../SharedUtility/CudaMacro.h"
+#include "../../SharedUtility/getMin.h"
 
 const float rt_2eps = 2.0 * DeviceSplitter::rt_eps;
 
@@ -223,7 +224,7 @@ __global__ void PickLocalBestSplitEachNode(const unsigned int *pnNumFeaValueEach
 	__syncthreads();
 
 	//find the local best split point
-	GetMinValue(pfGain, pnBetterGainKey, blockDim.x);
+	GetMinValueOriginal(pfGain, pnBetterGainKey);
 	__syncthreads();
 	if(localTid == 0)//copy the best gain to global memory
 	{
@@ -268,7 +269,7 @@ __global__ void PickGlobalBestSplitEachNode(const real *pfLocalBestGain, const i
 	 __syncthreads();	//wait until the thread within the block
 
 	//find the local best split point
-	GetMinValue(pfGain, pnBetterGainKey, blockDim.x);
+	GetMinValueOriginal(pfGain, pnBetterGainKey);
 	__syncthreads();
 	if(localTid == 0)//copy the best gain to global memory
 	{

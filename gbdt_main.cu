@@ -18,7 +18,6 @@
 #include "DeviceHost/svm-shared/fileOps.h"
 
 #include "Device/Memory/gbdtGPUMemManager.h"
-#include "Device/Memory/dtMemManager.h"
 #include "Device/Bagging/BagManager.h"
 #include "Device/GPUTask/GBDTTask.h"
 #include "Device/DeviceTrainer.h"
