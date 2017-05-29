@@ -37,9 +37,7 @@ __global__ void InitNodeStat(const real root_sum_gd, const real root_sum_hess,
 {
 	int nid = 0;//id of root node is always 0.
 	bool bIsNew = false;
-	int buffId = AssignHashValue(pSNIdToBuffId, nid, maxNumofSplittable, bIsNew);
-	if(buffId != nid % maxNumofSplittable)
-		printf("buffId != nid % maxNumofSN!######################3");
+	int buffId = nid % maxNumofSplittable;//AssignHashValue(pSNIdToBuffId, nid, maxNumofSplittable, bIsNew);
 
 	if(buffId != 0)
 		printf("buffId = %d\n", buffId);

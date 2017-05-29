@@ -231,8 +231,8 @@ void BagManager::AllocMem()
 	checkCudaErrors(cudaMalloc((void**)&m_pLeftChildIdEachBag, sizeof(int) * m_maxNumSplittable * m_numBag));
 	checkCudaErrors(cudaMalloc((void**)&m_pRightChildIdEachBag, sizeof(int) * m_maxNumSplittable * m_numBag));
 	//memory for new node statistics
-	checkCudaErrors(cudaMalloc((void**)&m_pNewNodeStatEachBag, sizeof(nodeStat) * m_maxNumSplittable * m_numBag));
-	checkCudaErrors(cudaMalloc((void**)&m_pNewSplittableNodeEachBag, sizeof(TreeNode) * m_maxNumSplittable * m_numBag));
+	checkCudaErrors(cudaMalloc((void**)&m_pNewNodeStatEachBag, 2 * sizeof(nodeStat) * m_maxNumSplittable * m_numBag));//leaves are two times more than splittable
+	checkCudaErrors(cudaMalloc((void**)&m_pNewSplittableNodeEachBag, 2 * sizeof(TreeNode) * m_maxNumSplittable * m_numBag));//leaves are two times more than splittable
 	//map splittable node to buffer id
 	checkCudaErrors(cudaMalloc((void**)&m_pFeaIdToBuffIdEachBag, sizeof(int) * m_maxNumUsedFeaATree * m_numBag));
 	checkCudaErrors(cudaMalloc((void**)&m_pUniqueFeaIdVecEachBag, sizeof(int) * m_maxNumUsedFeaATree * m_numBag));

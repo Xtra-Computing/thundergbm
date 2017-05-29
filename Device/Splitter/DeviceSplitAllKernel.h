@@ -36,12 +36,13 @@ __global__ void InsToNewNode(const TreeNode *pAllTreeNode, const real *pdFeaValu
 		 	 	 	 	 	 const int *pSNIdToBuffId, const SplitPoint *pBestSplitPoint,
 		 	 	 	 	 	 const int *pUniqueFidVec, const int *pNumofUniqueFid,
 		 	 	 	 	 	 const int *pParentId, const int *pLChildId, const int *pRChildId,
-		 	 	 	 	 	 int preMaxNodeId, int numofFea, int *pInsIdToNodeId, int numofIns, int flag_LEAFNODE);
+		 	 	 	 	 	 int preMaxNodeId, int numofFea, int *pInsIdToNodeId, int numofIns, int flag_LEAFNODE,
+		 	 	 	 	 	 const int maxSN);
 
 __global__ void InsToNewNodeByDefault(TreeNode *pAllTreeNode, int *pInsIdToNodeId, const int *pSNIdToBuffId,
 		   	   	   	   	   	   	   	   	   int *pParentId, int *pLChildId, int *pRChildId,
 		   	   	   	   	   	   	   	   	   int preMaxNodeId, int numofIns, int flag_LEAFNODE,
-		   	   	   	   	   	   	   	   	   const SplitPoint *pBestSplitPoint);
+		   	   	   	   	   	   	   	   	   const SplitPoint *pBestSplitPoint, const int maxSN);
 
 __global__ void UpdateNewSplittable(TreeNode *pNewSplittableNode, nodeStat *pNewNodeStat, int *pSNIdToBuffId,
 		   	   	   	   	   	   	   	    nodeStat *pSNodeStat, int *pNumofNewNode, int *pBuffIdVec,
