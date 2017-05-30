@@ -69,20 +69,6 @@ __global__ void FixedGain(const int *pnNumofKeyValues, const long long *pnFeaSta
 						  int smallestFeaId, int feaBatch, int numofSNode, int smallestNodeId,
 						  const real *pHessOnEachFeaValue, const real *pFeaValue,
 						  real *pGainOnEachFeaValue, real *pLastBiggerValue);
-__global__ void PickFeaLocalBestSplit(const int *pnNumofKeyValues, const long long *pnFeaStartPos, const real *pGainOnEachFeaValue,
-								   const int *pBuffId, int smallestFeaId, int feaBatch,
-								   int numofSNode, int smallestNodeId, int maxNumofSplittable,
-								   real *pfBestGain, int *pnBestGainKey);
-__global__ void PickFeaGlobalBestSplit(int feaBatch, int numofSNode,
-								   const real *pfLocalBestGain, const int *pnLocalBestGainKey,
-								   real *pfFeaGlobalBestGain, int *pnFeaGlobalBestGainKey,
-								   int numofLocalBlockOfAllFeaInBatch);
-__global__ void PickLocalBestFeaBestSplit(int feaBatch, int numofSNode,
-								   const real *pfFeaGlobalBestGain, const int *pnFeaGlobalBestGainKey,
-								   real *pfBlockBestFea, int *pnBlockBestKey);
-__global__ void PickGlobalBestFeaBestSplit(int numofSNode, int nBlockPerNode,
-								   const real *pfBlockBestFea, const int *pnBlockBestFeaKey,
-								   real *pfGlobalBestFea, int *pnGlobalBestKey);
 
 //helper functions
 __device__ bool NeedUpdate(real &RChildHess, real &LChildHess);
