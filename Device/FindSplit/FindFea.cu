@@ -26,29 +26,15 @@ using std::endl;
 using std::make_pair;
 using std::cerr;
 
-/**
- * @brief: rearrange marker for computing feature length and start pos of each node
- */
-__global__ void RearrangeData(const int *pOldInsId, const real *pOldFvalue, const int *pOldFeaId,
-							  const unsigned int *pDstIndexEachFeaValue,
-							  int numFeaValue, int *pNewInsId, real *pNewFvalue, int *pNewFeaId)
-{
-	//one thread loads one value
-	//## global id looks ok, but need to be careful
-	int gTid = (blockIdx.y * gridDim.x + blockIdx.x) * blockDim.x + threadIdx.x;
-
-	if(gTid >= numFeaValue)//thread has nothing to load
+__global__ void SetKey(uint *pSegStart, int *pSegLen, int *pnKey, uint *pnPosOfLastValueOfThisSeg){
+	uint segmentId = blockIdx.x;//use one x covering multiple ys, because the maximum number of x-dimension is larger.
+	uint segmentThreadId = blockIdx.y * blockDim.x + threadIdx.x;
+	uint segmentLen = pSegLen[segmentId];
+	if(segmentLen == 0 || segmentThreadId >= segmentLen)
 		return;
-
-	//index for scatter
-	int idx = pDstIndexEachFeaValue[gTid];
-	if(idx == -1)//instance is in a leaf node
-		return;
-
-	//scatter: store GD, Hess and the feature value.
-	pNewInsId[idx] = pOldInsId[gTid];
-	pNewFvalue[idx] = pOldFvalue[gTid];
-	pNewFeaId[idx] = pOldFeaId[gTid];
+	uint segmentStartPos = pSegStart[segmentId];
+	pnKey[segmentStartPos + segmentThreadId] = segmentId;
+	pnPosOfLastValueOfThisSeg[segmentStartPos + segmentThreadId] = segmentStartPos + segmentLen - 1;
 }
 
 /**
@@ -169,38 +155,17 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 
 	//construct keys for exclusive scan
 	int *pnKey_d;
-	int keyFlag = 0;
 	unsigned int *pnLastFvalueOfThisFvalue_d, *pnLastFvalueOfThisFvalue_h = new unsigned int[bagManager.m_numFeaValue];
 	checkCudaErrors(cudaMalloc((void**)&pnKey_d, bagManager.m_numFeaValue * sizeof(int)));
 	checkCudaErrors(cudaMalloc((void**)&pnLastFvalueOfThisFvalue_d, bagManager.m_numFeaValue * sizeof(unsigned int)));
 	unsigned int *pTempEachFeaStartEachNode = bagManager.m_pEachFeaStartPosEachNodeEachBag_d + bagId * bagManager.m_maxNumSplittable * bagManager.m_numFea;
-	unsigned int *pTempEachFeaStartEachNode_h = new unsigned int[totalNumArray];
-	checkCudaErrors(cudaMemcpy(pTempEachFeaStartEachNode_h, pTempEachFeaStartEachNode, sizeof(unsigned int) * totalNumArray, cudaMemcpyDeviceToHost));
-	for(int m = 0; m < totalNumArray; m++){
-		unsigned int arrayLen = bagManager.m_pEachFeaLenEachNodeEachBag_dh[m];
-		unsigned int arrayStartPos = pTempEachFeaStartEachNode_h[m];
-		if(arrayLen == 0){
-			if(m == totalNumArray - 1)
-				continue;
-			if(arrayStartPos != pTempEachFeaStartEachNode_h[m + 1])
-				printf("%u v.s. %u, m=%d, totalNumArray=%d\n", arrayStartPos, pTempEachFeaStartEachNode_h[m + 1], m,
-						totalNumArray);
-			PROCESS_ERROR(arrayStartPos == pTempEachFeaStartEachNode_h[m + 1]);
-			continue;
-		}
-//		printf("start=%d, len=%d, m=%d, totalNumArray=%d\n", arrayStartPos, arrayLen, m, totalNumArray);
-		checkCudaErrors(cudaMemset(pnKey_d + arrayStartPos, keyFlag, sizeof(int) * arrayLen));
-		if(keyFlag == 0)
-			keyFlag = -1;
-		else 
-			keyFlag = 0;
-		//assign fealen to each fvalue
-		for(int fv = 0; fv < arrayLen; fv++){
-			pnLastFvalueOfThisFvalue_h[fv + arrayStartPos] = arrayStartPos + arrayLen - 1;
-		}
-	}
 
-	checkCudaErrors(cudaMemcpy(pnLastFvalueOfThisFvalue_d, pnLastFvalueOfThisFvalue_h, sizeof(unsigned int) * bagManager.m_numFeaValue, cudaMemcpyHostToDevice));
+	//set keys by GPU
+	int *pTempEachFeaLenEachNode = bagManager.m_pEachFeaLenEachNodeEachBag_d + bagId * bagManager.m_maxNumSplittable * bagManager.m_numFea;
+	dim3 dimNumofBlockToSetKey;
+	dimNumofBlockToSetKey.x = totalNumArray;
+	dimNumofBlockToSetKey.y = (bagManager.m_numIns + BLOCK_SIZE - 1) / BLOCK_SIZE;
+	SetKey<<<dimNumofBlockToSetKey, BLOCK_SIZE>>>(pTempEachFeaStartEachNode, pTempEachFeaLenEachNode, pnKey_d, pnLastFvalueOfThisFvalue_d);
 
 	//compute prefix sum for gd and hess (more than one arrays)
 	double *pTempGDSum = bagManager.m_pdGDPrefixSumEachBag + bagId * bagManager.m_numFeaValue;
@@ -278,7 +243,6 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 //	printf("monitored total fvalue: %u\n", testTotalFeaValue);
 
 	delete []pFeaValueStartPosEachNode_h;
-	delete[] pTempEachFeaStartEachNode_h;
 
 	PROCESS_ERROR(maxNumFeaValueOneNode > 0);
 	int blockSizeLocalBestGain;
