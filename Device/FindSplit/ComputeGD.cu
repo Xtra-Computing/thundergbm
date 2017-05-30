@@ -145,13 +145,12 @@ void DeviceSplitter::ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> >
 	//SNodeStat, SNIdToBuffId, pBuffIdVec need to be reset.
 	manager.MemsetAsync(bagManager.m_pSNodeStatEachBag + bagId * bagManager.m_maxNumSplittable, 0,
 						sizeof(nodeStat) * bagManager.m_maxNumSplittable, pStream);
-	manager.MemsetAsync(bagManager.m_pSNIdToBuffIdEachBag + bagId * bagManager.m_maxNumSplittable, -1, sizeof(int) * bagManager.m_maxNumSplittable, pStream);
 	manager.MemsetAsync(bagManager.m_pPartitionId2SNPosEachBag + bagId * bagManager.m_maxNumSplittable, -1, sizeof(int) * bagManager.m_maxNumSplittable, pStream);
 	manager.MemsetAsync(bagManager.m_pNumofBuffIdEachBag + bagId, 0, sizeof(int), pStream);
 
 	InitNodeStat<<<1, 1, 0, (*(cudaStream_t*)pStream)>>>(gdSum, hessSum,
 						   bagManager.m_pSNodeStatEachBag + bagId * bagManager.m_maxNumSplittable,
-						   bagManager.m_pSNIdToBuffIdEachBag + bagId * bagManager.m_maxNumSplittable, bagManager.m_maxNumSplittable,
+						   bagManager.m_maxNumSplittable,
 						   bagManager.m_pPartitionId2SNPosEachBag + bagId * bagManager.m_maxNumSplittable,
 						   bagManager.m_pNumofBuffIdEachBag + bagId);
 

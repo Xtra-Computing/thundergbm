@@ -130,7 +130,6 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 		InsToNewNode<<<dimGridThreadForEachUsedFea, thdPerBlockIns2node, 0, (*(cudaStream_t*)pStream)>>>(
 								 bagManager.m_pNodeTreeOnTrainingEachBag + bagId * bagManager.m_maxNumNode, manager.m_pdDFeaValue, manager.m_pDInsId,
 								 manager.m_pFeaStartPos, manager.m_pDNumofKeyValue,
-								 bagManager.m_pSNIdToBuffIdEachBag + bagId * bagManager.m_maxNumSplittable,
 								 bagManager.m_pBestSplitPointEachBag + bagId * bagManager.m_maxNumSplittable,
 								 bagManager.m_pUniqueFeaIdVecEachBag + bagId * bagManager.m_maxNumUsedFeaATree,
 								 bagManager.m_pNumofUniqueFeaIdEachBag + bagId,
@@ -157,7 +156,6 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 	InsToNewNodeByDefault<<<dimNumofBlockEachIns, threadPerBlockEachIns, 0, (*(cudaStream_t*)pStream)>>>(
 									bagManager.m_pNodeTreeOnTrainingEachBag + bagId * bagManager.m_maxNumNode,
 									bagManager.m_pInsIdToNodeIdEachBag + bagId * bagManager.m_numIns,
-									bagManager.m_pSNIdToBuffIdEachBag + bagId * bagManager.m_maxNumSplittable,
 									bagManager.m_pParentIdEachBag + bagId * bagManager.m_maxNumSplittable,
 									bagManager.m_pLeftChildIdEachBag + bagId * bagManager.m_maxNumSplittable,
 									bagManager.m_pRightChildIdEachBag + bagId * bagManager.m_maxNumSplittable,
@@ -184,17 +182,14 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 
 //		printf("new sn=%d, blocksize=%d, blocks=%d\n", numofNewSplittableNode, blockSizeNSN, dimGridThreadForEachNewSN.x * dimGridThreadForEachNewSN.y * dimGridThreadForEachNewSN.z);
 		//reset nodeId to bufferId
-		manager.MemsetAsync(bagManager.m_pSNIdToBuffIdEachBag + bagId * bagManager.m_maxNumSplittable, -1,
-							sizeof(int) * bagManager.m_maxNumSplittable, pStream);
 		manager.MemsetAsync(bagManager.m_pNumofBuffIdEachBag + bagId, 0, sizeof(int), pStream);
 		//reset nodeStat
 		manager.MemsetAsync(bagManager.m_pSNodeStatEachBag + bagId * bagManager.m_maxNumSplittable, 0,
 						sizeof(nodeStat) * bagManager.m_maxNumSplittable, pStream);
 		clock_t update_new_sp_start = clock();
 		UpdateNewSplittable<<<dimGridThreadForEachNewSN, blockSizeNSN, 0, (*(cudaStream_t*)pStream)>>>(
-									  bagManager.m_pNewNodeEachBag + bagId * bagManager.m_maxNumSplittable * 2,
-									  bagManager.m_pNewNodeStatEachBag + bagId * bagManager.m_maxNumSplittable * 2,
-									  bagManager.m_pSNIdToBuffIdEachBag + bagId * bagManager.m_maxNumSplittable,
+									  bagManager.m_pNewNodeEachBag + bagId * bagManager.m_maxNumLeave,
+									  bagManager.m_pNewNodeStatEachBag + bagId * bagManager.m_maxNumLeave,
 									  bagManager.m_pSNodeStatEachBag + bagId * bagManager.m_maxNumSplittable,
 									  bagManager.m_pNumofNewNodeTreeOnTrainingEachBag + bagId,
 									  bagManager.m_pPartitionId2SNPosEachBag + bagId * bagManager.m_maxNumSplittable, bagManager.m_pNumofBuffIdEachBag + bagId,

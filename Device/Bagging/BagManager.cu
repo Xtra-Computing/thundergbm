@@ -72,7 +72,6 @@ nodeStat *BagManager::m_pRChildStatEachBag = NULL;
 nodeStat *BagManager::m_pLChildStatEachBag = NULL;
 int *BagManager::m_nSNLockEachBag = NULL;
 int *BagManager::m_curNumofSplitableEachBag_h = NULL; //number of splittable node of current tree
-int *BagManager::m_pSNIdToBuffIdEachBag = NULL;	//(require memset!) map splittable node id to buffer position
 int *BagManager::m_pPartitionId2SNPosEachBag = NULL;	//store all the buffer ids for splittable nodes
 int *BagManager::m_pNumofBuffIdEachBag = NULL;	//the total number of buffer ids in the current round.
 
@@ -223,7 +222,6 @@ void BagManager::AllocMem()
 	checkCudaErrors(cudaMalloc((void**)&m_nSNLockEachBag, sizeof(int) * m_numBag));//a lock for critical region
 	checkCudaErrors(cudaMemset(m_nSNLockEachBag, 0, sizeof(int) * m_numBag));
 	//map splittable node to buffer id
-	checkCudaErrors(cudaMalloc((void**)&m_pSNIdToBuffIdEachBag, sizeof(int) * m_maxNumSplittable * m_numBag));
 	checkCudaErrors(cudaMalloc((void**)&m_pPartitionId2SNPosEachBag, sizeof(int) * m_maxNumSplittable * m_numBag));
 	checkCudaErrors(cudaMalloc((void**)&m_pNumofBuffIdEachBag, sizeof(int) * m_numBag));
 	checkCudaErrors(cudaMemset(m_pPartitionId2SNPosEachBag, -1, sizeof(int) * m_maxNumSplittable * m_numBag));

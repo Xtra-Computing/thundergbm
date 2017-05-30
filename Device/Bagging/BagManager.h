@@ -77,7 +77,6 @@ public:
 	static int *m_nSNLockEachBag;//a lock for critical region
 	static int *m_curNumofSplitableEachBag_h;
 	//map splittable node to buffer id
-	static int *m_pSNIdToBuffIdEachBag;
 	static int *m_pPartitionId2SNPosEachBag;
 	static int *m_pNumofBuffIdEachBag;
 

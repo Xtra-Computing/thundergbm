@@ -194,7 +194,7 @@ __global__ void GetUniqueFid(TreeNode *pAllTreeNode, TreeNode *pSplittableNode, 
  */
 __global__ void InsToNewNode(const TreeNode *pAllTreeNode, const real *pdFeaValue, const int *pInsId,
 							 const unsigned int *pFeaStartPos, const int *pNumofKeyValue,
-							 const int *pSNIdToBuffId, const SplitPoint *pBestSplitPoint,
+							 const SplitPoint *pBestSplitPoint,
 							 const int *pUniqueFidVec, const int *pNumofUniqueFid,
 							 const int *pParentId, const int *pLChildId, const int *pRChildId,
 								 int preMaxNodeId, int numofFea, int *pInsIdToNodeId, int numofIns, int flag_LEAFNODE,
@@ -273,7 +273,7 @@ __global__ void InsToNewNode(const TreeNode *pAllTreeNode, const real *pdFeaValu
 	}
 }
 
-__global__ void InsToNewNodeByDefault(TreeNode *pAllTreeNode, int *pInsIdToNodeId, const int *pSNIdToBuffId,
+__global__ void InsToNewNodeByDefault(TreeNode *pAllTreeNode, int *pInsIdToNodeId,
 									  int *pParentId, int *pLChildId, int *pRChildId,
 									  int preMaxNodeId, int numofIns, int flag_LEAFNODE,
 									  const SplitPoint *pBestSplitPoint, const int maxSN)
@@ -306,7 +306,7 @@ __global__ void InsToNewNodeByDefault(TreeNode *pAllTreeNode, int *pInsIdToNodeI
 
 }
 
-__global__ void UpdateNewSplittable(TreeNode *pNewSplittableNode, nodeStat *pNewNodeStat, int *pSNIdToBuffId,
+__global__ void UpdateNewSplittable(TreeNode *pNewSplittableNode, nodeStat *pNewNodeStat,
 								   	    nodeStat *pSNodeStat, int *pNumofNewNode, int *pPartitionId2SNPos, int *pPartitionCounter,
 								   	    int maxNumofSplittable, int *pnLock, int preMaxNodeId)
 {
@@ -322,7 +322,7 @@ __global__ void UpdateNewSplittable(TreeNode *pNewSplittableNode, nodeStat *pNew
 
 
 	bool bIsNew = false;
-	int snPos = nid % maxNumofSplittable;//AssignHashValue(pSNIdToBuffId, nid, maxNumofSplittable, bIsNew);//#### can't be simply replaced by "nid%maxSN"
+	int snPos = nid % maxNumofSplittable;
 
 	ECHECKER(snPos);
 	pSNodeStat[snPos] = pNewNodeStat[nGlobalThreadId];
