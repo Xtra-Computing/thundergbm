@@ -54,7 +54,7 @@ case $1 in
         ;;
     log1p)
         GAMMA=${GAMMA}"1"
-        D=${D}"1"
+        D=${D}"3"
     	NUMTREE=${NUMTREE}"1"
 		BAG=${BAG}"1"
 	    FILENAME=${DATASET_DIR}/"log1p.E2006.train" #4,272,227 features and 16,087 instances

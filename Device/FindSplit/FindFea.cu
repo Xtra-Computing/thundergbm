@@ -199,6 +199,7 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 			pnLastFvalueOfThisFvalue_h[fv + arrayStartPos] = arrayStartPos + arrayLen - 1;
 		}
 	}
+
 	checkCudaErrors(cudaMemcpy(pnLastFvalueOfThisFvalue_d, pnLastFvalueOfThisFvalue_h, sizeof(unsigned int) * bagManager.m_numFeaValue, cudaMemcpyHostToDevice));
 
 	//compute prefix sum for gd and hess (more than one arrays)

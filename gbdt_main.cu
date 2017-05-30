@@ -49,7 +49,6 @@ int main(int argc, char *argv[])
 
 	clock_t begin_whole, end_whole;
 	/********* read training instances from a file **************/
-	int maxNumofUsedFeature = 1000;
 	int numBag = parser.numBag;//number of bags for bagging
 
 	//for training
@@ -59,7 +58,8 @@ int main(int argc, char *argv[])
 	double fGamma = parser.gamma;//minimum loss
 	int maxNumofNodePerTree = pow(2, nMaxDepth + 1) - 1;
 	int maxNumofSplittableNode = pow(2, nMaxDepth - 1);//can be "nMaxDepth - 1" but changing causes bugs.
-	printf("max sn=%d\n", maxNumofSplittableNode);
+	int numInternalNode = pow(2, nMaxDepth) - 1;
+	int maxNumofUsedFeature = numInternalNode;
 
 	DevicePredictor pred;
 
@@ -92,7 +92,7 @@ int main(int argc, char *argv[])
 		FileBuffer::ReadDataInfo(strFolder, numFea, numIns, numFeaValue);
 	}
 	cout << "data has " << numFea << " features, " << numIns << " instances, and " << numFeaValue << " fea values" << endl;
-	if(maxNumofUsedFeature < numFea)//maximum number of used features of a tree
+	if(maxNumofUsedFeature > numFea)//maximum number of used features of a tree
 		maxNumofUsedFeature = numFea;
 
 	//fill the bags
