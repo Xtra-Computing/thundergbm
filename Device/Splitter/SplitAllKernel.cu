@@ -175,11 +175,20 @@ __global__ void GetUniqueFid(TreeNode *pAllTreeNode, TreeNode *pSplittableNode, 
     		while(bLeaveLoop == false){
     			//critical region when assigning hash value
     			if(atomicCAS(pnLock, 0, 1) == 0){
-    				CONCHECKER(fid < maxNumofUsedFea);//#### if this error appears, the code needs upgrading (e.g. handle high dimension)
-    				if(pFeaIdToBuffId[fid] == -1){
-    					pFeaIdToBuffId[fid] = fid;
+    				if(pFeaIdToBuffId[fid % maxNumofUsedFea] == -1){
+    					pFeaIdToBuffId[fid % maxNumofUsedFea] = fid;
     					int numofUniqueFid = atomicAdd(pNumofUniqueFid, 1);
     					pUniqueFidVec[numofUniqueFid] = fid;
+    				}
+    				else if(pFeaIdToBuffId[fid % maxNumofUsedFea] != fid){//a naive solution for resolving conflict
+    					for(int k = 0; k < maxNumofUsedFea; k++){
+    						if(pFeaIdToBuffId[k] == -1){
+    							pFeaIdToBuffId[k] = fid;
+    	    					int numofUniqueFid = atomicAdd(pNumofUniqueFid, 1);
+    	    					pUniqueFidVec[numofUniqueFid] = fid;
+    							break;
+    						}
+    					}
     				}
     				atomicExch(pnLock, 0);
     				bLeaveLoop = true;
