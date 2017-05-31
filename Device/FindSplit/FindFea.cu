@@ -163,9 +163,26 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 	//set keys by GPU
 	int *pTempEachFeaLenEachNode = bagManager.m_pEachFeaLenEachNodeEachBag_d + bagId * bagManager.m_maxNumSplittable * bagManager.m_numFea;
 	dim3 dimNumofBlockToSetKey;
+	nodeStat *pTempStat = bagManager.m_pSNodeStatEachBag + bagId * bagManager.m_maxNumSplittable;
+	nodeStat *pTempStat_h = new nodeStat[bagManager.m_maxNumSplittable];
+	checkCudaErrors(cudaMemcpy(pTempStat_h, pTempStat, sizeof(nodeStat) * bagManager.m_maxNumSplittable, cudaMemcpyDeviceToHost));
+	int *partId2SNId = bagManager.m_pPartitionId2SNPosEachBag + bagId * bagManager.m_maxNumSplittable;
+	int *partId2SNId_h = new int[bagManager.m_maxNumSplittable];
+	checkCudaErrors(cudaMemcpy(partId2SNId_h, partId2SNId, sizeof(int) * bagManager.m_maxNumSplittable, cudaMemcpyDeviceToHost));
+	int maxHess = 0;
+	for(int i = 0; i < numofSNode; i++){
+		int snid = partId2SNId_h[i];
+		int hess = pTempStat_h[snid].sum_hess;
+		if(hess > maxHess)maxHess = hess;
+	}
+	printf("max hess=%d, numIns=%d\n", maxHess, bagManager.m_numIns);
+	delete []pTempStat_h;
+	delete []partId2SNId_h;
 	dimNumofBlockToSetKey.x = totalNumArray;
-	dimNumofBlockToSetKey.y = (bagManager.m_numIns + BLOCK_SIZE - 1) / BLOCK_SIZE;
-	SetKey<<<dimNumofBlockToSetKey, BLOCK_SIZE>>>(pTempEachFeaStartEachNode, pTempEachFeaLenEachNode, pnKey_d, pnLastFvalueOfThisFvalue_d);
+	uint blockSize = 1024;
+	dimNumofBlockToSetKey.y = (maxHess + blockSize - 1) / blockSize;
+	SetKey<<<dimNumofBlockToSetKey, blockSize>>>(pTempEachFeaStartEachNode, pTempEachFeaLenEachNode, pnKey_d, pnLastFvalueOfThisFvalue_d);
+
 
 	//compute prefix sum for gd and hess (more than one arrays)
 	double *pTempGDSum = bagManager.m_pdGDPrefixSumEachBag + bagId * bagManager.m_numFeaValue;

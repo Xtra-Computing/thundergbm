@@ -63,7 +63,7 @@ __global__ void CreateNewNode(TreeNode *pAllTreeNode, TreeNode *pSplittableNode,
 								  int *pParentId, int *pLChildId, int *pRChildId,
 								  const nodeStat *pLChildStat, const nodeStat *pRChildStat, nodeStat *pNewNodeStat,
 								  int *pNumofNode, int *pNumofNewNode,
-								  real rt_eps, int nNumofSplittableNode, bool bLastLevel, int maxNumofSplittableNode)
+								  real rt_eps, int nNumofSplittableNode, bool bLastLevel, int maxNumofSN)
 {
 	//for each splittable node, assign lchild and rchild ids
 	int nGlobalThreadId = GLOBAL_TID();
@@ -75,7 +75,7 @@ __global__ void CreateNewNode(TreeNode *pAllTreeNode, TreeNode *pSplittableNode,
 	int nid = pSplittableNode[nGlobalThreadId].nodeId;
 
 	ECHECKER(nid);
-	int bufferPos = nid % maxNumofSplittableNode;
+	int bufferPos = nid % maxNumofSN;
 
 	ECHECKER(bufferPos);
 	pAllTreeNode[nid].m_bDefault2Right = false;
@@ -242,7 +242,7 @@ __global__ void InsToNewNode(const TreeNode *pAllTreeNode, const real *pdFeaValu
 						  //corresponds to a feature value, and hence duplication may occur.
 		return;
 
-	int bufferPos = nid % maxSN;//pSNIdToBuffId[nid];
+	int bufferPos = nid % maxSN;
 
 	ECHECKER(bufferPos);
 
@@ -251,7 +251,6 @@ __global__ void InsToNewNode(const TreeNode *pAllTreeNode, const real *pdFeaValu
 		return;
 
 	if(nid != pParentId[bufferPos]){//node doesn't need to split (leaf node or new node)
-		printf("nid=%d, pid=%d, buffPos=%d, preMaxNid=%d ######################\n", nid, pParentId[bufferPos], bufferPos, preMaxNodeId);
 		if(pAllTreeNode[nid].rightChildId != flag_LEAFNODE){
 			ECHECKER(preMaxNodeId - nid);
 			return;
