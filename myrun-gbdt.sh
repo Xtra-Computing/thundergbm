@@ -3,7 +3,8 @@ declare -a arr=("abalone"
 			 	"cadata"
 			 	"e2006"
 			 	"log1p"
-			 	"yp")
+			 	"yp"
+				"3d")
 for i in "${arr[@]}"
 do 
 	sh ./run.sh $i

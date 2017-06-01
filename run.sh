@@ -59,10 +59,12 @@ case $1 in
 		BAG=${BAG}"1"
 	    FILENAME=${DATASET_DIR}/"log1p.E2006.train" #4,272,227 features and 16,087 instances
         ;;
-    news20)
-        GAMMA=${GAMMA}"0.5"
-        C=${C}"4"
-        FILENAME=${DATASET_DIR}/"news20.binary"
+    3d)
+        GAMMA=${GAMMA}"1"
+        D=${D}"4"
+		NUMTREE=${NUMTREE}"10"
+		BAG=${BAG}"1"
+        FILENAME=${DATASET_DIR}/"3d_spatial_network.txt"
         ;;
     cov1)
         GAMMA=${GAMMA}"1"

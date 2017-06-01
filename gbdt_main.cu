@@ -11,9 +11,7 @@
 #include <helper_cuda.h>
 #include <cuda.h>
 #include "Host/DataReader/LibsvmReaderSparse.h"
-#include "Host/HostTrainer.h"
 #include "Host/Evaluation/RMSE.h"
-#include "Host/PureHostGBDTMain.h"
 #include "DeviceHost/MyAssert.h"
 #include "DeviceHost/svm-shared/fileOps.h"
 

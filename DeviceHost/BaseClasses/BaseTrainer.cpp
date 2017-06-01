@@ -11,7 +11,6 @@
 #include <ctime>
 
 #include "../../Host/UpdateOps/HostSplitter.h"
-#include "../../Host/HostPredictor.h"
 #include "../../DeviceHost/TreeNode.h"
 #include "../../Host/Tree/PrintTree.h"
 #include "../../Host/Evaluation/RMSE.h"
@@ -57,8 +56,6 @@ void BaseTrainer::TrainGBDT(vector<RegTree> & vTree, void *pStream, int bagId)
 
 	total_init_t = 0;
 
-	HostPredictor pred;
-	HostSplitter hsplit;
 	for(int i = 0; i < m_nMaxNumofTree; i++)
 	{
 		splitter->m_nRound = i;

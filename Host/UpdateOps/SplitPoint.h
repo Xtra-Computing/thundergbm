@@ -32,21 +32,6 @@ public:
 		m_bDefault2Right = false;
 	}
 
-	/**
-	 * @brief: return true if values are updated; otherwise false.
-	 */
-	bool UpdateSplitPoint(real fGain, real fSplitValue, int nFeatureId)
-	{
-		if(fGain > m_fGain )//|| (fGain == m_fGain && nFeatureId == m_nFeatureId) NOT USE (second condition is for updating to a new split value)
-		{
-			m_fGain = fGain;
-			m_fSplitValue = fSplitValue;
-			m_nFeatureId = nFeatureId;
-			return true;
-		}
-		return false;
-	}
-
 	friend ostream& operator << (ostream &os, const SplitPoint &p);
 };
 
