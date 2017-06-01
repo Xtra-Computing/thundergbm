@@ -10,6 +10,9 @@
 #include "../SharedUtility/CudaMacro.h"
 #include "DeviceHashing.h"
 
+/**
+ * @brief: get the id of next node
+ */
 __device__ int GetNext(const TreeNode *pNode, real feaValue)
 {
 	if(feaValue > LARGE_REAL_NUM - 2){//this is a missing value

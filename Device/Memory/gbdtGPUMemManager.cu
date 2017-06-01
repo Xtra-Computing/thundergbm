@@ -9,7 +9,7 @@
 #include <helper_cuda.h>
 
 #include "gbdtGPUMemManager.h"
-#include "../../DeviceHost/MyAssert.h"
+#include "../../SharedUtility/CudaMacro.h"
 
 //memory for instances (key on feature id)
 int *GBDTGPUMemManager::m_pDInsId = NULL;				//all the instance ids for each key-value pair

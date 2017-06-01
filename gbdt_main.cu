@@ -12,7 +12,6 @@
 #include <cuda.h>
 #include "Host/DataReader/LibsvmReaderSparse.h"
 #include "Host/Evaluation/RMSE.h"
-#include "DeviceHost/MyAssert.h"
 #include "DeviceHost/svm-shared/fileOps.h"
 
 #include "Device/Memory/gbdtGPUMemManager.h"
@@ -21,6 +20,7 @@
 #include "Device/DeviceTrainer.h"
 #include "Device/DevicePredictor.h"
 #include "SharedUtility/initCuda.h"
+#include "SharedUtility/CudaMacro.h"
 #include "Device/FindSplit/IndexComputer.h"
 
 #include "Device/FileBuffer/FileBuffer.h"

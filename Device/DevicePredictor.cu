@@ -13,7 +13,6 @@
 #include "Memory/gbdtGPUMemManager.h"
 #include "Bagging/BagManager.h"
 #include "../DeviceHost/TreeNode.h"
-#include "../DeviceHost/MyAssert.h"
 #include "../DeviceHost/SparsePred/DenseInstance.h"
 #include "../SharedUtility/DataType.h"
 #include "../SharedUtility/CudaMacro.h"

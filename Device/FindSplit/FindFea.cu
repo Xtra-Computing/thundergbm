@@ -16,10 +16,9 @@
 #include "../Bagging/BagManager.h"
 #include "../Splitter/DeviceSplitter.h"
 #include "../Memory/gbdtGPUMemManager.h"
-#include "../../DeviceHost/MyAssert.h"
+#include "../../SharedUtility/CudaMacro.h"
 #include "../../SharedUtility/KernelConf.h"
 #include "../../SharedUtility/HostUtility.h"
-#include "../../SharedUtility/CudaMacro.h"
 
 using std::cout;
 using std::endl;

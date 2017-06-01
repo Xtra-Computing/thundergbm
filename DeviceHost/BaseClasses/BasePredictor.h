@@ -19,8 +19,6 @@ class BasePredictor
 public:
 	virtual~BasePredictor(){}
 
-	void PredictSparseInsByLastTree(vector<vector<KeyValue> > &v_vInstance, vector<RegTree> &v_Tree,
-					   	  vector<real> &v_fPredValue, vector<real> &v_predBuffer);
 	virtual void PredictSparseIns(vector<vector<KeyValue> > &v_vInstance, vector<RegTree> &vTree, vector<real> &v_fPredValue, void *pStream, int bagId) = 0;
 };
 

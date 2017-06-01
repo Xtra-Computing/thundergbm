@@ -11,13 +11,11 @@
 
 #include "DeviceSplitter.h"
 #include "DeviceSplitAllKernel.h"
-#include "../Preparator.h"
 #include "../Hashing.h"
 #include "../Bagging/BagManager.h"
 #include "../Memory/gbdtGPUMemManager.h"
-#include "../../DeviceHost/MyAssert.h"
-#include "../../SharedUtility/KernelConf.h"
 #include "../../SharedUtility/CudaMacro.h"
+#include "../../SharedUtility/KernelConf.h"
 
 using std::cout;
 using std::cerr;

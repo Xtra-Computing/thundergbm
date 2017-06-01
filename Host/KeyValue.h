@@ -11,7 +11,7 @@
 
 #include <vector>
 #include "../SharedUtility/DataType.h"
-#include "../DeviceHost/MyAssert.h"
+#include "../SharedUtility/CudaMacro.h"
 
 
 using std::vector;
@@ -59,8 +59,6 @@ public:
 			totalPreValue += nNumofPair;
 		}
 	}
-
-	static void TestVecToArray(vector<vector<KeyValue> > &vvFeaInxPair, int *pInsId, real *pdValue, int *pNumofKeyValue);
 };
 
 

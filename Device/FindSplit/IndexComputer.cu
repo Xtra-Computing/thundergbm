@@ -16,7 +16,6 @@
 #include "../Hashing.h"
 #include "../Bagging/BagManager.h"
 #include "../Memory/gbdtGPUMemManager.h"
-#include "../../DeviceHost/MyAssert.h"
 #include "../../SharedUtility/CudaMacro.h"
 #include "../../SharedUtility/KernelConf.h"
 #include "../../SharedUtility/powerOfTwo.h"

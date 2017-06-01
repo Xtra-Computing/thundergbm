@@ -113,7 +113,6 @@ void DeviceTrainer::GrowTree(RegTree &tree, void *pStream, int bagId)
 		int curNumofNode = -1;//this is fine even though bagging is used, as each bag is handled by a host thread.
 		manager.MemcpyDeviceToHostAsync(bagManager.m_pCurNumofNodeTreeOnTrainingEachBag_d + bagId, &curNumofNode, sizeof(int), pStream);
 		PROCESS_ERROR(curNumofNode > 0);
-//		cout << "splitting" << endl;
 		splitter->SplitAll(splittableNode, vBest, tree, curNumofNode, rchildStat, lchildStat, bLastLevel, pStream, bagId);
 //		cout << "done splitting" << endl;
 

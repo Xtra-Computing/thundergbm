@@ -9,7 +9,7 @@
 #include <helper_cuda.h>
 
 #include "gpuMemManager.h"
-#include "../../DeviceHost/MyAssert.h"
+#include "../../SharedUtility/CudaMacro.h"
 
 
 /**

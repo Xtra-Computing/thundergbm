@@ -14,7 +14,7 @@
 #include <iostream>
 
 #include "../../Host/UpdateOps/SplitPoint.h"
-#include "../../DeviceHost/MyAssert.h"
+#include "../../SharedUtility/CudaMacro.h"
 #include "BaseSplitter.h"
 
 using std::unordered_map;

@@ -8,8 +8,9 @@
 
 #include <stdio.h>
 #include <random>
+#include <cstring>
 #include "BagBuilder.h"
-#include "../../DeviceHost/MyAssert.h"
+#include "../../SharedUtility/CudaMacro.h"
 
 void BagBuilder::ContructBag(int numIns, int *weight, int numBag)
 {

@@ -9,7 +9,6 @@
 #include "BagManager.h"
 #include "BagBuilder.h"
 #include "../Memory/gpuMemManager.h"
-#include "../../DeviceHost/MyAssert.h"
 #include "../../SharedUtility/KernelConf.h"
 #include "../../SharedUtility/CudaMacro.h"
 

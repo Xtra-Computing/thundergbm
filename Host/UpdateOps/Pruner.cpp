@@ -9,7 +9,7 @@
 #include <iostream>
 
 #include "Pruner.h"
-#include "../../DeviceHost/MyAssert.h"
+#include "../../SharedUtility/CudaMacro.h"
 
 using std::cout;
 using std::endl;

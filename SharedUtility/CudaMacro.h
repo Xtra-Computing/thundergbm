@@ -1,6 +1,8 @@
 #ifndef CUDAMACRO_H_
 #define CUDAMACRO_H_
 
+#include <assert.h>
+
 #define _DEBUG
 
 #define BLOCK_SIZE 64
@@ -43,5 +45,18 @@
 	}																\
 }while(0)
 #endif//_DEBUG
+
+//host side check error
+#ifndef _DEBUG
+#define PROCESS_ERROR(x)	((void)0)
+#else
+#define PROCESS_ERROR(x) do{\
+		if (!(x))				\
+		{						\
+			assert(false);		\
+		}						\
+		}while (0)
+#endif //_DEBUG
+
 
 #endif /*CUDAMACRO_H_*/

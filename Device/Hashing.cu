@@ -7,8 +7,8 @@
  */
 
 #include "Hashing.h"
-#include "../DeviceHost/MyAssert.h"
 #include "DeviceHashing.h"
+#include "../SharedUtility/CudaMacro.h"
 
 /**
  * @brief: a hash function (has an identical version in device @splitAll)
