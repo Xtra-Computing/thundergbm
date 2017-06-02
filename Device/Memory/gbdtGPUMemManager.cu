@@ -21,7 +21,7 @@ unsigned int *GBDTGPUMemManager::m_pFeaStartPos = NULL;	//start key-value positi
 int *GBDTGPUMemManager::m_pDFeaId = NULL;				//all the feature ids for every instance
 real *GBDTGPUMemManager::m_pdDInsValue = NULL;	//all the feature values for every instance
 int *GBDTGPUMemManager::m_pDNumofFea = NULL;			//the number of features for each instance
-long long *GBDTGPUMemManager::m_pInsStartPos = NULL;	//the start position of each instance
+uint *GBDTGPUMemManager::m_pInsStartPos = NULL;	//the start position of each instance
 
 //memory for prediction
 int GBDTGPUMemManager::m_maxUsedFeaInTrees = -1;		//maximum number of used features in all the trees
@@ -51,7 +51,7 @@ void GBDTGPUMemManager::allocMemForIns(int nTotalNumofValue, int numofIns, int n
 	checkCudaErrors(cudaMalloc((void**)&m_pDFeaId, sizeof(int) * m_numFeaValue));
 	checkCudaErrors(cudaMalloc((void**)&m_pdDInsValue, sizeof(real) * m_numFeaValue));
 	checkCudaErrors(cudaMalloc((void**)&m_pDNumofFea, sizeof(int) * m_numofIns));
-	checkCudaErrors(cudaMalloc((void**)&m_pInsStartPos, sizeof(long long) * m_numofIns));
+	checkCudaErrors(cudaMalloc((void**)&m_pInsStartPos, sizeof(uint) * m_numofIns));
 }
 
 void GBDTGPUMemManager::freeMemForIns(){

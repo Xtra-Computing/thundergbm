@@ -16,7 +16,7 @@ using std::istringstream;
 /**
  * @brief: get the number of features and the number of instances of a dataset
  */
-void BaseLibSVMReader::GetDataInfo(string strFileName, int &nNumofFeatures, int &nNumofInstance, long long &nNumofValue)
+void BaseLibSVMReader::GetDataInfo(string strFileName, int &nNumofFeatures, int &nNumofInstance, uint &nNumofValue)
 {
 	nNumofInstance = 0;
 	nNumofFeatures = 0;

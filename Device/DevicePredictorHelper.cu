@@ -36,7 +36,7 @@ __global__ void PredMultiTarget(real *pdTargetValue, int numofDenseIns, const Tr
 								const real *pDenseIns, int numofUsedFea,
 								const int *pnHashFeaIdToPos, int maxDepth)
 {
-	int nGlobalThreadId = (blockIdx.y * gridDim.x + blockIdx.x) * blockDim.x + threadIdx.x;
+	int nGlobalThreadId = GLOBAL_TID();
 	if(nGlobalThreadId >= numofDenseIns)
 		return;
 	int targetId = nGlobalThreadId;
@@ -79,22 +79,20 @@ __global__ void PredMultiTarget(real *pdTargetValue, int numofDenseIns, const Tr
 	pdTargetValue[targetId] += pAllTreeNode[pid].predValue;
 }
 
-__global__ void FillMultiDense(const real *pdSparseInsValue, const long long *pInsStartPos, const int *pnSpareInsFeaId,
+__global__ void FillMultiDense(const real *pdSparseInsValue, const uint *pInsStartPos, const int *pnSpareInsFeaId,
 							   const int *pNumofFeaValue, real *pdDenseIns, const int *pSortedUsedFea,
 							   const int *pHashFeaIdToDenseInsPos, int numofUsedFea,
 						  	   int startInsId, int numofInsToFill)
 {
-	int nGlobalThreadId = (blockIdx.y * gridDim.x + blockIdx.x) * blockDim.x + threadIdx.x;
-	if(nGlobalThreadId >= numofInsToFill)
+	int gTid = GLOBAL_TID();
+	if(gTid >= numofInsToFill)
 		return;
-	if(nGlobalThreadId < 0)
-		printf("global id is %d\n", nGlobalThreadId);
 
-	int insId = startInsId + nGlobalThreadId;
-	long long startPos = pInsStartPos[insId];
+	int insId = startInsId + gTid;
+	uint startPos = pInsStartPos[insId];
 	ECHECKER(startPos);
 	int numofFeaValue = pNumofFeaValue[insId];
-	int denseInsStartPos = nGlobalThreadId * numofUsedFea;
+	int denseInsStartPos = gTid * numofUsedFea;
 
 	//for each value in the sparse instance
 	int curDenseTop = 0;
@@ -105,8 +103,6 @@ __global__ void FillMultiDense(const real *pdSparseInsValue, const long long *pI
 		CONCHECKER(curDenseTop < numofUsedFea);
 		while(feaId > pSortedUsedFea[curDenseTop])//handle missing values
 		{
-			int pos = GetBufferId(pHashFeaIdToDenseInsPos, pSortedUsedFea[curDenseTop], numofUsedFea);
-			*((int*)&pdDenseIns[denseInsStartPos + pos]) |= LARGE_REAL_NUM;//assign a very large number for missing values
 			curDenseTop++;
 			if(curDenseTop >= numofUsedFea)//all the used features have been assigned values
 				return;

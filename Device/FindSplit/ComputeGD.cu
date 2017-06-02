@@ -25,6 +25,15 @@
 using std::cerr;
 using std::endl;
 
+__global__ void PredTargetViaTrainingResult(real *pdTargetValue, int numofIns, const TreeNode *pAllTreeNode,
+											const int *pIns2Nid){
+	uint gTid = GLOBAL_TID();
+	if(gTid >= numofIns)
+		return;
+	uint nid = pIns2Nid[gTid];
+	pdTargetValue[gTid] += pAllTreeNode[nid].predValue;
+}
+
 /**
  * @brief: prediction and compute gradient descent
  */
@@ -60,12 +69,14 @@ void DeviceSplitter::ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> >
 	//start prediction
 	checkCudaErrors(cudaMemsetAsync(bagManager.m_pTargetValueEachBag + bagId * bagManager.m_numIns, 0,
 									sizeof(real) * nNumofIns, (*(cudaStream_t*)pStream)));
-	if(nNumofTree > 0 && numofUsedFea >0)//numofUsedFea > 0 means the tree has more than one node.
+//###################  for my future experiments
+bool bOptimisePred = true;
+	if(nNumofTree > 0 && numofUsedFea >0 && bOptimisePred == false)//numofUsedFea > 0 means the tree has more than one node.
 	{
-		long long startPos = 0;
+		uint startPos = 0;
 		int startInsId = 0;
-		long long *pInsStartPos = manager.m_pInsStartPos + startInsId;
-		manager.MemcpyDeviceToHostAsync(pInsStartPos, &startPos, sizeof(long long), pStream);
+		uint *pInsStartPos = manager.m_pInsStartPos + startInsId;
+		manager.MemcpyDeviceToHostAsync(pInsStartPos, &startPos, sizeof(uint), pStream);
 	//			cout << "start pos ins" << insId << "=" << startPos << endl;
 		real *pDevInsValue = manager.m_pdDInsValue + startPos;
 		int *pDevFeaId = manager.m_pDFeaId + startPos;
@@ -92,17 +103,27 @@ void DeviceSplitter::ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> >
 	if(nNumofTree > 0)
 	{
 		assert(pLastTree != NULL);
-		int numofInsToPre = nNumofIns;
-		dim3 dimGridThreadForEachIns;
-		conf.ComputeBlock(numofInsToPre, dimGridThreadForEachIns);
-		int sharedMemSizeEachIns = 1;
-		PredMultiTarget<<<dimGridThreadForEachIns, sharedMemSizeEachIns, 0, (*(cudaStream_t*)pStream)>>>(
-											  bagManager.m_pTargetValueEachBag + bagId * bagManager.m_numIns,
-										  	  numofInsToPre, pLastTree,
-										  	  bagManager.m_pdDenseInsEachBag + bagId * bagManager.m_maxNumUsedFeaATree * bagManager.m_numIns,
-											  numofUsedFea, bagManager.m_pHashFeaIdToDenseInsPosBag + bagId * bagManager.m_maxNumUsedFeaATree,
-										  	  bagManager.m_maxTreeDepth);
-		GETERROR("after PredMultiTarget");
+		if(bOptimisePred == false){
+			dim3 dimGridThreadForEachIns;
+			conf.ComputeBlock(nNumofIns, dimGridThreadForEachIns);
+			int sharedMemSizeEachIns = 1;
+			PredMultiTarget<<<dimGridThreadForEachIns, sharedMemSizeEachIns, 0, (*(cudaStream_t*)pStream)>>>(
+												  bagManager.m_pTargetValueEachBag + bagId * bagManager.m_numIns,
+												  nNumofIns, pLastTree,
+												  bagManager.m_pdDenseInsEachBag + bagId * bagManager.m_maxNumUsedFeaATree * bagManager.m_numIns,
+												  numofUsedFea, bagManager.m_pHashFeaIdToDenseInsPosBag + bagId * bagManager.m_maxNumUsedFeaATree,
+												  bagManager.m_maxTreeDepth);
+			GETERROR("after PredMultiTarget");
+		}
+		else{//prediction using the training results
+			int threadPerBlock;
+			dim3 dimGridThread;
+			conf.ConfKernel(nNumofIns, threadPerBlock, dimGridThread);
+			int *pTempIns2Nid = bagManager.m_pInsIdToNodeIdEachBag + bagId * bagManager.m_numIns;
+			PredTargetViaTrainingResult<<<dimGridThread, threadPerBlock, 0, (*(cudaStream_t*)pStream)>>>(
+										bagManager.m_pTargetValueEachBag + bagId * bagManager.m_numIns,
+										nNumofIns, pLastTree, pTempIns2Nid);
+		}
 
 		//save to buffer
 		int threadPerBlock;

@@ -68,7 +68,7 @@ int main(int argc, char *argv[])
 	LibSVMDataReader dataReader;
 	int numFea;
 	int numIns;
-	long long numFeaValue;
+	uint numFeaValue;
 
 	string strFolder = strFileName + "-folder/";
 	string bufferFileName = strFolder + "data-info.buffer";
@@ -106,13 +106,13 @@ int main(int argc, char *argv[])
 	int *pInsId = new int[numFeaValue];
 	real *pdValue = new real[numFeaValue];
 	int *pNumofKeyValue = new int[numFea];
-	unsigned int *plFeaStartPos = new unsigned int[numFea];//get start position of each feature
+	uint *plFeaStartPos = new uint[numFea];//get start position of each feature
 
 	//instances for prediction
 	int *pFeaId = new int[numFeaValue];//continuous elements for each instance
 	real *pfFeaValue = new real[numFeaValue];
 	int *pNumofFea = new int[numIns];
-	long long *plInsStartPos = new long long[numIns];
+	uint *plInsStartPos = new uint[numIns];
 
 	real *pTrueLabel = new real[numIns];
 
@@ -180,7 +180,7 @@ int main(int argc, char *argv[])
 	cudaMemcpy(manager.m_pDFeaId, pFeaId, numFeaValue * sizeof(int), cudaMemcpyHostToDevice);
 	cudaMemcpy(manager.m_pdDInsValue, pfFeaValue, numFeaValue * sizeof(real), cudaMemcpyHostToDevice);
 	cudaMemcpy(manager.m_pDNumofFea, pNumofFea, numIns * sizeof(int), cudaMemcpyHostToDevice);
-	cudaMemcpy(manager.m_pInsStartPos, plInsStartPos, numIns * sizeof(long long), cudaMemcpyHostToDevice);
+	cudaMemcpy(manager.m_pInsStartPos, plInsStartPos, numIns * sizeof(uint), cudaMemcpyHostToDevice);
 
 	//free host memory
 	delete []pdValue;

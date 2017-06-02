@@ -49,7 +49,7 @@ __global__ void MarkPartition(int preMaxNid, int *pFvToInsId, int *pInsIdToNodeI
 
 	unsigned int insId = pFvToInsId[gTid];
 	int nid = pInsIdToNodeId[insId];
-	if(nid < 0){//instance in leaf node
+	if(nid <= preMaxNid){//instance in leaf node
 		pParitionMarker[gTid] = 0xffff;
 		return;
 	}

@@ -61,15 +61,15 @@ void BaseTrainer::TrainGBDT(vector<RegTree> & vTree, void *pStream, int bagId)
 		splitter->m_nRound = i;
 		cout << "start round " << i << endl;
 		clock_t start_round = clock();
-		//initialise a tree
-		RegTree tree;
-		InitTree(tree, pStream, bagId);
 
 		//predict the data by the existing trees
 		begin_gd = clock();
 		splitter->ComputeGD(vTree, m_vvInsSparse, pStream, bagId);
 		end_gd = clock();
 		total_gd += (double(end_gd - begin_gd) / CLOCKS_PER_SEC);
+		//initialise a tree
+		RegTree tree;
+		InitTree(tree, pStream, bagId);
 
 		//grow the tree
 		begin_grow = clock();

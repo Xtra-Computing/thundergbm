@@ -52,10 +52,10 @@ void DevicePredictor::PredictSparseIns(vector<vector<KeyValue> > &v_vInstance, v
 	//start prediction
 	manager.MemsetAsync(bagManager.m_pTargetValueEachBag + bagId * bagManager.m_numIns, 0, sizeof(real) * nNumofIns, pStream);
 
-	long long startPos = 0;
+	uint startPos = 0;
 	int startInsId = 0;
-	long long *pInsStartPos = manager.m_pInsStartPos + startInsId;
-	manager.MemcpyDeviceToHostAsync(pInsStartPos, &startPos, sizeof(long long), pStream);
+	uint *pInsStartPos = manager.m_pInsStartPos + startInsId;
+	manager.MemcpyDeviceToHostAsync(pInsStartPos, &startPos, sizeof(uint), pStream);
 //	cout << "start pos ins" << insId << "=" << startPos << endl;
 	real *pDevInsValue = manager.m_pdDInsValue + startPos;
 	int *pDevFeaId = manager.m_pDFeaId + startPos;

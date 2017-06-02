@@ -18,7 +18,7 @@ using std::ifstream;
 class BaseLibSVMReader
 {
 public:
-	static void GetDataInfo(string strFileName, int &nNumofFeatures, int &nNumofInstance, long long &nNumofValue);
+	static void GetDataInfo(string strFileName, int &nNumofFeatures, int &nNumofInstance, uint &nNumofValue);
 };
 
 

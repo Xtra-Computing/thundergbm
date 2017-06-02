@@ -20,7 +20,7 @@ __global__ void PredMultiTarget(real *pdTargetValue, int numofDenseIns, const Tr
 								const real *pDenseIns, int numofFea,
 								const int *pnHashFeaIdToPos, int maxDepth);
 
-__global__ void FillMultiDense(const real *pdSparseInsValue, const long long *pInsStartPos, const int *pnSpareInsFeaId,
+__global__ void FillMultiDense(const real *pdSparseInsValue, const uint *pInsStartPos, const int *pnSpareInsFeaId,
 							   const int *pNumofFeaValue, real *pdDenseIns, const int *pSortedUsedFea,
 							   const int *pHashFeaIdToDenseInsPos, int numofUsedFea,
 						  	   int startInsId, int numofInsToFill);

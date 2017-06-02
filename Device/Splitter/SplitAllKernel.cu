@@ -241,6 +241,8 @@ __global__ void InsToNewNode(const TreeNode *pAllTreeNode, const real *pdFeaValu
 	if(nid > preMaxNodeId)//new node ids. This is possible because here each thread 
 						  //corresponds to a feature value, and hence duplication may occur.
 		return;
+	if(pAllTreeNode[nid].rightChildId == flag_LEAFNODE)//leaf node
+		return;
 
 	int bufferPos = nid % maxSN;
 
@@ -261,7 +263,7 @@ __global__ void InsToNewNode(const TreeNode *pAllTreeNode, const real *pdFeaValu
 
 	if(nid == pParentId[bufferPos]){//internal node (needs to split)
 		if(pAllTreeNode[nid].rightChildId == flag_LEAFNODE){//newly constructed leaf
-			pInsIdToNodeId[insId] = -1;
+			//pInsIdToNodeId[insId] = -1;
 		}
 		else{
 			CONCHECKER(pRChildId[bufferPos] == pLChildId[bufferPos] + 1);//right child id > than left child id
@@ -295,10 +297,12 @@ __global__ void InsToNewNodeByDefault(TreeNode *pAllTreeNode, int *pInsIdToNodeI
 	int nid = pInsIdToNodeId[nGlobalThreadId];
 	if(nid == -1 || nid > preMaxNodeId)//processed node (i.e. leaf node or new node)
 		return;
+	if(pAllTreeNode[nid].rightChildId == flag_LEAFNODE)//leaf node
+		return;
 	//newly constructed leaf node
 	if(pAllTreeNode[nid].rightChildId == flag_LEAFNODE)
 	{
-		pInsIdToNodeId[nGlobalThreadId] = -1;
+//		pInsIdToNodeId[nGlobalThreadId] = -1;
 	}
 	else
 	{

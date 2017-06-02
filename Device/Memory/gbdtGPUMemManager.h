@@ -26,7 +26,7 @@ public:
 	//memory for instances (key on instance id)
 	static int *m_pDFeaId, *m_pDNumofFea;
 	static real *m_pdDInsValue;
-	static long long *m_pInsStartPos;
+	static uint *m_pInsStartPos;
 
 	//memory for prediction
 	static int m_maxUsedFeaInTrees;

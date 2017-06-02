@@ -22,13 +22,13 @@ unsigned int *FileBuffer::m_plFeaStartPos = NULL;//get start position of each fe
 int *FileBuffer::m_pFeaId = NULL;
 real *FileBuffer::m_pfFeaValue = NULL;
 int *FileBuffer::m_pNumofFea = NULL;
-long long *FileBuffer::m_plInsStartPos = NULL;
+uint *FileBuffer::m_plInsStartPos = NULL;
 real *FileBuffer::m_pfTrueLabel = NULL;	//labels of training instances
 
 //some lengths
 int FileBuffer::m_nNumofFeatures = -1;
 int FileBuffer::m_nNumofExamples = -1;
-long long FileBuffer::m_numFeaValue = -1;
+uint FileBuffer::m_numFeaValue = -1;
 
 //file names
 string FileBuffer::strInsId = "InsId.dat";
@@ -46,9 +46,9 @@ string FileBuffer::strDataSetInfo = "data-info.buffer";
  * @brief: set all the members of this class
  */
 void FileBuffer::SetMembers(int *pInsId, real *pdValue, int *pNumofKeyValue, unsigned int *plFeaStartPos,
-							int *pFeaId, real *pfFeaValue, int *pNumofFea, long long *plInsStartPos,
+							int *pFeaId, real *pfFeaValue, int *pNumofFea, uint *plInsStartPos,
 							real *pfTrueLabel,
-							int nNumofFeatures, int nNumofExamples, long long numFeaValue)
+							int nNumofFeatures, int nNumofExamples, uint numFeaValue)
 {
 	m_pInsId = pInsId;
 	m_pfValue = pdValue;
@@ -139,7 +139,7 @@ void FileBuffer::WriteBufferFile(string strFolder)
 /**
  * @brief: read the dataset information
  */
-void FileBuffer::ReadDataInfo(string strFolder, int &numFeature, int &numExample, long long &numFeaValue)
+void FileBuffer::ReadDataInfo(string strFolder, int &numFeature, int &numExample, uint &numFeaValue)
 {
 	FILE *readFile = fopen((strFolder + strDataSetInfo).c_str(), "r");
 	if(readFile == NULL)
@@ -161,7 +161,7 @@ void FileBuffer::ReadDataInfo(string strFolder, int &numFeature, int &numExample
  * @brief: read buffer files
  */
 void FileBuffer::ReadBufferFile(string strFolder, int *pInsId, real *pdValue, int *pNumofKeyValue, unsigned int *plFeaStartPos,
-								int *pFeaId, real *pfFeaValue, int *pNumofFea, long long *plInsStartPos,
+								int *pFeaId, real *pfFeaValue, int *pNumofFea, uint *plInsStartPos,
 								real *pfTrueLabel,
 								int numFeature, int numExample, long long numFeaValue)
 {
