@@ -234,9 +234,7 @@ __global__ void InsToNewNode(const TreeNode *pAllTreeNode, const real *pdFeaValu
 	ECHECKER(insId);
 
 	int nid = pInsIdToNodeId[insId];
-
-	if(nid < 0)//leaf node
-		return;
+	ECHECKER(nid);
 
 	if(nid > preMaxNodeId)//new node ids. This is possible because here each thread 
 						  //corresponds to a feature value, and hence duplication may occur.
@@ -262,10 +260,6 @@ __global__ void InsToNewNode(const TreeNode *pAllTreeNode, const real *pdFeaValu
 	}
 
 	if(nid == pParentId[bufferPos]){//internal node (needs to split)
-		if(pAllTreeNode[nid].rightChildId == flag_LEAFNODE){//newly constructed leaf
-			//pInsIdToNodeId[insId] = -1;
-		}
-		else{
 			CONCHECKER(pRChildId[bufferPos] == pLChildId[bufferPos] + 1);//right child id > than left child id
 			CONCHECKER(pAllTreeNode[nid].rightChildId != flag_LEAFNODE);
 			double fPivot = pBestSplitPoint[bufferPos].m_fSplitValue;
@@ -280,7 +274,7 @@ __global__ void InsToNewNode(const TreeNode *pAllTreeNode, const real *pdFeaValu
 	//			atomicAdd(numInsL + bufferPos, 1);
 			}
 		}
-	}
+
 }
 
 __global__ void InsToNewNodeByDefault(TreeNode *pAllTreeNode, int *pInsIdToNodeId,
@@ -295,15 +289,12 @@ __global__ void InsToNewNodeByDefault(TreeNode *pAllTreeNode, int *pInsIdToNodeI
 	ECHECKER(preMaxNodeId);
 
 	int nid = pInsIdToNodeId[nGlobalThreadId];
-	if(nid == -1 || nid > preMaxNodeId)//processed node (i.e. leaf node or new node)
+	ECHECKER(nid);
+	if(nid > preMaxNodeId)//processed node
 		return;
+
 	if(pAllTreeNode[nid].rightChildId == flag_LEAFNODE)//leaf node
 		return;
-	//newly constructed leaf node
-	if(pAllTreeNode[nid].rightChildId == flag_LEAFNODE)
-	{
-//		pInsIdToNodeId[nGlobalThreadId] = -1;
-	}
 	else
 	{
 //		printf("ins to new node by default: ################## nid=%d, maxNid=%d, rcid=%d, flag=%d\n", nid, preMaxNodeId, pAllTreeNode[nid].rightChildId, flag_LEAFNODE);
