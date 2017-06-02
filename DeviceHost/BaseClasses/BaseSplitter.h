@@ -46,15 +46,8 @@ public:
 	virtual void FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat> &tempStat, vector<nodeStat> &lchildStat, void *pStream, int bagId) = 0;
 	//predict the value for each instance and compute their gradient
 	virtual void ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> > & vvInsSparse, void *stream, int bagId) = 0;
-
-	double ComputeWeightSparseData(int bufferPos);
-
-	void UpdateNodeStat(vector<TreeNode*> &newSplittableNode, vector<nodeStat> &v_nodeStat);
-
 public:
 	//for sorting on each feature
-	double CalGain(const nodeStat &parent, const nodeStat &r_child, const nodeStat &l_child);
-
 	const static int LEAFNODE = -2;
 
 	static constexpr float rt_eps = 1e-5;

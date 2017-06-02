@@ -75,10 +75,13 @@ void DeviceSplitter::ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> >
 		dim3 dimGridThreadForEachIns;
 		conf.ComputeBlock(numofInsToFill, dimGridThreadForEachIns);
 		int sharedMemSizeEachIns = 1;
+		//memset dense instances
+		real *pTempDense = bagManager.m_pdDenseInsEachBag + bagId * bagManager.m_maxNumUsedFeaATree * bagManager.m_numIns;
+		checkCudaErrors(cudaMemset(pTempDense, -1, sizeof(real) * bagManager.m_maxNumUsedFeaATree * bagManager.m_numIns));
 
 		FillMultiDense<<<dimGridThreadForEachIns, sharedMemSizeEachIns, 0, (*(cudaStream_t*)pStream)>>>(
 											  pDevInsValue, pInsStartPos, pDevFeaId, pNumofFea,
-										  	  bagManager.m_pdDenseInsEachBag + bagId * bagManager.m_maxNumUsedFeaATree * bagManager.m_numIns,
+											  pTempDense,
 										  	  bagManager.m_pSortedUsedFeaIdBag + bagId * bagManager.m_maxNumUsedFeaATree,
 										  	  bagManager.m_pHashFeaIdToDenseInsPosBag + bagId * bagManager.m_maxNumUsedFeaATree,
 											  numofUsedFea, startInsId, numofInsToFill);

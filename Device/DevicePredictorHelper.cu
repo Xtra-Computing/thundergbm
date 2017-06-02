@@ -15,7 +15,7 @@
  */
 __device__ int GetNext(const TreeNode *pNode, real feaValue)
 {
-	if(feaValue > LARGE_REAL_NUM - 2){//this is a missing value
+	if((((*(int*)&feaValue)) ^ LARGE_REAL_NUM) == 0){//this is a missing value
 		if(pNode->m_bDefault2Right == false)
 			return pNode->leftChildId;
 		else
@@ -61,7 +61,11 @@ __global__ void PredMultiTarget(real *pdTargetValue, int numofDenseIns, const Tr
 		if(pos < numofUsedFea)//feature value is available in the dense vector
 			pid = GetNext(curNode, pDenseIns[targetId * numofUsedFea + pos]);
 		else//feature value is stored in the dense vector (due to truncating)
-			pid = GetNext(curNode, LARGE_REAL_NUM);
+		{
+			real temp;
+			(*((int*)&temp)) |= LARGE_REAL_NUM;
+			pid = GetNext(curNode, temp);
+		}
 		curNode = pAllTreeNode + pid;
 
 		counter++;
@@ -92,11 +96,6 @@ __global__ void FillMultiDense(const real *pdSparseInsValue, const long long *pI
 	int numofFeaValue = pNumofFeaValue[insId];
 	int denseInsStartPos = nGlobalThreadId * numofUsedFea;
 
-	//memset
-	for(int s = 0; s < numofUsedFea; s++){
-		pdDenseIns[denseInsStartPos + s] = LARGE_REAL_NUM;
-	}
-
 	//for each value in the sparse instance
 	int curDenseTop = 0;
 	for(int i = 0; i < numofFeaValue; i++)
@@ -107,7 +106,7 @@ __global__ void FillMultiDense(const real *pdSparseInsValue, const long long *pI
 		while(feaId > pSortedUsedFea[curDenseTop])//handle missing values
 		{
 			int pos = GetBufferId(pHashFeaIdToDenseInsPos, pSortedUsedFea[curDenseTop], numofUsedFea);
-			pdDenseIns[denseInsStartPos + pos] = LARGE_REAL_NUM;//assign a very large number for missing values
+			*((int*)&pdDenseIns[denseInsStartPos + pos]) |= LARGE_REAL_NUM;//assign a very large number for missing values
 			curDenseTop++;
 			if(curDenseTop >= numofUsedFea)//all the used features have been assigned values
 				return;

@@ -69,9 +69,12 @@ void DevicePredictor::PredictSparseIns(vector<vector<KeyValue> > &v_vInstance, v
 	cudaDeviceSynchronize();
 
 	if(numofUsedFea > 0){
+		//memset dense instances
+		real *pTempDense = bagManager.m_pdDenseInsEachBag + bagId * bagManager.m_maxNumUsedFeaATree * bagManager.m_numIns;
+		checkCudaErrors(cudaMemset(pTempDense, -1, sizeof(real) * bagManager.m_maxNumUsedFeaATree * bagManager.m_numIns));
 		FillMultiDense<<<dimNumofBlock, threadPerBlock, 0, (*(cudaStream_t*)pStream)>>>(
 											  pDevInsValue, pInsStartPos, pDevFeaId, pNumofFea,
-										  	  bagManager.m_pdDenseInsEachBag + bagId * bagManager.m_maxNumUsedFeaATree * bagManager.m_numIns,
+											  pTempDense,
 											  bagManager.m_pSortedUsedFeaIdBag + bagId * bagManager.m_maxNumUsedFeaATree,
 										  	  bagManager.m_pHashFeaIdToDenseInsPosBag + bagId * bagManager.m_maxNumUsedFeaATree,
 											  numofUsedFea, startInsId, numofInsToFill);
