@@ -74,37 +74,22 @@ __global__ void LoadGDHessFvalue(const real *pInsGD, const real *pInsHess, int n
 /**
  * @brief: compute the gain in parallel, each gain is computed by a thread.
  */
-__global__ void ComputeGainDense(const nodeStat *pSNodeStat, const unsigned int *pFeaValueStartPosEachNode, int numSN,
-							const int *pBuffId, real lambda,
+__global__ void ComputeGainDense(const nodeStat *pSNodeStat, const int *pBuffId, real lambda,
 							const double *pGDPrefixSumOnEachFeaValue, const real *pHessPrefixSumOnEachFeaValue,
 							const real *pDenseFeaValue, int numofDenseValue, const unsigned int *pnLastFvalueOfThisFvalue,
-							real *pGainOnEachFeaValue, bool *pDefault2Right)
+							const uint *pnKey, int numFea, real *pGainOnEachFeaValue, bool *pDefault2Right)
 {
 	//one thread loads one value
-	long long gTid = GLOBAL_TID();
+	uint gTid = GLOBAL_TID();
+	if(gTid >= numofDenseValue)//the thread has no gain to compute, i.e. a thread per gain
+		return;
 
-	//compute node id
-	int snId = -1;
-	for(int i = 0; i < numSN; i++)
-	{
-		if(i == numSN - 1)
-		{
-			snId = i;
-			break;
-		}
-		else if(gTid >= pFeaValueStartPosEachNode[i] && gTid < pFeaValueStartPosEachNode[i + 1])
-		{
-			snId = i;
-			break;
-		}
-	}
-	int hashVaue = pBuffId[snId];
+	uint segId = pnKey[gTid];
+	uint snodeId = segId / numFea;
+
+	int hashVaue = pBuffId[snodeId];
 	ECHECKER(hashVaue);
 
-	if(gTid >= numofDenseValue)//the thread has no gain to compute, i.e. a thread per gain
-	{
-		return;
-	}
 
 	if(gTid == 0)
 	{

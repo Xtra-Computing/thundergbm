@@ -18,6 +18,7 @@
 #include "../DevicePredictor.h"
 #include "../../Host/Evaluation/RMSE.h"
 #include "../Bagging/BagManager.h"
+#include "../../SharedUtility/CudaMacro.h"
 
 using std::cout;
 using std::endl;
@@ -59,6 +60,7 @@ void* GBDTTask::ProcessTask(void* pInputParam)
 	cout << "saved to file" << endl;
 	trainer.SaveModel("tree.txt", v_Tree);
 
+#ifdef _DEBUG
 	//run the GBDT prediction process
 	DevicePredictor pred;
 	clock_t begin_pre, end_pre;
@@ -75,7 +77,7 @@ void* GBDTTask::ProcessTask(void* pInputParam)
 	EvalRMSE rmse;
 	float fRMSE = rmse.Eval(v_fPredValue, BagManager::m_pTrueLabel_h, v_fPredValue.size());
 	cout << "rmse=" << fRMSE << endl;
-
+#endif
 	trainer.ReleaseTree(v_Tree);
 
 	pTaskParam->pResult = NULL;
