@@ -18,12 +18,12 @@
 class GBDTGPUMemManager: public GPUMemManager
 {
 public:
-	//memory for instances (key on feature id)
+	//memory for instances (key on feature id); for training
 	static int *m_pDInsId, *m_pDNumofKeyValue;
 	static int *m_pFvalueFid_d;
 	static real *m_pdDFeaValue;
-	static unsigned int *m_pFeaStartPos;
-	//memory for instances (key on instance id)
+	static uint *m_pFeaStartPos;
+	//memory for instances (key on instance id); for prediction
 	static int *m_pDFeaId, *m_pDNumofFea;
 	static real *m_pdDInsValue;
 	static uint *m_pInsStartPos;
@@ -31,12 +31,15 @@ public:
 	//memory for prediction
 	static int m_maxUsedFeaInTrees;
 
-	static unsigned int m_numFeaValue;
+	static uint m_numFeaValue;
 	static int m_numofIns, m_numofFea;
 
 public:
-	void allocMemForIns(int nTotalNumofValue, int numofIns, int numofFeature);
-	void freeMemForIns();
+	void mallocForTrainingIns(int nTotalNumofValue, int numofIns, int numofFeature);
+	void freeMemForTrainingIns();
+
+	void mallocForTestingIns(int nTotalNumofValue, int numofIns, int numofFeature);
+	void freeMemForTestingIns();
 };
 
 #endif /* GBDTMEMMANAGER_H_ */

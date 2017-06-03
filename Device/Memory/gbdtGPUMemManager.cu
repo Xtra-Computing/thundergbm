@@ -16,7 +16,7 @@ int *GBDTGPUMemManager::m_pDInsId = NULL;				//all the instance ids for each key
 real *GBDTGPUMemManager::m_pdDFeaValue = NULL; 	//all the feature values
 int *GBDTGPUMemManager::m_pFvalueFid_d = NULL;			//all the feature id for each key-value pair
 int *GBDTGPUMemManager::m_pDNumofKeyValue = NULL;		//the number of key-value pairs of each feature
-unsigned int *GBDTGPUMemManager::m_pFeaStartPos = NULL;	//start key-value position of each feature
+uint *GBDTGPUMemManager::m_pFeaStartPos = NULL;	//start key-value position of each feature
 //memory for instances (key on instance id)
 int *GBDTGPUMemManager::m_pDFeaId = NULL;				//all the feature ids for every instance
 real *GBDTGPUMemManager::m_pdDInsValue = NULL;	//all the feature values for every instance
@@ -31,9 +31,9 @@ int GBDTGPUMemManager::m_numofIns = -1;
 int GBDTGPUMemManager::m_numofFea = -1;
 
 /**
- * @brief: allocate memory for instances
+ * @brief: allocate memory for training instances
  */
-void GBDTGPUMemManager::allocMemForIns(int nTotalNumofValue, int numofIns, int numofFeature){
+void GBDTGPUMemManager::mallocForTrainingIns(int nTotalNumofValue, int numofIns, int numofFeature){
 	PROCESS_ERROR(nTotalNumofValue > 0);
 	PROCESS_ERROR(numofFeature > 0);
 	PROCESS_ERROR(numofIns > 0);
@@ -46,22 +46,40 @@ void GBDTGPUMemManager::allocMemForIns(int nTotalNumofValue, int numofIns, int n
 	checkCudaErrors(cudaMalloc((void**)&m_pdDFeaValue, sizeof(real) * m_numFeaValue));
 	checkCudaErrors(cudaMalloc((void**)&m_pFvalueFid_d, sizeof(int) * m_numFeaValue));
 	checkCudaErrors(cudaMalloc((void**)&m_pDNumofKeyValue, sizeof(int) * m_numofFea));
-	checkCudaErrors(cudaMalloc((void**)&m_pFeaStartPos, sizeof(unsigned int) * m_numofFea));
-	//memory for instances (key on instance id)
+	checkCudaErrors(cudaMalloc((void**)&m_pFeaStartPos, sizeof(uint) * m_numofFea));
+}
+
+/*
+ * @brief for testing instances
+ */
+void GBDTGPUMemManager::mallocForTestingIns(int nTotalNumofValue, int numofIns, int numofFeature){
+	PROCESS_ERROR(nTotalNumofValue > 0);
+	PROCESS_ERROR(numofFeature > 0);
+	PROCESS_ERROR(numofIns > 0);
+	m_numFeaValue = nTotalNumofValue;
+	m_numofIns = numofIns;
+	m_numofFea = numofFeature;
+	//memory for instances (key on instance id); for prediction
 	checkCudaErrors(cudaMalloc((void**)&m_pDFeaId, sizeof(int) * m_numFeaValue));
 	checkCudaErrors(cudaMalloc((void**)&m_pdDInsValue, sizeof(real) * m_numFeaValue));
 	checkCudaErrors(cudaMalloc((void**)&m_pDNumofFea, sizeof(int) * m_numofIns));
 	checkCudaErrors(cudaMalloc((void**)&m_pInsStartPos, sizeof(uint) * m_numofIns));
 }
 
-void GBDTGPUMemManager::freeMemForIns(){
+void GBDTGPUMemManager::freeMemForTrainingIns(){
 	//memory for instances (key on feature id)
 	checkCudaErrors(cudaFree(m_pDInsId));
 	checkCudaErrors(cudaFree(m_pdDFeaValue));
 	checkCudaErrors(cudaFree(m_pFvalueFid_d));
 	checkCudaErrors(cudaFree(m_pDNumofKeyValue));
 	checkCudaErrors(cudaFree(m_pFeaStartPos));
-	//memory for instances (key on instance id)
+}
+
+/**
+ * @brief: free memory for testing instances
+ */
+void GBDTGPUMemManager::freeMemForTestingIns(){
+	//memory for instances (key on instance id); for prediction
 	checkCudaErrors(cudaFree(m_pDFeaId));
 	checkCudaErrors(cudaFree(m_pdDInsValue));
 	checkCudaErrors(cudaFree(m_pDNumofFea));

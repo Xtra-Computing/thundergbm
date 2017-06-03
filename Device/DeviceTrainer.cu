@@ -126,12 +126,10 @@ void DeviceTrainer::GrowTree(RegTree &tree, void *pStream, int bagId)
 	//copy tree nodes back to host
 	clock_t begin_prune = clock();
 	int numofNode = 0;
-	//manager.MemcpyDeviceToHost(snManager.m_pCurNumofNode_d, &numofNode, sizeof(int));
 	manager.MemcpyDeviceToHostAsync(bagManager.m_pCurNumofNodeTreeOnTrainingEachBag_d + bagId, &numofNode,
 									sizeof(int), pStream);
 	cout << "number of nodes " << numofNode << endl;
 	TreeNode *pAllNode = new TreeNode[numofNode];
-	//manager.MemcpyDeviceToHost(snManager.m_pTreeNode, pAllNode, sizeof(TreeNode) * numofNode);
 	manager.MemcpyDeviceToHostAsync(bagManager.m_pNodeTreeOnTrainingEachBag + bagId * bagManager.m_maxNumNode,
 									pAllNode, sizeof(TreeNode) * numofNode, pStream);
 	TreeNode **ypAllNode = new TreeNode*[numofNode];

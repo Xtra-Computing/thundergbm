@@ -66,10 +66,12 @@ case $1 in
 		BAG=${BAG}"1"
         FILENAME=${DATASET_DIR}/"3d_spatial_network.txt"
         ;;
-    cov1)
+    higgs)
         GAMMA=${GAMMA}"1"
-        C=${C}"3"
-        FILENAME=${DATASET_DIR}/"cov1"
+        D=${D}"4"
+		NUMTREE=${NUMTREE}"4"
+		BAG=${BAG}"1"
+        FILENAME=${DATASET_DIR}/"HIGGS"
         ;;
     real-sim)
 		GAMMA=${GAMMA}"1"

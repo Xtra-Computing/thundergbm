@@ -156,7 +156,8 @@ int main(int argc, char *argv[])
 	manager.m_maxUsedFeaInTrees = maxNumofUsedFeature;
 
 	//allocate memory for instances
-	manager.allocMemForIns(numFeaValue, numIns, numFea);
+	manager.mallocForTrainingIns(numFeaValue, numIns, numFea);
+	manager.mallocForTestingIns(numFeaValue, numIns, numFea);
 
 	begin_whole = clock();
 	cout << "start training..." << endl;
@@ -258,7 +259,8 @@ int main(int argc, char *argv[])
 	cout << "all sec = " << total_all << endl;
 	cout << "Done" << endl;
 
-	manager.freeMemForIns();
+	manager.freeMemForTrainingIns();
+	manager.freeMemForTestingIns();
 	indexCom.FreeMem();
 
 	//free host memory
