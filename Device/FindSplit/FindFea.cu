@@ -27,13 +27,23 @@ using std::cerr;
 
 __global__ void SetKey(uint *pSegStart, int *pSegLen, uint *pnKey, uint *pnPosOfLastValueOfThisSeg){
 	uint segmentId = blockIdx.x;//use one x covering multiple ys, because the maximum number of x-dimension is larger.
-	uint segmentThreadId = blockIdx.y * blockDim.x + threadIdx.x;
-	uint segmentLen = pSegLen[segmentId];
-	if(segmentLen == 0 || segmentThreadId >= segmentLen)
+	__shared__ uint segmentLen, segmentStartPos;
+	if(threadIdx.x == 0)//the first thread loads the segment length
+		segmentLen = pSegLen[segmentId];
+	__syncthreads();
+
+	uint tid0 = blockIdx.y * blockDim.x;
+	uint segmentThreadId = tid0 + threadIdx.x;
+	if(tid0 >= segmentLen || segmentThreadId >= segmentLen)
 		return;
-	uint segmentStartPos = pSegStart[segmentId];
-	pnKey[segmentStartPos + segmentThreadId] = segmentId;
-	pnPosOfLastValueOfThisSeg[segmentStartPos + segmentThreadId] = segmentStartPos + segmentLen - 1;
+
+	if(threadIdx.x == 0)//the first thread loads the start position
+		segmentStartPos = pSegStart[segmentId];
+	__syncthreads();
+
+	uint pos = segmentStartPos + segmentThreadId;
+	pnKey[pos] = segmentId;
+	pnPosOfLastValueOfThisSeg[pos] = segmentStartPos + segmentLen - 1;
 }
 
 /**
@@ -180,7 +190,8 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 	dimNumofBlockToSetKey.x = totalNumArray;
 	uint blockSize = 1024;
 	dimNumofBlockToSetKey.y = (maxHess + blockSize - 1) / blockSize;
-	SetKey<<<dimNumofBlockToSetKey, blockSize, 0, (*(cudaStream_t*)pStream)>>>(pTempEachFeaStartEachNode, pTempEachFeaLenEachNode, pnKey_d, pnLastFvalueOfThisFvalue_d);
+	SetKey<<<dimNumofBlockToSetKey, blockSize, sizeof(uint) * 2, (*(cudaStream_t*)pStream)>>>
+			(pTempEachFeaStartEachNode, pTempEachFeaLenEachNode, pnKey_d, pnLastFvalueOfThisFvalue_d);
 	cudaStreamSynchronize((*(cudaStream_t*)pStream));
 
 	//compute prefix sum for gd and hess (more than one arrays)
