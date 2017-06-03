@@ -99,7 +99,8 @@ __global__ void ComputeGainDense(const nodeStat *pSNodeStat, const int *pBuffId,
 	}
 
 	//if the previous fea value is the same as the current fea value, gain is 0 for the current fea value.
-	if(fabs(pDenseFeaValue[gTid - 1] - pDenseFeaValue[gTid]) <= rt_2eps)
+	real preFvalue = pDenseFeaValue[gTid - 1], curFvalue = pDenseFeaValue[gTid];
+	if(preFvalue - curFvalue <= rt_2eps && preFvalue - curFvalue >= -rt_2eps)
 	{//avoid same feature value different gain issue
 		pGainOnEachFeaValue[gTid] = 0;
 		return;
@@ -133,9 +134,9 @@ __global__ void ComputeGainDense(const nodeStat *pSNodeStat, const int *pBuffId,
     real totalMissingHess = parentHess - pHessPrefixSumOnEachFeaValue[lastFvaluePos];
     if(totalMissingHess < 1)//there is no instance with missing values
     	return;
-
-    rChildGD = totalMissingGD + pGDPrefixSumOnEachFeaValue[exclusiveSumPos];
-    rChildHess = totalMissingHess + pHessPrefixSumOnEachFeaValue[exclusiveSumPos];
+    //missing values to the right child
+    rChildGD += totalMissingGD;
+    rChildHess += totalMissingHess;
     tempGD = parentGD - rChildGD;
     tempHess = parentHess - rChildHess;
     needUpdate = NeedUpdate(rChildHess, tempHess);
@@ -175,13 +176,21 @@ __global__ void FirstFeaGain(const unsigned int *pEachFeaStartPosEachNode, int n
  * @brief: pick best feature of this batch for all the splittable nodes
  * Each block.y processes one node, a thread processes a reduction.
  */
-__global__ void PickLocalBestSplitEachNode(const unsigned int *pnNumFeaValueEachNode, const unsigned int *pFeaStartPosEachNode,
+__global__ void PickLocalBestSplitEachNode(const uint *pnNumFeaValueEachNode, const uint *pFeaStartPosEachNode,
 										   const real *pGainOnEachFeaValue,
 								   	   	   real *pfLocalBestGain, int *pnLocalBestGainKey)
 {
 	//best gain of each node is search by a few blocks
 	//blockIdx.z corresponds to a splittable node id
 	int snId = blockIdx.z;
+	uint numValueThisNode = pnNumFeaValueEachNode[snId];//get the number of feature value of this node
+	int blockId = blockIdx.z * gridDim.y * gridDim.x + blockIdx.y * gridDim.x + blockIdx.x;
+	uint tid0 = (blockIdx.y * gridDim.x + blockIdx.x) * blockDim.x;
+	if(tid0 >= numValueThisNode){
+		pfLocalBestGain[blockId] = 0;
+		pnLocalBestGainKey[blockId] = tid0;
+		return;
+	}
 
 	__shared__ real pfGain[BLOCK_SIZE];
 	__shared__ int pnBetterGainKey[BLOCK_SIZE];
@@ -189,14 +198,13 @@ __global__ void PickLocalBestSplitEachNode(const unsigned int *pnNumFeaValueEach
 	pfGain[localTid] = FLT_MAX;//initialise to a large positive number
 	pnBetterGainKey[localTid] = -1;
 	if(localTid == 0){//initialise local best value
-		int blockId = blockIdx.z * gridDim.y * gridDim.x + blockIdx.y * gridDim.x + blockIdx.x;
 		pfLocalBestGain[blockId] = FLT_MAX;
 		pnLocalBestGainKey[blockId] = -1;
 	}
 
-	unsigned int numValueThisNode = pnNumFeaValueEachNode[snId];//get the number of feature value of this node
-	long long tidForEachNode = (blockIdx.y * gridDim.x + blockIdx.x) * blockDim.x + threadIdx.x;
-	unsigned int nPos = pFeaStartPosEachNode[snId] + tidForEachNode;//feature value gain position
+	uint tidForEachNode = tid0 + threadIdx.x;
+	uint nPos = pFeaStartPosEachNode[snId] + tidForEachNode;//feature value gain position
+
 
 	if(tidForEachNode >= numValueThisNode){//no gain to load
 		pfGain[localTid] = 0;
@@ -213,7 +221,6 @@ __global__ void PickLocalBestSplitEachNode(const unsigned int *pnNumFeaValueEach
 	__syncthreads();
 	if(localTid == 0)//copy the best gain to global memory
 	{
-		int blockId = blockIdx.z * gridDim.y * gridDim.x + blockIdx.y * gridDim.x + blockIdx.x;
 		pfLocalBestGain[blockId] = pfGain[0];
 		pnLocalBestGainKey[blockId] = pnBetterGainKey[0];
 
@@ -342,3 +349,11 @@ __global__ void FindSplitInfo(const unsigned int *pEachFeaStartPosEachNode, cons
 //	printf("split: f=%d, value=%f, gain=%f, gd=%f v.s. %f, hess=%f v.s. %f, buffId=%d, key=%d\n", bestFeaId, pBestSplitPoint[buffId].m_fSplitValue,
 //			pBestSplitPoint[buffId].m_fGain, pLChildStat[buffId].sum_gd, pRChildStat[buffId].sum_gd, pLChildStat[buffId].sum_hess, pRChildStat[buffId].sum_hess, buffId, key);
 }
+
+__device__ bool NeedUpdate(real &RChildHess, real &LChildHess)
+{
+	if(LChildHess >= DeviceSplitter::min_child_weight && RChildHess >= DeviceSplitter::min_child_weight)
+		return true;
+	return false;
+}
+

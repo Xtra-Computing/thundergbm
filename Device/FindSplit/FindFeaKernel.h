@@ -19,29 +19,27 @@ __global__ void LoadGDHessFvalueRoot(const real *pInsGD, const real *pInsHess, i
 						   const int *pInsId, const real *pAllFeaValue, int numFeaValue,
 						   double *pGDEachFeaValue, real *pHessEachFeaValue, real *pDenseFeaValue);
 __global__ void LoadGDHessFvalue(const real *pInsGD, const real *pInsHess, int numIns,
-						   const int *pInsId, const real *pAllFeaValue, const unsigned int *pDstIndexEachFeaValue, int numFeaValue,
+						   const int *pInsId, const real *pAllFeaValue, const uint *pDstIndexEachFeaValue, int numFeaValue,
 						   double *pGDEachFeaValue, real *pHessEachFeaValue, real *pDenseFeaValue);
 __global__ void ComputeGainDense(const nodeStat *pSNodeStat, const int *pBuffId,	real lambda,
 							const double *pGDPrefixSumOnEachFeaValue, const real *pHessPrefixSumOnEachFeaValue,
-							const real *pDenseFeaValue, int numofDenseValue, const unsigned int *pnLastFvalueOfThisFvalue,
+							const real *pDenseFeaValue, int numofDenseValue, const uint *pnLastFvalueOfThisFvalue,
 							const uint *pnKey, int numFea, real *pGainOnEachFeaValue, bool *pDefault2Right);
 __global__ void FirstFeaGain(const unsigned int *pEachFeaStartPosEachNode, int numFeaStartPos, real *pGainOnEachFeaValue, long long numFeaValue);
-__global__ void PickLocalBestSplitEachNode(const unsigned int *pnNumFeaValueEachNode, const unsigned int *pFeaStartPosEachNode,
+__global__ void PickLocalBestSplitEachNode(const uint *pnNumFeaValueEachNode, const uint *pFeaStartPosEachNode,
 										   const real *pGainOnEachFeaValue,
 								   	   	   real *pfLocalBestGain, int *pnLocalBestGainKey);
 __global__ void PickGlobalBestSplitEachNode(const real *pfLocalBestGain, const int *pnLocalBestGainKey,
 								   	   	    real *pfGlobalBestGain, int *pnGlobalBestGainKey,
 								   	   	    int numBlockPerNode, int numofSNode);
-__global__ void FindSplitInfo(const unsigned int *pEachFeaStartPosEachNode, const int *pEachFeaLenEachNode,
+__global__ void FindSplitInfo(const uint *pEachFeaStartPosEachNode, const int *pEachFeaLenEachNode,
 							  const real *pDenseFeaValue, const real *pfGlobalBestGain, const int *pnGlobalBestGainKey,
 							  const int *pPosToBuffId, const int numFea,
 							  const nodeStat *snNodeStat, const double *pPrefixSumGD, const real *pPrefixSumHess,
-							  const bool *pDefault2Right, const unsigned int *pnLastFvalueOfThisFvalue,
+							  const bool *pDefault2Right, const uint *pnLastFvalueOfThisFvalue,
 							  SplitPoint *pBestSplitPoint, nodeStat *pRChildStat, nodeStat *pLChildStat);
 
 //helper functions
 __device__ bool NeedUpdate(real &RChildHess, real &LChildHess);
-__device__ void GetBatchInfo(int feaBatch, int smallestFeaId, int feaId, const int *pnNumofKeyValues, const long long *pnFeaStartPos,
-							 int &curFeaStartPosInBatch, int &nFeaValueInBatch);
 
 #endif /* DEVICESPLITTERKERNEL_H_ */
