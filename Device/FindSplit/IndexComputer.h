@@ -21,18 +21,18 @@ public:
 	static long long m_total_copy;
 
 	//pinned memory
-	static unsigned int *m_pNumFeaValueEachNode_dh;
+	static uint *m_pNumFeaValueEachNode_dh;
 	static int *m_pPosToBuffId_dh;
 
 	//device memory
-	static unsigned int *pPartitionMarker;
-	static unsigned int *m_pnKey;
+	static unsigned char *pPartitionMarker;
+	static uint *m_pnKey;
 
 	//histogram based partitioning
-	static unsigned int *m_pHistogram_d;
-	static unsigned int m_numElementEachThd;
-	static unsigned int m_totalNumEffectiveThd;
-	static unsigned int *m_pEachNodeStartPos_d;
+	static uint *m_pHistogram_d;
+	static uint m_numElementEachThd;
+	static uint m_totalNumEffectiveThd;
+	static uint *m_pEachNodeStartPos_d;
 
 public:
 	//compute indices for each feature value in feature lists

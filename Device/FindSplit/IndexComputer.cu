@@ -29,7 +29,7 @@ int IndexComputer::m_maxNumofSN = -1;
 long long IndexComputer::m_total_copy = -1;
 
 unsigned int *IndexComputer::m_pNumFeaValueEachNode_dh = NULL;	//# of feature values of each node
-unsigned int *IndexComputer::pPartitionMarker = NULL;
+unsigned char *IndexComputer::pPartitionMarker = NULL;
 unsigned int *IndexComputer::m_pnKey = NULL;
 
 //histogram based partitioning
@@ -42,7 +42,7 @@ unsigned int *IndexComputer::m_pEachNodeStartPos_d;
   *@brief: mark feature values beloning to node with id=snId by 1
   */
 __global__ void MarkPartition(int preMaxNid, int *pFvToInsId, int *pInsIdToNodeId,
-							int totalNumFv, unsigned int *pParitionMarker){
+							int totalNumFv, unsigned char *pParitionMarker){
 	int gTid = GLOBAL_TID();
 	if(gTid >= totalNumFv)//thread has nothing to mark 
 		return;
@@ -50,7 +50,7 @@ __global__ void MarkPartition(int preMaxNid, int *pFvToInsId, int *pInsIdToNodeI
 	unsigned int insId = pFvToInsId[gTid];
 	int nid = pInsIdToNodeId[insId];
 	if(nid <= preMaxNid){//instance in leaf node
-		pParitionMarker[gTid] = 0xffff;
+		pParitionMarker[gTid] = 0xff;
 		return;
 	}
 	int partitionId = nid - preMaxNid - 1;
@@ -61,7 +61,7 @@ __global__ void MarkPartition(int preMaxNid, int *pFvToInsId, int *pInsIdToNodeI
 /**
  * @brief: count number of elements in each segment in the partition marker
  */
-__global__ void PartitionHistogram(unsigned int *pPartitionMarker, unsigned int markerLen, unsigned int numParition,
+__global__ void PartitionHistogram(unsigned char *pPartitionMarker, unsigned int markerLen, unsigned int numParition,
 								   unsigned int numEleEachThd, unsigned int totalNumThd, unsigned int *pHistogram_d){
 	extern __shared__ unsigned int counters[];
 	int gTid = GLOBAL_TID();
@@ -96,7 +96,7 @@ __global__ void ComputeNumFvalueEachNode(const unsigned int *pHistogram_d, unsig
 /**
   * @brief: store gather indices
   */
-__global__ void CollectGatherIdx(const unsigned int *pPartitionMarker, unsigned int markerLen,
+__global__ void CollectGatherIdx(const unsigned char *pPartitionMarker, unsigned int markerLen,
 								 const unsigned int *pHistogram_d, unsigned int *pEachNodeStartPos_d, unsigned int numParition,
 								 unsigned int numEleEachThd, unsigned int totalNumThd, unsigned int *pGatherIdx){
 	int gTid = GLOBAL_TID();
@@ -134,7 +134,7 @@ __global__ void CollectGatherIdx(const unsigned int *pPartitionMarker, unsigned 
 /**
   * @brief: store gather indices
   */
-__global__ void EachFeaLenEachNode(const unsigned int *pPartitionMarker, unsigned int markerLen,
+__global__ void EachFeaLenEachNode(const unsigned char *pPartitionMarker, unsigned int markerLen,
 								 const int *pFeaId, int *pEachFeaLenEachNode, unsigned int numFea,
 								 unsigned int numParition){
 	int gTid = GLOBAL_TID();
@@ -317,23 +317,23 @@ void IndexComputer::AllocMem(int nNumofExamples, int nNumofFeatures, int maxNumo
 	m_numFea = nNumofFeatures;
 	m_maxNumofSN = maxNumofSplittableNode;
 
-	checkCudaErrors(cudaMallocHost((void**)&m_pNumFeaValueEachNode_dh, sizeof(unsigned int) * m_maxNumofSN));
+	checkCudaErrors(cudaMallocHost((void**)&m_pNumFeaValueEachNode_dh, sizeof(uint) * m_maxNumofSN));
 
-	checkCudaErrors(cudaMalloc((void**)&pPartitionMarker, sizeof(unsigned int) * m_totalFeaValue));
+	checkCudaErrors(cudaMalloc((void**)&pPartitionMarker, sizeof(unsigned char) * m_totalFeaValue));
 
 	//histogram based partitioning
 	m_numElementEachThd = 16;
 	if(m_maxNumofSN > m_numElementEachThd)
 		m_numElementEachThd = m_maxNumofSN;//make sure the memory usage is the same as the training data set
 	m_totalNumEffectiveThd = Ceil(m_totalFeaValue, m_numElementEachThd);
-	checkCudaErrors(cudaMalloc((void**)&m_pHistogram_d, sizeof(unsigned int) * m_maxNumofSN * m_totalNumEffectiveThd));
-	checkCudaErrors(cudaMalloc((void**)&m_pnKey, sizeof(unsigned int) * m_maxNumofSN * m_totalNumEffectiveThd));
+	checkCudaErrors(cudaMalloc((void**)&m_pHistogram_d, sizeof(uint) * m_maxNumofSN * m_totalNumEffectiveThd));
+	checkCudaErrors(cudaMalloc((void**)&m_pnKey, sizeof(uint) * m_maxNumofSN * m_totalNumEffectiveThd));
 	for(int i = 0; i < m_maxNumofSN; i++){//memset for prefix sum on each partition
 		int flag = (i % 2 == 0 ? 0:(-1));
-		checkCudaErrors(cudaMemset(m_pnKey + i * m_totalNumEffectiveThd, flag, sizeof(unsigned int) * m_totalNumEffectiveThd));
+		checkCudaErrors(cudaMemset(m_pnKey + i * m_totalNumEffectiveThd, flag, sizeof(uint) * m_totalNumEffectiveThd));
 	}
 
-	checkCudaErrors(cudaMalloc((void**)&m_pEachNodeStartPos_d, sizeof(unsigned int) * m_maxNumofSN));
+	checkCudaErrors(cudaMalloc((void**)&m_pEachNodeStartPos_d, sizeof(uint) * m_maxNumofSN));
 }
 
 //free memory
