@@ -74,7 +74,7 @@ __global__ void LoadGDHessFvalue(const real *pInsGD, const real *pInsHess, int n
 /**
  * @brief: compute the gain in parallel, each gain is computed by a thread.
  */
-__global__ void ComputeGainDense(const nodeStat *pSNodeStat, const int *pBuffId, real lambda,
+__global__ void ComputeGainDense(const nodeStat *pSNodeStat, const int *pid2SNPos, real lambda,
 							const double *pGDPrefixSumOnEachFeaValue, const real *pHessPrefixSumOnEachFeaValue,
 							const real *pDenseFeaValue, int numofDenseValue, const unsigned int *pnLastFvalueOfThisFvalue,
 							const uint *pnKey, int numFea, real *pGainOnEachFeaValue, bool *pDefault2Right)
@@ -87,9 +87,9 @@ __global__ void ComputeGainDense(const nodeStat *pSNodeStat, const int *pBuffId,
 	uint segId = pnKey[gTid];
 	uint snodeId = segId / numFea;
 
-	int hashVaue = pBuffId[snodeId];
+	int hashVaue = pid2SNPos[snodeId];
 	ECHECKER(hashVaue);
-
+	printf("hashValue=%d\n", hashVaue);
 
 	if(gTid == 0)
 	{

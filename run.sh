@@ -76,7 +76,7 @@ case $1 in
     real-sim)
 		GAMMA=${GAMMA}"1"
         D=${D}"8"
-		NUMTREE=${NUMTREE}"4"
+		NUMTREE=${NUMTREE}"1"
 		BAG=${BAG}"1"
         FILENAME=${DATASET_DIR}/"real-sim" #
         ;;

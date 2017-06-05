@@ -8,6 +8,7 @@
 
 #include <iostream>
 #include <thrust/scan.h>
+#include <thrust/extrema.h>
 #include <thrust/execution_policy.h>
 
 #include "IndexComputer.h"
@@ -28,8 +29,10 @@ using std::cerr;
 __global__ void SetKey(uint *pSegStart, int *pSegLen, uint *pnKey, uint *pnPosOfLastValueOfThisSeg){
 	uint segmentId = blockIdx.x;//use one x covering multiple ys, because the maximum number of x-dimension is larger.
 	__shared__ uint segmentLen, segmentStartPos;
-	if(threadIdx.x == 0)//the first thread loads the segment length
+	if(threadIdx.x == 0){//the first thread loads the segment length
 		segmentLen = pSegLen[segmentId];
+		segmentStartPos = pSegStart[segmentId];
+	}
 	__syncthreads();
 
 	uint tid0 = blockIdx.y * blockDim.x;
@@ -37,13 +40,12 @@ __global__ void SetKey(uint *pSegStart, int *pSegLen, uint *pnKey, uint *pnPosOf
 	if(tid0 >= segmentLen || segmentThreadId >= segmentLen)
 		return;
 
-	if(threadIdx.x == 0)//the first thread loads the start position
-		segmentStartPos = pSegStart[segmentId];
-	__syncthreads();
-
-	uint pos = segmentStartPos + segmentThreadId;
-	pnKey[pos] = segmentId;
-	pnPosOfLastValueOfThisSeg[pos] = segmentStartPos + segmentLen - 1;
+	uint pos = segmentThreadId;
+	while(pos < segmentLen){
+		pnKey[pos + segmentStartPos] = segmentId;
+		pnPosOfLastValueOfThisSeg[pos + segmentStartPos] = segmentStartPos + segmentLen - 1;
+		pos += blockDim.x;
+	}
 }
 
 /**
@@ -170,27 +172,17 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 	unsigned int *pTempEachFeaStartEachNode = bagManager.m_pEachFeaStartPosEachNodeEachBag_d + bagId * bagManager.m_maxNumSplittable * bagManager.m_numFea;
 
 	//set keys by GPU
+	int maxSegLen = 0;
 	int *pTempEachFeaLenEachNode = bagManager.m_pEachFeaLenEachNodeEachBag_d + bagId * bagManager.m_maxNumSplittable * bagManager.m_numFea;
+	int *pMaxLen = thrust::max_element(thrust::device, pTempEachFeaLenEachNode, pTempEachFeaLenEachNode + totalNumArray);
+	checkCudaErrors(cudaMemcpy(&maxSegLen, pMaxLen, sizeof(int), cudaMemcpyDeviceToHost));
+	printf("numIns=%d, actual max=%d\n", bagManager.m_numIns, maxSegLen);
+
 	dim3 dimNumofBlockToSetKey;
-	nodeStat *pTempStat = bagManager.m_pSNodeStatEachBag + bagId * bagManager.m_maxNumSplittable;
-	nodeStat *pTempStat_h = new nodeStat[bagManager.m_maxNumSplittable];
-	checkCudaErrors(cudaMemcpy(pTempStat_h, pTempStat, sizeof(nodeStat) * bagManager.m_maxNumSplittable, cudaMemcpyDeviceToHost));
-	int *partId2SNId = bagManager.m_pPartitionId2SNPosEachBag + bagId * bagManager.m_maxNumSplittable;
-	int *partId2SNId_h = new int[bagManager.m_maxNumSplittable];
-	checkCudaErrors(cudaMemcpy(partId2SNId_h, partId2SNId, sizeof(int) * bagManager.m_maxNumSplittable, cudaMemcpyDeviceToHost));
-	int maxHess = 0;
-	for(int i = 0; i < numofSNode; i++){
-		int snid = partId2SNId_h[i];
-		int hess = pTempStat_h[snid].sum_hess;
-		if(hess > maxHess)maxHess = hess;
-	}
-	printf("max hess=%d, numIns=%d\n", maxHess, bagManager.m_numIns);
-	delete []pTempStat_h;
-	delete []partId2SNId_h;
 	dimNumofBlockToSetKey.x = totalNumArray;
-	uint blockSize = 1024;
-	dimNumofBlockToSetKey.y = (maxHess + blockSize - 1) / blockSize;
-	SetKey<<<dimNumofBlockToSetKey, blockSize, sizeof(uint) * 2, (*(cudaStream_t*)pStream)>>>
+	uint blockSize = 128;
+	dimNumofBlockToSetKey.y = (maxSegLen + blockSize - 1) / blockSize;
+	SetKey<<<totalNumArray, blockSize, sizeof(uint) * 2, (*(cudaStream_t*)pStream)>>>
 			(pTempEachFeaStartEachNode, pTempEachFeaLenEachNode, pnKey_d, pnLastFvalueOfThisFvalue_d);
 	cudaStreamSynchronize((*(cudaStream_t*)pStream));
 

@@ -52,6 +52,10 @@ int main(int argc, char *argv[])
 	//for training
 	int nNumofTree = parser.numTree;
 	int nMaxDepth = parser.depth;
+	if(nMaxDepth > 8){//change unsigned char to uint for supporting deeper trees.
+		cerr << "maximum supported depth is 8! Please use more trees. " << endl;
+		exit(0);
+	}
 	double fLabda = 1;//this one is constant in xgboost
 	double fGamma = parser.gamma;//minimum loss
 	int maxNumofNodePerTree = pow(2, nMaxDepth + 1) - 1;
