@@ -60,6 +60,9 @@ debug: $(debug_bin)
 	
 %.o: SharedUtility/%.c* SharedUtility/*.h
 	$(NVCC) $(NVCCFLAGS) $(LDFLAGS) -o $@ -c $<
+	
+%.o: SharedUtility/*/%.c* SharedUtility/*/*.h
+	$(NVCC) $(NVCCFLAGS) $(LDFLAGS) -o $@ -c $<
 
 all: release
 

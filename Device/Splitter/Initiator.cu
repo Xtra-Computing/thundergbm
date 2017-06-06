@@ -33,17 +33,11 @@ __global__ void ComputeGDKernel(int numofIns, const real *pfPredValue, const rea
 
 __global__ void InitNodeStat(const real root_sum_gd, const real root_sum_hess,
 							 nodeStat *pSNodeStat, int maxNumofSplittable,
-							 int *pBuffId, int *pNumofBuffId)
+							 int *pId2SNPos, int *pNumofBuffId)
 {
-	int nid = 0;//id of root node is always 0.
-	bool bIsNew = false;
-	int buffId = nid % maxNumofSplittable;
-
-	if(buffId != 0)
-		printf("buffId = %d\n", buffId);
-	pSNodeStat[buffId].sum_gd = root_sum_gd;
-	pSNodeStat[buffId].sum_hess = root_sum_hess;
-	pBuffId[0] = buffId;//here we only initialise the root node
+	pSNodeStat[0].sum_gd = root_sum_gd;
+	pSNodeStat[0].sum_hess = root_sum_hess;
+	pId2SNPos[0] = 0;
 	pNumofBuffId[0] = 1;
 }
 

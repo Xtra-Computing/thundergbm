@@ -111,4 +111,5 @@ void KeyValue::VecToArray(vector<vector<KeyValue> > &vvKeyValuePair, int *pId, r
 		plStartPos[i] = totalPreValue;
 		totalPreValue += nNumofPair;
 	}
+	printf("total fea value in VecToArray is %d\n", totalPreValue);
 }

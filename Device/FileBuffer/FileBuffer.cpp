@@ -45,7 +45,7 @@ string FileBuffer::strDataSetInfo = "data-info.buffer";
 /**
  * @brief: set all the members of this class
  */
-void FileBuffer::SetMembers(int *pInsId, real *pdValue, int *pNumofKeyValue, unsigned int *plFeaStartPos,
+void FileBuffer::SetMembers(int *pInsId, real *pdValue, int *pNumofKeyValue, uint *plFeaStartPos,
 							int *pFeaId, real *pfFeaValue, int *pNumofFea, uint *plInsStartPos,
 							real *pfTrueLabel,
 							int nNumofFeatures, int nNumofExamples, uint numFeaValue)
@@ -78,48 +78,84 @@ void FileBuffer::WriteBufferFile(string strFolder)
 	ofstream writeFile;
 
 	writeFile.open(strFolder + strInsId, ofstream::trunc | std::ios::binary);
-	CFileOps::WriteToFile(writeFile, m_pInsId, sizeof(int) * m_numFeaValue);
+	int res = CFileOps::WriteToFile(writeFile, m_pInsId, sizeof(int) * m_numFeaValue);
+	if(res == -1){
+		printf(">>> REACH %s(%s:%d) <<<\n", __func__,__FILE__, __LINE__);
+		exit(0);
+	}
 	writeFile.close();
 	writeFile.clear();
 
 	writeFile.open(strFolder + strFeaValueInsId);
-	CFileOps::WriteToFile(writeFile, m_pfValue, sizeof(real) * m_numFeaValue);
+	res = CFileOps::WriteToFile(writeFile, m_pfValue, sizeof(real) * m_numFeaValue);
+	if(res == -1){
+		printf(">>> REACH %s(%s:%d) <<<\n", __func__,__FILE__, __LINE__);
+		exit(0);
+	}
 	writeFile.close();
 	writeFile.clear();
 
 	writeFile.open(strFolder + strNumofValueEachFea);
-	CFileOps::WriteToFile(writeFile, m_pNumofKeyValue, sizeof(int) * m_nNumofFeatures);
+	res = CFileOps::WriteToFile(writeFile, m_pNumofKeyValue, sizeof(int) * m_nNumofFeatures);
+	if(res == -1){
+		printf(">>> REACH %s(%s:%d) <<<\n", __func__,__FILE__, __LINE__);
+		exit(0);
+	}
 	writeFile.close();
 	writeFile.clear();
 
 	writeFile.open(strFolder + strFeaStartPos);
-	CFileOps::WriteToFile(writeFile, m_plFeaStartPos, sizeof(unsigned int) * m_nNumofFeatures);
+	res = CFileOps::WriteToFile(writeFile, m_plFeaStartPos, sizeof(uint) * m_nNumofFeatures);
+	if(res == -1){
+		printf(">>> REACH %s(%s:%d) <<<\n", __func__,__FILE__, __LINE__);
+		exit(0);
+	}
 	writeFile.close();
 	writeFile.clear();
 
 	//files for prediction
 	writeFile.open(strFolder + strFeaId);
-	CFileOps::WriteToFile(writeFile, m_pFeaId, sizeof(int) * m_numFeaValue);
+	res = CFileOps::WriteToFile(writeFile, m_pFeaId, sizeof(int) * m_numFeaValue);
+	if(res == -1){
+		printf(">>> REACH %s(%s:%d) <<<\n", __func__,__FILE__, __LINE__);
+		exit(0);
+	}
 	writeFile.close();
 	writeFile.clear();
 
 	writeFile.open(strFolder + strFeaValueFeaId);
-	CFileOps::WriteToFile(writeFile, m_pfFeaValue, sizeof(real) * m_numFeaValue);
+	res = CFileOps::WriteToFile(writeFile, m_pfFeaValue, sizeof(real) * m_numFeaValue);
+	if(res == -1){
+		printf(">>> REACH %s(%s:%d) <<<\n", __func__,__FILE__, __LINE__);
+		exit(0);
+	}
 	writeFile.close();
 	writeFile.clear();
 
 	writeFile.open(strFolder + strNumofFeaEachIns);
-	CFileOps::WriteToFile(writeFile, m_pNumofFea, sizeof(int) * m_nNumofExamples);
+	res = CFileOps::WriteToFile(writeFile, m_pNumofFea, sizeof(int) * m_nNumofExamples);
+	if(res == -1){
+		printf(">>> REACH %s(%s:%d) <<<\n", __func__,__FILE__, __LINE__);
+		exit(0);
+	}
 	writeFile.close();
 	writeFile.clear();
 
 	writeFile.open(strFolder + strInsStartPos);
-	CFileOps::WriteToFile(writeFile, m_plInsStartPos, sizeof(long long) * m_nNumofExamples);
+	res = CFileOps::WriteToFile(writeFile, m_plInsStartPos, sizeof(uint) * m_nNumofExamples);
+	if(res == -1){
+		printf(">>> REACH %s(%s:%d) <<<\n", __func__,__FILE__, __LINE__);
+		exit(0);
+	}
 	writeFile.close();
 	writeFile.clear();
 
 	writeFile.open(strFolder + strInsLabel);
-	CFileOps::WriteToFile(writeFile, m_pfTrueLabel, sizeof(long long) * m_nNumofExamples);
+	res = CFileOps::WriteToFile(writeFile, m_pfTrueLabel, sizeof(real) * m_nNumofExamples);
+	if(res == -1){
+		printf(">>> REACH %s(%s:%d) <<<\n", __func__,__FILE__, __LINE__);
+		exit(0);
+	}
 	writeFile.close();
 	writeFile.clear();
 
@@ -130,7 +166,11 @@ void FileBuffer::WriteBufferFile(string strFolder)
 	lDataInfo[0] = m_nNumofFeatures;
 	lDataInfo[1] = m_nNumofExamples;
 	lDataInfo[2] = m_numFeaValue;
-	CFileOps::WriteToFile(writeFile, lDataInfo, sizeof(long long) * numofInfo);
+	res =CFileOps::WriteToFile(writeFile, lDataInfo, sizeof(long long) * numofInfo);
+	if(res == -1){
+		printf(">>> REACH %s(%s:%d) <<<\n", __func__,__FILE__, __LINE__);
+		exit(0);
+	}
 	writeFile.close();
 	writeFile.clear();
 	delete[] lDataInfo;
@@ -160,7 +200,7 @@ void FileBuffer::ReadDataInfo(string strFolder, int &numFeature, int &numExample
 /**
  * @brief: read buffer files
  */
-void FileBuffer::ReadBufferFile(string strFolder, int *pInsId, real *pdValue, int *pNumofKeyValue, unsigned int *plFeaStartPos,
+void FileBuffer::ReadBufferFile(string strFolder, int *pInsId, real *pdValue, int *pNumofKeyValue, uint *plFeaStartPos,
 								int *pFeaId, real *pfFeaValue, int *pNumofFea, uint *plInsStartPos,
 								real *pfTrueLabel,
 								int numFeature, int numExample, long long numFeaValue)

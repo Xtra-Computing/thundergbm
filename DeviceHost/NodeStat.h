@@ -19,7 +19,7 @@ using std::endl;
 
 class nodeStat{
 public:
-	real sum_gd;
+	double sum_gd;
 	real sum_hess;
 
 	nodeStat()

@@ -57,6 +57,7 @@ public:
 		writeOut.write((char*)pContent, numBytes);
 		if(writeOut.bad()){
 			printf("error: failed after writing\n");
+			return -1;
 		}
 
 		writeOut.flush();

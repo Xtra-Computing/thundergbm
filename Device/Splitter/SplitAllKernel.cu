@@ -44,8 +44,7 @@ __global__ void ComputeWeight(TreeNode *pAllTreeNode, TreeNode *pNewNode,
 	pAllTreeNode[nid].loss = pBestSplitPoint[snIdPos].m_fGain;
 	ECHECKER(pNewNodeStat[snIdPos].sum_hess);
 
-	real nodeWeight = (-pNewNodeStat[snIdPos].sum_gd / (pNewNodeStat[snIdPos].sum_hess + lambda));
-	pAllTreeNode[nid].base_weight = nodeWeight;
+	pAllTreeNode[nid].base_weight = (-pNewNodeStat[snIdPos].sum_gd / (pNewNodeStat[snIdPos].sum_hess + lambda));
 	if(pBestSplitPoint[snIdPos].m_fGain <= rt_eps || bLastLevel == true)
 	{
 		//printf("gd=%f, hess=%f, lambda=%f; w=%f\n", pSNodeStat[snIdPos].sum_gd, pSNodeStat[snIdPos].sum_hess, lambda, nodeWeight);
@@ -323,8 +322,6 @@ __global__ void UpdateNewSplittable(TreeNode *pNewSplittableNode, nodeStat *pNew
 	int nid = pNewSplittableNode[nGlobalThreadId].nodeId;
 	ECHECKER(nid);
 
-
-	bool bIsNew = false;
 	int snPos = nid % maxNumofSplittable;
 
 	ECHECKER(snPos);

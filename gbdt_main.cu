@@ -10,7 +10,6 @@
 #include <time.h>
 #include <helper_cuda.h>
 #include <cuda.h>
-#include "Host/DataReader/LibsvmReaderSparse.h"
 #include "Host/Evaluation/RMSE.h"
 #include "DeviceHost/svm-shared/fileOps.h"
 
@@ -21,6 +20,7 @@
 #include "Device/DevicePredictor.h"
 #include "SharedUtility/initCuda.h"
 #include "SharedUtility/CudaMacro.h"
+#include "SharedUtility/DataReader/LibsvmReaderSparse.h"
 #include "Device/FindSplit/IndexComputer.h"
 
 #include "Device/FileBuffer/FileBuffer.h"
@@ -85,7 +85,7 @@ int main(int argc, char *argv[])
 	//read the file the first time
 	if(bBufferFileExist == false){
 		dataReader.GetDataInfo(strFileName, numFea, numIns, numFeaValue);
-		dataReader.ReadLibSVMFormatSparse(v_vInsSparse, v_fLabel, strFileName, numFea, numIns);
+		dataReader.ReadLibSVMAsSparse(v_vInsSparse, v_fLabel, strFileName, numFea, numIns);
 		trainer.m_vvInsSparse = v_vInsSparse;//later used in sorting values for each feature
 		trainer.m_vTrueValue = v_fLabel;
 	}
@@ -149,6 +149,7 @@ int main(int argc, char *argv[])
 	bagManager.m_pTrueLabel_h = pTrueLabel;
 
 	int *pFvalueFid = new int[numFeaValue];
+	memset(pFvalueFid, -1, sizeof(int) * numFeaValue);
 	for(int f = 0; f < numFea; f++){
 		std::fill_n(pFvalueFid + plFeaStartPos[f], pNumofKeyValue[f], f);
 	}

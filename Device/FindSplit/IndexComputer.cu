@@ -134,9 +134,9 @@ __global__ void CollectGatherIdx(const unsigned char *pPartitionMarker, unsigned
 /**
   * @brief: store gather indices
   */
-__global__ void EachFeaLenEachNode(const unsigned char *pPartitionMarker, unsigned int markerLen,
-								 const int *pFeaId, int *pEachFeaLenEachNode, unsigned int numFea,
-								 unsigned int numParition){
+__global__ void EachFeaLenEachNode(const unsigned char *pPartitionMarker, uint markerLen,
+								 const int *pFeaId, int *pEachFeaLenEachNode, uint numFea,
+								 uint numParition){
 	int gTid = GLOBAL_TID();
 	if(gTid >= markerLen)//thread has nothing to collect
 		return;
@@ -146,6 +146,10 @@ __global__ void EachFeaLenEachNode(const unsigned char *pPartitionMarker, unsign
 		return;//skip this element, as element is marked as leaf.
 	}
 	int feaId = pFeaId[gTid];
+	//if(gTid >= 13940 && pid == 0 && gTid < 14000)
+	//	printf("gTid=%d, feaId=%d\n", gTid, feaId);
+//	if(threadIdx.x == 32 && blockIdx.x == 57921)
+//		printf("gTid=%d, feaId=%d, pid=%d\n", gTid, feaId, pid);
 	atomicAdd(&pEachFeaLenEachNode[pid * numFea + feaId], 1);
 }
 

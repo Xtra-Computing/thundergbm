@@ -36,7 +36,7 @@ void BaseLibSVMReader::GetDataInfo(string strFileName, int &nNumofFeatures, int 
 	char cColon;
 	while (readIn.eof() != true){
 		getline(readIn, str);
-
+		if (str == "") break;
 		istringstream in(str);
 
 		real fValue = 0;//label

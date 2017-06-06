@@ -257,6 +257,9 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 		testTotalFeaValue += indexComp.m_pNumFeaValueEachNode_dh[n];
 //		printf("fv start=%u, len=%d\t", pFeaValueStartPosEachNode_h[n], indexComp.m_pNumFeaValueEachNode_dh[n]);
 	}
+	int *pEachFeaLenEachNode_h = new int[numofSNode * bagManager.m_numFea];
+	checkCudaErrors(cudaMemcpy(pEachFeaLenEachNode_h, pTempEachFeaLenEachNode, sizeof(int) * numofSNode * bagManager.m_numFea, cudaMemcpyDeviceToHost));
+
 //	printf("monitored total fvalue: %u\n", testTotalFeaValue);
 
 	delete []pFeaValueStartPosEachNode_h;
