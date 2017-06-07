@@ -50,7 +50,6 @@ int *BagManager::m_pnLocalBestGainKeyEachBag_d = NULL;		//local best gain key of
 int BagManager::m_maxNumofBlockPerNode = -1;				//number of blocks
 real *BagManager::m_pfGlobalBestGainEachBag_d = NULL;//global best gain of each bag
 int *BagManager::m_pnGlobalBestGainKeyEachBag_d = NULL;		//global best gain key of each bag
-int *BagManager::m_pEachFeaLenEachNodeEachBag_dh = NULL;//each feature value length in each node
 
 //for pinned memory; for computing indices in multiple level tree
 unsigned int *BagManager::m_pIndicesEachBag_d = NULL;	//indices for multiple level tree of each bag
@@ -191,10 +190,6 @@ void BagManager::AllocMem()
 	checkCudaErrors(cudaMalloc((void**)&m_pnLocalBestGainKeyEachBag_d, sizeof(int) * m_maxNumofBlockPerNode * m_maxNumSplittable * m_numBag));
 	checkCudaErrors(cudaMalloc((void**)&m_pfGlobalBestGainEachBag_d, sizeof(real) * m_maxNumSplittable * m_numBag));
 	checkCudaErrors(cudaMalloc((void**)&m_pnGlobalBestGainKeyEachBag_d, sizeof(int) * m_maxNumSplittable * m_numBag));
-
-	checkCudaErrors(cudaMallocHost((void**)&m_pEachFeaLenEachNodeEachBag_dh, sizeof(int) * m_maxNumSplittable * m_numFea * m_numBag));
-	//initialise length of each feature in each node
-	memset(m_pEachFeaLenEachNodeEachBag_dh, 0, sizeof(int) * m_numFea * m_maxNumSplittable * m_numBag);
 
 	//corresponding to pinned memory; for computing indices of more than one level trees
 	checkCudaErrors(cudaMalloc((void**)&m_pIndicesEachBag_d, sizeof(unsigned int) * m_numFeaValue * m_numBag));

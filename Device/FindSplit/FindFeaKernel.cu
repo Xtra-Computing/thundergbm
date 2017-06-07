@@ -277,11 +277,11 @@ __global__ void PickGlobalBestSplitEachNode(const real *pfLocalBestGain, const i
 /**
  * @brief: find split points
  */
-__global__ void FindSplitInfo(const unsigned int *pEachFeaStartPosEachNode, const int *pEachFeaLenEachNode,
+__global__ void FindSplitInfo(const uint *pEachFeaStartPosEachNode, const int *pEachFeaLenEachNode,
 							  const real *pDenseFeaValue, const real *pfGlobalBestGain, const int *pnGlobalBestGainKey,
 							  const int *pPartitionId2SNPos, const int numFea,
 							  const nodeStat *snNodeStat, const double *pPrefixSumGD, const real *pPrefixSumHess,
-							  const bool *pDefault2Right, const unsigned int *pnLastFvalueOfThisFvalue,
+							  const bool *pDefault2Right, const uint *pnLastFvalueOfThisFvalue,
 							  SplitPoint *pBestSplitPoint, nodeStat *pRChildStat, nodeStat *pLChildStat)
 {
 	//a thread for constructing a split point

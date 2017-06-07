@@ -13,10 +13,6 @@
 #include "Bagging/BagManager.h"
 #include "FindSplit/IndexComputer.h"
 
-#define testing
-//#undef testing
-//#endif
-
 /**
  * @brief: initialise tree
  */
@@ -74,23 +70,24 @@ void DeviceTrainer::GrowTree(RegTree &tree, void *pStream, int bagId)
 
 	//split node(s)
 	int nCurDepth = 0;
-#ifdef testing
-	((DeviceSplitter*)splitter)->total_scan_t = 0;
-	((DeviceSplitter*)splitter)->total_com_gain_t = 0;
-	((DeviceSplitter*)splitter)->total_fill_gd_t = 0;
-	((DeviceSplitter*)splitter)->total_search_t = 0;
-	((DeviceSplitter*)splitter)->total_fix_gain_t = 0;
-	((DeviceSplitter*)splitter)->total_com_idx_t = 0;
-	((DeviceSplitter*)splitter)->total_weight_t = 0;
-	((DeviceSplitter*)splitter)->total_create_node_t = 0;
-	((DeviceSplitter*)splitter)->total_unique_id_t = 0;
-	((DeviceSplitter*)splitter)->total_ins2node_t = 0;
-	((DeviceSplitter*)splitter)->total_ins2default_t = 0;
-	((DeviceSplitter*)splitter)->total_update_new_splittable_t = 0;
+	DeviceSplitter *pDSpliter = (DeviceSplitter*)splitter;
+#ifdef _DEBUG
+	pDSpliter->total_scan_t = 0;
+	pDSpliter->total_com_gain_t = 0;
+	pDSpliter->total_fill_gd_t = 0;
+	pDSpliter->total_search_t = 0;
+	pDSpliter->total_fix_gain_t = 0;
+	pDSpliter->total_com_idx_t = 0;
+	pDSpliter->total_weight_t = 0;
+	pDSpliter->total_create_node_t = 0;
+	pDSpliter->total_unique_id_t = 0;
+	pDSpliter->total_ins2node_t = 0;
+	pDSpliter->total_ins2default_t = 0;
+	pDSpliter->total_update_new_splittable_t = 0;
 #endif
 	while(bagManager.m_curNumofSplitableEachBag_h[bagId] > 0 && nCurDepth <= m_nMaxDepth)
 	{
-		splitter->m_nCurDept = nCurDepth;
+		pDSpliter->m_nCurDept = nCurDepth;
 //		cout << "splitting " << nCurDepth << " level..." << endl;
 
 		vector<SplitPoint> vBest;
@@ -99,7 +96,7 @@ void DeviceTrainer::GrowTree(RegTree &tree, void *pStream, int bagId)
 		clock_t begin_find_fea = clock();
 
 		if(nCurDepth < m_nMaxDepth)//don't need to find split for the last level
-			splitter->FeaFinderAllNode(vBest, rchildStat, lchildStat, pStream, bagId);
+			pDSpliter->FeaFinderAllNode(vBest, rchildStat, lchildStat, pStream, bagId);
 
 		clock_t end_find_fea = clock();
 		total_find_fea_t += (double(end_find_fea - begin_find_fea) / CLOCKS_PER_SEC);
@@ -113,7 +110,7 @@ void DeviceTrainer::GrowTree(RegTree &tree, void *pStream, int bagId)
 		int curNumofNode = -1;//this is fine even though bagging is used, as each bag is handled by a host thread.
 		manager.MemcpyDeviceToHostAsync(bagManager.m_pCurNumofNodeTreeOnTrainingEachBag_d + bagId, &curNumofNode, sizeof(int), pStream);
 		PROCESS_ERROR(curNumofNode > 0);
-		splitter->SplitAll(splittableNode, vBest, tree, curNumofNode, rchildStat, lchildStat, bLastLevel, pStream, bagId);
+		pDSpliter->SplitAll(splittableNode, vBest, tree, curNumofNode, rchildStat, lchildStat, bLastLevel, pStream, bagId);
 //		cout << "done splitting" << endl;
 
 		manager.MemcpyDeviceToHostAsync(bagManager.m_pNumofNewNodeTreeOnTrainingEachBag + bagId, bagManager.m_curNumofSplitableEachBag_h + bagId,
@@ -148,28 +145,28 @@ void DeviceTrainer::GrowTree(RegTree &tree, void *pStream, int bagId)
 
 	StoreFinalTree(pAllNode, numofNode, pStream, bagId);
 
-#ifdef testing
+#ifdef _DEBUG
 	clock_t end_prune = clock();
 	total_prune_t += (double(end_prune - begin_prune) / CLOCKS_PER_SEC);
 
-	double total_scan = ((DeviceSplitter*)splitter)->total_scan_t;
-	double total_gain = ((DeviceSplitter*)splitter)->total_com_gain_t;
-	double total_fill = ((DeviceSplitter*)splitter)->total_fill_gd_t;
-	double total_search = ((DeviceSplitter*)splitter)->total_search_t;
-	double total_fix = ((DeviceSplitter*)splitter)->total_fix_gain_t;
-	double total_com_idx = ((DeviceSplitter*)splitter)->total_com_idx_t;
+	double total_scan = pDSpliter->total_scan_t;
+	double total_gain = pDSpliter->total_com_gain_t;
+	double total_fill = pDSpliter->total_fill_gd_t;
+	double total_search = pDSpliter->total_search_t;
+	double total_fix = pDSpliter->total_fix_gain_t;
+	double total_com_idx = pDSpliter->total_com_idx_t;
 	cout << "com idx " << total_com_idx/CLOCKS_PER_SEC
 		 << "; scan takes " << total_scan/CLOCKS_PER_SEC << "; comp gain takes " << total_gain/CLOCKS_PER_SEC
 		 << "; fix gain takes " << total_fix / CLOCKS_PER_SEC
 		 << "; fill gd takes " << total_fill/CLOCKS_PER_SEC << "; search takes " << total_search/CLOCKS_PER_SEC << endl;
 
 	//split
-	double total_weight = ((DeviceSplitter*)splitter)->total_weight_t;
-	double total_create_node = ((DeviceSplitter*)splitter)->total_create_node_t;
-	double total_unique_id = ((DeviceSplitter*)splitter)->total_unique_id_t;
-	double total_ins2node = ((DeviceSplitter*)splitter)->total_ins2node_t;
-	double total_ins2default = ((DeviceSplitter*)splitter)->total_ins2default_t;
-	double total_update_new_sp = ((DeviceSplitter*)splitter)->total_update_new_splittable_t;
+	double total_weight = pDSpliter->total_weight_t;
+	double total_create_node = pDSpliter->total_create_node_t;
+	double total_unique_id = pDSpliter->total_unique_id_t;
+	double total_ins2node = pDSpliter->total_ins2node_t;
+	double total_ins2default = pDSpliter->total_ins2default_t;
+	double total_update_new_sp = pDSpliter->total_update_new_splittable_t;
 	cout << "comp weight " << total_weight/CLOCKS_PER_SEC
 		 << "; create node " << total_create_node/CLOCKS_PER_SEC
 		 << "; unique id " << total_unique_id/CLOCKS_PER_SEC

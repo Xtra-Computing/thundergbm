@@ -58,7 +58,6 @@ public:
 	static int *m_pnLocalBestGainKeyEachBag_d;
 	static real *m_pfGlobalBestGainEachBag_d;
 	static int *m_pnGlobalBestGainKeyEachBag_d;
-	static int *m_pEachFeaLenEachNodeEachBag_dh;//each feature value length in each node
 
 	//for pinned memory; for computing indices in multiple level tree
 	static unsigned int *m_pIndicesEachBag_d;
