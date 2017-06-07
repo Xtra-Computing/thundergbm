@@ -28,15 +28,14 @@ int IndexComputer::m_numFea = -1;	//number of features
 int IndexComputer::m_maxNumofSN = -1;
 long long IndexComputer::m_total_copy = -1;
 
-unsigned int *IndexComputer::m_pNumFeaValueEachNode_dh = NULL;	//# of feature values of each node
 unsigned char *IndexComputer::pPartitionMarker = NULL;
-unsigned int *IndexComputer::m_pnKey = NULL;
+uint *IndexComputer::m_pnKey = NULL;
 
 //histogram based partitioning
-unsigned int *IndexComputer::m_pHistogram_d = NULL;
-unsigned int IndexComputer::m_numElementEachThd = 0xffff;
-unsigned int IndexComputer::m_totalNumEffectiveThd = 0xffff;
-unsigned int *IndexComputer::m_pEachNodeStartPos_d;
+uint *IndexComputer::m_pHistogram_d = NULL;
+uint IndexComputer::m_numElementEachThd = 0xffff;
+uint IndexComputer::m_totalNumEffectiveThd = 0xffff;
+uint *IndexComputer::m_pEachNodeStartPos_d;
 
 /**
   *@brief: mark feature values beloning to node with id=snId by 1
@@ -276,10 +275,11 @@ void IndexComputer::ComputeIdxGPU(int numSNode, int maxNumSN, int bagId){
 								  m_pHistogram_d, m_pHistogram_d);//in place prefix sum
 
 	//get number of fvalue in each partition (i.e. each new node)
-	ComputeNumFvalueEachNode<<<1, numSNode>>>(m_pHistogram_d, m_totalNumEffectiveThd, m_pNumFeaValueEachNode_dh);
+	uint *pTempNumFvalueEachNode = bagManager.m_pNumFvalueEachNodeEachBag_d + bagId * bagManager.m_maxNumSplittable;
+	ComputeNumFvalueEachNode<<<1, numSNode>>>(m_pHistogram_d, m_totalNumEffectiveThd, pTempNumFvalueEachNode);
 	cudaDeviceSynchronize();//this is very important
 
-	checkCudaErrors(cudaMemcpy(m_pEachNodeStartPos_d, m_pNumFeaValueEachNode_dh, sizeof(unsigned int) * numSNode, cudaMemcpyHostToDevice));
+	checkCudaErrors(cudaMemcpy(m_pEachNodeStartPos_d, pTempNumFvalueEachNode, sizeof(unsigned int) * numSNode, cudaMemcpyDeviceToDevice));
 	thrust::exclusive_scan(thrust::system::cuda::par, m_pEachNodeStartPos_d, m_pEachNodeStartPos_d + numSNode, m_pEachNodeStartPos_d);
 
 	//write to gather index
@@ -320,8 +320,6 @@ void IndexComputer::AllocMem(int nNumofExamples, int nNumofFeatures, int maxNumo
 {
 	m_numFea = nNumofFeatures;
 	m_maxNumofSN = maxNumofSplittableNode;
-
-	checkCudaErrors(cudaMallocHost((void**)&m_pNumFeaValueEachNode_dh, sizeof(uint) * m_maxNumofSN));
 
 	checkCudaErrors(cudaMalloc((void**)&pPartitionMarker, sizeof(unsigned char) * m_totalFeaValue));
 

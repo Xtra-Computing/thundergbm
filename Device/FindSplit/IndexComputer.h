@@ -21,7 +21,6 @@ public:
 	static long long m_total_copy;
 
 	//pinned memory
-	static uint *m_pNumFeaValueEachNode_dh;
 	static int *m_pPosToBuffId_dh;
 
 	//device memory
