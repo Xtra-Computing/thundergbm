@@ -23,7 +23,8 @@ __global__ void LoadGDHessFvalue(const real *pInsGD, const real *pInsHess, int n
 						   double *pGDEachFeaValue, real *pHessEachFeaValue, real *pDenseFeaValue);
 __global__ void ComputeGainDense(const nodeStat *pSNodeStat, const int *pBuffId,	real lambda,
 							const double *pGDPrefixSumOnEachFeaValue, const real *pHessPrefixSumOnEachFeaValue,
-							const real *pDenseFeaValue, int numofDenseValue, const uint *pnLastFvalueOfThisFvalue,
+							const real *pDenseFeaValue, int numofDenseValue,
+							const uint *pEachFeaStartEachNode, const int *pEachFeaLenEachNode,
 							const uint *pnKey, int numFea, real *pGainOnEachFeaValue, bool *pDefault2Right);
 __global__ void FirstFeaGain(const unsigned int *pEachFeaStartPosEachNode, int numFeaStartPos, real *pGainOnEachFeaValue, long long numFeaValue);
 __global__ void PickLocalBestSplitEachNode(const uint *pnNumFeaValueEachNode, const uint *pFeaStartPosEachNode,
@@ -36,7 +37,7 @@ __global__ void FindSplitInfo(const uint *pEachFeaStartPosEachNode, const int *p
 							  const real *pDenseFeaValue, const real *pfGlobalBestGain, const int *pnGlobalBestGainKey,
 							  const int *pPosToBuffId, const int numFea,
 							  const nodeStat *snNodeStat, const double *pPrefixSumGD, const real *pPrefixSumHess,
-							  const bool *pDefault2Right, const uint *pnLastFvalueOfThisFvalue,
+							  const bool *pDefault2Right, const uint *pnKey,
 							  SplitPoint *pBestSplitPoint, nodeStat *pRChildStat, nodeStat *pLChildStat);
 
 //helper functions

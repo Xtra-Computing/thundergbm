@@ -28,7 +28,7 @@ using std::endl;
 using std::make_pair;
 using std::cerr;
 
-__global__ void SetKey(uint *pSegStart, int *pSegLen, uint *pnKey, uint *pnPosOfLastValueOfThisSeg){
+__global__ void SetKey(uint *pSegStart, int *pSegLen, uint *pnKey){
 	uint segmentId = blockIdx.x;//use one x covering multiple ys, because the maximum number of x-dimension is larger.
 	__shared__ uint segmentLen, segmentStartPos;
 	if(threadIdx.x == 0){//the first thread loads the segment length
@@ -45,7 +45,6 @@ __global__ void SetKey(uint *pSegStart, int *pSegLen, uint *pnKey, uint *pnPosOf
 	uint pos = segmentThreadId;
 	while(pos < segmentLen){
 		pnKey[pos + segmentStartPos] = segmentId;
-		pnPosOfLastValueOfThisSeg[pos + segmentStartPos] = segmentStartPos + segmentLen - 1;
 		pos += blockDim.x;
 	}
 }
@@ -157,10 +156,8 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 
 	//construct keys for exclusive scan
 	uint *pnKey_d;
-	unsigned int *pnLastFvalueOfThisFvalue_d, *pnLastFvalueOfThisFvalue_h = new unsigned int[bagManager.m_numFeaValue];
 	checkCudaErrors(cudaMalloc((void**)&pnKey_d, bagManager.m_numFeaValue * sizeof(uint)));
-	checkCudaErrors(cudaMalloc((void**)&pnLastFvalueOfThisFvalue_d, bagManager.m_numFeaValue * sizeof(unsigned int)));
-	unsigned int *pTempEachFeaStartEachNode = bagManager.m_pEachFeaStartPosEachNodeEachBag_d + bagId * bagManager.m_maxNumSplittable * bagManager.m_numFea;
+	uint *pTempEachFeaStartEachNode = bagManager.m_pEachFeaStartPosEachNodeEachBag_d + bagId * bagManager.m_maxNumSplittable * bagManager.m_numFea;
 
 	//set keys by GPU
 	int maxSegLen = 0;
@@ -173,7 +170,7 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 	uint blockSize = 128;
 	dimNumofBlockToSetKey.y = (maxSegLen + blockSize - 1) / blockSize;
 	SetKey<<<totalNumArray, blockSize, sizeof(uint) * 2, (*(cudaStream_t*)pStream)>>>
-			(pTempEachFeaStartEachNode, pTempEachFeaLenEachNode, pnKey_d, pnLastFvalueOfThisFvalue_d);
+			(pTempEachFeaStartEachNode, pTempEachFeaLenEachNode, pnKey_d);
 	cudaStreamSynchronize((*(cudaStream_t*)pStream));
 
 	//compute prefix sum for gd and hess (more than one arrays)
@@ -202,15 +199,12 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 											DeviceSplitter::m_lambda, bagManager.m_pdGDPrefixSumEachBag + bagId * bagManager.m_numFeaValue,
 											bagManager.m_pHessPrefixSumEachBag + bagId * bagManager.m_numFeaValue,
 											bagManager.m_pDenseFValueEachBag + bagId * bagManager.m_numFeaValue,
-											numofDenseValue, pnLastFvalueOfThisFvalue_d, pnKey_d, bagManager.m_numFea,
+											numofDenseValue, pTempEachFeaStartEachNode, pTempEachFeaLenEachNode, pnKey_d, bagManager.m_numFea,
 											bagManager.m_pGainEachFvalueEachBag + bagId * bagManager.m_numFeaValue,
 											pDefault2Right);
 	cudaStreamSynchronize((*(cudaStream_t*)pStream));
 	GETERROR("after ComputeGainDense");
 	
-	delete[] pnLastFvalueOfThisFvalue_h;
-	cudaDeviceSynchronize();
-
 	//change the gain of the first feature value to 0
 	int numFeaStartPos = bagManager.m_numFea * numofSNode;
 //	printf("num fea start pos=%d (%d * %d)\n", numFeaStartPos, bagManager.m_numFea, numofSNode);
@@ -283,20 +277,18 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 									 bagManager.m_pEachFeaStartPosEachNodeEachBag_d + bagId * bagManager.m_maxNumSplittable * bagManager.m_numFea,
 									 bagManager.m_pEachFeaLenEachNodeEachBag_d + bagId * bagManager.m_maxNumSplittable * bagManager.m_numFea,
 									 bagManager.m_pDenseFValueEachBag + bagId * bagManager.m_numFeaValue,
-									 pfGlobalBestGain_d,
-									 pnGlobalBestGainKey_d,
+									 pfGlobalBestGain_d, pnGlobalBestGainKey_d,
 				  	  	  	  	  	 bagManager.m_pPartitionId2SNPosEachBag + bagId * bagManager.m_maxNumSplittable, nNumofFeature,
 				  	  	  	  	  	 bagManager.m_pSNodeStatEachBag + bagId * bagManager.m_maxNumSplittable,
 				  	  	  	  	  	 bagManager.m_pdGDPrefixSumEachBag + bagId * bagManager.m_numFeaValue,
 				  	  	  	  	  	 bagManager.m_pHessPrefixSumEachBag + bagId * bagManager.m_numFeaValue,
-				  	  	  	  	  	 pDefault2Right, pnLastFvalueOfThisFvalue_d,
+				  	  	  	  	  	 pDefault2Right, pnKey_d,
 				  	  	  	  	  	 bagManager.m_pBestSplitPointEachBag + bagId * bagManager.m_maxNumSplittable,
 				  	  	  	  	  	 bagManager.m_pRChildStatEachBag + bagId * bagManager.m_maxNumSplittable,
 				  	  	  	  	  	 bagManager.m_pLChildStatEachBag + bagId * bagManager.m_maxNumSplittable);
 	cudaStreamSynchronize((*(cudaStream_t*)pStream));
-	checkCudaErrors(cudaFree(pnLastFvalueOfThisFvalue_d));
-	checkCudaErrors(cudaFree(pDefault2Right));
 	checkCudaErrors(cudaFree(pnKey_d));
+	checkCudaErrors(cudaFree(pDefault2Right));
 	checkCudaErrors(cudaFree(pfLocalBestGain_d));
 	checkCudaErrors(cudaFree(pfGlobalBestGain_d));
 	checkCudaErrors(cudaFree(pnLocalBestGainKey_d));

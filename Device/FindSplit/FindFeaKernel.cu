@@ -76,7 +76,8 @@ __global__ void LoadGDHessFvalue(const real *pInsGD, const real *pInsHess, int n
  */
 __global__ void ComputeGainDense(const nodeStat *pSNodeStat, const int *pId2SNPos, real lambda,
 							const double *pGDPrefixSumOnEachFeaValue, const real *pHessPrefixSumOnEachFeaValue,
-							const real *pDenseFeaValue, int numofDenseValue, const unsigned int *pnLastFvalueOfThisFvalue,
+							const real *pDenseFeaValue, int numofDenseValue,
+							const uint *pEachFeaStartEachNode, const int *pEachFeaLenEachNode,
 							const uint *pnKey, int numFea, real *pGainOnEachFeaValue, bool *pDefault2Right)
 {
 	//one thread loads one value
@@ -130,7 +131,9 @@ __global__ void ComputeGainDense(const nodeStat *pSNodeStat, const int *pId2SNPo
     }
 
     //backward consideration
-    unsigned int lastFvaluePos = pnLastFvalueOfThisFvalue[gTid];
+    int segLen = pEachFeaLenEachNode[segId];
+    uint segStartPos = pEachFeaStartEachNode[segId];
+    uint lastFvaluePos = segStartPos + segLen - 1;
     real totalMissingGD = parentGD - pGDPrefixSumOnEachFeaValue[lastFvaluePos];
     real totalMissingHess = parentHess - pHessPrefixSumOnEachFeaValue[lastFvaluePos];
     if(totalMissingHess < 1)//there is no instance with missing values
@@ -281,7 +284,7 @@ __global__ void FindSplitInfo(const uint *pEachFeaStartPosEachNode, const int *p
 							  const real *pDenseFeaValue, const real *pfGlobalBestGain, const int *pnGlobalBestGainKey,
 							  const int *pPartitionId2SNPos, const int numFea,
 							  const nodeStat *snNodeStat, const double *pPrefixSumGD, const real *pPrefixSumHess,
-							  const bool *pDefault2Right, const uint *pnLastFvalueOfThisFvalue,
+							  const bool *pDefault2Right, const uint *pnKey,
 							  SplitPoint *pBestSplitPoint, nodeStat *pRChildStat, nodeStat *pLChildStat)
 {
 	//a thread for constructing a split point
@@ -330,7 +333,11 @@ __global__ void FindSplitInfo(const uint *pEachFeaStartPosEachNode, const int *p
 
 		real parentGD = snNodeStat[snPos].sum_gd;
 		real parentHess = snNodeStat[snPos].sum_hess;
-		unsigned int lastFvaluePos = pnLastFvalueOfThisFvalue[key];
+
+		uint segId = pnKey[key];
+		uint segStartPos = pEachFeaStartPosEachNode[segId];
+		int segLen = pEachFeaLenEachNode[segId];
+		uint lastFvaluePos = segStartPos + segLen - 1;
 		real totalMissingGD = parentGD - pPrefixSumGD[lastFvaluePos];
 		real totalMissingHess = parentHess - pPrefixSumHess[lastFvaluePos];
 
