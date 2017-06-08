@@ -29,9 +29,9 @@ void DevicePredictor::PredictSparseIns(vector<vector<KeyValue> > &v_vInstance, v
 	DenseInsConverter denseInsConverter(vTree);
 	int numofUsedFea = denseInsConverter.usedFeaSet.size();
 
-	if(manager.m_maxUsedFeaInTrees < numofUsedFea)
+	if(manager.m_maxUsedFeaInATree < numofUsedFea)
 	{
-		cout << "numofUsedFea=" << numofUsedFea << " v.s. maxUsedFeaInTrees " << manager.m_maxUsedFeaInTrees << endl;
+		cout << "numofUsedFea=" << numofUsedFea << " v.s. maxUsedFeaInTrees " << manager.m_maxUsedFeaInATree << endl;
 		exit(0);
 	}
 
@@ -46,11 +46,13 @@ void DevicePredictor::PredictSparseIns(vector<vector<KeyValue> > &v_vInstance, v
 
 	//for each tree
 	int nNumofIns = manager.m_numofIns;
-	int nNumofTree = bagManager.m_pNumofTreeLearntEachBag_h[bagId];
+	int nNumofTree = manager.m_pNumofTreeLearntEachBag_h[bagId];
 	PROCESS_ERROR(nNumofTree > 0);
 
 	//start prediction
-	manager.MemsetAsync(bagManager.m_pTargetValueEachBag + bagId * bagManager.m_numIns, 0, sizeof(real) * nNumofIns, pStream);
+	real *pPredictedValue;
+	checkCudaErrors(cudaMalloc((void**)&pPredictedValue, sizeof(real) * nNumofIns));
+	manager.MemsetAsync(pPredictedValue, 0, sizeof(real) * nNumofIns, pStream);
 
 	uint startPos = 0;
 	int startInsId = 0;
@@ -70,13 +72,13 @@ void DevicePredictor::PredictSparseIns(vector<vector<KeyValue> > &v_vInstance, v
 
 	if(numofUsedFea > 0){
 		//memset dense instances
-		real *pTempDense = bagManager.m_pdDenseInsEachBag + bagId * bagManager.m_maxNumUsedFeaATree * bagManager.m_numIns;
+		real *pTempDense = manager.m_pdDenseInsEachBag + bagId * bagManager.m_maxNumUsedFeaATree * bagManager.m_numIns;
 		checkCudaErrors(cudaMemset(pTempDense, -1, sizeof(real) * bagManager.m_maxNumUsedFeaATree * bagManager.m_numIns));
 		FillMultiDense<<<dimNumofBlock, threadPerBlock, 0, (*(cudaStream_t*)pStream)>>>(
 											  pDevInsValue, pInsStartPos, pDevFeaId, pNumofFea,
 											  pTempDense,
-											  bagManager.m_pSortedUsedFeaIdBag + bagId * bagManager.m_maxNumUsedFeaATree,
-										  	  bagManager.m_pHashFeaIdToDenseInsPosBag + bagId * bagManager.m_maxNumUsedFeaATree,
+											  manager.m_pSortedUsedFeaIdBag + bagId * bagManager.m_maxNumUsedFeaATree,
+										  	  manager.m_pHashFeaIdToDenseInsPosBag + bagId * bagManager.m_maxNumUsedFeaATree,
 											  numofUsedFea, startInsId, numofInsToFill);
 	}
 	cudaDeviceSynchronize();
@@ -91,20 +93,21 @@ void DevicePredictor::PredictSparseIns(vector<vector<KeyValue> > &v_vInstance, v
 		GetTreeInfo(pTree, numofNodeOfTheTree, treeId, pStream, bagId);
 		PROCESS_ERROR(pTree != NULL);
 		PredMultiTarget<<<dimNumofBlock, threadPerBlock, 0, (*(cudaStream_t*)pStream)>>>(
-													bagManager.m_pTargetValueEachBag + bagId * bagManager.m_numIns, numofInsToFill, pTree,
-													bagManager.m_pdDenseInsEachBag + bagId * bagManager.m_numIns * bagManager.m_maxNumUsedFeaATree, numofUsedFea,
-													bagManager.m_pHashFeaIdToDenseInsPosBag + bagId * bagManager.m_maxNumUsedFeaATree, bagManager.m_maxTreeDepth);
+													pPredictedValue, numofInsToFill, pTree,
+													manager.m_pdDenseInsEachBag + bagId * bagManager.m_numIns * bagManager.m_maxNumUsedFeaATree, numofUsedFea,
+													manager.m_pHashFeaIdToDenseInsPosBag + bagId * bagManager.m_maxNumUsedFeaATree, bagManager.m_maxTreeDepth);
 		cudaStreamSynchronize((*(cudaStream_t*)pStream));
 	}
 
 	real *pTempTarget = new real[nNumofIns];
-	manager.MemcpyDeviceToHostAsync(bagManager.m_pTargetValueEachBag + bagId * bagManager.m_numIns,
+	manager.MemcpyDeviceToHostAsync(pPredictedValue,
 									pTempTarget, sizeof(real) * nNumofIns, pStream);
 
 	for(int i = 0; i < nNumofIns; i++){
 		v_fPredValue.push_back(pTempTarget[i]);
 	}
 	delete []pTempTarget;
+	checkCudaErrors(cudaFree(pPredictedValue));
 }
 
 /**
@@ -131,15 +134,15 @@ void DevicePredictor::GetUsedFeature(vector<int> &v_usedFeaSortedId, int *&pHash
 
 	//copy hash map to gpu memory
 	GBDTGPUMemManager manager;
-	BagManager bagManger;
-	checkCudaErrors(cudaMemsetAsync(bagManger.m_pHashFeaIdToDenseInsPosBag + bagId * bagManger.m_maxNumUsedFeaATree, -1,
-									sizeof(int) * manager.m_maxUsedFeaInTrees, (*(cudaStream_t*)pStream)));
-	checkCudaErrors(cudaMemsetAsync(bagManger.m_pSortedUsedFeaIdBag + bagId * bagManger.m_maxNumUsedFeaATree, -1,
-									sizeof(int) * manager.m_maxUsedFeaInTrees, (*(cudaStream_t*)pStream)));
+	BagManager bagManager;
+	memset(manager.m_pHashFeaIdToDenseInsPosBag + bagId * bagManager.m_maxNumUsedFeaATree, -1,
+									sizeof(int) * manager.m_maxUsedFeaInATree);
+	checkCudaErrors(cudaMemsetAsync(manager.m_pSortedUsedFeaIdBag + bagId * bagManager.m_maxNumUsedFeaATree, -1,
+									sizeof(int) * manager.m_maxUsedFeaInATree, (*(cudaStream_t*)pStream)));
 
-	manager.MemcpyHostToDeviceAsync(pHashUsedFea, bagManger.m_pHashFeaIdToDenseInsPosBag + bagId * bagManger.m_maxNumUsedFeaATree,
+	manager.MemcpyHostToDeviceAsync(pHashUsedFea, manager.m_pHashFeaIdToDenseInsPosBag + bagId * bagManager.m_maxNumUsedFeaATree,
 									sizeof(int) * numofUsedFea, pStream);
-	manager.MemcpyHostToDeviceAsync(pSortedUsedFea, bagManger.m_pSortedUsedFeaIdBag + bagId * bagManger.m_maxNumUsedFeaATree,
+	manager.MemcpyHostToDeviceAsync(pSortedUsedFea, manager.m_pSortedUsedFeaIdBag + bagId * bagManager.m_maxNumUsedFeaATree,
 									sizeof(int) * numofUsedFea, pStream);
 }
 
@@ -152,10 +155,10 @@ void DevicePredictor::GetTreeInfo(TreeNode *&pTree, int &numofNodeOfTheTree, int
 		return;
 	GBDTGPUMemManager manager;
 	BagManager bagManager;
-	manager.MemcpyDeviceToHostAsync(bagManager.m_pNumofNodeEachTreeEachBag + bagId * bagManager.m_numTreeEachBag + treeId,
+	manager.MemcpyDeviceToHostAsync(manager.m_pNumofNodeEachTreeEachBag + bagId * bagManager.m_numTreeEachBag + treeId,
 								&numofNodeOfTheTree, sizeof(int), pStream);
 	int startPosOfLastTree = -1;
-	manager.MemcpyDeviceToHostAsync(bagManager.m_pStartPosOfEachTreeEachBag + bagId * bagManager.m_numTreeEachBag + treeId,
+	manager.MemcpyDeviceToHostAsync(manager.m_pStartPosOfEachTreeEachBag + bagId * bagManager.m_numTreeEachBag + treeId,
 								&startPosOfLastTree, sizeof(int), pStream);
-	pTree = bagManager.m_pAllTreeEachBag + startPosOfLastTree;
+	pTree = manager.m_pAllTreeEachBag + startPosOfLastTree;
 }

@@ -9,6 +9,7 @@
 #include <iostream>
 #include <thrust/reduce.h>
 #include <thrust/execution_policy.h>
+#include <cuda.h>
 
 #include "FindFeaKernel.h"
 #include "../DevicePredictor.h"
@@ -48,7 +49,7 @@ void DeviceSplitter::ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> >
 	//hash feature id to position id
 	int numofUsedFea = denseInsConverter.usedFeaSet.size();
 	printf("# of used fea=%d\n", numofUsedFea);
-	PROCESS_ERROR(numofUsedFea <= manager.m_maxUsedFeaInTrees);
+	PROCESS_ERROR(numofUsedFea <= manager.m_maxUsedFeaInATree);
 	int *pHashUsedFea = NULL;
 	int *pSortedUsedFea = NULL;
 	pred.GetUsedFeature(denseInsConverter.usedFeaSet, pHashUsedFea, pSortedUsedFea, pStream, bagId);
@@ -61,14 +62,12 @@ void DeviceSplitter::ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> >
 	//the last learned tree
 	int numofNodeOfLastTree = 0;
 	TreeNode *pLastTree = NULL;
-	int numofTreeLearnt = bagManager.m_pNumofTreeLearntEachBag_h[bagId];
+	int numofTreeLearnt = manager.m_pNumofTreeLearntEachBag_h[bagId];
 	int treeId = numofTreeLearnt - 1;
 	pred.GetTreeInfo(pLastTree, numofNodeOfLastTree, treeId, pStream, bagId);
 
 	KernelConf conf;
 	//start prediction
-	checkCudaErrors(cudaMemsetAsync(bagManager.m_pTargetValueEachBag + bagId * bagManager.m_numIns, 0,
-									sizeof(real) * nNumofIns, (*(cudaStream_t*)pStream)));
 //###################  for my future experiments
 bool bOptimisePred = true;
 	if(nNumofTree > 0 && numofUsedFea >0 && bOptimisePred == false)//numofUsedFea > 0 means the tree has more than one node.
@@ -87,14 +86,14 @@ bool bOptimisePred = true;
 		conf.ComputeBlock(numofInsToFill, dimGridThreadForEachIns);
 		int sharedMemSizeEachIns = 1;
 		//memset dense instances
-		real *pTempDense = bagManager.m_pdDenseInsEachBag + bagId * bagManager.m_maxNumUsedFeaATree * bagManager.m_numIns;
+		real *pTempDense = manager.m_pdDenseInsEachBag + bagId * bagManager.m_maxNumUsedFeaATree * bagManager.m_numIns;
 		checkCudaErrors(cudaMemset(pTempDense, -1, sizeof(real) * bagManager.m_maxNumUsedFeaATree * bagManager.m_numIns));
 
 		FillMultiDense<<<dimGridThreadForEachIns, sharedMemSizeEachIns, 0, (*(cudaStream_t*)pStream)>>>(
 											  pDevInsValue, pInsStartPos, pDevFeaId, pNumofFea,
 											  pTempDense,
-										  	  bagManager.m_pSortedUsedFeaIdBag + bagId * bagManager.m_maxNumUsedFeaATree,
-										  	  bagManager.m_pHashFeaIdToDenseInsPosBag + bagId * bagManager.m_maxNumUsedFeaATree,
+										  	  manager.m_pSortedUsedFeaIdBag + bagId * bagManager.m_maxNumUsedFeaATree,
+										  	  manager.m_pHashFeaIdToDenseInsPosBag + bagId * bagManager.m_maxNumUsedFeaATree,
 											  numofUsedFea, startInsId, numofInsToFill);
 		GETERROR("after FillMultiDense");
 	}
@@ -110,8 +109,8 @@ bool bOptimisePred = true;
 			PredMultiTarget<<<dimGridThreadForEachIns, sharedMemSizeEachIns, 0, (*(cudaStream_t*)pStream)>>>(
 												  bagManager.m_pTargetValueEachBag + bagId * bagManager.m_numIns,
 												  nNumofIns, pLastTree,
-												  bagManager.m_pdDenseInsEachBag + bagId * bagManager.m_maxNumUsedFeaATree * bagManager.m_numIns,
-												  numofUsedFea, bagManager.m_pHashFeaIdToDenseInsPosBag + bagId * bagManager.m_maxNumUsedFeaATree,
+												  manager.m_pdDenseInsEachBag + bagId * bagManager.m_maxNumUsedFeaATree * bagManager.m_numIns,
+												  numofUsedFea, manager.m_pHashFeaIdToDenseInsPosBag + bagId * bagManager.m_maxNumUsedFeaATree,
 												  bagManager.m_maxTreeDepth);
 			GETERROR("after PredMultiTarget");
 		}
@@ -124,17 +123,6 @@ bool bOptimisePred = true;
 										bagManager.m_pTargetValueEachBag + bagId * bagManager.m_numIns,
 										nNumofIns, pLastTree, pTempIns2Nid);
 		}
-
-		//save to buffer
-		int threadPerBlock;
-		dim3 dimGridThread;
-		conf.ConfKernel(nNumofIns, threadPerBlock, dimGridThread);
-		SaveToPredBuffer<<<dimGridThread, threadPerBlock, 0, (*(cudaStream_t*)pStream)>>>(bagManager.m_pTargetValueEachBag + bagId * bagManager.m_numIns,
-																nNumofIns, bagManager.m_pPredBufferEachBag + bagId * bagManager.m_numIns);
-														 //(manager.m_pTargetValue, nNumofIns, manager.m_pPredBuffer);
-		//update the final prediction
-		manager.MemcpyDeviceToDeviceAsync(bagManager.m_pPredBufferEachBag + bagId * bagManager.m_numIns,
-									 bagManager.m_pTargetValueEachBag + bagId * bagManager.m_numIns, sizeof(real) * nNumofIns, pStream);
 	}
 
 	if(pHashUsedFea != NULL)
@@ -170,13 +158,11 @@ bool bOptimisePred = true;
 	manager.MemsetAsync(bagManager.m_pSNodeStatEachBag + bagId * bagManager.m_maxNumSplittable, 0,
 						sizeof(nodeStat) * bagManager.m_maxNumSplittable, pStream);
 	manager.MemsetAsync(bagManager.m_pPartitionId2SNPosEachBag + bagId * bagManager.m_maxNumSplittable, -1, sizeof(int) * bagManager.m_maxNumSplittable, pStream);
-	manager.MemsetAsync(bagManager.m_pNumofBuffIdEachBag + bagId, 0, sizeof(int), pStream);
 
 	InitNodeStat<<<1, 1, 0, (*(cudaStream_t*)pStream)>>>(gdSum, hessSum,
 						   bagManager.m_pSNodeStatEachBag + bagId * bagManager.m_maxNumSplittable,
 						   bagManager.m_maxNumSplittable,
-						   bagManager.m_pPartitionId2SNPosEachBag + bagId * bagManager.m_maxNumSplittable,
-						   bagManager.m_pNumofBuffIdEachBag + bagId);
+						   bagManager.m_pPartitionId2SNPosEachBag + bagId * bagManager.m_maxNumSplittable);
 
 	cudaStreamSynchronize((*(cudaStream_t*)pStream));
 	GETERROR("after InitNodeStat");

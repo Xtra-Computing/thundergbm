@@ -78,15 +78,16 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 	cudaStreamSynchronize((*(cudaStream_t*)pStream));
 
 	//compute index for each feature value
-	IndexComputer indexComp;
 	KernelConf conf;
 	int blockSizeLoadGD;
 	dim3 dimNumofBlockToLoadGD;
-	conf.ConfKernel(indexComp.m_totalFeaValue, blockSizeLoadGD, dimNumofBlockToLoadGD);
+	conf.ConfKernel(bagManager.m_numFeaValue, blockSizeLoadGD, dimNumofBlockToLoadGD);
 	//# of feature values that need to compute gains; the code below cannot be replaced by indexComp.m_totalNumFeaValue, due to some nodes becoming leaves.
 	int numofDenseValue = -1, maxNumFeaValueOneNode = -1;
 	if(numofSNode > 1)
 	{
+		IndexComputer indexComp;
+		indexComp.AllocMem(bagManager.m_numFea, numofSNode);
 		PROCESS_ERROR(nNumofFeature == bagManager.m_numFea);
 		clock_t comIdx_start = clock();
 		//compute gather index via GPUs
@@ -113,13 +114,14 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 		total_fill_gd_t += (end_gd - start_gd);
 		uint *pMaxNumFvalueOneNode = thrust::max_element(thrust::device, pTempNumFvalueEachNode, pTempNumFvalueEachNode + numofSNode);
 		checkCudaErrors(cudaMemcpy(&maxNumFeaValueOneNode, pMaxNumFvalueOneNode, sizeof(int), cudaMemcpyDeviceToHost));
+		indexComp.FreeMem();
 	}
 	else
 	{
 		clock_t start_gd = clock();
 		LoadGDHessFvalueRoot<<<dimNumofBlockToLoadGD, blockSizeLoadGD, 0, (*(cudaStream_t*)pStream)>>>(bagManager.m_pInsGradEachBag + bagId * bagManager.m_numIns,
 															   	   	bagManager.m_pInsHessEachBag + bagId * bagManager.m_numIns, bagManager.m_numIns,
-															   	   	manager.m_pDInsId, manager.m_pdDFeaValue, indexComp.m_totalFeaValue,
+															   	   	manager.m_pDInsId, manager.m_pdDFeaValue, bagManager.m_numFeaValue,
 															   		bagManager.m_pdGDPrefixSumEachBag + bagId * bagManager.m_numFeaValue,
 															   	   	bagManager.m_pHessPrefixSumEachBag + bagId * bagManager.m_numFeaValue,
 															   	   	bagManager.m_pDenseFValueEachBag + bagId * bagManager.m_numFeaValue);
@@ -150,7 +152,7 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 //	cout << "prefix sum" << endl;
 	clock_t start_scan = clock();
 	//compute the feature with the maximum number of values
-	int totalNumArray = indexComp.m_numFea * numofSNode;
+	int totalNumArray = bagManager.m_numFea * numofSNode;
 	cudaStreamSynchronize((*(cudaStream_t*)pStream));//wait until the pinned memory (m_pEachFeaLenEachNodeEachBag_dh) is filled
 
 	//construct keys for exclusive scan
@@ -165,7 +167,6 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 	int *pTempEachFeaLenEachNode = bagManager.m_pEachFeaLenEachNodeEachBag_d + bagId * bagManager.m_maxNumSplittable * bagManager.m_numFea;
 	int *pMaxLen = thrust::max_element(thrust::device, pTempEachFeaLenEachNode, pTempEachFeaLenEachNode + totalNumArray);
 	checkCudaErrors(cudaMemcpyAsync(&maxSegLen, pMaxLen, sizeof(int), cudaMemcpyDeviceToHost, (*(cudaStream_t*)pStream)));
-	printf("numIns=%d, actual max=%d\n", bagManager.m_numIns, maxSegLen);
 
 	dim3 dimNumofBlockToSetKey;
 	dimNumofBlockToSetKey.x = totalNumArray;
@@ -210,10 +211,6 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 	delete[] pnLastFvalueOfThisFvalue_h;
 	cudaDeviceSynchronize();
 
-	//for testing gain before fixing
-	real *pGain = new real[bagManager.m_numFeaValue];
-	cudaMemcpy(pGain, bagManager.m_pGainEachFvalueEachBag, bagManager.m_numFeaValue * sizeof(real), cudaMemcpyDeviceToHost);
-
 	//change the gain of the first feature value to 0
 	int numFeaStartPos = bagManager.m_numFea * numofSNode;
 //	printf("num fea start pos=%d (%d * %d)\n", numFeaStartPos, bagManager.m_numFea, numofSNode);
@@ -232,6 +229,8 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 
 //	cout << "searching" << endl;
 	clock_t start_search = clock();
+	real *pfLocalBestGain_d, *pfGlobalBestGain_d;
+	int *pnLocalBestGainKey_d, *pnGlobalBestGainKey_d;
 	//compute # of blocks for each node
 	PROCESS_ERROR(maxNumFeaValueOneNode > 0);
 	int blockSizeLocalBestGain;
@@ -240,13 +239,18 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 	PROCESS_ERROR(dimNumofBlockLocalBestGain.z == 1);
 	dimNumofBlockLocalBestGain.z = numofSNode;//each node per super block
 	int numBlockPerNode = dimNumofBlockLocalBestGain.x * dimNumofBlockLocalBestGain.y;
+
+	checkCudaErrors(cudaMalloc((void**)&pfLocalBestGain_d, sizeof(real) * numBlockPerNode * numofSNode));
+	checkCudaErrors(cudaMalloc((void**)&pnLocalBestGainKey_d, sizeof(int) * numBlockPerNode * numofSNode));
+	checkCudaErrors(cudaMalloc((void**)&pfGlobalBestGain_d, sizeof(real) * numofSNode));
+	checkCudaErrors(cudaMalloc((void**)&pnGlobalBestGainKey_d, sizeof(int) * numofSNode));
 	//find the block level best gain for each node
 	PickLocalBestSplitEachNode<<<dimNumofBlockLocalBestGain, blockSizeLocalBestGain, 0, (*(cudaStream_t*)pStream)>>>(
 								bagManager.m_pNumFvalueEachNodeEachBag_d + bagId * bagManager.m_maxNumSplittable,
 								bagManager.m_pFvalueStartPosEachNodeEachBag_d + bagId * bagManager.m_maxNumSplittable,
 								bagManager.m_pGainEachFvalueEachBag + bagId * bagManager.m_numFeaValue,
-								bagManager.m_pfLocalBestGainEachBag_d + bagId * bagManager.m_maxNumSplittable * bagManager.m_maxNumofBlockPerNode,
-								bagManager.m_pnLocalBestGainKeyEachBag_d + bagId * bagManager.m_maxNumSplittable * bagManager.m_maxNumofBlockPerNode);
+								pfLocalBestGain_d,
+								pnLocalBestGainKey_d);
 	cudaStreamSynchronize((*(cudaStream_t*)pStream));
 	GETERROR("after PickLocalBestSplitEachNode");
 
@@ -256,20 +260,18 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 		dim3 dimNumofBlockDummy;
 		conf.ConfKernel(numBlockPerNode, blockSizeBestGain, dimNumofBlockDummy);
 		PickGlobalBestSplitEachNode<<<numofSNode, blockSizeBestGain, 0, (*(cudaStream_t*)pStream)>>>(
-									bagManager.m_pfLocalBestGainEachBag_d + bagId * bagManager.m_maxNumSplittable * bagManager.m_maxNumofBlockPerNode,
-									bagManager.m_pnLocalBestGainKeyEachBag_d + bagId * bagManager.m_maxNumSplittable * bagManager.m_maxNumofBlockPerNode,
-									bagManager.m_pfGlobalBestGainEachBag_d + bagId * bagManager.m_maxNumSplittable,
-									bagManager.m_pnGlobalBestGainKeyEachBag_d + bagId * bagManager.m_maxNumSplittable,
+									pfLocalBestGain_d,
+									pnLocalBestGainKey_d,
+									pfGlobalBestGain_d,
+									pnGlobalBestGainKey_d,
 								    numBlockPerNode, numofSNode);
 		cudaStreamSynchronize((*(cudaStream_t*)pStream));
 		GETERROR("after PickGlobalBestSplitEachNode");
 	}
 	else{//local best fea is the global best fea
-		manager.MemcpyDeviceToDeviceAsync(bagManager.m_pfLocalBestGainEachBag_d + bagId * bagManager.m_maxNumSplittable,
-										bagManager.m_pfGlobalBestGainEachBag_d + bagId * bagManager.m_maxNumSplittable,
+		manager.MemcpyDeviceToDeviceAsync(pfLocalBestGain_d, pfGlobalBestGain_d,
 										sizeof(real) * numofSNode, pStream);
-		manager.MemcpyDeviceToDeviceAsync(bagManager.m_pnLocalBestGainKeyEachBag_d + bagId * bagManager.m_maxNumSplittable,
-											bagManager.m_pnGlobalBestGainKeyEachBag_d + bagId * bagManager.m_maxNumSplittable,
+		manager.MemcpyDeviceToDeviceAsync(pnLocalBestGainKey_d, pnGlobalBestGainKey_d,
 											sizeof(int) * numofSNode, pStream);
 	}
 
@@ -281,8 +283,8 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 									 bagManager.m_pEachFeaStartPosEachNodeEachBag_d + bagId * bagManager.m_maxNumSplittable * bagManager.m_numFea,
 									 bagManager.m_pEachFeaLenEachNodeEachBag_d + bagId * bagManager.m_maxNumSplittable * bagManager.m_numFea,
 									 bagManager.m_pDenseFValueEachBag + bagId * bagManager.m_numFeaValue,
-									 bagManager.m_pfGlobalBestGainEachBag_d + bagId * bagManager.m_maxNumSplittable,
-									 bagManager.m_pnGlobalBestGainKeyEachBag_d + bagId * bagManager.m_maxNumSplittable,
+									 pfGlobalBestGain_d,
+									 pnGlobalBestGainKey_d,
 				  	  	  	  	  	 bagManager.m_pPartitionId2SNPosEachBag + bagId * bagManager.m_maxNumSplittable, nNumofFeature,
 				  	  	  	  	  	 bagManager.m_pSNodeStatEachBag + bagId * bagManager.m_maxNumSplittable,
 				  	  	  	  	  	 bagManager.m_pdGDPrefixSumEachBag + bagId * bagManager.m_numFeaValue,
@@ -295,4 +297,8 @@ void DeviceSplitter::FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat
 	checkCudaErrors(cudaFree(pnLastFvalueOfThisFvalue_d));
 	checkCudaErrors(cudaFree(pDefault2Right));
 	checkCudaErrors(cudaFree(pnKey_d));
+	checkCudaErrors(cudaFree(pfLocalBestGain_d));
+	checkCudaErrors(cudaFree(pfGlobalBestGain_d));
+	checkCudaErrors(cudaFree(pnLocalBestGainKey_d));
+	checkCudaErrors(cudaFree(pnGlobalBestGainKey_d));
 }

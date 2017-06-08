@@ -23,13 +23,22 @@ public:
 	static int *m_pFvalueFid_d;
 	static real *m_pdDFeaValue;
 	static uint *m_pFeaStartPos;
+
 	//memory for instances (key on instance id); for prediction
 	static int *m_pDFeaId, *m_pDNumofFea;
 	static real *m_pdDInsValue;
 	static uint *m_pInsStartPos;
+	//with bag info
+	static real *m_pdDenseInsEachBag;
+	static int *m_pHashFeaIdToDenseInsPosBag;
+	static int *m_pSortedUsedFeaIdBag;
+	static TreeNode *m_pAllTreeEachBag;
+	static int *m_pNumofTreeLearntEachBag_h;
+	static int *m_pStartPosOfEachTreeEachBag;
+	static int *m_pNumofNodeEachTreeEachBag;
 
 	//memory for prediction
-	static int m_maxUsedFeaInTrees;
+	static int m_maxUsedFeaInATree;
 
 	static uint m_numFeaValue;
 	static int m_numofIns, m_numofFea;
@@ -38,7 +47,8 @@ public:
 	void mallocForTrainingIns(int nTotalNumofValue, int numofIns, int numofFeature);
 	void freeMemForTrainingIns();
 
-	void mallocForTestingIns(int nTotalNumofValue, int numofIns, int numofFeature);
+	void mallocForTestingIns(int nTotalNumofValue, int numofIns, int numofFeature,
+							 int numBag, int numTreeABag, int maxNumNode);
 	void freeMemForTestingIns();
 };
 

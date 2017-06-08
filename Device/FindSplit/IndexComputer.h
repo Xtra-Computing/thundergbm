@@ -20,9 +20,6 @@ public:
 	static int m_maxNumofSN;
 	static long long m_total_copy;
 
-	//pinned memory
-	static int *m_pPosToBuffId_dh;
-
 	//device memory
 	static unsigned char *pPartitionMarker;
 	static uint *m_pnKey;
@@ -37,7 +34,7 @@ public:
 	//compute indices for each feature value in feature lists
 	static void ComputeIdxGPU(int numNode, int maxNumSN, int bagId);
 
-	static void AllocMem(int nNumofExamples, int nNumofFeatures, int maxNumofSpittableNode);
+	static void AllocMem(int nNumofFeatures, int maxNumofSpittableNode);
 	static void FreeMem();
 };
 

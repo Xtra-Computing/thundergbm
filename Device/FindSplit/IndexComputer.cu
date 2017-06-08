@@ -145,10 +145,6 @@ __global__ void EachFeaLenEachNode(const unsigned char *pPartitionMarker, uint m
 		return;//skip this element, as element is marked as leaf.
 	}
 	int feaId = pFeaId[gTid];
-	//if(gTid >= 13940 && pid == 0 && gTid < 14000)
-	//	printf("gTid=%d, feaId=%d\n", gTid, feaId);
-//	if(threadIdx.x == 32 && blockIdx.x == 57921)
-//		printf("gTid=%d, feaId=%d, pid=%d\n", gTid, feaId, pid);
 	atomicAdd(&pEachFeaLenEachNode[pid * numFea + feaId], 1);
 }
 
@@ -250,7 +246,7 @@ __global__ void ComputeEachFeaInfo(const unsigned int *pPartitionMarker, const u
   * @brief: compute gether index by GPUs
   */
 void IndexComputer::ComputeIdxGPU(int numSNode, int maxNumSN, int bagId){
-	PROCESS_ERROR(m_totalFeaValue > 0 && numSNode > 0 && maxNumSN >= 0 && maxNumSN == m_maxNumofSN);
+	PROCESS_ERROR(m_totalFeaValue > 0 && numSNode > 0 && maxNumSN >= 0);
 	
 	BagManager bagManager;
 	GBDTGPUMemManager manager;
@@ -298,13 +294,6 @@ void IndexComputer::ComputeIdxGPU(int numSNode, int maxNumSN, int bagId){
 	unsigned int * pTmpEachFeaStartPosEachNode = bagManager.m_pEachFeaStartPosEachNodeEachBag_d +
 											  bagId * bagManager.m_maxNumSplittable * bagManager.m_numFea;
 
-/*	unsigned int numThd;
-	smallReductionKernelConf(numThd, numSNode);//numThd is power of 2 to handle some elements in leaf nodes.
-	ComputeEachFeaInfo<<<1, numThd, numSNode * m_numFea * sizeof(unsigned int)>>>(pPartitionMarker, pTmpGatherIdx,
-										pTmpFvalueStartPosEachNode, m_numFea,
-										m_pHistogram_d, m_totalNumEffectiveThd,
-										pTmpEachFeaLenEachNode, pTmpEachFeaStartPosEachNode);
-*/
 	checkCudaErrors(cudaMemset(pTmpEachFeaLenEachNode, 0, sizeof(int) * bagManager.m_maxNumSplittable * m_numFea));
 	EachFeaLenEachNode<<<dimNumofBlockForFvalue, blockSizeForFvalue>>>(pPartitionMarker, m_totalFeaValue, manager.m_pFvalueFid_d, pTmpEachFeaLenEachNode, m_numFea, numSNode);
 	thrust::exclusive_scan(thrust::system::cuda::par, pTmpEachFeaLenEachNode, pTmpEachFeaLenEachNode + m_numFea * numSNode, pTmpEachFeaStartPosEachNode);
@@ -316,7 +305,7 @@ void IndexComputer::ComputeIdxGPU(int numSNode, int maxNumSN, int bagId){
 /**
  * @brief: allocate reusable memory
  */
-void IndexComputer::AllocMem(int nNumofExamples, int nNumofFeatures, int maxNumofSplittableNode)
+void IndexComputer::AllocMem(int nNumofFeatures, int maxNumofSplittableNode)
 {
 	m_numFea = nNumofFeatures;
 	m_maxNumofSN = maxNumofSplittableNode;
@@ -346,7 +335,4 @@ void IndexComputer::FreeMem()
 	checkCudaErrors(cudaFree(m_pHistogram_d));
 	checkCudaErrors(cudaFree(m_pnKey));
 	checkCudaErrors(cudaFree(m_pEachNodeStartPos_d));
-
-	//cause error here; so we don't use the following line
-	//checkCudaErrors(cudaFree(m_pNumFeaValueEachNode_dh));
 }

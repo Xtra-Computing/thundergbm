@@ -309,15 +309,13 @@ __global__ void InsToNewNodeByDefault(TreeNode *pAllTreeNode, int *pInsIdToNodeI
 }
 
 __global__ void UpdateNewSplittable(TreeNode *pNewSplittableNode, nodeStat *pNewNodeStat,
-								   	    nodeStat *pSNodeStat, int *pNumofNewNode, int *pPartitionId2SNPos, int *pPartitionCounter,
-								   	    int maxNumofSplittable, int *pnLock, int preMaxNodeId)
+								   	    nodeStat *pSNodeStat, int *pNumofNewNode, int *pPartitionId2SNPos,
+								   	    int maxNumofSplittable, int preMaxNodeId)
 {
 	int numofNewNode = *pNumofNewNode;
 	int nGlobalThreadId = GLOBAL_TID();
 	if(nGlobalThreadId >= numofNewNode)//one thread per splittable node
 		return;
-
-	CONCHECKER(*pPartitionCounter == 0);
 
 	int nid = pNewSplittableNode[nGlobalThreadId].nodeId;
 	ECHECKER(nid);

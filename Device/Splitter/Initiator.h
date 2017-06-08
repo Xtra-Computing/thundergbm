@@ -19,7 +19,7 @@ __global__ void ComputeGDKernel(int numofIns, const real *pfPredValue, const rea
 								real *pGrad, real *pHess);
 __global__ void InitNodeStat(const real root_sum_gd, const real root_sum_hess,
 							 nodeStat *pSNodeStat, int maxNumofSplittable,
-							 int *pBuffId, int *pNumofBuffId);
+							 int *pBuffId);
 __global__ void InitRootNode(TreeNode *pAllTreeNode, int *pCurNumofNode, int numofIns);
 
 #endif /* DEVICEPREDKERNEL_H_ */

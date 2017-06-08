@@ -39,12 +39,7 @@ public:
 	static int *m_pInsIdToNodeIdEachBag;
 	static int *m_pInsWeight_d;
 
-	static int *m_pNumofTreeLearntEachBag_h;
-	static TreeNode *m_pAllTreeEachBag;
-
 	//for gradient and hessian
-	static real *m_pPredBufferEachBag;
-	static real *m_pdDenseInsEachBag;
 	static real *m_pTargetValueEachBag;
 	static real *m_pdTrueTargetValueEachBag;
 	static real *m_pInsGradEachBag, *m_pInsHessEachBag;
@@ -52,12 +47,6 @@ public:
 	static double *m_pdGDPrefixSumEachBag;
 	static real *m_pHessPrefixSumEachBag;
 	static real *m_pGainEachFvalueEachBag;
-	//for finding the best split
-	static real *m_pfLocalBestGainEachBag_d;
-	static int m_maxNumofBlockPerNode;
-	static int *m_pnLocalBestGainKeyEachBag_d;
-	static real *m_pfGlobalBestGainEachBag_d;
-	static int *m_pnGlobalBestGainKeyEachBag_d;
 
 	//for pinned memory; for computing indices in multiple level tree
 	static unsigned int *m_pIndicesEachBag_d;
@@ -73,11 +62,9 @@ public:
 	static nodeStat *m_pRChildStatEachBag;
 	static nodeStat *m_pLChildStatEachBag;
 	//temporary space for splittable nodes
-	static int *m_nSNLockEachBag;//a lock for critical region
 	static int *m_curNumofSplitableEachBag_h;
 	//map splittable node to buffer id
 	static int *m_pPartitionId2SNPosEachBag;
-	static int *m_pNumofBuffIdEachBag;
 
 	//memory for the tree on training
 	static TreeNode *m_pNodeTreeOnTrainingEachBag;
@@ -87,10 +74,6 @@ public:
 	static nodeStat *m_pNewNodeStatEachBag;
 	static TreeNode *m_pNewNodeEachBag;
 
-	//memory for each individual tree
-	static int *m_pNumofNodeEachTreeEachBag;	//the number of nodes of each tree
-	static int *m_pStartPosOfEachTreeEachBag;	//the start position of each tree in the memory
-
 	//memory for parent node to children ids
 	static int *m_pParentIdEachBag;
 	static int *m_pLeftChildIdEachBag, *m_pRightChildIdEachBag;
@@ -99,10 +82,6 @@ public:
 	static int *m_pUniqueFeaIdVecEachBag;
 	static int *m_pNumofUniqueFeaIdEachBag;
 	static int m_maxNumUsedFeaATree;
-
-	//for used features of the currently constructed tree
-	static int *m_pHashFeaIdToDenseInsPosBag;
-	static int *m_pSortedUsedFeaIdBag;
 
 	//temp memory
 	static real *m_pTrueLabel_h;

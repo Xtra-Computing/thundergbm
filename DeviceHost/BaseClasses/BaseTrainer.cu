@@ -55,6 +55,9 @@ void BaseTrainer::TrainGBDT(vector<RegTree> & vTree, void *pStream, int bagId)
 	double total_gd = 0, total_grow = 0, total_find_fea = 0, total_split = 0;
 
 	total_init_t = 0;
+	BagManager bagManager;
+	checkCudaErrors(cudaMemsetAsync(bagManager.m_pTargetValueEachBag + bagId * bagManager.m_numIns, 0,
+									sizeof(real) * bagManager.m_numIns, (*(cudaStream_t*)pStream)));
 
 	for(int i = 0; i < m_nMaxNumofTree; i++)
 	{
@@ -89,6 +92,7 @@ void BaseTrainer::TrainGBDT(vector<RegTree> & vTree, void *pStream, int bagId)
 		total_find_fea += total_find_fea_t;
 		total_split += total_split_t;
 
+#ifdef _DEBUG
 		//run the GBDT prediction process
 		DevicePredictor pred;
 		clock_t begin_pre, end_pre;
@@ -104,6 +108,7 @@ void BaseTrainer::TrainGBDT(vector<RegTree> & vTree, void *pStream, int bagId)
 		EvalRMSE rmse;
 		float fRMSE = rmse.Eval(v_fPredValue, BagManager::m_pTrueLabel_h, v_fPredValue.size());
 		cout << "rmse=" << fRMSE << endl;
+#endif
 	}
 
 	cout << "total: comp gd = " << total_gd << "; grow = " << total_grow << "; find fea = " << total_find_fea

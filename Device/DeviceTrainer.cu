@@ -188,24 +188,24 @@ void DeviceTrainer::StoreFinalTree(TreeNode *pAllNode, int numofNode, void *pStr
 									sizeof(TreeNode) * numofNode, pStream);
 
 	//copy the final tree for ensembling
-	int numofTreeLearnt = bagManager.m_pNumofTreeLearntEachBag_h[bagId];
+	int numofTreeLearnt = manager.m_pNumofTreeLearntEachBag_h[bagId];
 	int curLearningTreeId = numofTreeLearnt;
-	manager.MemcpyHostToDeviceAsync(&numofNode, bagManager.m_pNumofNodeEachTreeEachBag + bagId * bagManager.m_numTreeEachBag + curLearningTreeId,
+	manager.MemcpyHostToDeviceAsync(&numofNode, manager.m_pNumofNodeEachTreeEachBag + bagId * bagManager.m_numTreeEachBag + curLearningTreeId,
 									sizeof(int), pStream);
 	int numofNodePreviousTree = 0;
 	int previousTreeStartPosInBag = bagId * bagManager.m_numTreeEachBag * bagManager.m_maxNumNode;
 	if(numofTreeLearnt > 0)
 	{
 		int lastLearntTreeId = numofTreeLearnt - 1;
-		manager.MemcpyDeviceToHostAsync(bagManager.m_pNumofNodeEachTreeEachBag + bagId * bagManager.m_numTreeEachBag + lastLearntTreeId,
+		manager.MemcpyDeviceToHostAsync(manager.m_pNumofNodeEachTreeEachBag + bagId * bagManager.m_numTreeEachBag + lastLearntTreeId,
 										&numofNodePreviousTree, sizeof(int), pStream);
-		manager.MemcpyDeviceToHostAsync(bagManager.m_pStartPosOfEachTreeEachBag + bagId * bagManager.m_numTreeEachBag + lastLearntTreeId,
+		manager.MemcpyDeviceToHostAsync(manager.m_pStartPosOfEachTreeEachBag + bagId * bagManager.m_numTreeEachBag + lastLearntTreeId,
 										&previousTreeStartPosInBag, sizeof(int), pStream);
 	}
 	int treeStartPos = previousTreeStartPosInBag + numofNodePreviousTree;
-	manager.MemcpyHostToDeviceAsync(&treeStartPos, bagManager.m_pStartPosOfEachTreeEachBag + bagId * bagManager.m_numTreeEachBag + curLearningTreeId,
+	manager.MemcpyHostToDeviceAsync(&treeStartPos, manager.m_pStartPosOfEachTreeEachBag + bagId * bagManager.m_numTreeEachBag + curLearningTreeId,
 									sizeof(int), pStream);
 	manager.MemcpyDeviceToDeviceAsync(bagManager.m_pNodeTreeOnTrainingEachBag + bagId * bagManager.m_maxNumNode,
-										bagManager.m_pAllTreeEachBag + treeStartPos, sizeof(TreeNode) * numofNode, pStream);
-	bagManager.m_pNumofTreeLearntEachBag_h[bagId]++;
+										manager.m_pAllTreeEachBag + treeStartPos, sizeof(TreeNode) * numofNode, pStream);
+	manager.m_pNumofTreeLearntEachBag_h[bagId]++;
 }

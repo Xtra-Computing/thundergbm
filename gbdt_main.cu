@@ -158,11 +158,11 @@ int main(int argc, char *argv[])
 	GBDTGPUMemManager manager;
 	PROCESS_ERROR(numFeaValue > 0);
 	manager.m_numFeaValue = numFeaValue;
-	manager.m_maxUsedFeaInTrees = maxNumofUsedFeature;
+	manager.m_maxUsedFeaInATree = maxNumofUsedFeature;
 
 	//allocate memory for instances
 	manager.mallocForTrainingIns(numFeaValue, numIns, numFea);
-	manager.mallocForTestingIns(numFeaValue, numIns, numFea);
+	manager.mallocForTestingIns(numFeaValue, numIns, numFea, numBag, nNumofTree, maxNumofNodePerTree);
 
 	begin_whole = clock();
 	cout << "start training..." << endl;
@@ -173,7 +173,6 @@ int main(int argc, char *argv[])
 	IndexComputer indexCom;
 	indexCom.m_totalFeaValue = numFeaValue;
 	indexCom.m_total_copy = 0;
-	indexCom.AllocMem(numIns, numFea, maxNumofSplittableNode);
 
 	//copy feature key-value to device memory
 	cudaMemcpy(manager.m_pDInsId, pInsId, numFeaValue * sizeof(int), cudaMemcpyHostToDevice);
@@ -266,7 +265,6 @@ int main(int argc, char *argv[])
 
 	manager.freeMemForTrainingIns();
 	manager.freeMemForTestingIns();
-	indexCom.FreeMem();
 
 	//free host memory
 	delete []pInsId;

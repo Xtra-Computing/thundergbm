@@ -95,6 +95,9 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 	manager.MemsetAsync(bagManager.m_pNumofUniqueFeaIdEachBag + bagId, 0, sizeof(int), pStream);
 
 	clock_t unique_id_start = clock();
+	int *pSNLock;
+	checkCudaErrors(cudaMalloc((void**)&pSNLock, sizeof(int)));//a lock for critical region
+	checkCudaErrors(cudaMemset(pSNLock, 0, sizeof(int)));
 	GetUniqueFid<<<1, bagManager.m_curNumofSplitableEachBag_h[bagId], 0, (*(cudaStream_t*)pStream)>>>(
 							 bagManager.m_pNodeTreeOnTrainingEachBag + bagId * bagManager.m_maxNumNode,
 							 bagManager.m_pSplittableNodeEachBag + bagId * bagManager.m_maxNumSplittable,
@@ -102,8 +105,9 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 							 bagManager.m_pFeaIdToBuffIdEachBag + bagId * bagManager.m_maxNumUsedFeaATree,
 							 bagManager.m_pUniqueFeaIdVecEachBag + bagId * bagManager.m_maxNumUsedFeaATree,
 							 bagManager.m_pNumofUniqueFeaIdEachBag + bagId,
-							 bagManager.m_maxNumUsedFeaATree, LEAFNODE, bagManager.m_nSNLockEachBag + bagId);
+							 bagManager.m_maxNumUsedFeaATree, LEAFNODE, pSNLock);
 	cudaStreamSynchronize((*(cudaStream_t*)pStream));
+	checkCudaErrors(cudaFree(pSNLock));
 	clock_t unique_id_end = clock();
 	total_unique_id_t += (unique_id_end - unique_id_start);
 	GETERROR("in GetUniqueFid");
@@ -180,8 +184,6 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 
 //		printf("new sn=%d, blocksize=%d, blocks=%d\n", numofNewSplittableNode, blockSizeNSN, dimGridThreadForEachNewSN.x * dimGridThreadForEachNewSN.y * dimGridThreadForEachNewSN.z);
 		//reset nodeId to bufferId
-		manager.MemsetAsync(bagManager.m_pNumofBuffIdEachBag + bagId, 0, sizeof(int), pStream);
-		//reset nodeStat
 		manager.MemsetAsync(bagManager.m_pSNodeStatEachBag + bagId * bagManager.m_maxNumSplittable, 0,
 						sizeof(nodeStat) * bagManager.m_maxNumSplittable, pStream);
 		clock_t update_new_sp_start = clock();
@@ -190,8 +192,8 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 									  bagManager.m_pNewNodeStatEachBag + bagId * bagManager.m_maxNumLeave,
 									  bagManager.m_pSNodeStatEachBag + bagId * bagManager.m_maxNumSplittable,
 									  bagManager.m_pNumofNewNodeTreeOnTrainingEachBag + bagId,
-									  bagManager.m_pPartitionId2SNPosEachBag + bagId * bagManager.m_maxNumSplittable, bagManager.m_pNumofBuffIdEachBag + bagId,
-									  bagManager.m_maxNumSplittable, bagManager.m_nSNLockEachBag + bagId,
+									  bagManager.m_pPartitionId2SNPosEachBag + bagId * bagManager.m_maxNumSplittable,
+									  bagManager.m_maxNumSplittable,
 									  preMaxNodeId);
 		cudaStreamSynchronize((*(cudaStream_t*)pStream));
 		clock_t update_new_sp_end = clock();
