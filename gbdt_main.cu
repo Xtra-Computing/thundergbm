@@ -177,7 +177,6 @@ int main(int argc, char *argv[])
 	//copy feature key-value to device memory
 	cudaMemcpy(manager.m_pDInsId, pInsId, numFeaValue * sizeof(int), cudaMemcpyHostToDevice);
 	cudaMemcpy(manager.m_pdDFeaValue, pdValue, numFeaValue * sizeof(real), cudaMemcpyHostToDevice);
-	cudaMemcpy(manager.m_pFvalueFid_d, pFvalueFid, numFeaValue * sizeof(int), cudaMemcpyHostToDevice);
 	cudaMemcpy(manager.m_pDNumofKeyValue, pNumofKeyValue, numFea * sizeof(int), cudaMemcpyHostToDevice);
 	cudaMemcpy(manager.m_pFeaStartPos, plFeaStartPos, numFea * sizeof(unsigned int), cudaMemcpyHostToDevice);
 

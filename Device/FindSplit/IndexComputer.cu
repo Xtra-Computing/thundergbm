@@ -134,8 +134,8 @@ __global__ void CollectGatherIdx(const unsigned char *pPartitionMarker, unsigned
   * @brief: store gather indices
   */
 __global__ void EachFeaLenEachNode(const unsigned char *pPartitionMarker, uint markerLen,
-								 const int *pFeaId, int *pEachFeaLenEachNode, uint numFea,
-								 uint numParition){
+								 int *pEachFeaLenEachNode, uint numFea,
+								 uint numParition, uint *pEachFeaStart){
 	int gTid = GLOBAL_TID();
 	if(gTid >= markerLen)//thread has nothing to collect
 		return;
@@ -144,7 +144,26 @@ __global__ void EachFeaLenEachNode(const unsigned char *pPartitionMarker, uint m
 	if(pid >= numParition){
 		return;//skip this element, as element is marked as leaf.
 	}
-	int feaId = pFeaId[gTid];
+	int feaId;
+	for(int f = 0; f < numFea; f++){
+		uint feaStartPos = pEachFeaStart[f];
+		if(f == numFea - 1){
+			feaId = f;
+			break;
+		}
+		uint nextFeaStartPos = pEachFeaStart[f + 1];
+		if(gTid > nextFeaStartPos)
+			continue;
+		if(gTid == nextFeaStartPos){
+			feaId = f + 1;
+			break;
+		}
+		else//key is in the range of values of f
+		{
+			feaId = f;
+			break;
+		}
+	}
 	atomicAdd(&pEachFeaLenEachNode[pid * numFea + feaId], 1);
 }
 
@@ -295,7 +314,8 @@ void IndexComputer::ComputeIdxGPU(int numSNode, int maxNumSN, int bagId){
 											  bagId * bagManager.m_maxNumSplittable * bagManager.m_numFea;
 
 	checkCudaErrors(cudaMemset(pTmpEachFeaLenEachNode, 0, sizeof(int) * bagManager.m_maxNumSplittable * m_numFea));
-	EachFeaLenEachNode<<<dimNumofBlockForFvalue, blockSizeForFvalue>>>(pPartitionMarker, m_totalFeaValue, manager.m_pFvalueFid_d, pTmpEachFeaLenEachNode, m_numFea, numSNode);
+	EachFeaLenEachNode<<<dimNumofBlockForFvalue, blockSizeForFvalue>>>(pPartitionMarker, m_totalFeaValue, pTmpEachFeaLenEachNode,
+																	   m_numFea, numSNode, manager.m_pFeaStartPos);
 	thrust::exclusive_scan(thrust::system::cuda::par, pTmpEachFeaLenEachNode, pTmpEachFeaLenEachNode + m_numFea * numSNode, pTmpEachFeaStartPosEachNode);
 	
 	//get feature values start position of each new node

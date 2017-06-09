@@ -20,7 +20,6 @@ class GBDTGPUMemManager: public GPUMemManager
 public:
 	//memory for instances (key on feature id); for training
 	static int *m_pDInsId, *m_pDNumofKeyValue;
-	static int *m_pFvalueFid_d;
 	static real *m_pdDFeaValue;
 	static uint *m_pFeaStartPos;
 
