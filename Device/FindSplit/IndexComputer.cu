@@ -130,6 +130,25 @@ __global__ void CollectGatherIdx(const unsigned char *pPartitionMarker, unsigned
 	}
 }
 
+__device__ void RangeBinarySearch(uint pos, uint* pSegStartPos, uint numSeg, uint &segId)
+{
+	uint midSegId;
+	uint startSegId = 0, endSegId = numSeg - 1;
+	segId = -1;
+	while(startSegId <= endSegId){
+		midSegId = startSegId + ((endSegId - startSegId) >> 1);//get the middle index
+		if(pos >= pSegStartPos[midSegId] && (midSegId == endSegId || pos < pSegStartPos[midSegId + 1]))
+		{
+			segId = midSegId;
+			return;
+		}
+		else if(pos >= pSegStartPos[midSegId + 1])
+			startSegId = midSegId + 1;//find left part
+		else
+			endSegId = midSegId - 1;//find right part
+	}
+}
+
 /**
   * @brief: store gather indices
   */
@@ -144,26 +163,8 @@ __global__ void EachFeaLenEachNode(const unsigned char *pPartitionMarker, uint m
 	if(pid >= numParition){
 		return;//skip this element, as element is marked as leaf.
 	}
-	int feaId;
-	for(int f = 0; f < numFea; f++){
-		uint feaStartPos = pEachFeaStart[f];
-		if(f == numFea - 1){
-			feaId = f;
-			break;
-		}
-		uint nextFeaStartPos = pEachFeaStart[f + 1];
-		if(gTid > nextFeaStartPos)
-			continue;
-		if(gTid == nextFeaStartPos){
-			feaId = f + 1;
-			break;
-		}
-		else//key is in the range of values of f
-		{
-			feaId = f;
-			break;
-		}
-	}
+	uint feaId;
+	RangeBinarySearch(gTid, pEachFeaStart, numFea, feaId);
 	atomicAdd(&pEachFeaLenEachNode[pid * numFea + feaId], 1);
 }
 

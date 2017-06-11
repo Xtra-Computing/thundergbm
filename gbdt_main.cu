@@ -148,12 +148,6 @@ int main(int argc, char *argv[])
 	}
 	bagManager.m_pTrueLabel_h = pTrueLabel;
 
-	int *pFvalueFid = new int[numFeaValue];
-	memset(pFvalueFid, -1, sizeof(int) * numFeaValue);
-	for(int f = 0; f < numFea; f++){
-		std::fill_n(pFvalueFid + plFeaStartPos[f], pNumofKeyValue[f], f);
-	}
-
 	//initialise gpu memory allocator
 	GBDTGPUMemManager manager;
 	PROCESS_ERROR(numFeaValue > 0);
@@ -174,6 +168,8 @@ int main(int argc, char *argv[])
 	indexCom.m_totalFeaValue = numFeaValue;
 	indexCom.m_total_copy = 0;
 
+	printf("f25 starts=%u, ends=%u\n", plFeaStartPos[25], plFeaStartPos[26]);
+
 	//copy feature key-value to device memory
 	cudaMemcpy(manager.m_pDInsId, pInsId, numFeaValue * sizeof(int), cudaMemcpyHostToDevice);
 	cudaMemcpy(manager.m_pdDFeaValue, pdValue, numFeaValue * sizeof(real), cudaMemcpyHostToDevice);
@@ -189,7 +185,6 @@ int main(int argc, char *argv[])
 	//free host memory
 	delete []pdValue;
 	delete []pNumofKeyValue;
-	delete []pFvalueFid;
 	delete []pFeaId;
 	delete []pfFeaValue;
 	delete []pNumofFea;

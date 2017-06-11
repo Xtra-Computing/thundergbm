@@ -100,7 +100,7 @@ __global__ void ComputeGainDense(const nodeStat *pSNodeStat, const int *pId2SNPo
 
 	//if the previous fea value is the same as the current fea value, gain is 0 for the current fea value.
 	real preFvalue = pDenseFeaValue[gTid - 1], curFvalue = pDenseFeaValue[gTid];
-	if(preFvalue - curFvalue <= rt_2eps && preFvalue - curFvalue >= -rt_2eps)
+	if(preFvalue - curFvalue <= rt_2eps && preFvalue - curFvalue >= -rt_2eps)//############## backwards is not considered!
 	{//avoid same feature value different gain issue
 		pGainOnEachFeaValue[gTid] = 0;
 		return;
@@ -110,20 +110,18 @@ __global__ void ComputeGainDense(const nodeStat *pSNodeStat, const int *pId2SNPo
 
 	//forward consideration (fvalues are sorted descendingly)
 	double rChildGD = pGDPrefixSumOnEachFeaValue[exclusiveSumPos];
-	real rChildHess = pHessPrefixSumOnEachFeaValue[exclusiveSumPos];
-	real parentGD = pSNodeStat[snPos].sum_gd;
-	real parentHess = pSNodeStat[snPos].sum_hess;
-	real tempGD = parentGD - rChildGD;
-	real tempHess = parentHess - rChildHess;
+	double rChildHess = pHessPrefixSumOnEachFeaValue[exclusiveSumPos];
+	double parentGD = pSNodeStat[snPos].sum_gd;
+	double parentHess = pSNodeStat[snPos].sum_hess;
+	double tempGD = parentGD - rChildGD;
+	double tempHess = parentHess - rChildHess;
 	bool needUpdate = NeedUpdate(rChildHess, tempHess);
     if(needUpdate == true)//need to compute the gain
     {
-		real tempGain = (tempGD * tempGD)/(tempHess + lambda) + 
+		double tempGain = (tempGD * tempGD)/(tempHess + lambda) +
 						  	   (rChildGD * rChildGD)/(rChildHess + lambda) -
 	  						   (parentGD * parentGD)/(parentHess + lambda);
     	pGainOnEachFeaValue[gTid] = tempGain; 
-//    	if(snPos == 1 && tempGain > 7848)
-//    		printf("forwards: gain=%f, gTid=%d\n", tempGain, gTid);
     }
     else{
     	//assign gain to 0
@@ -134,8 +132,8 @@ __global__ void ComputeGainDense(const nodeStat *pSNodeStat, const int *pId2SNPo
     int segLen = pEachFeaLenEachNode[segId];
     uint segStartPos = pEachFeaStartEachNode[segId];
     uint lastFvaluePos = segStartPos + segLen - 1;
-    real totalMissingGD = parentGD - pGDPrefixSumOnEachFeaValue[lastFvaluePos];
-    real totalMissingHess = parentHess - pHessPrefixSumOnEachFeaValue[lastFvaluePos];
+    double totalMissingGD = parentGD - pGDPrefixSumOnEachFeaValue[lastFvaluePos];
+    double totalMissingHess = parentHess - pHessPrefixSumOnEachFeaValue[lastFvaluePos];
     if(totalMissingHess < 1)//there is no instance with missing values
     	return;
     //missing values to the right child
@@ -145,11 +143,10 @@ __global__ void ComputeGainDense(const nodeStat *pSNodeStat, const int *pId2SNPo
     tempHess = parentHess - rChildHess;
     needUpdate = NeedUpdate(rChildHess, tempHess);
     if(needUpdate == true){
-    	real tempGain = (tempGD * tempGD)/(tempHess + lambda) +
+    	double tempGain = (tempGD * tempGD)/(tempHess + lambda) +
 			  	   	    (rChildGD * rChildGD)/(rChildHess + lambda) -
 			  	   	    (parentGD * parentGD)/(parentHess + lambda);
-//    	if(snPos == 1 && tempGain > 7848)
-//    		printf("backwards: gain=%f, gTid=%d\n", tempGain, gTid);
+
     	if(tempGain > 0 && tempGain - pGainOnEachFeaValue[gTid] > 0.1){
     		pGainOnEachFeaValue[gTid] = tempGain;
     		pDefault2Right[gTid] = true;
@@ -170,9 +167,6 @@ __global__ void FirstFeaGain(const unsigned int *pEachFeaStartPosEachNode, int n
 	if(gainPos >= numFeaValue)
 		return;//there may be some ending 0s (e.g. the last node has some features with any values).
 	pGainOnEachFeaValue[gainPos] = 0;
-//	if(gTid == 0){
-//		printf("pEachFeaStartPosEachNode[8]=%f\n", pEachFeaStartPosEachNode[8]);
-//	}
 }
 
 /**
@@ -356,11 +350,3 @@ __global__ void FindSplitInfo(const uint *pEachFeaStartPosEachNode, const int *p
 //	printf("split: f=%d, value=%f, gain=%f, gd=%f v.s. %f, hess=%f v.s. %f, buffId=%d, key=%d\n", bestFeaId, pBestSplitPoint[snPos].m_fSplitValue,
 //			pBestSplitPoint[snPos].m_fGain, pLChildStat[snPos].sum_gd, pRChildStat[snPos].sum_gd, pLChildStat[snPos].sum_hess, pRChildStat[snPos].sum_hess, snPos, key);
 }
-
-__device__ bool NeedUpdate(real &RChildHess, real &LChildHess)
-{
-	if(LChildHess >= DeviceSplitter::min_child_weight && RChildHess >= DeviceSplitter::min_child_weight)
-		return true;
-	return false;
-}
-

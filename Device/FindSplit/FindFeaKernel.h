@@ -13,6 +13,7 @@
 #include "../../DeviceHost/BaseClasses/BaseSplitter.h"
 #include "../../SharedUtility/DataType.h"
 #include "../../DeviceHost/NodeStat.h"
+#include "../Splitter/DeviceSplitter.h"
 
 //dense array
 __global__ void LoadGDHessFvalueRoot(const real *pInsGD, const real *pInsHess, int numIns,
@@ -41,6 +42,13 @@ __global__ void FindSplitInfo(const uint *pEachFeaStartPosEachNode, const int *p
 							  SplitPoint *pBestSplitPoint, nodeStat *pRChildStat, nodeStat *pLChildStat);
 
 //helper functions
-__device__ bool NeedUpdate(real &RChildHess, real &LChildHess);
+template<class T>
+__device__ bool NeedUpdate(T &RChildHess, T &LChildHess)
+{
+	if(LChildHess >= DeviceSplitter::min_child_weight && RChildHess >= DeviceSplitter::min_child_weight)
+		return true;
+	return false;
+}
+
 
 #endif /* DEVICESPLITTERKERNEL_H_ */

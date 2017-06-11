@@ -119,8 +119,7 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 	if(numofUniqueFea == 0)
 		PROCESS_ERROR(bLastLevel == true);
 
-	if(numofUniqueFea > 0)//need to move instances to new nodes if there are new nodes.
-	{
+	if(numofUniqueFea > 0){//need to move instances to new nodes if there are new nodes.
 //		cout << "ins to new nodes" << endl;
 		dim3 dimGridThreadForEachUsedFea;
 		int thdPerBlockIns2node = -1;
@@ -176,8 +175,7 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 	manager.MemcpyDeviceToHostAsync(bagManager.m_pNumofNewNodeTreeOnTrainingEachBag + bagId, &numofNewSplittableNode, sizeof(int), pStream);
 	if(numofNewSplittableNode == 0)
 		PROCESS_ERROR(bLastLevel == true);
-	if(numofNewSplittableNode > 0)//update splittable nodes when there are new splittable nodes
-	{
+	if(numofNewSplittableNode > 0 && numofNewSplittableNode <= bagManager.m_maxNumSplittable){//update splittable nodes when there are new splittable nodes
 		dim3 dimGridThreadForEachNewSN;
 		conf.ComputeBlock(numofNewSplittableNode, dimGridThreadForEachNewSN);
 		int blockSizeNSN = 1;
@@ -204,5 +202,4 @@ void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<Sp
 									 bagManager.m_pSplittableNodeEachBag + bagId * bagManager.m_maxNumSplittable,
 									 sizeof(TreeNode) * bagManager.m_maxNumSplittable, pStream);
 	}
-//	cout << "Done split all" << endl;
 }

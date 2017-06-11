@@ -50,7 +50,7 @@ public:
 	//for sorting on each feature
 	const static int LEAFNODE = -2;
 
-	static constexpr float rt_eps = 1e-5;
+	static constexpr float rt_eps = 1e-6;
 	static constexpr double min_child_weight = 1.0;//follow xgboost
 
 public:
