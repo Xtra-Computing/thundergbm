@@ -20,6 +20,7 @@
 #include "../../SharedUtility/KernelConf.h"
 #include "../../SharedUtility/powerOfTwo.h"
 #include "../../SharedUtility/HostUtility.h"
+#include "../../SharedUtility/binarySearch.h"
 
 using std::vector;
 
@@ -130,25 +131,6 @@ __global__ void CollectGatherIdx(const unsigned char *pPartitionMarker, unsigned
 	}
 }
 
-__device__ void RangeBinarySearch(uint pos, uint* pSegStartPos, uint numSeg, uint &segId)
-{
-	uint midSegId;
-	uint startSegId = 0, endSegId = numSeg - 1;
-	segId = -1;
-	while(startSegId <= endSegId){
-		midSegId = startSegId + ((endSegId - startSegId) >> 1);//get the middle index
-		if(pos >= pSegStartPos[midSegId] && (midSegId == endSegId || pos < pSegStartPos[midSegId + 1]))
-		{
-			segId = midSegId;
-			return;
-		}
-		else if(pos >= pSegStartPos[midSegId + 1])
-			startSegId = midSegId + 1;//find left part
-		else
-			endSegId = midSegId - 1;//find right part
-	}
-}
-
 /**
   * @brief: store gather indices
   */
@@ -166,100 +148,6 @@ __global__ void EachFeaLenEachNode(const unsigned char *pPartitionMarker, uint m
 	uint feaId;
 	RangeBinarySearch(gTid, pEachFeaStart, numFea, feaId);
 	atomicAdd(&pEachFeaLenEachNode[pid * numFea + feaId], 1);
-}
-
-/**
-  *@brief: compute length and start position of each feature in each node
-  */
-__global__ void ComputeEachFeaInfo(const unsigned int *pPartitionMarker, const unsigned int *pGatherIdx,
-								   const unsigned int *pFvalueStartPosEachSN, int numFea,
-								   const unsigned int *pHistogram_d, int totalNumThd,
-								   int *pEachFeaLenEachNode, unsigned int *pEachFeaStartPosEachNode){
-	int previousPid = threadIdx.x; //each thread corresponds to a splittable node
-	extern __shared__ unsigned int eachFeaLenEachNewNode[];
-
-	//get pids for this node
-	int start = pFvalueStartPosEachSN[previousPid];
-	int pid1 = pPartitionMarker[start];
-	if(pid1 == 0xffff)//elements are in a leaf
-		return;
-
-	int pid2 = -1;
-	//the difference between pid1 and pid2 is always 1, as they are from the same parent node
-	if(pid1 % 2 == 0)
-		pid2 = pid1 + 1;
-	else
-		pid2 = pid1 - 1;
-
-	//get pid1 and pid2 start position
-	unsigned int startPosPartition1 = 0;
-	unsigned int startPosPartition2 = 0;
-	//partition pid1 start pos (i.e. prefix sum)
-	for(int p = 0; p < pid1; p++){
-		startPosPartition1 += pHistogram_d[p * totalNumThd + totalNumThd - 1];
-	}
-	//partition pid2 start pos (i.e. prefix sum)
-	if(pid1 > pid2)
-		startPosPartition2 = startPosPartition1 - pHistogram_d[pid2 * totalNumThd + totalNumThd - 1];
-	else
-		startPosPartition2 = startPosPartition1 + pHistogram_d[pid1 * totalNumThd + totalNumThd - 1];
-
-	unsigned int startPosofCurFeaPid1 = startPosPartition1;
-	unsigned int startPosofCurFeaPid2 = startPosPartition2;
-	for(int f = 0; f < numFea; f++){
-		//get lengths for f in the two partitions
-		unsigned int feaPos = previousPid * numFea + f;
-		unsigned int numFvalueThisSN = pEachFeaLenEachNode[feaPos];
-		unsigned int posOfLastFValue = pEachFeaStartPosEachNode[feaPos] + numFvalueThisSN - 1;
-		int lastFvaluePid = pPartitionMarker[posOfLastFValue];
-
-		//get length of f in partition that contains last fvalue
-		unsigned int dstPos = pGatherIdx[posOfLastFValue];
-		unsigned int startPosofCurFea = 0;
-		if(lastFvaluePid == pid1)
-			startPosofCurFea = startPosofCurFeaPid1;
-		else
-			startPosofCurFea = startPosofCurFeaPid2;
-
-		unsigned int numThisFeaValue = dstPos - startPosofCurFea + 1;
-
-		//start position for the next feature
-		if(lastFvaluePid == pid1){
-			startPosofCurFeaPid1 += numThisFeaValue;
-			startPosofCurFeaPid2 += (numFvalueThisSN - numThisFeaValue);
-		}
-		else{
-			startPosofCurFeaPid2 += numThisFeaValue;
-			startPosofCurFeaPid1 += (numFvalueThisSN - numThisFeaValue);
-		}
-
-		//temporarily store each feature length in shared memory
-		if(lastFvaluePid == pid1){
-			eachFeaLenEachNewNode[pid1 * numFea + f] = numThisFeaValue;
-			eachFeaLenEachNewNode[pid2 * numFea + f] = (numFvalueThisSN - numThisFeaValue);
-		}
-		else{
-			eachFeaLenEachNewNode[pid2 * numFea + f] = numThisFeaValue;
-			eachFeaLenEachNewNode[pid1 * numFea + f] = (numFvalueThisSN - numThisFeaValue);
-		}
-	}
-
-	__syncthreads();
-	//update each fea len
-	for(int f = 0; f < numFea; f++){
-		pEachFeaLenEachNode[pid1 * numFea + f] = eachFeaLenEachNewNode[pid1 * numFea + f];
-		pEachFeaLenEachNode[pid2 * numFea + f] = eachFeaLenEachNewNode[pid2 * numFea + f];
-	}
-	//start pos for first feature
-	pEachFeaStartPosEachNode[pid1 * numFea] = startPosPartition1;
-	pEachFeaStartPosEachNode[pid2 * numFea] = startPosPartition2;
-	//start pos for other feature
-	for(int f = 1; f < numFea; f++){
-		unsigned int feaPosPid1 = pid1 * numFea + f;
-		unsigned int feaPosPid2 = pid2 * numFea + f;
-		pEachFeaStartPosEachNode[feaPosPid1] = pEachFeaStartPosEachNode[feaPosPid1 - 1] + pEachFeaLenEachNode[feaPosPid1];
-		pEachFeaStartPosEachNode[feaPosPid2] = pEachFeaStartPosEachNode[feaPosPid2 - 1] + pEachFeaLenEachNode[feaPosPid2];
-	}
 }
 
 /**

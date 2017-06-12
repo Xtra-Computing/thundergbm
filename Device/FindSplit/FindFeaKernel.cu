@@ -14,6 +14,7 @@
 #include "../../DeviceHost/svm-shared/DeviceUtility.h"
 #include "../../SharedUtility/CudaMacro.h"
 #include "../../SharedUtility/getMin.h"
+#include "../../SharedUtility/binarySearch.h"
 
 const float rt_2eps = 2.0 * DeviceSplitter::rt_eps;
 
@@ -286,19 +287,8 @@ __global__ void FindSplitInfo(const uint *pEachFeaStartPosEachNode, const int *p
 	int key = pnGlobalBestGainKey[snId];//position in the dense array
 
 	//find best feature id
-	int bestFeaId = -1;
-	for(int f = 0; f < numFea; f++)
-	{
-		int feaPos = f + snId * numFea;
-		int numofFValue = pEachFeaLenEachNode[feaPos];
-		if(pEachFeaStartPosEachNode[feaPos] + numofFValue < key)//####### key should be represented using long long
-			continue;
-		else//key is in the range of values of f
-		{
-			bestFeaId = f;
-			break;
-		}
-	}
+	uint bestFeaId = -1;
+	RangeBinarySearch(key, pEachFeaStartPosEachNode + snId * numFea, numFea, bestFeaId);
 
 	CONCHECKER(bestFeaId != -1);
 
