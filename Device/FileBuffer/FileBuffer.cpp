@@ -80,56 +80,56 @@ void FileBuffer::WriteBufferFile(string strFolder)
 
 	writeFile.open(strFolder + strInsId, ofstream::trunc | std::ios::binary);
 	int res = CFileOps::WriteToFile(writeFile, m_pInsId, sizeof(int) * m_numFeaValue);
-	PROCESS_ERROR(res == -1);
+	PROCESS_ERROR(res != -1);
 	writeFile.close();
 	writeFile.clear();
 
 	writeFile.open(strFolder + strFeaValueInsId);
 	res = CFileOps::WriteToFile(writeFile, m_pfValue, sizeof(real) * m_numFeaValue);
-	PROCESS_ERROR(res == -1);
+	PROCESS_ERROR(res != -1);
 	writeFile.close();
 	writeFile.clear();
 
 	writeFile.open(strFolder + strNumofValueEachFea);
 	res = CFileOps::WriteToFile(writeFile, m_pNumofKeyValue, sizeof(int) * m_nNumofFeatures);
-	PROCESS_ERROR(res == -1);
+	PROCESS_ERROR(res != -1);
 	writeFile.close();
 	writeFile.clear();
 
 	writeFile.open(strFolder + strFeaStartPos);
 	res = CFileOps::WriteToFile(writeFile, m_plFeaStartPos, sizeof(uint) * m_nNumofFeatures);
-	PROCESS_ERROR(res == -1);
+	PROCESS_ERROR(res != -1);
 	writeFile.close();
 	writeFile.clear();
 
 	//files for prediction
 	writeFile.open(strFolder + strFeaId);
 	res = CFileOps::WriteToFile(writeFile, m_pFeaId, sizeof(int) * m_numFeaValue);
-	PROCESS_ERROR(res == -1);
+	PROCESS_ERROR(res != -1);
 	writeFile.close();
 	writeFile.clear();
 
 	writeFile.open(strFolder + strFeaValueFeaId);
 	res = CFileOps::WriteToFile(writeFile, m_pfFeaValue, sizeof(real) * m_numFeaValue);
-	PROCESS_ERROR(res == -1);
+	PROCESS_ERROR(res != -1);
 	writeFile.close();
 	writeFile.clear();
 
 	writeFile.open(strFolder + strNumofFeaEachIns);
 	res = CFileOps::WriteToFile(writeFile, m_pNumofFea, sizeof(int) * m_nNumofExamples);
-	PROCESS_ERROR(res == -1);
+	PROCESS_ERROR(res != -1);
 	writeFile.close();
 	writeFile.clear();
 
 	writeFile.open(strFolder + strInsStartPos);
 	res = CFileOps::WriteToFile(writeFile, m_plInsStartPos, sizeof(uint) * m_nNumofExamples);
-	PROCESS_ERROR(res == -1);
+	PROCESS_ERROR(res != -1);
 	writeFile.close();
 	writeFile.clear();
 
 	writeFile.open(strFolder + strInsLabel);
 	res = CFileOps::WriteToFile(writeFile, m_pfTrueLabel, sizeof(real) * m_nNumofExamples);
-	PROCESS_ERROR(res == -1);
+	PROCESS_ERROR(res != -1);
 	writeFile.close();
 	writeFile.clear();
 
@@ -141,7 +141,7 @@ void FileBuffer::WriteBufferFile(string strFolder)
 	lDataInfo[1] = m_nNumofExamples;
 	lDataInfo[2] = m_numFeaValue;
 	res =CFileOps::WriteToFile(writeFile, lDataInfo, sizeof(long long) * numofInfo);
-	PROCESS_ERROR(res == -1);
+	PROCESS_ERROR(res != -1);
 	writeFile.close();
 	writeFile.clear();
 	delete[] lDataInfo;

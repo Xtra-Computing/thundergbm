@@ -10,9 +10,7 @@
 #define KEYVALUE_H_
 
 #include <vector>
-#include "../SharedUtility/DataType.h"
-#include "../SharedUtility/CudaMacro.h"
-
+#include "DataType.h"
 
 using std::vector;
 

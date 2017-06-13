@@ -10,7 +10,6 @@
 
 #include <ctime>
 
-#include "../../Host/UpdateOps/HostSplitter.h"
 #include "../../DeviceHost/TreeNode.h"
 #include "../../Host/Tree/PrintTree.h"
 #include "../../Host/Evaluation/RMSE.h"

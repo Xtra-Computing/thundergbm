@@ -17,7 +17,7 @@
 #include <limits>
 #include "BaseLibsvmReader.h"
 #include "../DataType.h"
-#include "../../Host/KeyValue.h"
+#include "../KeyValue.h"
 
 using std::string;
 using std::vector;

@@ -13,12 +13,12 @@
 #include <unordered_map>
 #include <string>
 
-#include "../../Host/Tree/RegTree.h"
 #include "../TreeNode.h"
-#include "../../Host/KeyValue.h"
-#include "../../Host/UpdateOps/SplitPoint.h"
 #include "../NodeStat.h"
 #include "../../Host/GDPair.h"
+#include "../../Host/Tree/RegTree.h"
+#include "../../Host/UpdateOps/SplitPoint.h"
+#include "../../SharedUtility/KeyValue.h"
 
 using std::vector;
 using std::unordered_map;

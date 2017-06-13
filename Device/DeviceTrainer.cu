@@ -111,7 +111,6 @@ void DeviceTrainer::GrowTree(RegTree &tree, void *pStream, int bagId)
 		manager.MemcpyDeviceToHostAsync(bagManager.m_pCurNumofNodeTreeOnTrainingEachBag_d + bagId, &curNumofNode, sizeof(int), pStream);
 		PROCESS_ERROR(curNumofNode > 0);
 		pDSpliter->SplitAll(splittableNode, vBest, tree, curNumofNode, rchildStat, lchildStat, bLastLevel, pStream, bagId);
-//		cout << "done splitting" << endl;
 
 		manager.MemcpyDeviceToHostAsync(bagManager.m_pNumofNewNodeTreeOnTrainingEachBag + bagId, bagManager.m_curNumofSplitableEachBag_h + bagId,
 								   sizeof(int), pStream);

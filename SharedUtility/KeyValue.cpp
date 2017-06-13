@@ -10,6 +10,7 @@
 #include <iostream>
 
 #include "KeyValue.h"
+#include "CudaMacro.h"
 
 using std::sort;
 using std::cout;
@@ -111,5 +112,4 @@ void KeyValue::VecToArray(vector<vector<KeyValue> > &vvKeyValuePair, int *pId, r
 		plStartPos[i] = totalPreValue;
 		totalPreValue += nNumofPair;
 	}
-	printf("total fea value in VecToArray is %d\n", totalPreValue);
 }
