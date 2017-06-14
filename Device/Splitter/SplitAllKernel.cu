@@ -218,8 +218,8 @@ __global__ void InsToNewNode(const TreeNode *pAllTreeNode, const real *pdFeaValu
 	ECHECKER(numofFea - ufid);
 
 	int nNumofPair = pNumofKeyValue[ufid];//number of feature values in the form of (ins_id, fvalue)
-	int perFeaTid = GLOBAL_TID();
-	if(perFeaTid >= nNumofPair)//one thread per feaValue
+	int perFvalueTid = GLOBAL_TID();
+	if(perFvalueTid >= nNumofPair)//one thread per feaValue
 		return;
 
 	//for each instance that has value on the feature
@@ -227,7 +227,7 @@ __global__ void InsToNewNode(const TreeNode *pAllTreeNode, const real *pdFeaValu
 	const real *pdCurFeaValue = pdFeaValue + curFeaStartPos;//fvalue start pos in the global memory
 	const int *pCurFeaInsId = pInsId + curFeaStartPos;//ins_id of this fea start pos in the global memory
 
-	int insId = pCurFeaInsId[perFeaTid];
+	int insId = pCurFeaInsId[perFvalueTid];
 
 	ECHECKER(numofIns - insId);
 	ECHECKER(insId);
@@ -262,7 +262,7 @@ __global__ void InsToNewNode(const TreeNode *pAllTreeNode, const real *pdFeaValu
 			CONCHECKER(pRChildId[bufferPos] == pLChildId[bufferPos] + 1);//right child id > than left child id
 			CONCHECKER(pAllTreeNode[nid].rightChildId != flag_LEAFNODE);
 			double fPivot = pBestSplitPoint[bufferPos].m_fSplitValue;
-			double fvalue = pdCurFeaValue[perFeaTid];
+			double fvalue = pdCurFeaValue[perFvalueTid];
 
 			if(fvalue >= fPivot){
 				pInsIdToNodeId[insId] = pRChildId[bufferPos];//right child id
