@@ -25,13 +25,13 @@
 
 #include "Device/FileBuffer/FileBuffer.h"
 
-#include "Host/commandLineParser.h"
+#include "Host/GBDTCmdLineParser.h"
 
 int main(int argc, char *argv[])
 {
 	char fileName[1024];
 	char savedFileName[1024];
-	Parser parser;
+	GBDTCmdLineParser parser;
 
 	parser.ParseLine(argc, argv, fileName, savedFileName);
 
@@ -167,8 +167,6 @@ int main(int argc, char *argv[])
 	IndexComputer indexCom;
 	indexCom.m_totalFeaValue = numFeaValue;
 	indexCom.m_total_copy = 0;
-
-	printf("f25 starts=%u, ends=%u\n", plFeaStartPos[25], plFeaStartPos[26]);
 
 	//copy feature key-value to device memory
 	cudaMemcpy(manager.m_pDInsId, pInsId, numFeaValue * sizeof(int), cudaMemcpyHostToDevice);

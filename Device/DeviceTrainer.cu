@@ -12,6 +12,7 @@
 #include "Memory/gbdtGPUMemManager.h"
 #include "Bagging/BagManager.h"
 #include "FindSplit/IndexComputer.h"
+#include "../SharedUtility/CudaMacro.h"
 
 /**
  * @brief: initialise tree
