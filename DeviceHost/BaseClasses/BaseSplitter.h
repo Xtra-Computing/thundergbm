@@ -38,12 +38,6 @@ public:
 public:
 	virtual ~BaseSplitter(){}
 
-	virtual string SpliterType() = 0;
-
-	virtual void SplitAll(vector<TreeNode*> &splittableNode, const vector<SplitPoint> &vBest, RegTree &tree, int &m_nNumofNode,
-				  	  	  const vector<nodeStat> &rchildStat, const vector<nodeStat> &lchildStat, bool bLastLevel, void *pStream, int bagId) = 0;
-	//a function for computing the gain of a feature
-	virtual void FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat> &tempStat, vector<nodeStat> &lchildStat, void *pStream, int bagId) = 0;
 	//predict the value for each instance and compute their gradient
 	virtual void ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> > & vvInsSparse, void *stream, int bagId) = 0;
 public:

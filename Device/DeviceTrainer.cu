@@ -97,7 +97,7 @@ void DeviceTrainer::GrowTree(RegTree &tree, void *pStream, int bagId)
 		clock_t begin_find_fea = clock();
 
 		if(nCurDepth < m_nMaxDepth)//don't need to find split for the last level
-			pDSpliter->FeaFinderAllNode(vBest, rchildStat, lchildStat, pStream, bagId);
+			pDSpliter->FeaFinderAllNode2(pStream, bagId);
 
 		clock_t end_find_fea = clock();
 		total_find_fea_t += (double(end_find_fea - begin_find_fea) / CLOCKS_PER_SEC);
@@ -111,7 +111,7 @@ void DeviceTrainer::GrowTree(RegTree &tree, void *pStream, int bagId)
 		int curNumofNode = -1;//this is fine even though bagging is used, as each bag is handled by a host thread.
 		manager.MemcpyDeviceToHostAsync(bagManager.m_pCurNumofNodeTreeOnTrainingEachBag_d + bagId, &curNumofNode, sizeof(int), pStream);
 		PROCESS_ERROR(curNumofNode > 0);
-		pDSpliter->SplitAll(splittableNode, vBest, tree, curNumofNode, rchildStat, lchildStat, bLastLevel, pStream, bagId);
+		pDSpliter->SplitAll(curNumofNode, bLastLevel, pStream, bagId);
 
 		manager.MemcpyDeviceToHostAsync(bagManager.m_pNumofNewNodeTreeOnTrainingEachBag + bagId, bagManager.m_curNumofSplitableEachBag_h + bagId,
 								   sizeof(int), pStream);

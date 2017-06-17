@@ -16,7 +16,7 @@ int *BagManager::m_pInsWeight = NULL;
 int BagManager::m_numBag = -1;
 int BagManager::m_numIns = -1;
 int BagManager::m_numFea = -1;
-long long BagManager::m_numFeaValue = -1;
+uint BagManager::m_numFeaValue = -1;
 
 //tree information
 int BagManager::m_numTreeEachBag = -1;
@@ -42,10 +42,10 @@ real *BagManager::m_pHessPrefixSumEachBag = NULL;	//hessian prefix sum for each 
 real *BagManager::m_pGainEachFvalueEachBag = NULL;	//gain for each feature value of each bag
 
 //for pinned memory; for computing indices in multiple level tree
-unsigned int *BagManager::m_pIndicesEachBag_d = NULL;	//indices for multiple level tree of each bag
-unsigned int *BagManager::m_pNumFvalueEachNodeEachBag_d = NULL;	//the number of feature values of each (splittable?) node
-unsigned int *BagManager::m_pFvalueStartPosEachNodeEachBag_d = NULL;//the start position of each node
-unsigned int *BagManager::m_pEachFeaStartPosEachNodeEachBag_d = NULL;//the start position of each feature in a node
+uint *BagManager::m_pIndicesEachBag_d = NULL;	//indices for multiple level tree of each bag
+uint *BagManager::m_pNumFvalueEachNodeEachBag_d = NULL;	//the number of feature values of each (splittable?) node
+uint *BagManager::m_pFvalueStartPosEachNodeEachBag_d = NULL;//the start position of each node
+uint *BagManager::m_pEachFeaStartPosEachNodeEachBag_d = NULL;//the start position of each feature in a node
 int *BagManager::m_pEachFeaLenEachNodeEachBag_d = NULL;	//the number of values of each feature in each node
 
 //memory for splittable nodes

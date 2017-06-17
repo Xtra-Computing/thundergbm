@@ -25,7 +25,7 @@ public:
 	static int m_numBag;
 	static int m_numIns;
 	static int m_numFea;
-	static long long m_numFeaValue;
+	static uint m_numFeaValue;
 
 	//tree info
 	static int m_numTreeEachBag;
@@ -49,10 +49,10 @@ public:
 	static real *m_pGainEachFvalueEachBag;
 
 	//for pinned memory; for computing indices in multiple level tree
-	static unsigned int *m_pIndicesEachBag_d;
-	static unsigned int *m_pNumFvalueEachNodeEachBag_d;//the number of feature values of each (splittable?) node
-	static unsigned int *m_pFvalueStartPosEachNodeEachBag_d;//the start position of each node
-	static unsigned int *m_pEachFeaStartPosEachNodeEachBag_d;//the start position of each feature in a node
+	static uint *m_pIndicesEachBag_d;
+	static uint *m_pNumFvalueEachNodeEachBag_d;//the number of feature values of each (splittable?) node
+	static uint *m_pFvalueStartPosEachNodeEachBag_d;//the start position of each node
+	static uint *m_pEachFeaStartPosEachNodeEachBag_d;//the start position of each feature in a node
 	static int *m_pEachFeaLenEachNodeEachBag_d;//the number of values of each feature in each node
 
 	//for splittable nodes

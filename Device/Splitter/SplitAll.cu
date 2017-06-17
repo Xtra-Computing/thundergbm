@@ -29,8 +29,7 @@ using std::sort;
  * @brief: split all splittable nodes of the current level
  * @numofNode: for computing new children ids
  */
-void DeviceSplitter::SplitAll(vector<TreeNode*> &splittableNode, const vector<SplitPoint> &vBest, RegTree &tree, int &m_nNumofNode,
-		 	 	 	    const vector<nodeStat> &rchildStat, const vector<nodeStat> &lchildStat, bool bLastLevel, void *pStream, int bagId)
+void DeviceSplitter::SplitAll(int &m_nNumofNode, bool bLastLevel, void *pStream, int bagId)
 {
 	int preMaxNodeId = m_nNumofNode - 1;
 	PROCESS_ERROR(preMaxNodeId >= 0);

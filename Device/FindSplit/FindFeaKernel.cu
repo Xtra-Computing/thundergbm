@@ -158,7 +158,7 @@ __global__ void ComputeGainDense(const nodeStat *pSNodeStat, const int *pId2SNPo
 /**
  * @brief: change the gain of the first value of each feature to 0
  */
-__global__ void FirstFeaGain(const unsigned int *pEachFeaStartPosEachNode, int numFeaStartPos, real *pGainOnEachFeaValue, long long numFeaValue)
+__global__ void FirstFeaGain(const unsigned int *pEachFeaStartPosEachNode, int numFeaStartPos, real *pGainOnEachFeaValue, uint numFeaValue)
 {
 	int gTid = GLOBAL_TID();
 
@@ -337,6 +337,6 @@ __global__ void FindSplitInfo(const uint *pEachFeaStartPosEachNode, const int *p
 	}
 	ECHECKER(pLChildStat[snPos].sum_hess);
 	ECHECKER(pRChildStat[snPos].sum_hess);
-//	printf("split: f=%d, value=%f, gain=%f, gd=%f v.s. %f, hess=%f v.s. %f, buffId=%d, key=%d\n", bestFeaId, pBestSplitPoint[snPos].m_fSplitValue,
-//			pBestSplitPoint[snPos].m_fGain, pLChildStat[snPos].sum_gd, pRChildStat[snPos].sum_gd, pLChildStat[snPos].sum_hess, pRChildStat[snPos].sum_hess, snPos, key);
+	printf("split: f=%d, value=%f, gain=%f, gd=%f v.s. %f, hess=%f v.s. %f, buffId=%d, key=%d\n", bestFeaId, pBestSplitPoint[snPos].m_fSplitValue,
+			pBestSplitPoint[snPos].m_fGain, pLChildStat[snPos].sum_gd, pRChildStat[snPos].sum_gd, pLChildStat[snPos].sum_hess, pRChildStat[snPos].sum_hess, snPos, key);
 }

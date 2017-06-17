@@ -38,11 +38,9 @@ public:
 
 
 public:
-	virtual string SpliterType(){return "device";}
-
-	virtual void FeaFinderAllNode(vector<SplitPoint> &vBest, vector<nodeStat> &rchildStat, vector<nodeStat> &lchildStat, void *pStream, int bagId);
-	virtual void SplitAll(vector<TreeNode*> &splittableNode, const vector<SplitPoint> &vBest, RegTree &tree, int &m_nNumofNode,
-				  	  	  const vector<nodeStat> &rchildStat, const vector<nodeStat> &lchildStat, bool bLastLevel, void *pStream, int bagId);
+	void FeaFinderAllNode(void *pStream, int bagId);
+	void FeaFinderAllNode2(void *pStream, int bagId);
+	void SplitAll(int &m_nNumofNode, bool bLastLevel, void *pStream, int bagId);
 	virtual void ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> > & vvInsSparse,  void *stream, int bagId);
 };
 
