@@ -526,17 +526,17 @@ void DeviceSplitter::FeaFinderAllNode2(void *pStream, int bagId)
 			//assign gain to 0
 			pGainOnEachFvalue_h[i] = 0;
 		}
-/*
+
 	    //backward consideration
-	    int segLen = 1;//eachCompressedFeaLen[segId];
-	    uint segStartPos = 0;//eachCompressedFeaStartPos[segId];
+	    int segLen = eachCompressedFeaLen[segId];
+	    uint segStartPos = eachCompressedFeaStartPos[segId];
 	    PROCESS_ERROR(segLen >= 0);
 	    uint lastFvaluePos = segStartPos + segLen - 1;
 	    PROCESS_ERROR(lastFvaluePos < totalLen2);
-	    double totalMissingGD = 0;//parentGD - csrGD_h[lastFvaluePos];
-	    double totalMissingHess = 0;//parentHess - csrHess_h[lastFvaluePos];
+	    double totalMissingGD = parentGD - csrGD_h[lastFvaluePos];
+	    double totalMissingHess = parentHess - csrHess_h[lastFvaluePos];
 	    if(totalMissingHess < 1)//there is no instance with missing values
-	    	return;
+	    	continue;
 	    //missing values to the right child
 	    rChildGD += totalMissingGD;
 	    rChildHess += totalMissingHess;
@@ -548,10 +548,10 @@ void DeviceSplitter::FeaFinderAllNode2(void *pStream, int bagId)
 				  	   	    (parentGD * parentGD)/(parentHess + DeviceSplitter::m_lambda);
 
 	    	if(tempGain > 0 && tempGain - pGainOnEachFvalue_h[i] > 0.1){
-	    		//pGainOnEachFvalue_h[i] = tempGain;
-	    		//pDefault2Right_h[i] = true;
+	    		pGainOnEachFvalue_h[i] = tempGain;
+	    		pDefault2Right_h[i] = true;
 	    	}
-	    }*/
+	    }
 	}
 
 	//find best gain for each node
