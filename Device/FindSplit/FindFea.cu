@@ -398,21 +398,26 @@ void DeviceSplitter::FeaFinderAllNode2(void *pStream, int bagId)
 	real *fvalue_h = new real[bagManager.m_numFeaValue];
 	checkCudaErrors(cudaMemcpy(fvalue_h, bagManager.m_pDenseFValueEachBag, sizeof(real) * bagManager.m_numFeaValue, cudaMemcpyDeviceToHost));
 	real *csrFvalue = new real[bagManager.m_numFeaValue];
-	uint *csrStartPos = new uint[bagManager.m_numFeaValue];
+	uint *csrOrgFvalueStartPos = new uint[bagManager.m_numFeaValue];
+	memset(csrOrgFvalueStartPos, -1, sizeof(uint) * bagManager.m_numFeaValue);
 	uint *eachCsrLen = new uint[bagManager.m_numFeaValue];
+	memset(eachCsrLen, -1, sizeof(uint) * bagManager.m_numFeaValue);
 	uint *eachFeaLenEachNode_h = new uint[bagManager.m_numFea * numofSNode];
 	uint *eachFeaStartPosEachNode_h = new uint[bagManager.m_numFea * numofSNode];
 	checkCudaErrors(cudaMemcpy(eachFeaLenEachNode_h, bagManager.m_pEachFeaLenEachNodeEachBag_d, sizeof(uint) * bagManager.m_numFea * numofSNode, cudaMemcpyDeviceToHost));
 	checkCudaErrors(cudaMemcpy(eachFeaStartPosEachNode_h, bagManager.m_pEachFeaStartPosEachNodeEachBag_d, sizeof(uint) * bagManager.m_numFea * numofSNode, cudaMemcpyDeviceToHost));
 	uint *eachCompressedFeaLen = new uint[bagManager.m_numFea * numofSNode];
+	memset(eachCompressedFeaLen, -1, sizeof(uint) * bagManager.m_numFea * numofSNode);
 	uint *eachCompressedFeaStartPos = new uint[bagManager.m_numFea * numofSNode];
+	memset(eachCompressedFeaStartPos, -1, sizeof(uint) * bagManager.m_numFea * numofSNode);
 	uint csrId = 0, curFvalueToCompress = 0;
 	for(int i = 0; i < bagManager.m_numFea * numofSNode; i++){
+		eachCompressedFeaLen[i] = 0;
 		uint feaStart = eachFeaStartPosEachNode_h[i];
 		uint feaLen = eachFeaLenEachNode_h[i];
 		if(feaLen == 0)continue;
 		csrFvalue[csrId] = fvalue_h[feaStart];
-		csrStartPos[csrId] = curFvalueToCompress;
+		csrOrgFvalueStartPos[csrId] = curFvalueToCompress;
 		eachCsrLen[csrId] = 1;
 		eachCompressedFeaLen[i] = 1;
 		for(int l = 1; l < feaLen; l++){
@@ -421,7 +426,7 @@ void DeviceSplitter::FeaFinderAllNode2(void *pStream, int bagId)
 				eachCompressedFeaLen[i]++;
 				csrId++;
 				csrFvalue[csrId] = fvalue_h[feaStart + l];
-				csrStartPos[csrId] = curFvalueToCompress;
+				csrOrgFvalueStartPos[csrId] = curFvalueToCompress;
 				eachCsrLen[csrId] = 1;
 			}
 			else
@@ -444,7 +449,7 @@ void DeviceSplitter::FeaFinderAllNode2(void *pStream, int bagId)
 	uint totalLen2 = 0;
 	for(int i = 0; i < bagManager.m_numFea * numofSNode; i++)
 		totalLen2 += eachCompressedFeaLen[i];
-	//printf("csrLen=%u, totalLen=%u, totalLen2=%u; numofFeaValue=%u\n", csrId, totalLen, totalLen2, bagManager.m_numFeaValue);
+	printf("csrLen=%u, totalLen=%u, totalLen2=%u; numofFeaValue=%u\n", csrId, totalLen, totalLen2, bagManager.m_numFeaValue);
 	PROCESS_ERROR(csrId == totalLen2);
 	PROCESS_ERROR(totalLen2 < bagManager.m_numFeaValue);
 	//PROCESS_ERROR(totalLen == bagManager.m_numFeaValue);
@@ -554,10 +559,11 @@ void DeviceSplitter::FeaFinderAllNode2(void *pStream, int bagId)
 	uint *pMaxId = new uint[numofSNode];
 	for(int i = 0; i < numofSNode; i++){
 		int fid = -1;
+		pMaxGain[i] = 0;
 		for(int f = 0; f < bagManager.m_numFea; f++){
 			uint segLen = eachCompressedFeaLen[i * bagManager.m_numFea + f];
 			if(segLen == 0)continue;
-			uint segStartPos = eachCompressedFeaStartPos[i];
+			uint segStartPos = eachCompressedFeaStartPos[i * bagManager.m_numFea + f];
 			for(int m = 0; m < segLen; m++){
 				if(pGainOnEachFvalue_h[segStartPos + m] > pMaxGain[i]){
 					pMaxGain[i] = pGainOnEachFvalue_h[segStartPos + m];
