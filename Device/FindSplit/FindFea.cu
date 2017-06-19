@@ -557,22 +557,119 @@ void DeviceSplitter::FeaFinderAllNode2(void *pStream, int bagId)
 	//find best gain for each node
 	real *pMaxGain = new real[numofSNode];
 	uint *pMaxId = new uint[numofSNode];
+	int *pBestFeaId = new int[numofSNode];
 	for(int i = 0; i < numofSNode; i++){
-		int fid = -1;
-		pMaxGain[i] = 0;
+		pBestFeaId[i] = -1;
+		pMaxGain[i] = -100000000000000000000000;
 		for(int f = 0; f < bagManager.m_numFea; f++){
 			uint segLen = eachCompressedFeaLen[i * bagManager.m_numFea + f];
 			if(segLen == 0)continue;
 			uint segStartPos = eachCompressedFeaStartPos[i * bagManager.m_numFea + f];
-			for(int m = 0; m < segLen; m++){
+			for(int m = 1; m < segLen; m++){//start from 1 to ignore the first element
 				if(pGainOnEachFvalue_h[segStartPos + m] > pMaxGain[i]){
 					pMaxGain[i] = pGainOnEachFvalue_h[segStartPos + m];
 					pMaxId[i] = segStartPos + m;
-					fid = f;
+					pBestFeaId[i] = f;
 				}
 			}
 		}
-		printf("f=%d, gain=%f, key=%u\n", fid, pMaxGain[i], pMaxId[i]);
+//		printf("f=%d, gain=%f, key=%u\n", pBestFeaId[i], pMaxGain[i], pMaxId[i]);
+	}
+
+	//find the split value and feature
+	uint *pBestFeaBackup = new uint[numofSNode];
+	for(int i = 0; i < numofSNode; i++){
+		for(int f = 0; f < bagManager.m_numFea; f++){
+			uint segStartPos = eachCompressedFeaStartPos[i * bagManager.m_numFea + f];
+			if(segStartPos <= pMaxId[i]){
+				if(i * bagManager.m_numFea + f < numofSNode * bagManager.m_numFea - 1){
+					if(pMaxId[i] < eachCompressedFeaStartPos[i * bagManager.m_numFea + f + 1]){
+						pBestFeaBackup[i] = f;
+						break;
+					}
+					else
+						continue;
+				}
+				else{//last feature of all
+					pBestFeaBackup[i] = f;
+					break;
+				}
+			}
+			else{
+				printf("this case should not happen ############### segStartPos=%u, pMaxId[%d]=%u, numofSN=%d, f=%d\n", segStartPos, i, pMaxId[i], numofSNode, f);
+			}
+		}
+	}
+	for(int i = 0; i < numofSNode; i++){
+		PROCESS_ERROR(pBestFeaId[i] == pBestFeaBackup[i]);
+	}
+	real *pSplitValue = new real[numofSNode];
+	for(int i = 0; i < numofSNode; i++){
+		pSplitValue[i] = 0.5f * (csrFvalue[pMaxId[i]] + csrFvalue[pMaxId[i] - 1]);
+		printf("f=%d, gain=%f, key=%u, sv=%f\n", pBestFeaId[i], pMaxGain[i], pMaxId[i], pSplitValue[i]);
+	}
+	//compute left and right child stats
+	nodeStat *pRChildStat_h = new nodeStat[bagManager.m_maxNumSplittable];
+	nodeStat *pLChildStat_h = new nodeStat[bagManager.m_maxNumSplittable];
+	checkCudaErrors(cudaMemcpy(pRChildStat_h, bagManager.m_pRChildStatEachBag, sizeof(nodeStat) * bagManager.m_maxNumSplittable, cudaMemcpyDeviceToHost));
+	checkCudaErrors(cudaMemcpy(pLChildStat_h, bagManager.m_pLChildStatEachBag, sizeof(nodeStat) * bagManager.m_maxNumSplittable, cudaMemcpyDeviceToHost));
+
+	for(int i = 0; i < numofSNode; i++){
+		uint key = pMaxId[i];
+		uint segId = pnKey_h[key];
+		uint pid = segId / bagManager.m_numFea;
+		int snPos = pid2snPos[pid];
+
+		int idxPreSum = key - 1;//follow xgboost using exclusive
+		if(pDefault2Right_h[key] == false){
+			pLChildStat_h[snPos].sum_gd = snNode_h[snPos].sum_gd - csrGD_h[idxPreSum];
+			pLChildStat_h[snPos].sum_hess = snNode_h[snPos].sum_hess - csrHess_h[idxPreSum];
+			pRChildStat_h[snPos].sum_gd = csrGD_h[idxPreSum];
+			pRChildStat_h[snPos].sum_hess = csrHess_h[idxPreSum];
+		}
+		else{
+			real parentGD = snNode_h[snPos].sum_gd;
+			real parentHess = snNode_h[snPos].sum_hess;
+
+			uint segId = pnKey_h[key];
+			uint segStartPos = eachCompressedFeaStartPos[segId];
+			int segLen = eachCompressedFeaLen[segId];
+			uint lastFvaluePos = segStartPos + segLen - 1;
+			real totalMissingGD = parentGD - csrGD_h[lastFvaluePos];
+			real totalMissingHess = parentHess - csrHess_h[lastFvaluePos];
+
+			double rChildGD = totalMissingGD + csrGD_h[idxPreSum];
+			real rChildHess = totalMissingHess + csrHess_h[idxPreSum];
+			real lChildGD = parentGD - rChildGD;
+			real lChildHess = parentHess - rChildHess;
+
+			pRChildStat_h[snPos].sum_gd = rChildGD;
+			pRChildStat_h[snPos].sum_hess = rChildHess;
+			pLChildStat_h[snPos].sum_gd = lChildGD;
+			pLChildStat_h[snPos].sum_hess = lChildHess;
+		}
+	}
+	//store best split point
+	SplitPoint *pBestSplitPoint_h = new SplitPoint[bagManager.m_maxNumSplittable];
+	for(int i = 0; i < numofSNode; i++){
+		uint key = pMaxId[i];
+		uint segId = pnKey_h[key];
+		uint pid = segId / bagManager.m_numFea;
+		int snPos = pid2snPos[pid];
+		pBestSplitPoint_h[snPos].m_fGain = pMaxGain[i];//change the gain back to positive
+		if(pMaxGain[i] <= 0)//no gain
+			continue;
+
+		pBestSplitPoint_h[snPos].m_nFeatureId = pBestFeaId[i];
+		pBestSplitPoint_h[snPos].m_fSplitValue = pSplitValue[i];
+		pBestSplitPoint_h[snPos].m_bDefault2Right = false;
+
+		//child node stat
+		int idxPreSum = key - 1;//follow xgboost using exclusive
+		if(pDefault2Right_h[key] == true)
+			pBestSplitPoint_h[snPos].m_bDefault2Right = true;
+		printf("split: f=%d, value=%f, gain=%f, gd=%f v.s. %f, hess=%f v.s. %f, buffId=%d, key=%d\n", pBestFeaId[i], pBestSplitPoint_h[snPos].m_fSplitValue,
+				pBestSplitPoint_h[snPos].m_fGain, pLChildStat_h[snPos].sum_gd, pRChildStat_h[snPos].sum_gd, pLChildStat_h[snPos].sum_hess, pRChildStat_h[snPos].sum_hess, snPos, key);
 	}
 
 	//###########
