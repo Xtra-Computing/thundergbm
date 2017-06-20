@@ -29,7 +29,8 @@ using std::endl;
 using std::make_pair;
 using std::cerr;
 
-__global__ void SetKey(uint *pSegStart, int *pSegLen, uint *pnKey){
+template<class T>
+__global__ void SetKey(uint *pSegStart, T *pSegLen, uint *pnKey){
 	uint segmentId = blockIdx.x;//use one x covering multiple ys, because the maximum number of x-dimension is larger.
 	__shared__ uint segmentLen, segmentStartPos;
 	if(threadIdx.x == 0){//the first thread loads the segment length
@@ -491,48 +492,67 @@ void DeviceSplitter::FeaFinderAllNode2(void *pStream, int bagId)
 	for(int i = 0; i < bagManager.m_numFeaValue; i++){
 		totalOrgGD += gd_h[i];
 	}
-	//printf("total gd=%f, total hess=%f, orgGD=%f\n", totalGD, totalHess, totalOrgGD);
-	PROCESS_ERROR(fabs(totalGD - totalOrgGD) < 0.001);
-	uint *pnKey_h = new uint[totalNumCsrFvalue];
-	uint segStart = 0;
-	for(int segId = 0; segId < bagManager.m_numFea * numofSNode; segId++){
-		uint segLen = eachCompressedFeaLen[segId];
-		for(int i = 0; i < segLen; i++){
-			pnKey_h[i + segStart] = segId;
-		}
-		segStart += segLen;
-	}
-	thrust::inclusive_scan_by_key(thrust::host, pnKey_h, pnKey_h + totalNumCsrFvalue, csrGD_h, csrGD_h);
-	thrust::inclusive_scan_by_key(thrust::host, pnKey_h, pnKey_h + totalNumCsrFvalue, csrHess_h, csrHess_h);
 
-	//compute gain
+	printf("org=%u v.s. csr=%u\n", bagManager.m_numFeaValue, totalNumCsrFvalue);
+
+	//	cout << "prefix sum" << endl;
 	int numSeg = bagManager.m_numFea * numofSNode;
-	//default to left or right
 	real *pCsrFvalue_d;
 	uint *pEachCompressedFeaStartPos_d;
 	uint *pEachCompressedFeaLen_d;
 	double *pCsrGD_d;
 	real *pCsrHess_d;
-	uint *pnCsrKey_d;
+	uint *pEachCsrNodeSize_d;
+	uint *pEachCsrNodeStart_d;
 	checkCudaErrors(cudaMalloc((void**)&pEachCompressedFeaStartPos_d, sizeof(uint) * numSeg));
 	checkCudaErrors(cudaMalloc((void**)&pEachCompressedFeaLen_d, sizeof(uint) * numSeg));
 	checkCudaErrors(cudaMalloc((void**)&pCsrFvalue_d, sizeof(real) * totalNumCsrFvalue));
+	checkCudaErrors(cudaMalloc((void**)&pCsrGD_d, sizeof(double) * totalNumCsrFvalue));
+	checkCudaErrors(cudaMalloc((void**)&pCsrHess_d, sizeof(real) * totalNumCsrFvalue));
+	checkCudaErrors(cudaMalloc((void**)&pEachCsrNodeSize_d, sizeof(uint) * numofSNode));
+	checkCudaErrors(cudaMalloc((void**)&pEachCsrNodeStart_d, sizeof(uint) * numofSNode));
+
 	checkCudaErrors(cudaMemcpy(pEachCompressedFeaStartPos_d, eachCompressedFeaStartPos, sizeof(uint) * numSeg, cudaMemcpyHostToDevice));
 	checkCudaErrors(cudaMemcpy(pEachCompressedFeaLen_d, eachCompressedFeaLen, sizeof(uint) * numSeg, cudaMemcpyHostToDevice));
 	checkCudaErrors(cudaMemcpy(pCsrFvalue_d, csrFvalue, sizeof(real) * totalNumCsrFvalue, cudaMemcpyHostToDevice));
-
-	checkCudaErrors(cudaMalloc((void**)&pCsrGD_d, sizeof(double) * totalNumCsrFvalue));
-	checkCudaErrors(cudaMalloc((void**)&pCsrHess_d, sizeof(real) * totalNumCsrFvalue));
-	checkCudaErrors(cudaMalloc((void**)&pnCsrKey_d, sizeof(uint) * totalNumCsrFvalue));
 	checkCudaErrors(cudaMemcpy(pCsrHess_d, csrHess_h, sizeof(real) * totalNumCsrFvalue, cudaMemcpyHostToDevice));
 	checkCudaErrors(cudaMemcpy(pCsrGD_d, csrGD_h, sizeof(double) * totalNumCsrFvalue, cudaMemcpyHostToDevice));
-	checkCudaErrors(cudaMemcpy(pnCsrKey_d, pnKey_h, sizeof(uint) * totalNumCsrFvalue, cudaMemcpyHostToDevice));
+	checkCudaErrors(cudaMemcpy(pEachCsrNodeSize_d, eachNodeSizeInCsr, sizeof(uint) * numofSNode, cudaMemcpyHostToDevice));
+	checkCudaErrors(cudaMemcpy(pEachCsrNodeStart_d, eachCsrNodeStartPos, sizeof(uint) * numofSNode, cudaMemcpyHostToDevice));
+	clock_t start_scan = clock();
+	//compute the feature with the maximum number of values
+	cudaStreamSynchronize((*(cudaStream_t*)pStream));//wait until the pinned memory (m_pEachFeaLenEachNodeEachBag_dh) is filled
 
+	//construct keys for exclusive scan
+	uint *pnCsrKey_d;
+	checkCudaErrors(cudaMalloc((void**)&pnCsrKey_d, sizeof(uint) * totalNumCsrFvalue));
+
+	//set keys by GPU
+	uint maxSegLen = 0;
+	uint *pMaxLen = thrust::max_element(thrust::device, pEachCompressedFeaLen_d, pEachCompressedFeaLen_d + numSeg);
+	checkCudaErrors(cudaMemcpyAsync(&maxSegLen, pMaxLen, sizeof(uint), cudaMemcpyDeviceToHost, (*(cudaStream_t*)pStream)));
+
+	dim3 dimNumofBlockToSetKey;
+	dimNumofBlockToSetKey.x = numSeg;
+	uint blockSize = 128;
+	dimNumofBlockToSetKey.y = (maxSegLen + blockSize - 1) / blockSize;
+	SetKey<<<numSeg, blockSize, sizeof(uint) * 2, (*(cudaStream_t*)pStream)>>>
+			(pEachCompressedFeaStartPos_d, pEachCompressedFeaLen_d, pnCsrKey_d);
+	cudaStreamSynchronize((*(cudaStream_t*)pStream));
+
+	//compute prefix sum for gd and hess (more than one arrays)
+	thrust::inclusive_scan_by_key(thrust::device, pnCsrKey_d, pnCsrKey_d + totalNumCsrFvalue, pCsrGD_d, pCsrGD_d);//in place prefix sum
+	thrust::inclusive_scan_by_key(thrust::device, pnCsrKey_d, pnCsrKey_d + totalNumCsrFvalue, pCsrHess_d, pCsrHess_d);
+
+	clock_t end_scan = clock();
+	total_scan_t += (end_scan - start_scan);
+
+	//compute gain
+	//default to left or right
 	bool *pCsrDefault2Right_d;
 	real *pGainEachCsrFvalue_d;
 	checkCudaErrors(cudaMalloc((void**)&pCsrDefault2Right_d, sizeof(bool) * totalNumCsrFvalue));
 	checkCudaErrors(cudaMalloc((void**)&pGainEachCsrFvalue_d, sizeof(real) * totalNumCsrFvalue));
-
 
 	//cout << "compute gain" << endl;
 	clock_t start_comp_gain = clock();
@@ -557,16 +577,10 @@ void DeviceSplitter::FeaFinderAllNode2(void *pStream, int bagId)
 
 	//	cout << "searching" << endl;
 	clock_t start_search = clock();
-	uint *pEachCsrNodeSize_d;
-	uint *pEachCsrNodeStart_d;
 	real *pMaxGain_d;
 	uint *pMaxGainKey_d;
-	checkCudaErrors(cudaMalloc((void**)&pEachCsrNodeSize_d, sizeof(uint) * numofSNode));
-	checkCudaErrors(cudaMalloc((void**)&pEachCsrNodeStart_d, sizeof(uint) * numofSNode));
 	checkCudaErrors(cudaMalloc((void**)&pMaxGain_d, sizeof(real) * numofSNode));
 	checkCudaErrors(cudaMalloc((void**)&pMaxGainKey_d, sizeof(uint) * numofSNode));
-	checkCudaErrors(cudaMemcpy(pEachCsrNodeSize_d, eachNodeSizeInCsr, sizeof(uint) * numofSNode, cudaMemcpyHostToDevice));
-	checkCudaErrors(cudaMemcpy(pEachCsrNodeStart_d, eachCsrNodeStartPos, sizeof(uint) * numofSNode, cudaMemcpyHostToDevice));
 	real *pfLocalBestGain_d;
 	uint *pnLocalBestGainKey_d;
 	//compute # of blocks for each node
@@ -642,41 +656,5 @@ void DeviceSplitter::FeaFinderAllNode2(void *pStream, int bagId)
 	checkCudaErrors(cudaFree(pCsrHess_d));
 	checkCudaErrors(cudaFree(pCsrDefault2Right_d));
 	checkCudaErrors(cudaFree(pnCsrKey_d));
-/*
-//	cout << "prefix sum" << endl;
-	clock_t start_scan = clock();
-	//compute the feature with the maximum number of values
-	int totalNumArray = bagManager.m_numFea * numofSNode;
-	cudaStreamSynchronize((*(cudaStream_t*)pStream));//wait until the pinned memory (m_pEachFeaLenEachNodeEachBag_dh) is filled
-
-	//construct keys for exclusive scan
-	uint *pnKey_d;
-	checkCudaErrors(cudaMalloc((void**)&pnKey_d, bagManager.m_numFeaValue * sizeof(uint)));
-	uint *pTempEachFeaStartEachNode = bagManager.m_pEachFeaStartPosEachNodeEachBag_d + bagId * bagManager.m_maxNumSplittable * bagManager.m_numFea;
-
-	//set keys by GPU
-	int maxSegLen = 0;
-	int *pTempEachFeaLenEachNode = bagManager.m_pEachFeaLenEachNodeEachBag_d + bagId * bagManager.m_maxNumSplittable * bagManager.m_numFea;
-	int *pMaxLen = thrust::max_element(thrust::device, pTempEachFeaLenEachNode, pTempEachFeaLenEachNode + totalNumArray);
-	checkCudaErrors(cudaMemcpyAsync(&maxSegLen, pMaxLen, sizeof(int), cudaMemcpyDeviceToHost, (*(cudaStream_t*)pStream)));
-
-	dim3 dimNumofBlockToSetKey;
-	dimNumofBlockToSetKey.x = totalNumArray;
-	uint blockSize = 128;
-	dimNumofBlockToSetKey.y = (maxSegLen + blockSize - 1) / blockSize;
-	SetKey<<<totalNumArray, blockSize, sizeof(uint) * 2, (*(cudaStream_t*)pStream)>>>
-			(pTempEachFeaStartEachNode, pTempEachFeaLenEachNode, pnKey_d);
-	cudaStreamSynchronize((*(cudaStream_t*)pStream));
-
-	//compute prefix sum for gd and hess (more than one arrays)
-	double *pTempGDSum = bagManager.m_pdGDPrefixSumEachBag + bagId * bagManager.m_numFeaValue;
-	real *pTempHessSum = bagManager.m_pHessPrefixSumEachBag + bagId * bagManager.m_numFeaValue;
-	thrust::inclusive_scan_by_key(thrust::system::cuda::par, pnKey_d, pnKey_d + bagManager.m_numFeaValue, pTempGDSum, pTempGDSum);//in place prefix sum
-	thrust::inclusive_scan_by_key(thrust::system::cuda::par, pnKey_d, pnKey_d + bagManager.m_numFeaValue, pTempHessSum, pTempHessSum);
-
-
-	clock_t end_scan = clock();
-	total_scan_t += (end_scan - start_scan);
-*/
 }
 
