@@ -11,11 +11,55 @@
 //include files from the gpu sdk
 #include <cuda_runtime.h>
 #include "../../SharedUtility/DataType.h"
+#include "../../SharedUtility/CudaMacro.h"
 
-__device__ void GetGlobalMinPreprocessing(int nArraySize, const real *pfBlockMinValue, const int *pnBlockMinKey,
-		  	  	  	  	  	  	  	  	  real *pfSharedMinValue, int *pnSharedMinKey);
+/**
+ * @brief: when the array is too large to store in shared memory, one thread loads multiple values
+ */
+template<class T>
+__device__ void GetGlobalMinPreprocessing(int nArraySize, const real *pfBlockMinValue, const T *pnBlockMinKey,
+										  real *pfSharedMinValue, T *pnSharedMinKey)
+{
+	int localTid = threadIdx.x;
+	if(nArraySize > BLOCK_SIZE)
+	{
+		if(BLOCK_SIZE != blockDim.x)
+			printf("Error: Block size inconsistent in PickFeaGlobalBestSplit\n");
+
+		real fTempMin = pfSharedMinValue[localTid];
+		T nTempMinKey = pnSharedMinKey[localTid];
+		for(int i = localTid + BLOCK_SIZE; i < nArraySize; i += blockDim.x)
+		{
+			real fTempBlockMin = pfBlockMinValue[i];
+			if(fTempBlockMin < fTempMin)
+			{
+			//store the minimum value and the corresponding key
+				fTempMin = fTempBlockMin;
+				nTempMinKey = pnBlockMinKey[i];
+			}
+		}
+		pnSharedMinKey[localTid] = nTempMinKey;
+		pfSharedMinValue[localTid] = fTempMin;
+	}
+}
+
+/**
+ * @brief: load to shared memory
+ */
+template<class T>
 __device__ void LoadToSharedMem(int nArraySize, int gainStartPos,
-								const real *pfBlockMinValue, const int *pnBlockMinKey,
-		  	  	  	  	  	    real *pfSharedMinValue, int *pnSharedMinKey);
+								const real *pfBlockMinValue, const T *pnBlockMinKey,
+		  	  	  	  	  	    real *pfSharedMinValue, T *pnSharedMinKey)
+{
+	int localTId = threadIdx.x;
+	int firstElementPos = gainStartPos + localTId;
+	pfSharedMinValue[localTId] = pfBlockMinValue[firstElementPos];
+	pnSharedMinKey[localTId] = pnBlockMinKey[firstElementPos];
+
+	//if the size of block is larger than the BLOCK_SIZE, we make the size to be not larger than BLOCK_SIZE
+	//the thread loads more elements
+	GetGlobalMinPreprocessing(nArraySize, pfBlockMinValue + gainStartPos, pnBlockMinKey + gainStartPos, pfSharedMinValue, pnSharedMinKey);
+}
+
 
 #endif /* SVM_DEVUTILITY_H_ */

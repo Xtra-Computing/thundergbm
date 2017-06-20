@@ -9,10 +9,15 @@
 #ifndef DEVICESPLITTERKERNEL_H_
 #define DEVICESPLITTERKERNEL_H_
 
+#include <float.h>
+#include <limits>
+
 #include "../Splitter/DeviceSplitter.h"
 #include "../../Host/UpdateOps/SplitPoint.h"
 #include "../../DeviceHost/NodeStat.h"
 #include "../../DeviceHost/BaseClasses/BaseSplitter.h"
+#include "../../DeviceHost/svm-shared/DeviceUtility.h"
+#include "../../SharedUtility/getMin.h"
 #include "../../SharedUtility/DataType.h"
 #include "../../SharedUtility/CudaMacro.h"
 #include "../../SharedUtility/binarySearch.h"
@@ -30,12 +35,98 @@ __global__ void ComputeGainDense(const nodeStat *pSNodeStat, const int *pBuffId,
 							const uint *pEachFeaStartEachNode, const int *pEachFeaLenEachNode,
 							const uint *pnKey, int numFea, real *pGainOnEachFeaValue, bool *pDefault2Right);
 __global__ void FirstFeaGain(const unsigned int *pEachFeaStartPosEachNode, int numFeaStartPos, real *pGainOnEachFeaValue, uint numFeaValue);
+
+template<class T>
 __global__ void PickLocalBestSplitEachNode(const uint *pnNumFeaValueEachNode, const uint *pFeaStartPosEachNode,
 										   const real *pGainOnEachFeaValue,
-								   	   	   real *pfLocalBestGain, int *pnLocalBestGainKey);
-__global__ void PickGlobalBestSplitEachNode(const real *pfLocalBestGain, const int *pnLocalBestGainKey,
-								   	   	    real *pfGlobalBestGain, int *pnGlobalBestGainKey,
-								   	   	    int numBlockPerNode, int numofSNode);
+								   	   	   real *pfLocalBestGain, T *pnLocalBestGainKey)
+{
+	//best gain of each node is search by a few blocks
+	//blockIdx.z corresponds to a splittable node id
+	int snId = blockIdx.z;
+	uint numValueThisNode = pnNumFeaValueEachNode[snId];//get the number of feature value of this node
+	int blockId = blockIdx.z * gridDim.y * gridDim.x + blockIdx.y * gridDim.x + blockIdx.x;
+	uint tid0 = (blockIdx.y * gridDim.x + blockIdx.x) * blockDim.x;
+	if(tid0 >= numValueThisNode){
+		pfLocalBestGain[blockId] = 0;
+		pnLocalBestGainKey[blockId] = tid0;
+		return;
+	}
+
+	__shared__ real pfGain[BLOCK_SIZE];
+	__shared__ int pnBetterGainKey[BLOCK_SIZE];
+	int localTid = threadIdx.x;
+	pfGain[localTid] = FLT_MAX;//initialise to a large positive number
+	pnBetterGainKey[localTid] = -1;
+	if(localTid == 0){//initialise local best value
+		pfLocalBestGain[blockId] = FLT_MAX;
+		pnLocalBestGainKey[blockId] = -1;
+	}
+
+	uint tidForEachNode = tid0 + threadIdx.x;
+	uint nPos = pFeaStartPosEachNode[snId] + tidForEachNode;//feature value gain position
+
+
+	if(tidForEachNode >= numValueThisNode){//no gain to load
+		pfGain[localTid] = 0;
+		pnBetterGainKey[localTid] = INT_MAX;
+	}
+	else{
+		pfGain[localTid] = -pGainOnEachFeaValue[nPos];//change to find min of -gain
+		pnBetterGainKey[localTid] = nPos;
+	}
+	__syncthreads();
+
+	//find the local best split point
+	GetMinValueOriginal(pfGain, pnBetterGainKey);
+	__syncthreads();
+	if(localTid == 0)//copy the best gain to global memory
+	{
+		pfLocalBestGain[blockId] = pfGain[0];
+		pnLocalBestGainKey[blockId] = pnBetterGainKey[0];
+
+		ECHECKER(pnBetterGainKey[0]);
+		//if(pnBetterGainKey[0] < 0)
+		//	printf("negative key: snId=%d, blockId=%d, gain=%f, key=%d\n", snId, blockId, pfGain[0], pnBetterGainKey[0]);
+	}
+}
+template<class T>
+__global__ void PickGlobalBestSplitEachNode(const real *pfLocalBestGain, const T *pnLocalBestGainKey,
+								   	   	    real *pfGlobalBestGain, T *pnGlobalBestGainKey,
+								   	   	    int numBlockPerNode, int numofSNode)
+{
+	//a block for finding the best gain of a node
+	int blockId = blockIdx.x;
+
+	int snId = blockId;
+	CONCHECKER(blockIdx.y <= 1);
+	CONCHECKER(snId < numofSNode);
+
+	__shared__ real pfGain[BLOCK_SIZE];
+	__shared__ T pnBetterGainKey[BLOCK_SIZE];
+	int localTid = threadIdx.x;
+	pfGain[localTid] = FLT_MAX;//initialise to a large positive number
+	pnBetterGainKey[localTid] = -1;
+
+	if(localTid >= numBlockPerNode)//number of threads is larger than the number of blocks
+	{
+		return;
+	}
+
+	int curFeaLocalBestStartPos = snId * numBlockPerNode;
+
+	LoadToSharedMem(numBlockPerNode, curFeaLocalBestStartPos, pfLocalBestGain, pnLocalBestGainKey, pfGain, pnBetterGainKey);
+	 __syncthreads();	//wait until the thread within the block
+
+	//find the local best split point
+	GetMinValueOriginal(pfGain, pnBetterGainKey);
+	__syncthreads();
+	if(localTid == 0)//copy the best gain to global memory
+	{
+		pfGlobalBestGain[snId] = -pfGain[0];//make the gain back to its original sign
+		pnGlobalBestGainKey[snId] = pnBetterGainKey[0];
+	}
+}
 /**
  * @brief: find split points
  */
