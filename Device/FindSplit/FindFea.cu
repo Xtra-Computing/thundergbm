@@ -23,6 +23,7 @@
 #include "../../SharedUtility/KernelConf.h"
 #include "../../SharedUtility/HostUtility.h"
 #include "../../SharedUtility/powerOfTwo.h"
+#include "../../SharedUtility/segmentedMax.h"
 
 using std::cout;
 using std::endl;
@@ -225,51 +226,14 @@ void DeviceSplitter::FeaFinderAllNode(void *pStream, int bagId)
 
 //	cout << "searching" << endl;
 	clock_t start_search = clock();
-	real *pfLocalBestGain_d, *pfGlobalBestGain_d;
-	int *pnLocalBestGainKey_d, *pnGlobalBestGainKey_d;
-	//compute # of blocks for each node
-	PROCESS_ERROR(maxNumFeaValueOneNode > 0);
-	int blockSizeLocalBestGain;
-	dim3 dimNumofBlockLocalBestGain;
-	conf.ConfKernel(maxNumFeaValueOneNode, blockSizeLocalBestGain, dimNumofBlockLocalBestGain);
-	PROCESS_ERROR(dimNumofBlockLocalBestGain.z == 1);
-	dimNumofBlockLocalBestGain.z = numofSNode;//each node per super block
-	int numBlockPerNode = dimNumofBlockLocalBestGain.x * dimNumofBlockLocalBestGain.y;
-
-	checkCudaErrors(cudaMalloc((void**)&pfLocalBestGain_d, sizeof(real) * numBlockPerNode * numofSNode));
-	checkCudaErrors(cudaMalloc((void**)&pnLocalBestGainKey_d, sizeof(int) * numBlockPerNode * numofSNode));
+	real *pfGlobalBestGain_d;
+	int *pnGlobalBestGainKey_d;
 	checkCudaErrors(cudaMalloc((void**)&pfGlobalBestGain_d, sizeof(real) * numofSNode));
 	checkCudaErrors(cudaMalloc((void**)&pnGlobalBestGainKey_d, sizeof(int) * numofSNode));
-	//find the block level best gain for each node
-	PickLocalBestSplitEachNode<<<dimNumofBlockLocalBestGain, blockSizeLocalBestGain, 0, (*(cudaStream_t*)pStream)>>>(
-								bagManager.m_pNumFvalueEachNodeEachBag_d + bagId * bagManager.m_maxNumSplittable,
-								bagManager.m_pFvalueStartPosEachNodeEachBag_d + bagId * bagManager.m_maxNumSplittable,
-								bagManager.m_pGainEachFvalueEachBag + bagId * bagManager.m_numFeaValue,
-								pfLocalBestGain_d,
-								pnLocalBestGainKey_d);
-	cudaStreamSynchronize((*(cudaStream_t*)pStream));
-	GETERROR("after PickLocalBestSplitEachNode");
 
-	//find the global best gain for each node
-	if(numBlockPerNode > 1){
-		int blockSizeBestGain;
-		dim3 dimNumofBlockDummy;
-		conf.ConfKernel(numBlockPerNode, blockSizeBestGain, dimNumofBlockDummy);
-		PickGlobalBestSplitEachNode<<<numofSNode, blockSizeBestGain, 0, (*(cudaStream_t*)pStream)>>>(
-									pfLocalBestGain_d,
-									pnLocalBestGainKey_d,
-									pfGlobalBestGain_d,
-									pnGlobalBestGainKey_d,
-								    numBlockPerNode, numofSNode);
-		cudaStreamSynchronize((*(cudaStream_t*)pStream));
-		GETERROR("after PickGlobalBestSplitEachNode");
-	}
-	else{//local best fea is the global best fea
-		manager.MemcpyDeviceToDeviceAsync(pfLocalBestGain_d, pfGlobalBestGain_d,
-										sizeof(real) * numofSNode, pStream);
-		manager.MemcpyDeviceToDeviceAsync(pnLocalBestGainKey_d, pnGlobalBestGainKey_d,
-											sizeof(int) * numofSNode, pStream);
-	}
+	SegmentedMax(maxNumFeaValueOneNode, numofSNode, bagManager.m_pNumFvalueEachNodeEachBag_d + bagId * bagManager.m_maxNumSplittable,
+			bagManager.m_pFvalueStartPosEachNodeEachBag_d + bagId * bagManager.m_maxNumSplittable,
+			bagManager.m_pGainEachFvalueEachBag + bagId * bagManager.m_numFeaValue, pStream, pfGlobalBestGain_d, pnGlobalBestGainKey_d);
 
 	cudaStreamSynchronize((*(cudaStream_t*)pStream));
 	clock_t end_search = clock();
@@ -291,9 +255,7 @@ void DeviceSplitter::FeaFinderAllNode(void *pStream, int bagId)
 	cudaStreamSynchronize((*(cudaStream_t*)pStream));
 	checkCudaErrors(cudaFree(pnKey_d));
 	checkCudaErrors(cudaFree(pDefault2Right));
-	checkCudaErrors(cudaFree(pfLocalBestGain_d));
 	checkCudaErrors(cudaFree(pfGlobalBestGain_d));
-	checkCudaErrors(cudaFree(pnLocalBestGainKey_d));
 	checkCudaErrors(cudaFree(pnGlobalBestGainKey_d));
 }
 
@@ -401,17 +363,13 @@ void DeviceSplitter::FeaFinderAllNode2(void *pStream, int bagId)
 	checkCudaErrors(cudaMemcpy(fvalue_h, bagManager.m_pDenseFValueEachBag, sizeof(real) * bagManager.m_numFeaValue, cudaMemcpyDeviceToHost));
 	real *csrFvalue = new real[bagManager.m_numFeaValue];
 	uint *csrOrgFvalueStartPos = new uint[bagManager.m_numFeaValue];
-	memset(csrOrgFvalueStartPos, -1, sizeof(uint) * bagManager.m_numFeaValue);
 	uint *eachCsrLen = new uint[bagManager.m_numFeaValue];
-	memset(eachCsrLen, -1, sizeof(uint) * bagManager.m_numFeaValue);
 	uint *eachFeaLenEachNode_h = new uint[bagManager.m_numFea * numofSNode];
 	uint *eachFeaStartPosEachNode_h = new uint[bagManager.m_numFea * numofSNode];
 	checkCudaErrors(cudaMemcpy(eachFeaLenEachNode_h, bagManager.m_pEachFeaLenEachNodeEachBag_d, sizeof(uint) * bagManager.m_numFea * numofSNode, cudaMemcpyDeviceToHost));
 	checkCudaErrors(cudaMemcpy(eachFeaStartPosEachNode_h, bagManager.m_pEachFeaStartPosEachNodeEachBag_d, sizeof(uint) * bagManager.m_numFea * numofSNode, cudaMemcpyDeviceToHost));
 	uint *eachCompressedFeaLen = new uint[bagManager.m_numFea * numofSNode];
-	memset(eachCompressedFeaLen, -1, sizeof(uint) * bagManager.m_numFea * numofSNode);
 	uint *eachCompressedFeaStartPos = new uint[bagManager.m_numFea * numofSNode];
-	memset(eachCompressedFeaStartPos, -1, sizeof(uint) * bagManager.m_numFea * numofSNode);
 	uint csrId = 0, curFvalueToCompress = 0;
 	for(int i = 0; i < bagManager.m_numFea * numofSNode; i++){
 		eachCompressedFeaLen[i] = 0;
@@ -454,18 +412,10 @@ void DeviceSplitter::FeaFinderAllNode2(void *pStream, int bagId)
 //		printf("node %d starts %u, len=%u\n", i, eachCsrNodeStartPos[i], eachNodeSizeInCsr[i]);
 	}
 
-	uint totalLen = 0;
-	for(int i = 0; i < csrId; i++){
-		totalLen += eachCsrLen[i];
-	}
-	uint totalNumCsrFvalue = 0;
-	for(int i = 0; i < bagManager.m_numFea * numofSNode; i++)
-		totalNumCsrFvalue += eachCompressedFeaLen[i];
-//	printf("csrLen=%u, totalLen=%u, totalLen2=%u; numofFeaValue=%u\n", csrId, totalLen, totalNumCsrFvalue, bagManager.m_numFeaValue);
-	PROCESS_ERROR(csrId == totalNumCsrFvalue);
+	uint totalNumCsrFvalue = csrId;
+//	printf("csrLen=%u, totalLen=%u, numofFeaValue=%u\n", csrId, totalLen, bagManager.m_numFeaValue);
 	PROCESS_ERROR(totalNumCsrFvalue < bagManager.m_numFeaValue);
-	//PROCESS_ERROR(totalLen == bagManager.m_numFeaValue);
-	//update gd and hess
+	//compute csr gd and hess
 	double *gd_h = new double[bagManager.m_numFeaValue];
 	real *hess_h = new real[bagManager.m_numFeaValue];
 	checkCudaErrors(cudaMemcpy(gd_h, bagManager.m_pdGDPrefixSumEachBag, sizeof(double) * bagManager.m_numFeaValue, cudaMemcpyDeviceToHost));
@@ -482,15 +432,6 @@ void DeviceSplitter::FeaFinderAllNode2(void *pStream, int bagId)
 			csrHess_h[i] += hess_h[globalPos];
 			globalPos++;
 		}
-	}
-	double totalGD = 0, totalHess = 0;
-	for(int i = 0; i < csrId; i++){
-		totalGD += csrGD_h[i];
-		totalHess += csrHess_h[i];
-	}
-	double totalOrgGD = 0;
-	for(int i = 0; i < bagManager.m_numFeaValue; i++){
-		totalOrgGD += gd_h[i];
 	}
 
 	printf("org=%u v.s. csr=%u\n", bagManager.m_numFeaValue, totalNumCsrFvalue);
@@ -581,51 +522,13 @@ void DeviceSplitter::FeaFinderAllNode2(void *pStream, int bagId)
 	uint *pMaxGainKey_d;
 	checkCudaErrors(cudaMalloc((void**)&pMaxGain_d, sizeof(real) * numofSNode));
 	checkCudaErrors(cudaMalloc((void**)&pMaxGainKey_d, sizeof(uint) * numofSNode));
-	real *pfLocalBestGain_d;
-	uint *pnLocalBestGainKey_d;
 	//compute # of blocks for each node
 	uint *pMaxNumFvalueOneNode = thrust::max_element(thrust::device, pEachCsrNodeSize_d, pEachCsrNodeSize_d + numofSNode);
 	checkCudaErrors(cudaMemcpy(&maxNumFeaValueOneNode, pMaxNumFvalueOneNode, sizeof(int), cudaMemcpyDeviceToHost));
-	PROCESS_ERROR(maxNumFeaValueOneNode > 0);
-	int blockSizeLocalBestGain;
-	dim3 dimNumofBlockLocalBestGain;
-	conf.ConfKernel(maxNumFeaValueOneNode, blockSizeLocalBestGain, dimNumofBlockLocalBestGain);
-	PROCESS_ERROR(dimNumofBlockLocalBestGain.z == 1);
-	dimNumofBlockLocalBestGain.z = numofSNode;	//each node per super block
-	int numBlockPerNode = dimNumofBlockLocalBestGain.x * dimNumofBlockLocalBestGain.y;
 
-	checkCudaErrors(cudaMalloc((void**)&pfLocalBestGain_d, sizeof(real) * numBlockPerNode * numofSNode));
-	checkCudaErrors(cudaMalloc((void**)&pnLocalBestGainKey_d, sizeof(uint) * numBlockPerNode * numofSNode));
-	//find the block level best gain for each node
-	PickLocalBestSplitEachNode<<<dimNumofBlockLocalBestGain, blockSizeLocalBestGain, 0, (*(cudaStream_t*)pStream)>>>(
-									pEachCsrNodeSize_d,
-									pEachCsrNodeStart_d,
-									pGainEachCsrFvalue_d,
-									pfLocalBestGain_d,
-									pnLocalBestGainKey_d);
-	cudaStreamSynchronize((*(cudaStream_t*)pStream));
-	GETERROR("after PickLocalBestSplitEachNode");
+	SegmentedMax(maxNumFeaValueOneNode, numofSNode, pEachCsrNodeSize_d, pEachCsrNodeStart_d,
+					  pGainEachCsrFvalue_d, pStream, pMaxGain_d, pMaxGainKey_d);
 
-	//find the global best gain for each node
-	if(numBlockPerNode > 1){
-		int blockSizeBestGain;
-		dim3 dimNumofBlockDummy;
-		conf.ConfKernel(numBlockPerNode, blockSizeBestGain, dimNumofBlockDummy);
-		if(blockSizeBestGain < 64)//make sure the reduction is power of two
-			blockSizeBestGain = 64;
-		PickGlobalBestSplitEachNode<<<numofSNode, blockSizeBestGain, 0, (*(cudaStream_t*)pStream)>>>(
-										pfLocalBestGain_d,
-										pnLocalBestGainKey_d,
-										pMaxGain_d,
-										pMaxGainKey_d,
-									    numBlockPerNode, numofSNode);
-		cudaStreamSynchronize((*(cudaStream_t*)pStream));
-		GETERROR("after PickGlobalBestSplitEachNode");
-	}
-	else{//local best fea is the global best fea
-		manager.MemcpyDeviceToDeviceAsync(pfLocalBestGain_d, pMaxGain_d, sizeof(real) * numofSNode, pStream);
-		manager.MemcpyDeviceToDeviceAsync(pnLocalBestGainKey_d, pMaxGainKey_d, sizeof(uint) * numofSNode, pStream);
-	}
 	cudaStreamSynchronize((*(cudaStream_t*)pStream));
 
 	//find the split value and feature

@@ -10,8 +10,8 @@
 #define SVM_DEVUTILITY_H_
 //include files from the gpu sdk
 #include <cuda_runtime.h>
-#include "../../SharedUtility/DataType.h"
-#include "../../SharedUtility/CudaMacro.h"
+#include "DataType.h"
+#include "CudaMacro.h"
 
 /**
  * @brief: when the array is too large to store in shared memory, one thread loads multiple values

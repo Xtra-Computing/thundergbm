@@ -11,9 +11,7 @@
 #include <limits>
 #include "FindFeaKernel.h"
 #include "../Splitter/DeviceSplitter.h"
-#include "../../DeviceHost/svm-shared/DeviceUtility.h"
 #include "../../SharedUtility/CudaMacro.h"
-#include "../../SharedUtility/getMin.h"
 #include "../../SharedUtility/binarySearch.h"
 
 /**
