@@ -192,6 +192,7 @@ void BagManager::AllocMem()
 	/*********** memory for the tree (on training and final) ******/
 	checkCudaErrors(cudaMalloc((void**)&m_pNodeTreeOnTrainingEachBag, sizeof(TreeNode) * m_maxNumNode * m_numBag));
 	checkCudaErrors(cudaMalloc((void**)&m_pCurNumofNodeTreeOnTrainingEachBag_d, sizeof(int) * m_numBag));
+	checkCudaErrors(cudaMemset(m_pCurNumofNodeTreeOnTrainingEachBag_d, 0, sizeof(int) * m_numBag));//this is needed as the init value is used.
 	checkCudaErrors(cudaMalloc((void**)&m_pNumofNewNodeTreeOnTrainingEachBag, sizeof(int) * m_numBag));
 
 	m_pPreMaxNid_h = new int[m_numBag];
