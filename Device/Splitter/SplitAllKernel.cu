@@ -62,16 +62,16 @@ __global__ void CreateNewNode(TreeNode *pAllTreeNode, TreeNode *pSplittableNode,
 								  int *pParentId, int *pLChildId, int *pRChildId,
 								  const nodeStat *pLChildStat, const nodeStat *pRChildStat, nodeStat *pNewNodeStat,
 								  int *pNumofNode, int *pNumofNewNode,
-								  real rt_eps, int nNumofSplittableNode, bool bLastLevel, int maxNumofSN)
+								  real rt_eps, const uint *newNodeLeftId, int nNumofSplittableNode, bool bLastLevel, int maxNumofSN)
 {
 	//for each splittable node, assign lchild and rchild ids
-	int nGlobalThreadId = GLOBAL_TID();
-	if(nGlobalThreadId >= nNumofSplittableNode)//one thread per splittable node
+	int gTid = GLOBAL_TID();
+	if(gTid >= nNumofSplittableNode)//one thread per splittable node
 		return;
 
 	CONCHECKER(*pNumofNewNode == 0);
 
-	int nid = pSplittableNode[nGlobalThreadId].nodeId;
+	int nid = pSplittableNode[gTid].nodeId;
 
 	ECHECKER(nid);
 	int bufferPos = nid % maxNumofSN;
@@ -80,7 +80,8 @@ __global__ void CreateNewNode(TreeNode *pAllTreeNode, TreeNode *pSplittableNode,
 	pAllTreeNode[nid].m_bDefault2Right = false;
 	if(!(pBestSplitPoint[bufferPos].m_fGain <= rt_eps || bLastLevel == true))
 	{
-		int childrenId = atomicAdd(pNumofNode, 2);
+		int childrenId = newNodeLeftId[gTid];//atomicAdd(pNumofNode, 2);//
+		atomicAdd(pNumofNode, 2);
 
 		int lchildId = childrenId;
 		int rchildId = childrenId + 1;
@@ -140,7 +141,7 @@ __global__ void CreateNewNode(TreeNode *pAllTreeNode, TreeNode *pSplittableNode,
 			pAllTreeNode[nid].m_bDefault2Right = true;
 
 		//this is used in finding unique feature ids
-		pSplittableNode[nGlobalThreadId].featureId = pBestSplitPoint[bufferPos].m_nFeatureId;
+		pSplittableNode[gTid].featureId = pBestSplitPoint[bufferPos].m_nFeatureId;
 //			printf("cur # of node is %d\n", *pNumofNode);
 	}
 }

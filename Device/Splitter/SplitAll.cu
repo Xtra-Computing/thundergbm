@@ -35,6 +35,7 @@ void DeviceSplitter::SplitAll(int &m_nNumofNode, bool bLastLevel, void *pStream,
 	PROCESS_ERROR(preMaxNodeId >= 0);
 	BagManager bagManager;
 	bagManager.m_pPreMaxNid_h[bagId] = preMaxNodeId;
+	bagManager.m_pPreNumSN_h[bagId] = bagManager.m_curNumofSplitableEachBag_h[bagId];
 	GBDTGPUMemManager manager;
 	GETERROR("before ComputeWeight");
 
@@ -67,6 +68,21 @@ void DeviceSplitter::SplitAll(int &m_nNumofNode, bool bLastLevel, void *pStream,
 	//copy the number of nodes in the tree to the GPU memory
 	manager.MemsetAsync(bagManager.m_pNumofNewNodeTreeOnTrainingEachBag + bagId, 0, sizeof(int), pStream);
 	clock_t new_node_start = clock();
+	//get node ids
+	int occupiedNodeId;
+	checkCudaErrors(cudaMemcpy(&occupiedNodeId, bagManager.m_pCurNumofNodeTreeOnTrainingEachBag_d + bagId, sizeof(int), cudaMemcpyDeviceToHost));
+	int numSplittable = bagManager.m_curNumofSplitableEachBag_h[bagId];
+	uint *newLeftNodeIds = new uint[numSplittable];
+	checkCudaErrors(cudaMallocHost((void**)&newLeftNodeIds, sizeof(uint) * numSplittable));
+	checkCudaErrors(cudaMemset(newLeftNodeIds, 0, sizeof(uint) * numSplittable));
+	SplitPoint *splittableNodes = new SplitPoint[numSplittable];
+	checkCudaErrors(cudaMemcpy(splittableNodes, bagManager.m_pBestSplitPointEachBag + bagId * bagManager.m_maxNumSplittable, sizeof(SplitPoint) * numSplittable, cudaMemcpyDeviceToHost));
+	for(int i = 0; i < numSplittable; i++){
+		if(!(splittableNodes[i].m_fGain <= rt_eps || bLastLevel == true)){
+			newLeftNodeIds[i] = occupiedNodeId;
+			occupiedNodeId += 2;
+		}
+	}
 	CreateNewNode<<<dimNumofBlock, threadPerBlock, 0, (*(cudaStream_t*)pStream)>>>(
 							bagManager.m_pNodeTreeOnTrainingEachBag + bagId * bagManager.m_maxNumNode,
 							bagManager.m_pSplittableNodeEachBag + bagId * bagManager.m_maxNumSplittable,
@@ -79,6 +95,7 @@ void DeviceSplitter::SplitAll(int &m_nNumofNode, bool bLastLevel, void *pStream,
 							bagManager.m_pRChildStatEachBag + bagId * bagManager.m_maxNumSplittable,
 							bagManager.m_pNewNodeStatEachBag + bagId * bagManager.m_maxNumLeave,
 							bagManager.m_pCurNumofNodeTreeOnTrainingEachBag_d + bagId, bagManager.m_pNumofNewNodeTreeOnTrainingEachBag + bagId, rt_eps,
+							newLeftNodeIds,
 							bagManager.m_curNumofSplitableEachBag_h[bagId], bLastLevel, bagManager.m_maxNumSplittable);
 	int newNode = -1;
 	manager.MemcpyDeviceToHostAsync(bagManager.m_pNumofNewNodeTreeOnTrainingEachBag + bagId, &newNode, sizeof(int), pStream);

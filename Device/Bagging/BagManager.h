@@ -88,6 +88,7 @@ public:
 
 	//preMaxNid
 	static int *m_pPreMaxNid_h;
+	static uint *m_pPreNumSN_h;
 
 public:
 	static void InitBagManager(int numIns, int numFea, int numTree, int numBag, int maxNumSN,

@@ -24,7 +24,7 @@ __global__ void CreateNewNode(TreeNode *pAllTreeNode, TreeNode *pSplittableNode,
 		  	  	  	  	  	  	  int *pParentId, int *pLChildId, int *pRChildId,
 		  	  	  	  	  	  	  const nodeStat *pLChildStat, const nodeStat *pRChildStat, nodeStat *pNewNodeStat,
 		  	  	  	  	  	  	  int *m_nNumofNode, int *pNumofNewNode,
-		  	  	  	  	  	  	  real rt_eps, int nNumofSplittableNode, bool bLastLevel, int maxNumofSplittableNode);
+		  	  	  	  	  	  	  real rt_eps, const uint *newNodeLeftId, int nNumofSplittableNode, bool bLastLevel, int maxNumofSplittableNode);
 
 
 __global__ void GetUniqueFid(TreeNode *pAllTreeNode, TreeNode *pSplittableNode, int nNumofSplittableNode,

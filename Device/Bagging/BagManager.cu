@@ -79,6 +79,7 @@ int BagManager::m_maxNumUsedFeaATree = -1;	//for reserving GPU memory; maximum n
 real *BagManager::m_pTrueLabel_h = NULL;
 
 int *BagManager::m_pPreMaxNid_h = NULL;
+uint *BagManager::m_pPreNumSN_h = NULL;
 /**
  * @brief: initialise bag manager
  */
@@ -196,6 +197,8 @@ void BagManager::AllocMem()
 	checkCudaErrors(cudaMalloc((void**)&m_pNumofNewNodeTreeOnTrainingEachBag, sizeof(int) * m_numBag));
 
 	m_pPreMaxNid_h = new int[m_numBag];
+	m_pPreNumSN_h = new uint[m_numBag];
+	memset(m_pPreNumSN_h, 0, sizeof(uint) * m_numBag);
 }
 
 void BagManager::FreeMem()

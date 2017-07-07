@@ -139,10 +139,10 @@ __global__ void FindSplitInfo(const uint *pEachFeaStartPosEachNode, const T *pEa
 	T key = pnGlobalBestGainKey[snId];//position in the dense array
 
 	//find best feature id
-	uint bestFeaId = -1;
+	uint bestFeaId = numFea;
 	RangeBinarySearch(key, pEachFeaStartPosEachNode + snId * numFea, numFea, bestFeaId);
 
-	CONCHECKER(bestFeaId != -1);
+	CONCHECKER(bestFeaId != numFea);
 
 	int snPos = pPartitionId2SNPos[snId];//snId to buffer id (i.e. hash value)
 

@@ -360,6 +360,72 @@ __global__ void LoadFvalueInsId(const int *pOrgFvalueInsId, int *pNewFvalueInsId
 	//scatter: store GD, Hess and the feature value.
 	pNewFvalueInsId[idx] = pOrgFvalueInsId[gTid];
 }
+
+__global__ void newCsrLenFvalue(const int *preFvalueInsId, int numFeaValue, const int *pInsId2Nid, int maxNid,
+						  const uint *eachCsrStart, real *csrFvalue, uint numCsr, const uint *preRoundEachCsrFeaStartPos, const uint preRoundNumSN, int numFea,
+						  real *eachCsrFvalueSparse, uint *csrNewLen, uint *eachCsrFeaLen, uint *eachNodeSizeInCsr){
+	//one thread for one fvalue
+	uint gTid = GLOBAL_TID();
+	if(gTid >= numFeaValue)//thread has nothing to do
+		return;
+
+	int insId = preFvalueInsId[gTid];
+	int pid = pInsId2Nid[insId] - maxNid - 1;//mapping to new node
+	uint csrId = numCsr;
+	RangeBinarySearch(gTid, eachCsrStart, numCsr, csrId);
+	CONCHECKER(csrId < numCsr);
+	uint segId = numFea * preRoundNumSN;
+	RangeBinarySearch(csrId, preRoundEachCsrFeaStartPos, numFea * preRoundNumSN, segId);
+	uint nodeId = segId / numFea;
+	uint nodeStartPos = preRoundEachCsrFeaStartPos[nodeId * numFea];
+	uint sizePreNodesAhead = nodeStartPos;
+	uint curNodeSize;
+	if(nodeId == preRoundNumSN - 1)
+		curNodeSize = numCsr - nodeStartPos;
+	else
+		curNodeSize = preRoundEachCsrFeaStartPos[(nodeId + 1) * numFea] - nodeStartPos;
+	uint localId = csrId - sizePreNodesAhead;
+	uint orgValue;
+	if(pid % 2 == 1){
+		orgValue = atomicAdd(csrNewLen + sizePreNodesAhead * 2 + curNodeSize + localId, 1);
+		if(orgValue == 0)
+			eachCsrFvalueSparse[sizePreNodesAhead * 2 + curNodeSize + localId] = csrFvalue[csrId];
+	}
+	else{
+		orgValue = atomicAdd(csrNewLen + sizePreNodesAhead * 2 + localId, 1);
+		if(orgValue == 0)
+			eachCsrFvalueSparse[sizePreNodesAhead * 2 + localId] = csrFvalue[csrId];
+	}
+
+	if(orgValue == 0){
+		uint feaId = segId % numFea;
+		CONCHECKER(feaId < numFea);
+		atomicAdd(eachCsrFeaLen + pid * numFea + feaId, 1);
+		atomicAdd(eachNodeSizeInCsr + pid, 1);
+	}
+}
+
+__global__ void map2One(const uint *eachCsrFeaLen, uint numCsr, uint *csrMarker){
+	uint gTid = GLOBAL_TID();
+	if(gTid >= numCsr)
+		return;
+	if(eachCsrFeaLen[gTid] != 0)
+		csrMarker[gTid] = 1;
+	else
+		csrMarker[gTid] = 0;
+}
+
+__global__ void loadDenseCsr(const real *eachCsrFvalueSparse, const uint *eachCsrFeaLen, uint numCsr, const uint *csrIdx, real *eachCsrFvalueDense, uint *eachCsrFeaLenDense){
+	uint gTid = GLOBAL_TID();
+	if(gTid >= numCsr)
+		return;
+	if(eachCsrFeaLen[gTid] != 0){
+		uint idx = csrIdx[gTid] - 1;//inclusive scan is used to compute indices.
+		eachCsrFeaLenDense[idx] = eachCsrFeaLen[gTid];
+		eachCsrFvalueDense[idx] = eachCsrFvalueSparse[gTid];
+	}
+}
+
 int *preFvalueInsId = NULL;
 uint totalNumCsrFvalue_merge;
 uint *eachCompressedFeaStartPos_merge;
@@ -370,13 +436,13 @@ uint *eachNodeSizeInCsr_merge;
 uint *eachCsrNodeStartPos_merge;
 real *csrFvalue_merge;
 uint *eachCsrLen_merge;
-uint *eachNewCompressedFeaLen_merge;
 uint *eachNewCompressedFeaStart_merge;
 void DeviceSplitter::FeaFinderAllNode2(void *pStream, int bagId)
 {
 	GBDTGPUMemManager manager;
 	BagManager bagManager;
 	int numofSNode = bagManager.m_curNumofSplitableEachBag_h[bagId];
+	printf("preSN=%u, curSN=%u\n", bagManager.m_pPreNumSN_h[bagId], numofSNode);
 	int maxNumofSplittable = bagManager.m_maxNumSplittable;
 //	cout << bagManager.m_maxNumSplittable << endl;
 	int nNumofFeature = manager.m_numofFea;
@@ -385,19 +451,17 @@ void DeviceSplitter::FeaFinderAllNode2(void *pStream, int bagId)
 	int curNumofNode;
 	manager.MemcpyDeviceToHostAsync(bagManager.m_pCurNumofNodeTreeOnTrainingEachBag_d + bagId, &curNumofNode, sizeof(int), pStream);
 	vector<vector<real> > newCsrFvalue(numofSNode * bagManager.m_numFea, vector<real>());
-	vector<vector<uint> > eachNewCsrLen(numofSNode * bagManager.m_numFea, vector<uint>());
 
 	if(preFvalueInsId == NULL || curNumofNode == 1){
-		eachNewCompressedFeaLen_merge = new uint[bagManager.m_numFea * bagManager.m_maxNumSplittable];
 		eachNewCompressedFeaStart_merge = new uint[bagManager.m_numFea * bagManager.m_maxNumSplittable];
 		eachCompressedFeaStartPos_merge = new uint[bagManager.m_numFea * bagManager.m_maxNumSplittable];
 		eachCompressedFeaLen_merge = new uint[bagManager.m_numFea * bagManager.m_maxNumSplittable];
 		csrGD_h_merge = new double[bagManager.m_numFeaValue];
 		csrHess_h_merge = new real[bagManager.m_numFeaValue];
-		eachNodeSizeInCsr_merge = new uint[bagManager.m_maxNumSplittable];
 		eachCsrNodeStartPos_merge = new uint[bagManager.m_maxNumSplittable];
-		csrFvalue_merge = new real[bagManager.m_numFeaValue];
 		eachCsrLen_merge = new uint[bagManager.m_numFeaValue];
+		checkCudaErrors(cudaMallocHost((void**)&eachNodeSizeInCsr_merge, sizeof(uint) * bagManager.m_maxNumSplittable));
+		checkCudaErrors(cudaMallocHost((void**)&csrFvalue_merge, sizeof(real) * bagManager.m_numFeaValue));
 		checkCudaErrors(cudaMallocHost((void**)&preFvalueInsId, sizeof(int) * bagManager.m_numFeaValue));
 		checkCudaErrors(cudaMemcpy(preFvalueInsId, manager.m_pDInsId, sizeof(int) * bagManager.m_numFeaValue, cudaMemcpyDeviceToHost));
 	}
@@ -426,55 +490,6 @@ void DeviceSplitter::FeaFinderAllNode2(void *pStream, int bagId)
 	int numofDenseValue = -1, maxNumFeaValueOneNode = -1;
 	if(numofSNode > 1)
 	{
-		//####################
-		printf("total csr fvalue=%u\n", totalNumCsrFvalue_merge);/**/
-		//split nodes
-		PROCESS_ERROR(bagManager.m_numFeaValue >= totalNumCsrFvalue_merge);
-		memset(eachNewCompressedFeaLen_merge, 0, sizeof(uint) * bagManager.m_numFea * numofSNode);
-		uint globalFvalueId = 0;
-		for(int csrId = 0; csrId < totalNumCsrFvalue_merge; csrId++){
-			uint csrLen = eachCsrLen_merge[csrId];
-			//fid of this csr
-			int fid = -1;
-			for(int segId = 0; segId < bagManager.m_numFea * numofSNode; segId++){
-				uint segStart = eachCompressedFeaStartPos_merge[segId];
-				uint feaLen = eachCompressedFeaLen_merge[segId];
-				if(csrId >= segStart && csrId < segStart + feaLen){
-					fid = segId % bagManager.m_numFea;
-					break;
-				}
-			}
-			PROCESS_ERROR(fid != -1 && fid < bagManager.m_numFea);
-
-			//decompressed
-			for(int i = 0; i < csrLen; i++){
-				int insId = preFvalueInsId[globalFvalueId];
-				PROCESS_ERROR(insId >= 0);
-				int pid = pInsId2Nid[insId] - bagManager.m_pPreMaxNid_h[bagId] - 1;//mapping to new node
-				PROCESS_ERROR(pid >= 0 && pid < numofSNode);
-				if(i == 0 || newCsrFvalue[pid * bagManager.m_numFea + fid].empty() || fabs(csrFvalue_merge[csrId] - newCsrFvalue[pid * bagManager.m_numFea + fid].back()) > DeviceSplitter::rt_eps){
-					newCsrFvalue[pid * bagManager.m_numFea + fid].push_back(csrFvalue_merge[csrId]);
-					eachNewCsrLen[pid * bagManager.m_numFea + fid].push_back(1);
-					eachNewCompressedFeaLen_merge[pid * bagManager.m_numFea + fid]++;
-				}
-				else
-					eachNewCsrLen[pid * bagManager.m_numFea + fid].back()++;
-				globalFvalueId++;
-			}
-		}
-		uint totalNewCsr = 0;
-		for(int snId = 0; snId < numofSNode; snId++){
-			uint nodeSize = 0;
-			for(int i = 0; i < bagManager.m_numFea; i++){
-				totalNewCsr += newCsrFvalue[i + snId * bagManager.m_numFea].size();
-				nodeSize += newCsrFvalue[i + snId * bagManager.m_numFea].size();
-			}
-			eachNodeSizeInCsr_merge[snId] = nodeSize;//newly added #########
-		}
-		printf("hello world org=%u v.s. csr=%u\n", bagManager.m_numFeaValue, totalNewCsr);
-		thrust::exclusive_scan(thrust::host, eachNewCompressedFeaLen_merge, eachNewCompressedFeaLen_merge + numofSNode * bagManager.m_numFea, eachNewCompressedFeaStart_merge);
-		delete[] pInsId2Nid;
-		//###############################
 		IndexComputer indexComp;
 		indexComp.AllocMem(bagManager.m_numFea, numofSNode);
 		PROCESS_ERROR(nNumofFeature == bagManager.m_numFea);
@@ -488,43 +503,81 @@ void DeviceSplitter::FeaFinderAllNode2(void *pStream, int bagId)
 		uint *pTempNumFvalueEachNode = bagManager.m_pNumFvalueEachNodeEachBag_d + bagId * bagManager.m_maxNumSplittable;
 
 		clock_t start_gd = clock();
-		//scatter operation
 		//total fvalue to load may be smaller than m_totalFeaValue, due to some nodes becoming leaves.
 		numofDenseValue = thrust::reduce(thrust::device, pTempNumFvalueEachNode, pTempNumFvalueEachNode + numofSNode);
-		LoadGDHessFvalue<<<dimNumofBlockToLoadGD, blockSizeLoadGD, 0, (*(cudaStream_t*)pStream)>>>(bagManager.m_pInsGradEachBag + bagId * bagManager.m_numIns,
-															   bagManager.m_pInsHessEachBag + bagId * bagManager.m_numIns,
-															   bagManager.m_numIns, manager.m_pDInsId, manager.m_pdDFeaValue,
-															   bagManager.m_pIndicesEachBag_d, numofDenseValue,
-															   bagManager.m_pdGDPrefixSumEachBag + bagId * bagManager.m_numFeaValue,
-															   bagManager.m_pHessPrefixSumEachBag + bagId * bagManager.m_numFeaValue,
-															   bagManager.m_pDenseFValueEachBag + bagId * bagManager.m_numFeaValue);
-		cudaStreamSynchronize((*(cudaStream_t*)pStream));
 		clock_t end_gd = clock();
 		total_fill_gd_t += (end_gd - start_gd);
 		uint *pMaxNumFvalueOneNode = thrust::max_element(thrust::device, pTempNumFvalueEachNode, pTempNumFvalueEachNode + numofSNode);
 		checkCudaErrors(cudaMemcpy(&maxNumFeaValueOneNode, pMaxNumFvalueOneNode, sizeof(int), cudaMemcpyDeviceToHost));
 		indexComp.FreeMem();
 		//###########
+		printf("total csr fvalue=%u\n", totalNumCsrFvalue_merge);/**/
+		PROCESS_ERROR(bagManager.m_numFeaValue >= totalNumCsrFvalue_merge);
+		//split nodes
+		uint *eachCsrStart;
+		checkCudaErrors(cudaMallocHost((void**)&eachCsrStart, sizeof(uint) * totalNumCsrFvalue_merge));
+		thrust::exclusive_scan(thrust::host, eachCsrLen_merge, eachCsrLen_merge + totalNumCsrFvalue_merge, eachCsrStart);
+		uint *firstCsrLen;
+		real *eachCsrFvalueSparse;
+		uint *eachCsrFeaLen;
+		uint *eachCsrFeaStartPos;
+		checkCudaErrors(cudaMallocHost((void**)&firstCsrLen, sizeof(uint) * totalNumCsrFvalue_merge * 2));
+		checkCudaErrors(cudaMallocHost((void**)&eachCsrFvalueSparse, sizeof(real) * totalNumCsrFvalue_merge * 2));
+		checkCudaErrors(cudaMallocHost((void**)&eachCsrFeaLen, sizeof(uint) * bagManager.m_numFea * numofSNode));
+		checkCudaErrors(cudaMallocHost((void**)&eachCsrFeaStartPos, sizeof(uint) * bagManager.m_numFea * bagManager.m_pPreNumSN_h[bagId]));
+		checkCudaErrors(cudaMemset(firstCsrLen, 0, sizeof(uint) * totalNumCsrFvalue_merge * 2));
+		checkCudaErrors(cudaMemset(eachCsrFeaLen, 0, sizeof(uint) * bagManager.m_numFea * numofSNode));
+		checkCudaErrors(cudaMemcpy(eachCsrFeaStartPos, eachCompressedFeaStartPos_merge, sizeof(uint) * bagManager.m_numFea * bagManager.m_pPreNumSN_h[bagId],
+						cudaMemcpyHostToDevice));
+		checkCudaErrors(cudaMemset(eachNodeSizeInCsr_merge, 0, sizeof(uint) * bagManager.m_maxNumSplittable));
+
+		newCsrLenFvalue<<<dimNumofBlockToLoadGD, blockSizeLoadGD>>>(preFvalueInsId, bagManager.m_numFeaValue,
+											bagManager.m_pInsIdToNodeIdEachBag + bagId * bagManager.m_numIns,
+											bagManager.m_pPreMaxNid_h[bagId], eachCsrStart,
+											csrFvalue_merge, totalNumCsrFvalue_merge,
+											eachCsrFeaStartPos, bagManager.m_pPreNumSN_h[bagId],
+											bagManager.m_numFea, eachCsrFvalueSparse, firstCsrLen, eachCsrFeaLen,
+											eachNodeSizeInCsr_merge);
+
+		int blockSizeLoadCsrLen;
+		dim3 dimNumofBlockToLoadCsrLen;
+		conf.ConfKernel(totalNumCsrFvalue_merge * 2, blockSizeLoadCsrLen, dimNumofBlockToLoadCsrLen);
+		uint *csrMarker;
+		checkCudaErrors(cudaMallocHost((void**)&csrMarker, sizeof(uint) * totalNumCsrFvalue_merge * 2));
+		checkCudaErrors(cudaMemset(csrMarker, 0, sizeof(uint) * totalNumCsrFvalue_merge * 2));
+		map2One<<<dimNumofBlockToLoadCsrLen, blockSizeLoadCsrLen>>>(firstCsrLen, totalNumCsrFvalue_merge * 2, csrMarker);
+		thrust::inclusive_scan(thrust::device, csrMarker, csrMarker + totalNumCsrFvalue_merge * 2, csrMarker);
+		cudaDeviceSynchronize();
+		uint totalNumCsrBest = csrMarker[totalNumCsrFvalue_merge * 2 - 1];
+		printf("num csr=%u, dense csr=%u\n", totalNumCsrFvalue_merge * 2, totalNumCsrBest);
+		uint *eachCsrFeaLenDense;
+		real *eachCsrFvalueDense;
+		checkCudaErrors(cudaMallocHost((void**)&eachCsrFeaLenDense, sizeof(uint) * totalNumCsrBest));
+		checkCudaErrors(cudaMallocHost((void**)&eachCsrFvalueDense, sizeof(real) * totalNumCsrBest));
+		checkCudaErrors(cudaMemset(eachCsrFeaLenDense, -1, sizeof(uint) * totalNumCsrBest));
+		loadDenseCsr<<<dimNumofBlockToLoadCsrLen, blockSizeLoadCsrLen>>>(eachCsrFvalueSparse, firstCsrLen, totalNumCsrFvalue_merge * 2, csrMarker, eachCsrFvalueDense, eachCsrFeaLenDense);
+
+		cudaDeviceSynchronize();
+
+		printf("hello world org=%u v.s. csr=%u\n", bagManager.m_numFeaValue, totalNumCsrBest);
+		thrust::exclusive_scan(thrust::host, eachCsrFeaLen, eachCsrFeaLen + numofSNode * bagManager.m_numFea, eachNewCompressedFeaStart_merge);
+		delete[] pInsId2Nid;
+		//###############################
 		LoadFvalueInsId<<<dimNumofBlockToLoadGD, blockSizeLoadGD, 0, (*(cudaStream_t*)pStream)>>>(
 						manager.m_pDInsId, preFvalueInsId, bagManager.m_pIndicesEachBag_d, bagManager.m_numFeaValue);
 		cudaStreamSynchronize((*(cudaStream_t*)pStream));
 		thrust::exclusive_scan(thrust::host, eachNodeSizeInCsr_merge, eachNodeSizeInCsr_merge + numofSNode, eachCsrNodeStartPos_merge);//newly added#########
-		totalNumCsrFvalue_merge = totalNewCsr;
+		totalNumCsrFvalue_merge = totalNumCsrBest;
 		memcpy(eachCompressedFeaStartPos_merge, eachNewCompressedFeaStart_merge, sizeof(uint) * bagManager.m_numFea * numofSNode);
-		memcpy(eachCompressedFeaLen_merge, eachNewCompressedFeaLen_merge, sizeof(uint) * bagManager.m_numFea * numofSNode);
-		for(int snId = 0; snId < numofSNode; snId++){
-			for(int f = 0; f < bagManager.m_numFea; f++){
-				memcpy(csrFvalue_merge + eachNewCompressedFeaStart_merge[snId * bagManager.m_numFea + f],
-						newCsrFvalue[snId * bagManager.m_numFea + f].data(), sizeof(real) * eachNewCompressedFeaLen_merge[snId * bagManager.m_numFea + f]);
-				memcpy(eachCsrLen_merge + eachNewCompressedFeaStart_merge[snId * bagManager.m_numFea + f],
-						eachNewCsrLen[snId * bagManager.m_numFea + f].data(), sizeof(uint) * eachNewCompressedFeaLen_merge[snId * bagManager.m_numFea + f]);
-			}
-		}
-//					   csrGD_h_merge, csrHess_h_merge,;
-		double *gd_h = new double[bagManager.m_numFeaValue];
-		real *hess_h = new real[bagManager.m_numFeaValue];
-		checkCudaErrors(cudaMemcpy(gd_h, bagManager.m_pdGDPrefixSumEachBag, sizeof(double) * bagManager.m_numFeaValue, cudaMemcpyDeviceToHost));
-		checkCudaErrors(cudaMemcpy(hess_h, bagManager.m_pHessPrefixSumEachBag, sizeof(real) * bagManager.m_numFeaValue, cudaMemcpyDeviceToHost));
+		memcpy(eachCompressedFeaLen_merge, eachCsrFeaLen, sizeof(uint) * bagManager.m_numFea * numofSNode);
+
+		checkCudaErrors(cudaMemcpy(csrFvalue_merge, eachCsrFvalueDense, sizeof(real) * totalNumCsrBest, cudaMemcpyDeviceToHost));
+		checkCudaErrors(cudaMemcpy(eachCsrLen_merge, eachCsrFeaLenDense, sizeof(uint) * totalNumCsrBest, cudaMemcpyDeviceToHost));
+		cudaDeviceSynchronize();
+		real *pInsGrad = new real[bagManager.m_numIns];
+		real *pInsHess = new real[bagManager.m_numIns];
+		checkCudaErrors(cudaMemcpy(pInsGrad, bagManager.m_pInsGradEachBag, sizeof(real) * bagManager.m_numIns, cudaMemcpyDeviceToHost));
+		checkCudaErrors(cudaMemcpy(pInsHess, bagManager.m_pInsHessEachBag, sizeof(real) * bagManager.m_numIns, cudaMemcpyDeviceToHost));
 
 		uint globalPos = 0;
 		for(int i = 0; i < totalNumCsrFvalue_merge; i++){
@@ -532,13 +585,13 @@ void DeviceSplitter::FeaFinderAllNode2(void *pStream, int bagId)
 			csrHess_h_merge[i] = 0;
 			uint len = eachCsrLen_merge[i];
 			for(int v = 0; v < len; v++){
-				csrGD_h_merge[i] += gd_h[globalPos];
-				csrHess_h_merge[i] += hess_h[globalPos];
+				int insId = preFvalueInsId[globalPos];
+				csrGD_h_merge[i] += pInsGrad[insId];
+				csrHess_h_merge[i] += pInsHess[insId];
 				globalPos++;
 			}
 		}
-		delete[] gd_h;
-		delete[] hess_h;
+		delete[] pInsGrad;
 		//##############
 	}
 	else
