@@ -148,6 +148,7 @@ bool bOptimisePred = true;
 	cudaMalloc((void**)&pdTempGD, sizeof(double) * bagManager.m_numIns);
 	cudaMemcpy(pdTempGD, dHostGD.data(), sizeof(double) * bagManager.m_numIns, cudaMemcpyHostToDevice);
 	real gdSum = thrust::reduce(thrust::system::cuda::par, pdTempGD, pdTempGD + bagManager.m_numIns);
+	cudaDeviceSynchronize();
 	cudaFree(pdTempGD);
 
 	real *pTempHess = bagManager.m_pInsHessEachBag + bagId * bagManager.m_numIns;

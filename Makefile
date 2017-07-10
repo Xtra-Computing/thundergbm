@@ -1,5 +1,5 @@
 CCFLAGS	  := -Wall -std=c++11
-NVCCFLAGS := -arch=sm_35 -lrt -Wno-deprecated-gpu-targets -dc -std=c++11
+NVCCFLAGS := -arch=sm_60 -lrt -Wno-deprecated-gpu-targets -dc -std=c++11
 LASTFLAG  := -Wno-deprecated-gpu-targets
 LDFLAGS   := -I/usr/local/cuda/include -I/usr/local/cuda/samples/common/inc -lcuda -lcudadevrt -lcudart -lcublas -lpthread -lcusparse
 NVCC	  := /usr/local/cuda/bin/nvcc

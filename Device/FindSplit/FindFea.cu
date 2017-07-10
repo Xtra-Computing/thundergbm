@@ -426,6 +426,21 @@ __global__ void loadDenseCsr(const real *eachCsrFvalueSparse, const uint *eachCs
 	}
 }
 
+__global__ void compCsrGDHess(const int *preFvalueInsId, uint numFvalue, const uint *eachCsrStart, uint numCsr,
+							  const real *pInsGrad, const real *pInsHess,
+							  double *csrGD, real *csrHess){
+	uint gTid = GLOBAL_TID();
+	if(gTid >= numFvalue)
+		return;
+	uint csrId = numCsr;
+	RangeBinarySearch(gTid, eachCsrStart, numCsr, csrId);
+	CONCHECKER(csrId < numCsr);
+	int insId = preFvalueInsId[gTid];
+	double temp = pInsGrad[insId];
+	atomicAdd(csrGD + csrId, temp);
+	atomicAdd(csrHess + csrId, pInsHess[insId]);
+}
+
 int *preFvalueInsId = NULL;
 uint totalNumCsrFvalue_merge;
 uint *eachCompressedFeaStartPos_merge;
@@ -456,10 +471,10 @@ void DeviceSplitter::FeaFinderAllNode2(void *pStream, int bagId)
 		eachNewCompressedFeaStart_merge = new uint[bagManager.m_numFea * bagManager.m_maxNumSplittable];
 		eachCompressedFeaStartPos_merge = new uint[bagManager.m_numFea * bagManager.m_maxNumSplittable];
 		eachCompressedFeaLen_merge = new uint[bagManager.m_numFea * bagManager.m_maxNumSplittable];
-		csrGD_h_merge = new double[bagManager.m_numFeaValue];
-		csrHess_h_merge = new real[bagManager.m_numFeaValue];
 		eachCsrNodeStartPos_merge = new uint[bagManager.m_maxNumSplittable];
 		eachCsrLen_merge = new uint[bagManager.m_numFeaValue];
+		checkCudaErrors(cudaMallocHost((void**)&csrGD_h_merge, sizeof(double) * bagManager.m_numFeaValue));
+		checkCudaErrors(cudaMallocHost((void**)&csrHess_h_merge, sizeof(real) * bagManager.m_numFeaValue));
 		checkCudaErrors(cudaMallocHost((void**)&eachNodeSizeInCsr_merge, sizeof(uint) * bagManager.m_maxNumSplittable));
 		checkCudaErrors(cudaMallocHost((void**)&csrFvalue_merge, sizeof(real) * bagManager.m_numFeaValue));
 		checkCudaErrors(cudaMallocHost((void**)&preFvalueInsId, sizeof(int) * bagManager.m_numFeaValue));
@@ -557,8 +572,6 @@ void DeviceSplitter::FeaFinderAllNode2(void *pStream, int bagId)
 		checkCudaErrors(cudaMemset(eachCsrFeaLenDense, -1, sizeof(uint) * totalNumCsrBest));
 		loadDenseCsr<<<dimNumofBlockToLoadCsrLen, blockSizeLoadCsrLen>>>(eachCsrFvalueSparse, firstCsrLen, totalNumCsrFvalue_merge * 2, csrMarker, eachCsrFvalueDense, eachCsrFeaLenDense);
 
-		cudaDeviceSynchronize();
-
 		printf("hello world org=%u v.s. csr=%u\n", bagManager.m_numFeaValue, totalNumCsrBest);
 		thrust::exclusive_scan(thrust::host, eachCsrFeaLen, eachCsrFeaLen + numofSNode * bagManager.m_numFea, eachNewCompressedFeaStart_merge);
 		delete[] pInsId2Nid;
@@ -579,18 +592,14 @@ void DeviceSplitter::FeaFinderAllNode2(void *pStream, int bagId)
 		checkCudaErrors(cudaMemcpy(pInsGrad, bagManager.m_pInsGradEachBag, sizeof(real) * bagManager.m_numIns, cudaMemcpyDeviceToHost));
 		checkCudaErrors(cudaMemcpy(pInsHess, bagManager.m_pInsHessEachBag, sizeof(real) * bagManager.m_numIns, cudaMemcpyDeviceToHost));
 
-		uint globalPos = 0;
-		for(int i = 0; i < totalNumCsrFvalue_merge; i++){
-			csrGD_h_merge[i] = 0;
-			csrHess_h_merge[i] = 0;
-			uint len = eachCsrLen_merge[i];
-			for(int v = 0; v < len; v++){
-				int insId = preFvalueInsId[globalPos];
-				csrGD_h_merge[i] += pInsGrad[insId];
-				csrHess_h_merge[i] += pInsHess[insId];
-				globalPos++;
-			}
-		}
+		checkCudaErrors(cudaMemset(csrGD_h_merge, 0, sizeof(double) * totalNumCsrFvalue_merge));
+		checkCudaErrors(cudaMemset(csrHess_h_merge, 0, sizeof(real) * totalNumCsrFvalue_merge));
+		thrust::exclusive_scan(thrust::device, eachCsrFeaLenDense, eachCsrFeaLenDense + totalNumCsrBest, eachCsrStart);
+		compCsrGDHess<<<dimNumofBlockToLoadGD, blockSizeLoadGD>>>(preFvalueInsId, bagManager.m_numFeaValue,
+													eachCsrStart, totalNumCsrFvalue_merge,
+													bagManager.m_pInsGradEachBag + bagId * bagManager.m_numIns,
+													bagManager.m_pInsHessEachBag + bagId * bagManager.m_numIns,
+													csrGD_h_merge, csrHess_h_merge);
 		delete[] pInsGrad;
 		//##############
 	}
