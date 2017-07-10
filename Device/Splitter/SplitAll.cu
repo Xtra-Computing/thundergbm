@@ -72,13 +72,16 @@ void DeviceSplitter::SplitAll(int &m_nNumofNode, bool bLastLevel, void *pStream,
 	int occupiedNodeId;
 	checkCudaErrors(cudaMemcpy(&occupiedNodeId, bagManager.m_pCurNumofNodeTreeOnTrainingEachBag_d + bagId, sizeof(int), cudaMemcpyDeviceToHost));
 	int numSplittable = bagManager.m_curNumofSplitableEachBag_h[bagId];
-	uint *newLeftNodeIds = new uint[numSplittable];
+	uint *newLeftNodeIds;
 	checkCudaErrors(cudaMallocHost((void**)&newLeftNodeIds, sizeof(uint) * numSplittable));
-	checkCudaErrors(cudaMemset(newLeftNodeIds, 0, sizeof(uint) * numSplittable));
-	SplitPoint *splittableNodes = new SplitPoint[numSplittable];
-	checkCudaErrors(cudaMemcpy(splittableNodes, bagManager.m_pBestSplitPointEachBag + bagId * bagManager.m_maxNumSplittable, sizeof(SplitPoint) * numSplittable, cudaMemcpyDeviceToHost));
+	checkCudaErrors(cudaMemset(newLeftNodeIds, -1, sizeof(uint) * numSplittable));
+	TreeNode *splittableNode = new TreeNode[numSplittable];
+	checkCudaErrors(cudaMemcpy(splittableNode, bagManager.m_pSplittableNodeEachBag + bagId * bagManager.m_maxNumSplittable, sizeof(TreeNode) * numSplittable, cudaMemcpyDeviceToHost));
+	SplitPoint *bestSpNodes = new SplitPoint[bagManager.m_maxNumSplittable];
+	checkCudaErrors(cudaMemcpy(bestSpNodes, bagManager.m_pBestSplitPointEachBag + bagId * bagManager.m_maxNumSplittable, sizeof(SplitPoint) * bagManager.m_maxNumSplittable, cudaMemcpyDeviceToHost));
 	for(int i = 0; i < numSplittable; i++){
-		if(!(splittableNodes[i].m_fGain <= rt_eps || bLastLevel == true)){
+		int buffPos = splittableNode[i].nodeId % bagManager.m_maxNumSplittable;
+		if(!(bestSpNodes[buffPos].m_fGain <= rt_eps || bLastLevel == true)){
 			newLeftNodeIds[i] = occupiedNodeId;
 			occupiedNodeId += 2;
 		}

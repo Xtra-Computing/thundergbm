@@ -480,9 +480,6 @@ void DeviceSplitter::FeaFinderAllNode2(void *pStream, int bagId)
 		checkCudaErrors(cudaMallocHost((void**)&preFvalueInsId, sizeof(int) * bagManager.m_numFeaValue));
 		checkCudaErrors(cudaMemcpy(preFvalueInsId, manager.m_pDInsId, sizeof(int) * bagManager.m_numFeaValue, cudaMemcpyDeviceToHost));
 	}
-	//split nodes
-	int *pInsId2Nid = new int[bagManager.m_numIns];//ins id to node id
-	checkCudaErrors(cudaMemcpy(pInsId2Nid, bagManager.m_pInsIdToNodeIdEachBag, sizeof(int) * bagManager.m_numIns, cudaMemcpyDeviceToHost));
 	//################3
 
 	//reset memory for this bag
@@ -574,7 +571,6 @@ void DeviceSplitter::FeaFinderAllNode2(void *pStream, int bagId)
 
 		printf("hello world org=%u v.s. csr=%u\n", bagManager.m_numFeaValue, totalNumCsrBest);
 		thrust::exclusive_scan(thrust::host, eachCsrFeaLen, eachCsrFeaLen + numofSNode * bagManager.m_numFea, eachNewCompressedFeaStart_merge);
-		delete[] pInsId2Nid;
 		//###############################
 		LoadFvalueInsId<<<dimNumofBlockToLoadGD, blockSizeLoadGD, 0, (*(cudaStream_t*)pStream)>>>(
 						manager.m_pDInsId, preFvalueInsId, bagManager.m_pIndicesEachBag_d, bagManager.m_numFeaValue);
@@ -585,12 +581,6 @@ void DeviceSplitter::FeaFinderAllNode2(void *pStream, int bagId)
 		memcpy(eachCompressedFeaLen_merge, eachCsrFeaLen, sizeof(uint) * bagManager.m_numFea * numofSNode);
 
 		checkCudaErrors(cudaMemcpy(csrFvalue_merge, eachCsrFvalueDense, sizeof(real) * totalNumCsrBest, cudaMemcpyDeviceToHost));
-		checkCudaErrors(cudaMemcpy(eachCsrLen_merge, eachCsrFeaLenDense, sizeof(uint) * totalNumCsrBest, cudaMemcpyDeviceToHost));
-		cudaDeviceSynchronize();
-		real *pInsGrad = new real[bagManager.m_numIns];
-		real *pInsHess = new real[bagManager.m_numIns];
-		checkCudaErrors(cudaMemcpy(pInsGrad, bagManager.m_pInsGradEachBag, sizeof(real) * bagManager.m_numIns, cudaMemcpyDeviceToHost));
-		checkCudaErrors(cudaMemcpy(pInsHess, bagManager.m_pInsHessEachBag, sizeof(real) * bagManager.m_numIns, cudaMemcpyDeviceToHost));
 
 		checkCudaErrors(cudaMemset(csrGD_h_merge, 0, sizeof(double) * totalNumCsrFvalue_merge));
 		checkCudaErrors(cudaMemset(csrHess_h_merge, 0, sizeof(real) * totalNumCsrFvalue_merge));
@@ -600,8 +590,6 @@ void DeviceSplitter::FeaFinderAllNode2(void *pStream, int bagId)
 													bagManager.m_pInsGradEachBag + bagId * bagManager.m_numIns,
 													bagManager.m_pInsHessEachBag + bagId * bagManager.m_numIns,
 													csrGD_h_merge, csrHess_h_merge);
-		delete[] pInsGrad;
-		//##############
 	}
 	else
 	{

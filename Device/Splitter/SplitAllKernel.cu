@@ -80,8 +80,9 @@ __global__ void CreateNewNode(TreeNode *pAllTreeNode, TreeNode *pSplittableNode,
 	pAllTreeNode[nid].m_bDefault2Right = false;
 	if(!(pBestSplitPoint[bufferPos].m_fGain <= rt_eps || bLastLevel == true))
 	{
-		int childrenId = newNodeLeftId[gTid];//atomicAdd(pNumofNode, 2);//
-		atomicAdd(pNumofNode, 2);
+		int childrenId = atomicAdd(pNumofNode, 2);
+		childrenId = newNodeLeftId[gTid];
+		ECHECKER(childrenId);
 
 		int lchildId = childrenId;
 		int rchildId = childrenId + 1;
@@ -289,6 +290,8 @@ __global__ void InsToNewNodeByDefault(TreeNode *pAllTreeNode, int *pInsIdToNodeI
 	ECHECKER(preMaxNodeId);
 
 	int nid = pInsIdToNodeId[nGlobalThreadId];
+	if(nid < 0)
+		printf("nid=%d\n", nid);
 	ECHECKER(nid);
 	if(nid > preMaxNodeId)//processed node
 		return;

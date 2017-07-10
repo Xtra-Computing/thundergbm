@@ -46,6 +46,7 @@ __global__ void InitNodeStat(const real root_sum_gd, const real root_sum_hess,
 __global__ void InitRootNode(TreeNode *pAllTreeNode, int *pCurNumofNode, int numIns)
 {
 	pAllTreeNode[0].nodeId = 0;
+	pAllTreeNode[0].parentId = -1;
 	pAllTreeNode[0].level = 0;
 	*pCurNumofNode = 1;
 
