@@ -87,6 +87,8 @@ __global__ void ComputeGainDense(const nodeStat *pSNodeStat, const int *pId2SNPo
 	bool needUpdate = NeedUpdate(rChildHess, tempHess);
     if(needUpdate == true)//need to compute the gain
     {
+    	ECHECKER(tempHess > 0);
+    	ECHECKER(parentHess > 0);
 		double tempGain = (tempGD * tempGD)/(tempHess + lambda) +
 						  	   (rChildGD * rChildGD)/(rChildHess + lambda) -
 	  						   (parentGD * parentGD)/(parentHess + lambda);
@@ -112,6 +114,8 @@ __global__ void ComputeGainDense(const nodeStat *pSNodeStat, const int *pId2SNPo
     tempHess = parentHess - rChildHess;
     needUpdate = NeedUpdate(rChildHess, tempHess);
     if(needUpdate == true){
+    	ECHECKER(tempHess > 0);
+    	ECHECKER(parentHess > 0);
     	double tempGain = (tempGD * tempGD)/(tempHess + lambda) +
 			  	   	    (rChildGD * rChildGD)/(rChildHess + lambda) -
 			  	   	    (parentGD * parentGD)/(parentHess + lambda);
@@ -121,6 +125,8 @@ __global__ void ComputeGainDense(const nodeStat *pSNodeStat, const int *pId2SNPo
     		pDefault2Right[gTid] = true;
     	}
     }
+    if(gTid == 1580 || gTid == 5365)
+    	printf("2: gTid=%d, gain=%f\n", gTid, pGainOnEachFeaValue[gTid]);
 }
 
 /**
@@ -135,19 +141,19 @@ __global__ void FindSplitInfo(const uint *pEachFeaStartPosEachNode, const T *pEa
 							  SplitPoint *pBestSplitPoint, nodeStat *pRChildStat, nodeStat *pLChildStat)
 {
 	//a thread for constructing a split point
-	int snId = threadIdx.x;//position in the dense array of nodes
-	T key = pnGlobalBestGainKey[snId];//position in the dense array
+	int pid = threadIdx.x;//position in the dense array of nodes
+	T key = pnGlobalBestGainKey[pid];//position in the dense array
 
 	//find best feature id
 	uint bestFeaId = numFea;
-	RangeBinarySearch(key, pEachFeaStartPosEachNode + snId * numFea, numFea, bestFeaId);
+	RangeBinarySearch(key, pEachFeaStartPosEachNode + pid * numFea, numFea, bestFeaId);
 
-	CONCHECKER(bestFeaId != numFea);
+	CONCHECKER(bestFeaId < numFea);
 
-	int snPos = pPartitionId2SNPos[snId];//snId to buffer id (i.e. hash value)
+	int snPos = pPartitionId2SNPos[pid];//snId to buffer id (i.e. hash value)
 
-	pBestSplitPoint[snPos].m_fGain = pfGlobalBestGain[snId];//change the gain back to positive
-	if(pfGlobalBestGain[snId] <= 0){//no gain
+	pBestSplitPoint[snPos].m_fGain = pfGlobalBestGain[pid];//change the gain back to positive
+	if(pfGlobalBestGain[pid] <= 0){//no gain
 		return;
 	}
 
@@ -178,8 +184,10 @@ __global__ void FindSplitInfo(const uint *pEachFeaStartPosEachNode, const T *pEa
 
 		double rChildGD = totalMissingGD + pPrefixSumGD[idxPreSum];
 		real rChildHess = totalMissingHess + pPrefixSumHess[idxPreSum];
+		ECHECKER(rChildHess);
 		real lChildGD = parentGD - rChildGD;
 		real lChildHess = parentHess - rChildHess;
+		ECHECKER(lChildHess);
 
 		pRChildStat[snPos].sum_gd = rChildGD;
 		pRChildStat[snPos].sum_hess = rChildHess;
