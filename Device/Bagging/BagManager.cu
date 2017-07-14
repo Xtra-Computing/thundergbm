@@ -27,7 +27,7 @@ int BagManager::m_maxNumLeave = -1;
 
 //device memory
 cudaStream_t *BagManager::m_pStream = NULL;
-int *BagManager::m_pInsIdToNodeIdEachBag = NULL;	//instance to node id
+int *BagManager::m_pInsIdToNodeIdEachBag = NULL;//instance to node id (leaf nid may be smaller than maxNid)
 int *BagManager::m_pInsWeight_d = NULL;
 
 //for gd/hessian computation

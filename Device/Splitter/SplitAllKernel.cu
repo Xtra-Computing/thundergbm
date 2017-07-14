@@ -290,8 +290,6 @@ __global__ void InsToNewNodeByDefault(TreeNode *pAllTreeNode, int *pInsIdToNodeI
 	ECHECKER(preMaxNodeId);
 
 	int nid = pInsIdToNodeId[nGlobalThreadId];
-	if(nid < 0)
-		printf("nid=%d\n", nid);
 	ECHECKER(nid);
 	if(nid > preMaxNodeId)//processed node
 		return;

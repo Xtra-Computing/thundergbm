@@ -53,6 +53,11 @@ __global__ void ComputeGainDense(const nodeStat *pSNodeStat, const int *pId2SNPo
 	uint gTid = GLOBAL_TID();
 	if(gTid >= numofDenseValue)//the thread has no gain to compute, i.e. a thread per gain
 		return;
+	if(blockIdx.x == 5865 && blockIdx.y == 2 && threadIdx.x == 33)
+		printf("hellow gTid=%d, key=%u\n", gTid, pnKey[gTid]);
+	if(pnKey[gTid] > 2147483647){
+		printf("hellow gTid=%d, key=%u\n", gTid, pnKey[gTid]);
+	}
 
 	uint segId = pnKey[gTid];
 	uint pid = segId / numFea;
@@ -103,6 +108,8 @@ __global__ void ComputeGainDense(const nodeStat *pSNodeStat, const int *pId2SNPo
     int segLen = pEachFeaLenEachNode[segId];
     uint segStartPos = pEachFeaStartEachNode[segId];
     uint lastFvaluePos = segStartPos + segLen - 1;
+    if(lastFvaluePos >= numofDenseValue)
+    	printf("lastFvaluePos=%u, numDense=%u, segStartPos=%u, segLen=%d, segId=%u, gTid=%u\n", lastFvaluePos, numofDenseValue, segStartPos, segLen, segId, gTid);
     double totalMissingGD = parentGD - pGDPrefixSumOnEachFeaValue[lastFvaluePos];
     double totalMissingHess = parentHess - pHessPrefixSumOnEachFeaValue[lastFvaluePos];
     if(totalMissingHess < 1)//there is no instance with missing values
@@ -125,8 +132,6 @@ __global__ void ComputeGainDense(const nodeStat *pSNodeStat, const int *pId2SNPo
     		pDefault2Right[gTid] = true;
     	}
     }
-    if(gTid == 1580 || gTid == 5365)
-    	printf("2: gTid=%d, gain=%f\n", gTid, pGainOnEachFeaValue[gTid]);
 }
 
 /**

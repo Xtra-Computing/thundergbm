@@ -114,54 +114,58 @@ __global__ void LoadFvalueInsId(const int *pOrgFvalueInsId, int *pNewFvalueInsId
 }
 
 __global__ void newCsrLenFvalue(const int *preFvalueInsId, int numFeaValue, const int *pInsId2Nid, int maxNid,
-						  const uint *eachCsrStart, real *csrFvalue, uint numCsr, const uint *preRoundEachCsrFeaStartPos, const uint preRoundNumSN, int numFea,
-						  real *eachCsrFvalueSparse, uint *csrNewLen, uint *eachCsrFeaLen, uint *eachNodeSizeInCsr){
+						  const uint *eachCsrStart, real *csrFvalue, uint numCsr, const uint *preRoundSegStartPos, const uint preRoundNumSN, int numFea,
+						  real *eachCsrFvalueSparse, uint *csrNewLen, uint *eachNewSegLen, uint *eachNodeSizeInCsr){
 	//one thread for one fvalue
 	uint gTid = GLOBAL_TID();
 	if(gTid >= numFeaValue)//thread has nothing to do
 		return;
 
-	int insId = preFvalueInsId[gTid];
+	int insId = preFvalueInsId[gTid];//insId is not -1, as preFvalueInsId is dense.
+	if(pInsId2Nid[insId] <= maxNid)//leaf node
+		return;
 	int pid = pInsId2Nid[insId] - maxNid - 1;//mapping to new node
 	uint csrId = numCsr;
 	RangeBinarySearch(gTid, eachCsrStart, numCsr, csrId);
 	CONCHECKER(csrId < numCsr);
 	uint segId = numFea * preRoundNumSN;
-	RangeBinarySearch(csrId, preRoundEachCsrFeaStartPos, numFea * preRoundNumSN, segId);
+	RangeBinarySearch(csrId, preRoundSegStartPos, numFea * preRoundNumSN, segId);
 	uint prePid = segId / numFea;
-	uint prePartStartPos = preRoundEachCsrFeaStartPos[prePid * numFea];
-	uint sizePrePartsAhead = prePartStartPos;
-	uint curPartSize;
+	uint prePartStartPos = preRoundSegStartPos[prePid * numFea];
+	uint numCsrPrePartsAhead = prePartStartPos;
+	uint numCsrCurPart;
 	if(prePid == preRoundNumSN - 1)
-		curPartSize = numCsr - prePartStartPos;
+		numCsrCurPart = numCsr - prePartStartPos;
 	else
-		curPartSize = preRoundEachCsrFeaStartPos[(prePid + 1) * numFea] - prePartStartPos;
-	uint localId = csrId - sizePrePartsAhead;
+		numCsrCurPart = preRoundSegStartPos[(prePid + 1) * numFea] - prePartStartPos;
+	uint posInPart = csrId - numCsrPrePartsAhead;//id in the partition
 	uint orgValue;
+	//compute len of each csr
 	if(pid % 2 == 1){
-		orgValue = atomicAdd(csrNewLen + sizePrePartsAhead * 2 + curPartSize + localId, 1);
+		orgValue = atomicAdd(csrNewLen + numCsrPrePartsAhead * 2 + numCsrCurPart + posInPart, 1);
 		if(orgValue == 0)
-			eachCsrFvalueSparse[sizePrePartsAhead * 2 + curPartSize + localId] = csrFvalue[csrId];
+			eachCsrFvalueSparse[numCsrPrePartsAhead * 2 + numCsrCurPart + posInPart] = csrFvalue[csrId];
 	}
 	else{
-		orgValue = atomicAdd(csrNewLen + sizePrePartsAhead * 2 + localId, 1);
+		orgValue = atomicAdd(csrNewLen + numCsrPrePartsAhead * 2 + posInPart, 1);
 		if(orgValue == 0)
-			eachCsrFvalueSparse[sizePrePartsAhead * 2 + localId] = csrFvalue[csrId];
+			eachCsrFvalueSparse[numCsrPrePartsAhead * 2 + posInPart] = csrFvalue[csrId];
 	}
 
+	//compute len of each segment
 	if(orgValue == 0){
 		uint feaId = segId % numFea;
 		CONCHECKER(feaId < numFea);
-		uint tempLen = atomicAdd(eachCsrFeaLen + pid * numFea + feaId, 1);
+		uint tempLen = atomicAdd(eachNewSegLen + pid * numFea + feaId, 1);
 		atomicAdd(eachNodeSizeInCsr + pid, 1);
 	}
 }
 
-__global__ void map2One(const uint *eachCsrFeaLen, uint numCsr, uint *csrMarker){
+__global__ void map2One(const uint *eachCsrLen, uint numCsr, uint *csrMarker){
 	uint gTid = GLOBAL_TID();
 	if(gTid >= numCsr)
 		return;
-	if(eachCsrFeaLen[gTid] != 0)
+	if(eachCsrLen[gTid] > 0)
 		csrMarker[gTid] = 1;
 	else
 		csrMarker[gTid] = 0;
@@ -179,7 +183,7 @@ __global__ void loadDenseCsr(const real *eachCsrFvalueSparse, const uint *eachCs
 }
 
 __global__ void compCsrGDHess(const int *preFvalueInsId, uint numFvalue, const uint *eachCsrStart, uint numCsr,
-							  const real *pInsGrad, const real *pInsHess,
+							  const real *pInsGrad, const real *pInsHess, int numIns,
 							  double *csrGD, real *csrHess){
 	uint gTid = GLOBAL_TID();
 	if(gTid >= numFvalue)
@@ -188,6 +192,7 @@ __global__ void compCsrGDHess(const int *preFvalueInsId, uint numFvalue, const u
 	RangeBinarySearch(gTid, eachCsrStart, numCsr, csrId);
 	CONCHECKER(csrId < numCsr);
 	int insId = preFvalueInsId[gTid];
+	CONCHECKER(insId >= 0 && insId < numIns);
 	double temp = pInsGrad[insId];
 	atomicAdd(csrGD + csrId, temp);
 	atomicAdd(csrHess + csrId, pInsHess[insId]);
