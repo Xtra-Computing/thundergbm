@@ -33,11 +33,11 @@ __global__ void ComputeGDKernel(int numofIns, const real *pfPredValue, const rea
 
 __global__ void InitNodeStat(const real root_sum_gd, const real root_sum_hess,
 							 nodeStat *pSNodeStat, int maxNumofSplittable,
-							 int *pId2SNPos)
+							 int *pid2SNPos)
 {
 	pSNodeStat[0].sum_gd = root_sum_gd;
 	pSNodeStat[0].sum_hess = root_sum_hess;
-	pId2SNPos[0] = 0;
+	pid2SNPos[0] = 0;
 }
 
 /**

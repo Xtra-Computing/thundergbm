@@ -107,10 +107,11 @@ void DeviceSplitter::FeaFinderAllNode(void *pStream, int bagId)
 		//scatter operation
 		//total fvalue to load may be smaller than m_totalFeaValue, due to some nodes becoming leaves.
 		numofDenseValue = thrust::reduce(thrust::device, pTempNumFvalueEachNode, pTempNumFvalueEachNode + numofSNode);
+		printf("# of useful fvalue=%d\n", numofDenseValue);
 		LoadGDHessFvalue<<<dimNumofBlockToLoadGD, blockSizeLoadGD, 0, (*(cudaStream_t*)pStream)>>>(bagManager.m_pInsGradEachBag + bagId * bagManager.m_numIns, 
 															   bagManager.m_pInsHessEachBag + bagId * bagManager.m_numIns, 
 															   bagManager.m_numIns, manager.m_pDInsId, manager.m_pdDFeaValue,
-															   bagManager.m_pIndicesEachBag_d, numofDenseValue,
+															   bagManager.m_pIndicesEachBag_d, bagManager.m_numFeaValue,
 															   bagManager.m_pdGDPrefixSumEachBag + bagId * bagManager.m_numFeaValue,
 															   bagManager.m_pHessPrefixSumEachBag + bagId * bagManager.m_numFeaValue,
 															   bagManager.m_pDenseFValueEachBag + bagId * bagManager.m_numFeaValue);
@@ -119,6 +120,12 @@ void DeviceSplitter::FeaFinderAllNode(void *pStream, int bagId)
 		total_fill_gd_t += (end_gd - start_gd);
 		uint *pMaxNumFvalueOneNode = thrust::max_element(thrust::device, pTempNumFvalueEachNode, pTempNumFvalueEachNode + numofSNode);
 		checkCudaErrors(cudaMemcpy(&maxNumFeaValueOneNode, pMaxNumFvalueOneNode, sizeof(int), cudaMemcpyDeviceToHost));
+		//testing
+		uint *pTest_h = new uint[numofSNode];
+		checkCudaErrors(cudaMemcpy(pTest_h, pTempNumFvalueEachNode, sizeof(uint) * numofSNode, cudaMemcpyDeviceToHost));
+		cudaDeviceSynchronize();
+		for(int i = 0; i < numofSNode; i++)
+			printf("############## size of node %d is %u\n", i, pTest_h[i]);
 		indexComp.FreeMem();
 	}
 	else
@@ -154,7 +161,7 @@ void DeviceSplitter::FeaFinderAllNode(void *pStream, int bagId)
 		total_com_idx_t += (comIdx_end - comIdx_start);
 	}
 
-//	cout << "prefix sum" << endl;
+	cout << "prefix sum" << endl;
 	clock_t start_scan = clock();
 	//compute the feature with the maximum number of values
 	int totalNumArray = bagManager.m_numFea * numofSNode;
@@ -229,7 +236,7 @@ void DeviceSplitter::FeaFinderAllNode(void *pStream, int bagId)
 	clock_t end_comp_gain = clock();
 	total_com_gain_t += (end_comp_gain - start_comp_gain);
 
-//	cout << "searching" << endl;
+	cout << "searching" << endl;
 	clock_t start_search = clock();
 	real *pfGlobalBestGain_d;
 	int *pnGlobalBestGainKey_d;
@@ -276,6 +283,7 @@ uint *eachNodeSizeInCsr;
 uint *eachCsrNodeStartPos;
 real *csrFvalue;
 uint *eachCsrLen;
+uint numofDenseValue_previous;
 void DeviceSplitter::FeaFinderAllNode2(void *pStream, int bagId)
 {
 	cudaDeviceSynchronize();
@@ -290,6 +298,7 @@ void DeviceSplitter::FeaFinderAllNode2(void *pStream, int bagId)
 	vector<vector<real> > newCsrFvalue(numofSNode * bagManager.m_numFea, vector<real>());
 
 	if(preFvalueInsId == NULL || curNumofNode == 1){
+		checkCudaErrors(cudaMallocManaged((void**)&preFvalueInsId, sizeof(int) * bagManager.m_numFeaValue));
 		checkCudaErrors(cudaMallocHost((void**)&eachCompressedFeaStartPos, sizeof(uint) * bagManager.m_numFea * bagManager.m_maxNumSplittable));
 		checkCudaErrors(cudaMallocHost((void**)&eachCompressedFeaLen, sizeof(uint) * bagManager.m_numFea * bagManager.m_maxNumSplittable));
 		checkCudaErrors(cudaMallocHost((void**)&eachCsrLen, sizeof(uint) * bagManager.m_numFeaValue));
@@ -298,19 +307,11 @@ void DeviceSplitter::FeaFinderAllNode2(void *pStream, int bagId)
 		checkCudaErrors(cudaMallocHost((void**)&csrHess_dh, sizeof(real) * bagManager.m_numFeaValue));
 		checkCudaErrors(cudaMallocHost((void**)&eachNodeSizeInCsr, sizeof(uint) * bagManager.m_maxNumSplittable));
 		checkCudaErrors(cudaMallocHost((void**)&csrFvalue, sizeof(real) * bagManager.m_numFeaValue));
-		checkCudaErrors(cudaMallocHost((void**)&preFvalueInsId, sizeof(int) * bagManager.m_numFeaValue));
-		checkCudaErrors(cudaMemcpy(preFvalueInsId, manager.m_pDInsId, sizeof(int) * bagManager.m_numFeaValue, cudaMemcpyDeviceToHost));
+		checkCudaErrors(cudaMemcpy(preFvalueInsId, manager.m_pDInsId, sizeof(int) * bagManager.m_numFeaValue, cudaMemcpyDeviceToDevice));
+		numofDenseValue_previous = bagManager.m_numFeaValue;//initialise dense value length
+		cudaDeviceSynchronize();
 	}
 
-	//reset memory for this bag
-	{
-		manager.MemsetAsync(bagManager.m_pdGDPrefixSumEachBag + bagId * bagManager.m_numFeaValue,
-							0, sizeof(double) * bagManager.m_numFeaValue, pStream);
-		manager.MemsetAsync(bagManager.m_pHessPrefixSumEachBag + bagId * bagManager.m_numFeaValue,
-							0, sizeof(real) * bagManager.m_numFeaValue, pStream);
-		manager.MemsetAsync(bagManager.m_pGainEachFvalueEachBag + bagId * bagManager.m_numFeaValue,
-							0, sizeof(real) * bagManager.m_numFeaValue, pStream);
-	}
 	cudaStreamSynchronize((*(cudaStream_t*)pStream));
 
 	//compute index for each feature value
@@ -320,7 +321,6 @@ void DeviceSplitter::FeaFinderAllNode2(void *pStream, int bagId)
 	conf.ConfKernel(bagManager.m_numFeaValue, blockSizeLoadGD, dimNumofBlockToLoadGD);
 	//# of feature values that need to compute gains; the code below cannot be replaced by indexComp.m_totalNumFeaValue, due to some nodes becoming leaves.
 	int maxNumFeaValueOneNode = -1;
-	uint numofDenseValue = bagManager.m_numFeaValue;
 	printf("sn=%d\n", numofSNode);
 	if(numofSNode > 1)
 	{
@@ -335,6 +335,15 @@ void DeviceSplitter::FeaFinderAllNode2(void *pStream, int bagId)
 
 		//copy # of feature values of each node
 		uint *pTempNumFvalueEachNode = bagManager.m_pNumFvalueEachNodeEachBag_d + bagId * bagManager.m_maxNumSplittable;
+
+		//testing
+		uint tempNumofDenseValue = thrust::reduce(thrust::device, pTempNumFvalueEachNode, pTempNumFvalueEachNode + numofSNode);
+		printf("# of useful fvalue=%d\n", tempNumofDenseValue);
+		cudaDeviceSynchronize();
+		int *id2;
+		checkCudaErrors(cudaMallocHost((void**)&id2, sizeof(int) * bagManager.m_numFeaValue));
+		LoadFvalueInsId<<<dimNumofBlockToLoadGD, blockSizeLoadGD>>>(
+						bagManager.m_numIns, manager.m_pDInsId, id2, bagManager.m_pIndicesEachBag_d, bagManager.m_numFeaValue);
 
 		clock_t start_gd = clock();
 		clock_t end_gd = clock();
@@ -355,16 +364,34 @@ void DeviceSplitter::FeaFinderAllNode2(void *pStream, int bagId)
 		checkCudaErrors(cudaMemset(eachNewCsrLen, 0, sizeof(uint) * totalNumCsrFvalue * 2));
 		checkCudaErrors(cudaMemset(eachCompressedFeaLen, 0, sizeof(uint) * bagManager.m_numFea * numofSNode));
 		checkCudaErrors(cudaMemset(eachNodeSizeInCsr, 0, sizeof(uint) * bagManager.m_maxNumSplittable));
-		printf("numFvalue=%u, denseFvalue=%u\n", bagManager.m_numFeaValue, numofDenseValue);
-		newCsrLenFvalue<<<dimNumofBlockToLoadGD, blockSizeLoadGD>>>(preFvalueInsId, numofDenseValue,
+		printf("hello world org fv=%u v.s. dense fv=%u\n", bagManager.m_numFeaValue, numofDenseValue_previous);
+		uint *eachNodeFvalue;
+		checkCudaErrors(cudaMallocHost((void**)&eachNodeFvalue, sizeof(uint) * numofSNode));
+		checkCudaErrors(cudaMemset(eachNodeFvalue, 0, sizeof(uint) * numofSNode));
+		newCsrLenFvalue<<<dimNumofBlockToLoadGD, blockSizeLoadGD>>>(preFvalueInsId, numofDenseValue_previous,
 											bagManager.m_pInsIdToNodeIdEachBag + bagId * bagManager.m_numIns,
 											bagManager.m_pPreMaxNid_h[bagId], eachCsrStart,
 											csrFvalue, totalNumCsrFvalue,
 											eachCompressedFeaStartPos, bagManager.m_pPreNumSN_h[bagId],
 											bagManager.m_numFea, eachCsrFvalueSparse, eachNewCsrLen, eachCompressedFeaLen,
-											eachNodeSizeInCsr);
+											eachNodeSizeInCsr, numofSNode, eachNodeFvalue);
 		cudaDeviceSynchronize();
 		GETERROR("after newCsrLenFvalue");
+
+		//testing
+		uint totalTestCsr1 = thrust::reduce(thrust::device, eachCompressedFeaLen, eachCompressedFeaLen + bagManager.m_numFea * numofSNode);
+		uint totalTestCsr2 = thrust::reduce(thrust::device, eachNodeSizeInCsr, eachNodeSizeInCsr + numofSNode);
+		if(numofSNode == 12){
+			printf("hellow ############## csr1=%u, csr2=%u\n", totalTestCsr1, totalTestCsr2);
+			for(int i = 0; i < numofSNode; i++){
+				uint nodeSize = eachNodeSizeInCsr[i];
+				uint nodeEnd = thrust::reduce(thrust::device, eachCompressedFeaLen, eachCompressedFeaLen + bagManager.m_numFea * (i + 1));
+				//if(nodeSize != nodeSize2){
+				//	printf("oh shit.......... %u v.s. %u\n", nodeSize, nodeEnd);
+				//}
+			}
+		}
+
 		int blockSizeLoadCsrLen;
 		dim3 dimNumofBlockToLoadCsrLen;
 		conf.ConfKernel(totalNumCsrFvalue * 2, blockSizeLoadCsrLen, dimNumofBlockToLoadCsrLen);
@@ -372,38 +399,42 @@ void DeviceSplitter::FeaFinderAllNode2(void *pStream, int bagId)
 		checkCudaErrors(cudaMallocHost((void**)&csrMarker, sizeof(uint) * totalNumCsrFvalue * 2));
 		checkCudaErrors(cudaMemset(csrMarker, 0, sizeof(uint) * totalNumCsrFvalue * 2));
 		map2One<<<dimNumofBlockToLoadCsrLen, blockSizeLoadCsrLen>>>(eachNewCsrLen, totalNumCsrFvalue * 2, csrMarker);
-		uint totalTestCsrNewLen = thrust::reduce(thrust::device, csrMarker, csrMarker + totalNumCsrFvalue * 2);
 		GETERROR("after map2One");
 		thrust::inclusive_scan(thrust::device, csrMarker, csrMarker + totalNumCsrFvalue * 2, csrMarker);
 		cudaDeviceSynchronize();
 		uint totalNumCsrBest = csrMarker[totalNumCsrFvalue * 2 - 1];
 
 		printf("num csr=%u, dense csr=%u\n", totalNumCsrFvalue * 2, totalNumCsrBest);
-		loadDenseCsr<<<dimNumofBlockToLoadCsrLen, blockSizeLoadCsrLen>>>(eachCsrFvalueSparse, eachNewCsrLen, totalNumCsrFvalue * 2, csrMarker, csrFvalue, eachCsrLen);
+		checkCudaErrors(cudaMemset(eachCsrLen, 0, sizeof(uint) * totalNumCsrBest));
+		loadDenseCsr<<<dimNumofBlockToLoadCsrLen, blockSizeLoadCsrLen>>>(eachCsrFvalueSparse, eachNewCsrLen, totalNumCsrFvalue * 2, totalNumCsrBest, csrMarker, csrFvalue, eachCsrLen);
 		GETERROR("after loadDenseCsr");
 		cudaDeviceSynchronize();
-		printf("hello world org=%u v.s. csr=%u\n", bagManager.m_numFeaValue, totalNumCsrBest);
+
 		thrust::exclusive_scan(thrust::device, eachCompressedFeaLen, eachCompressedFeaLen + numofSNode * bagManager.m_numFea, eachCompressedFeaStartPos);
 		cudaDeviceSynchronize();
-		LoadFvalueInsId<<<dimNumofBlockToLoadGD, blockSizeLoadGD, 0, (*(cudaStream_t*)pStream)>>>(
-						manager.m_pDInsId, preFvalueInsId, bagManager.m_pIndicesEachBag_d, numofDenseValue);
-		cudaStreamSynchronize((*(cudaStream_t*)pStream));
+		checkCudaErrors(cudaMemset(preFvalueInsId, -1, sizeof(int) * bagManager.m_numFeaValue));//for testing
+		LoadFvalueInsId<<<dimNumofBlockToLoadGD, blockSizeLoadGD>>>(
+						bagManager.m_numIns, manager.m_pDInsId, preFvalueInsId, bagManager.m_pIndicesEachBag_d, bagManager.m_numFeaValue);
+		cudaDeviceSynchronize();
+
+
 		GETERROR("after LoadFvalueInsId");
 		thrust::exclusive_scan(thrust::device, eachNodeSizeInCsr, eachNodeSizeInCsr + numofSNode, eachCsrNodeStartPos);//newly added#########
 		totalNumCsrFvalue = totalNumCsrBest;
-		numofDenseValue = thrust::reduce(thrust::device, pTempNumFvalueEachNode, pTempNumFvalueEachNode + numofSNode);//number of dense fvalues.
+		numofDenseValue_previous = thrust::reduce(thrust::device, pTempNumFvalueEachNode, pTempNumFvalueEachNode + numofSNode);//number of dense fvalues.
+		printf("numFvalue=%u, denseFvalue=%u\n", bagManager.m_numFeaValue, numofDenseValue_previous);
 
 		PROCESS_ERROR(totalNumCsrFvalue <= bagManager.m_numFeaValue);
 		checkCudaErrors(cudaMemset(csrGD_dh, 0, sizeof(double) * totalNumCsrFvalue));
 		checkCudaErrors(cudaMemset(csrHess_dh, 0, sizeof(real) * totalNumCsrFvalue));
 		GETERROR("before scan");
 		uint *eachCsrStartCurRound;
-		checkCudaErrors(cudaMalloc((void**)&eachCsrStartCurRound, sizeof(uint) * totalNumCsrFvalue));
-		thrust::exclusive_scan(thrust::device, eachCsrLen, eachCsrLen + totalNumCsrBest, eachCsrStartCurRound);
+		checkCudaErrors(cudaMallocHost((void**)&eachCsrStartCurRound, sizeof(uint) * totalNumCsrFvalue));
+		thrust::exclusive_scan(thrust::device, eachCsrLen, eachCsrLen + totalNumCsrFvalue, eachCsrStartCurRound);
 		cudaDeviceSynchronize();
 		GETERROR("before compCsrGDHess");
 		printf("numof csr=%u\n", totalNumCsrFvalue);
-		compCsrGDHess<<<dimNumofBlockToLoadGD, blockSizeLoadGD>>>(preFvalueInsId, numofDenseValue,
+		compCsrGDHess<<<dimNumofBlockToLoadGD, blockSizeLoadGD>>>(preFvalueInsId, numofDenseValue_previous,
 													eachCsrStartCurRound, totalNumCsrFvalue,
 													bagManager.m_pInsGradEachBag + bagId * bagManager.m_numIns,
 													bagManager.m_pInsHessEachBag + bagId * bagManager.m_numIns,
@@ -411,10 +442,40 @@ void DeviceSplitter::FeaFinderAllNode2(void *pStream, int bagId)
 													csrGD_dh, csrHess_dh);
 		cudaDeviceSynchronize();
 		GETERROR("after compCsrGDHess");
+
+		//testing; compute number of fvalue each node
+		int previousNodeSize = 0;
+		uint totalNumFeaValue = 0;
+		for(int i = 0; i < numofSNode; i++){
+			int numCsrInNode = eachNodeSizeInCsr[i];
+			uint allPrevious = eachCsrStartCurRound[previousNodeSize];
+			previousNodeSize += numCsrInNode;
+			uint previousAndCur;
+			if(i < numofSNode - 1)
+				previousAndCur = eachCsrStartCurRound[previousNodeSize];
+			else
+				previousAndCur = eachCsrStartCurRound[previousNodeSize - 1] + eachCsrLen[previousNodeSize - 1];
+			uint numofFvalue = previousAndCur - allPrevious;
+			totalNumFeaValue += numofFvalue;
+			printf("######################### size of node %d is %u (v.s. %u); csr in node is %u\n", i, numofFvalue, eachNodeFvalue[i], eachNodeSizeInCsr[i]);
+		}
+		printf("############### num of fvalue=%u\n", totalNumFeaValue);
+		//testing
+		uint *pTest_h = new uint[numofSNode];
+		checkCudaErrors(cudaMemcpy(pTest_h, pTempNumFvalueEachNode, sizeof(uint) * numofSNode, cudaMemcpyDeviceToHost));
+		cudaDeviceSynchronize();
+		for(int i = 0; i < numofSNode; i++)
+			printf("############## size of node %d is %u\n", i, pTest_h[i]);
+		for(int i = 0; i < totalNumFeaValue; i++){
+			PROCESS_ERROR(id2[i] == preFvalueInsId[i]);
+		}
+
+		cudaDeviceSynchronize();
+
 		checkCudaErrors(cudaFree(eachCsrStart));
 		checkCudaErrors(cudaFree(eachNewCsrLen));
 		checkCudaErrors(cudaFree(eachCsrFvalueSparse));
-		checkCudaErrors(cudaFree(eachCsrStartCurRound));
+		//checkCudaErrors(cudaFree(eachCsrStartCurRound));
 	}
 	else
 	{
@@ -494,7 +555,9 @@ void DeviceSplitter::FeaFinderAllNode2(void *pStream, int bagId)
 	bool *pCsrDefault2Right_d;
 	real *pGainEachCsrFvalue_d;
 	checkCudaErrors(cudaMalloc((void**)&pCsrDefault2Right_d, sizeof(bool) * totalNumCsrFvalue));
+	checkCudaErrors(cudaMemset(pCsrDefault2Right_d, 0, sizeof(bool) * totalNumCsrFvalue));//this is important (i.e. initialisation)
 	checkCudaErrors(cudaMalloc((void**)&pGainEachCsrFvalue_d, sizeof(real) * totalNumCsrFvalue));
+	checkCudaErrors(cudaMemset(pGainEachCsrFvalue_d, 0, sizeof(real) * totalNumCsrFvalue));
 
 	//cout << "compute gain" << endl;
 	clock_t start_comp_gain = clock();
@@ -520,6 +583,7 @@ void DeviceSplitter::FeaFinderAllNode2(void *pStream, int bagId)
 										pEachCompressedFeaStartPos_d, numSeg, pGainEachCsrFvalue_d, totalNumCsrFvalue);
 
 	//	cout << "searching" << endl;
+	cudaDeviceSynchronize();
 	clock_t start_search = clock();
 	real *pMaxGain_d;
 	uint *pMaxGainKey_d;
@@ -534,6 +598,27 @@ void DeviceSplitter::FeaFinderAllNode2(void *pStream, int bagId)
 					  pGainEachCsrFvalue_d, pStream, pMaxGain_d, pMaxGainKey_d);
 
 	cudaStreamSynchronize((*(cudaStream_t*)pStream));
+
+	//testing
+	uint *key_h = new uint[numofSNode];
+	real *gain_h = new real[numofSNode];
+	real *allGain_h = new real[totalNumCsrFvalue];
+	real *fvalue_h = new real[totalNumCsrFvalue];
+	checkCudaErrors(cudaMemcpy(key_h, pMaxGainKey_d, sizeof(uint) * numofSNode, cudaMemcpyDeviceToHost));
+	checkCudaErrors(cudaMemcpy(gain_h, pMaxGain_d, sizeof(real) * numofSNode, cudaMemcpyDeviceToHost));
+	checkCudaErrors(cudaMemcpy(allGain_h, pGainEachCsrFvalue_d, sizeof(real) * totalNumCsrFvalue, cudaMemcpyDeviceToHost));
+	checkCudaErrors(cudaMemcpy(fvalue_h, pCsrFvalue_d, sizeof(real) * totalNumCsrFvalue, cudaMemcpyDeviceToHost));
+	cudaDeviceSynchronize();
+	if(numofSNode == 12){
+		/*printf("hello\n");
+		for(int i = 2698960; i < 2700134; i++){
+			//real spFvalue = 0.5 * (fvalue_h[i] + fvalue_h[i -1]);
+			real gain = allGain_h[i];
+			if(gain > 2.89){
+				printf("i=%d, gain=%f\n", i, allGain_h[i]);
+			}
+		}*/
+	}
 
 	//find the split value and feature
 	FindSplitInfo<<<1, numofSNode, 0, (*(cudaStream_t*)pStream)>>>(

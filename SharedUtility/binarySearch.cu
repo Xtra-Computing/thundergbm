@@ -4,8 +4,9 @@
  *  Created on: Jun 12, 2017
  *      Author: zeyi
  */
-
+#include <stdio.h>
 #include "binarySearch.h"
+#include "CudaMacro.h"
 
 __device__ void RangeBinarySearch(uint pos, const uint* pSegStartPos, uint numSeg, uint &segId)
 {
@@ -14,6 +15,7 @@ __device__ void RangeBinarySearch(uint pos, const uint* pSegStartPos, uint numSe
 	segId = -1;
 	while(startSegId <= endSegId){
 		midSegId = startSegId + ((endSegId - startSegId) >> 1);//get the middle index
+		CONCHECKER(midSegId < numSeg);
 		if(pos >= pSegStartPos[midSegId] && (midSegId == endSegId || pos < pSegStartPos[midSegId + 1]))
 		{
 			segId = midSegId;
@@ -21,7 +23,9 @@ __device__ void RangeBinarySearch(uint pos, const uint* pSegStartPos, uint numSe
 		}
 		else if(pos >= pSegStartPos[midSegId + 1])
 			startSegId = midSegId + 1;//find left part
-		else
+		else{
+			ECHECKER(midSegId);
 			endSegId = midSegId - 1;//find right part
+		}
 	}
 }

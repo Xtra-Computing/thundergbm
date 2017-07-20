@@ -220,7 +220,7 @@ __global__ void InsToNewNode(const TreeNode *pAllTreeNode, const real *pdFeaValu
 	ECHECKER(numofFea - ufid);
 
 	int nNumofPair = pNumofKeyValue[ufid];//number of feature values in the form of (ins_id, fvalue)
-	int perFvalueTid = GLOBAL_TID();
+	int perFvalueTid = (blockIdx.y * gridDim.x + blockIdx.x) * blockDim.x + threadIdx.x;//block z dimension for a feature
 	if(perFvalueTid >= nNumofPair)//one thread per feaValue
 		return;
 

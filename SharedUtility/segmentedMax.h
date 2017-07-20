@@ -29,7 +29,7 @@ __global__ void LocalReductionEachSeg(const uint *pEachSegSize, const uint *pEac
 	uint tid0 = (blockIdx.y * gridDim.x + blockIdx.x) * blockDim.x;
 	if(tid0 >= numValueThisNode){
 		pLocalMax[blockId] = 0;
-		pLocalMaxKey[blockId] = tid0;
+		pLocalMaxKey[blockId] = -1;
 		return;
 	}
 
@@ -118,6 +118,8 @@ void SegmentedMax(int sizeofLargestSeg, int numSeg, const uint *pEachSegSize, co
 
 	checkCudaErrors(cudaMalloc((void**)&pLocalMax, sizeof(real) * numBlockPerSeg * numSeg));
 	checkCudaErrors(cudaMalloc((void**)&pLocalMaxKey, sizeof(T) * numBlockPerSeg * numSeg));
+	checkCudaErrors(cudaMemset(pLocalMaxKey, -1, sizeof(T) * numBlockPerSeg * numSeg));
+	cudaDeviceSynchronize();
 	//find the block level best gain for each node
 	LocalReductionEachSeg<<<dimNumofBlockLocalReduction, blockSizeLocalReduction, 0, tempStream>>>(
 									pEachSegSize, pEachSegStartPos, pValueAllSeg, pLocalMax, pLocalMaxKey);

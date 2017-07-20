@@ -34,8 +34,8 @@ uint *IndexComputer::m_pnKey = NULL;
 
 //histogram based partitioning
 uint *IndexComputer::m_pHistogram_d = NULL;
-uint IndexComputer::m_numElementEachThd = 0xffff;
-uint IndexComputer::m_totalNumEffectiveThd = 0xffff;
+uint IndexComputer::m_numElementEachThd = LARGE_4B_UINT;
+uint IndexComputer::m_totalNumEffectiveThd = LARGE_4B_UINT;
 uint *IndexComputer::m_pEachNodeStartPos_d;
 
 /**
@@ -44,13 +44,13 @@ uint *IndexComputer::m_pEachNodeStartPos_d;
 __global__ void MarkPartition(int preMaxNid, int *pFvToInsId, int *pInsIdToNodeId,
 							int totalNumFv, unsigned char *pParitionMarker){
 	int gTid = GLOBAL_TID();
-	if(gTid >= totalNumFv)//thread has nothing to mark 
+	if(gTid >= totalNumFv)//thread has nothing to mark; note that "totalNumFv" will not decrease!
 		return;
 
 	unsigned int insId = pFvToInsId[gTid];
 	int nid = pInsIdToNodeId[insId];
 	if(nid <= preMaxNid){//instance in leaf node
-		pParitionMarker[gTid] = 0xff;
+		pParitionMarker[gTid] = 0xff;//can only support 8 level trees
 		return;
 	}
 	int partitionId = nid - preMaxNid - 1;
@@ -122,7 +122,7 @@ __global__ void CollectGatherIdx(const unsigned char *pPartitionMarker, unsigned
 			return;
 		int pid = pPartitionMarker[elePos];
 		if(pid >= numParition){
-			pGatherIdx[elePos] = 0xffff;
+			pGatherIdx[elePos] = LARGE_4B_UINT;
 			continue;//skip this element, as element is marked as leaf.
 		}
 		unsigned int writeIdx = tid * numParition + pid;

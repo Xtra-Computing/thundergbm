@@ -55,11 +55,10 @@ __global__ void LoadGDHessFvalue(const real *pInsGD, const real *pInsHess, int n
 	CONCHECKER(insId < numIns);
 
 	//index for scatter
-	int idx = pDstIndexEachFeaValue[gTid];
-	if(idx == -1)//instance is in a leaf node
+	uint idx = pDstIndexEachFeaValue[gTid];
+	if(idx == LARGE_4B_UINT)//instance is in a leaf node
 		return;
 
-	CONCHECKER(idx >= 0);
 	CONCHECKER(idx < numFeaValue);
 
 	//scatter: store GD, Hess and the feature value.
@@ -67,11 +66,6 @@ __global__ void LoadGDHessFvalue(const real *pInsGD, const real *pInsHess, int n
 	pHessEachFeaValue[idx] = pInsHess[insId];
 	pDenseFeaValue[idx] = pAllFeaValue[gTid];
 }
-
-/**
- * @brief: compute the gain in parallel, each gain is computed by a thread.
- */
-
 
 /**
  * @brief: change the gain of the first value of each feature to 0

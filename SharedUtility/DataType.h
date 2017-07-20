@@ -11,6 +11,7 @@
 
 typedef float real;
 #define LARGE_REAL_NUM 0xffffffff
+#define LARGE_4B_UINT 0xffffffff
 
 typedef unsigned int uint;
 
