@@ -197,6 +197,8 @@ void BagManager::AllocMem()
 	checkCudaErrors(cudaMalloc((void**)&m_pNumofNewNodeTreeOnTrainingEachBag, sizeof(int) * m_numBag));
 
 	m_pPreMaxNid_h = new int[m_numBag];
+	for(int i = 0; i < m_numBag; i++)
+		m_pPreMaxNid_h[i] = -1;//initalise ids
 	m_pPreNumSN_h = new uint[m_numBag];
 	memset(m_pPreNumSN_h, 0, sizeof(uint) * m_numBag);
 }

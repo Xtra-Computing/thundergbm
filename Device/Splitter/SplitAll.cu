@@ -31,10 +31,9 @@ using std::sort;
  */
 void DeviceSplitter::SplitAll(int &m_nNumofNode, bool bLastLevel, void *pStream, int bagId)
 {
-	int preMaxNodeId = m_nNumofNode - 1;
-	PROCESS_ERROR(preMaxNodeId >= 0);
+	int curMaxNodeId = m_nNumofNode - 1;
+	PROCESS_ERROR(curMaxNodeId >= 0);
 	BagManager bagManager;
-	bagManager.m_pPreMaxNid_h[bagId] = preMaxNodeId;
 	bagManager.m_pPreNumSN_h[bagId] = bagManager.m_curNumofSplitableEachBag_h[bagId];
 	GBDTGPUMemManager manager;
 	GETERROR("before ComputeWeight");
@@ -56,7 +55,7 @@ void DeviceSplitter::SplitAll(int &m_nNumofNode, bool bLastLevel, void *pStream,
 							  bagManager.m_pBestSplitPointEachBag + bagId * bagManager.m_maxNumSplittable,
 							  pTempStat,
 						  	  rt_eps, LEAFNODE, m_lambda,
-						  	  bagManager.m_curNumofSplitableEachBag_h[bagId], bLastLevel, bagManager.m_maxNumSplittable);
+						  	  bagManager.m_curNumofSplitableEachBag_h[bagId], bLastLevel, bagManager.m_maxNumSplittable, bagManager.m_pPreMaxNid_h[bagId]);
 	clock_t com_weight_end = clock();
 	cudaStreamSynchronize((*(cudaStream_t*)pStream));
 	total_weight_t += (com_weight_end - com_weight_start);
@@ -87,11 +86,11 @@ void DeviceSplitter::SplitAll(int &m_nNumofNode, bool bLastLevel, void *pStream,
 	}
 	sort(ids.begin(), ids.end());//ascending order
 	for(int i = 0; i < numSplittable; i++){
-		int buffPos = splittableNode[i].nodeId % bagManager.m_maxNumSplittable;
+		int buffPos = i;//splittableNode[i].nodeId % bagManager.m_maxNumSplittable;
 		if(bestSpNodes[buffPos].m_fGain > rt_eps && bLastLevel == false){
 			newLeftNodeIds[i] = occupiedNodeId;
 			occupiedNodeId += 2;
-			printf("node %d into node %d and %d\n", splittableNode[i].nodeId, newLeftNodeIds[i], newLeftNodeIds[i] + 1);
+			printf("node %d into node %d and %d\n", ids[i], newLeftNodeIds[i], newLeftNodeIds[i] + 1);
 		}
 	}
 	CreateNewNode<<<dimNumofBlock, threadPerBlock, 0, (*(cudaStream_t*)pStream)>>>(
@@ -107,7 +106,7 @@ void DeviceSplitter::SplitAll(int &m_nNumofNode, bool bLastLevel, void *pStream,
 							bagManager.m_pNewNodeStatEachBag + bagId * bagManager.m_maxNumLeave,
 							bagManager.m_pCurNumofNodeTreeOnTrainingEachBag_d + bagId, bagManager.m_pNumofNewNodeTreeOnTrainingEachBag + bagId, rt_eps,
 							newLeftNodeIds,
-							bagManager.m_curNumofSplitableEachBag_h[bagId], bLastLevel, bagManager.m_maxNumSplittable);
+							bagManager.m_curNumofSplitableEachBag_h[bagId], bLastLevel, bagManager.m_maxNumSplittable, bagManager.m_pPreMaxNid_h[bagId], curMaxNodeId);
 	int newNode = -1;
 	manager.MemcpyDeviceToHostAsync(bagManager.m_pNumofNewNodeTreeOnTrainingEachBag + bagId, &newNode, sizeof(int), pStream);
 	clock_t new_node_end = clock();
@@ -164,9 +163,9 @@ void DeviceSplitter::SplitAll(int &m_nNumofNode, bool bLastLevel, void *pStream,
 								 bagManager.m_pParentIdEachBag + bagId * bagManager.m_maxNumSplittable,
 								 bagManager.m_pLeftChildIdEachBag + bagId * bagManager.m_maxNumSplittable,
 								 bagManager.m_pRightChildIdEachBag + bagId * bagManager.m_maxNumSplittable,
-								 preMaxNodeId, manager.m_numofFea,
+								 curMaxNodeId, manager.m_numofFea,
 								 bagManager.m_pInsIdToNodeIdEachBag + bagId * bagManager.m_numIns,
-								 manager.m_numofIns, LEAFNODE, bagManager.m_maxNumSplittable);
+								 manager.m_numofIns, LEAFNODE, bagManager.m_maxNumSplittable, bagManager.m_pPreMaxNid_h[bagId]);
 		cudaStreamSynchronize((*(cudaStream_t*)pStream));
 		clock_t ins2node_end = clock();
 		total_ins2node_t += (ins2node_end - ins2node_start);
@@ -187,9 +186,9 @@ void DeviceSplitter::SplitAll(int &m_nNumofNode, bool bLastLevel, void *pStream,
 									bagManager.m_pParentIdEachBag + bagId * bagManager.m_maxNumSplittable,
 									bagManager.m_pLeftChildIdEachBag + bagId * bagManager.m_maxNumSplittable,
 									bagManager.m_pRightChildIdEachBag + bagId * bagManager.m_maxNumSplittable,
-			   	   	   	   	   	   	preMaxNodeId, manager.m_numofIns, LEAFNODE,
+			   	   	   	   	   	   	curMaxNodeId, manager.m_numofIns, LEAFNODE,
 			   	   	   	   	   	   	bagManager.m_pBestSplitPointEachBag + bagId * bagManager.m_maxNumSplittable,
-			   	   	   	   	   	   	bagManager.m_maxNumSplittable);
+			   	   	   	   	   	   	bagManager.m_maxNumSplittable, bagManager.m_pPreMaxNid_h[bagId]);
 	cudaStreamSynchronize((*(cudaStream_t*)pStream));
 	clock_t ins2default_end = clock();
 	total_ins2default_t += (ins2default_end - ins2default_start);
@@ -219,7 +218,7 @@ void DeviceSplitter::SplitAll(int &m_nNumofNode, bool bLastLevel, void *pStream,
 									  bagManager.m_pNumofNewNodeTreeOnTrainingEachBag + bagId,
 									  bagManager.m_pPartitionId2SNPosEachBag + bagId * bagManager.m_maxNumSplittable,
 									  bagManager.m_maxNumSplittable,
-									  preMaxNodeId);
+									  curMaxNodeId);
 		cudaStreamSynchronize((*(cudaStream_t*)pStream));
 		clock_t update_new_sp_end = clock();
 		total_update_new_splittable_t += (update_new_sp_end - update_new_sp_start);
@@ -229,4 +228,6 @@ void DeviceSplitter::SplitAll(int &m_nNumofNode, bool bLastLevel, void *pStream,
 									 bagManager.m_pSplittableNodeEachBag + bagId * bagManager.m_maxNumSplittable,
 									 sizeof(TreeNode) * bagManager.m_maxNumSplittable, pStream);
 	}
+
+	bagManager.m_pPreMaxNid_h[bagId] = curMaxNodeId;
 }

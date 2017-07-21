@@ -20,7 +20,7 @@
  */
 __global__ void ComputeWeight(TreeNode *pAllTreeNode, TreeNode *pNewNode,
 							  SplitPoint *pBestSplitPoint, nodeStat *pNewNodeStat, real rt_eps, int flag_LEAFNODE,
-							  real lambda, int numofNewNode, bool bLastLevel, int maxNumofSN)
+							  real lambda, int numofNewNode, bool bLastLevel, int maxNumofSN, int preMaxNodeId)
 {
 	int nGlobalThreadId = GLOBAL_TID();
 	if(nGlobalThreadId >= numofNewNode)//one thread per splittable node
@@ -37,7 +37,11 @@ __global__ void ComputeWeight(TreeNode *pAllTreeNode, TreeNode *pNewNode,
 	//new node equals to splittable node.
 	ECHECKER(nid);
 
-	int snIdPos = nid % maxNumofSN;
+	int snIdPos = nid - preMaxNodeId - 1;//nid % maxNumofSN;
+	if(nid == 0)//handle the root node
+		snIdPos = 0;
+	if(snIdPos < 0)
+		printf("nid=%d, maxNid=%d\n", nid, preMaxNodeId);
 	ECHECKER(snIdPos);
 
 	//mark the node as a leaf node if (1) the gain is negative or (2) the tree reaches maximum depth.
@@ -62,7 +66,7 @@ __global__ void CreateNewNode(TreeNode *pAllTreeNode, TreeNode *pSplittableNode,
 								  int *pParentId, int *pLChildId, int *pRChildId,
 								  const nodeStat *pLChildStat, const nodeStat *pRChildStat, nodeStat *pNewNodeStat,
 								  int *pNumofNode, int *pNumofNewNode,
-								  real rt_eps, const uint *newNodeLeftId, int nNumofSplittableNode, bool bLastLevel, int maxNumofSN)
+								  real rt_eps, const uint *newNodeLeftId, int nNumofSplittableNode, bool bLastLevel, int maxNumofSN, int preMaxNodeId, int curMaxNodeId)
 {
 	//for each splittable node, assign lchild and rchild ids
 	int gTid = GLOBAL_TID();
@@ -74,7 +78,9 @@ __global__ void CreateNewNode(TreeNode *pAllTreeNode, TreeNode *pSplittableNode,
 	int nid = pSplittableNode[gTid].nodeId;
 
 	ECHECKER(nid);
-	int bufferPos = nid % maxNumofSN;
+	int bufferPos = nid - preMaxNodeId - 1;//nid % maxNumofSN;
+	if(nid == 0)//handle the root node
+		bufferPos = 0;
 
 	ECHECKER(bufferPos);
 	pAllTreeNode[nid].m_bDefault2Right = false;
@@ -96,8 +102,10 @@ __global__ void CreateNewNode(TreeNode *pAllTreeNode, TreeNode *pSplittableNode,
 
 		//push left and right child statistics into a vector
 		int newNodeId = atomicAdd(pNumofNewNode, 2);
-		int leftNewNodeId = newNodeId;
-		int rightNewNodeId = newNodeId + 1;
+		int leftNewNodeId = lchildId - curMaxNodeId - 1;//newNodeId;
+		ECHECKER(leftNewNodeId);
+		int rightNewNodeId = rchildId - curMaxNodeId - 1;//newNodeId + 1;
+		ECHECKER(rightNewNodeId);
 		pNewNodeStat[leftNewNodeId] = pLChildStat[bufferPos];
 		pNewNodeStat[rightNewNodeId] = pRChildStat[bufferPos];
 
@@ -207,8 +215,8 @@ __global__ void InsToNewNode(const TreeNode *pAllTreeNode, const real *pdFeaValu
 							 const SplitPoint *pBestSplitPoint,
 							 const int *pUniqueFidVec, const int *pNumofUniqueFid,
 							 const int *pParentId, const int *pLChildId, const int *pRChildId,
-								 int preMaxNodeId, int numofFea, int *pInsIdToNodeId, int numofIns, int flag_LEAFNODE,
-								 const int maxSN)
+								 int curRoundMaxNodeId, int numofFea, int *pInsIdToNodeId, int numofIns, int flag_LEAFNODE,
+								 int maxSN, int preMaxNodeId)
 {
 	int numofUniqueFid = *pNumofUniqueFid;
 	int feaId = blockIdx.z;
@@ -237,13 +245,15 @@ __global__ void InsToNewNode(const TreeNode *pAllTreeNode, const real *pdFeaValu
 	int nid = pInsIdToNodeId[insId];
 	ECHECKER(nid);
 
-	if(nid > preMaxNodeId)//new node ids. This is possible because here each thread 
+	if(nid > curRoundMaxNodeId)//new node ids. This is possible because here each thread 
 						  //corresponds to a feature value, and hence duplication may occur.
 		return;
 	if(pAllTreeNode[nid].rightChildId == flag_LEAFNODE)//leaf node
 		return;
 
-	int bufferPos = nid % maxSN;
+	int bufferPos = nid - preMaxNodeId - 1;//nid % maxSN;
+	if(nid == 0)//handle the root node
+		bufferPos = 0;
 
 	ECHECKER(bufferPos);
 
@@ -253,7 +263,7 @@ __global__ void InsToNewNode(const TreeNode *pAllTreeNode, const real *pdFeaValu
 
 	if(nid != pParentId[bufferPos]){//node doesn't need to split (leaf node or new node)
 		if(pAllTreeNode[nid].rightChildId != flag_LEAFNODE){
-			ECHECKER(preMaxNodeId - nid);
+			ECHECKER(curRoundMaxNodeId - nid);
 			return;
 		}
 		CONCHECKER(pAllTreeNode[nid].rightChildId == flag_LEAFNODE);
@@ -280,18 +290,18 @@ __global__ void InsToNewNode(const TreeNode *pAllTreeNode, const real *pdFeaValu
 
 __global__ void InsToNewNodeByDefault(TreeNode *pAllTreeNode, int *pInsIdToNodeId,
 									  int *pParentId, int *pLChildId, int *pRChildId,
-									  int preMaxNodeId, int numofIns, int flag_LEAFNODE,
-									  const SplitPoint *pBestSplitPoint, const int maxSN)
+									  int curRoundMaxNodeId, int numofIns, int flag_LEAFNODE,
+									  const SplitPoint *pBestSplitPoint, int maxSN, int preMaxNodeId)
 {
 	int nGlobalThreadId = GLOBAL_TID();
 	if(nGlobalThreadId >= numofIns)//not used threads
 		return;
 
-	ECHECKER(preMaxNodeId);
+	ECHECKER(curRoundMaxNodeId);
 
 	int nid = pInsIdToNodeId[nGlobalThreadId];
 	ECHECKER(nid);
-	if(nid > preMaxNodeId)//processed node
+	if(nid > curRoundMaxNodeId)//processed node
 		return;
 
 	if(pAllTreeNode[nid].rightChildId == flag_LEAFNODE)//leaf node
@@ -299,7 +309,9 @@ __global__ void InsToNewNodeByDefault(TreeNode *pAllTreeNode, int *pInsIdToNodeI
 	else
 	{
 //		printf("ins to new node by default: ################## nid=%d, maxNid=%d, rcid=%d, flag=%d\n", nid, preMaxNodeId, pAllTreeNode[nid].rightChildId, flag_LEAFNODE);
-		int bufferPos = nid % maxSN; //pSNIdToBuffId[nid];
+		int bufferPos = nid - preMaxNodeId - 1;//nid % maxSN; //pSNIdToBuffId[nid];
+		if(nid == 0)//handle root node
+			bufferPos = 0;
 		if(pBestSplitPoint[bufferPos].m_bDefault2Right == false)
 			pInsIdToNodeId[nGlobalThreadId] = pLChildId[bufferPos];//by default the instance with unknown feature value going to left child
 		else
@@ -322,7 +334,7 @@ __global__ void UpdateNewSplittable(TreeNode *pNewSplittableNode, nodeStat *pNew
 	int nid = pNewSplittableNode[nGlobalThreadId].nodeId;
 	ECHECKER(nid);
 
-	int snPos = nid % maxNumofSplittable;
+	int snPos = nid - preMaxNodeId - 1;//nid % maxNumofSplittable;
 
 	ECHECKER(snPos);
 	pSNodeStat[snPos] = pNewNodeStat[nGlobalThreadId];
