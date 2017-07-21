@@ -59,7 +59,7 @@ int main(int argc, char *argv[])
 	double fLabda = 1;//this one is constant in xgboost
 	double fGamma = parser.gamma;//minimum loss
 	int maxNumofNodePerTree = pow(2, nMaxDepth + 1) - 1;
-	int maxNumofSplittableNode = pow(2, nMaxDepth - 1);//can be "nMaxDepth - 1" but changing causes bugs.
+	int maxNumofSplittableNode = pow(2, nMaxDepth - 1);
 	int numInternalNode = pow(2, nMaxDepth) - 1;
 	int maxNumofUsedFeature = numInternalNode;
 

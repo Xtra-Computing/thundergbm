@@ -80,11 +80,18 @@ void DeviceSplitter::SplitAll(int &m_nNumofNode, bool bLastLevel, void *pStream,
 	SplitPoint *bestSpNodes = new SplitPoint[bagManager.m_maxNumSplittable];
 	checkCudaErrors(cudaMemcpy(bestSpNodes, bagManager.m_pBestSplitPointEachBag + bagId * bagManager.m_maxNumSplittable, sizeof(SplitPoint) * bagManager.m_maxNumSplittable, cudaMemcpyDeviceToHost));
 	cudaDeviceSynchronize();
+	//make node ids in sorted order
+	vector<int> ids;
+	for(int i = 0; i < numSplittable; i++){
+		ids.push_back(splittableNode[i].nodeId);
+	}
+	sort(ids.begin(), ids.end());//ascending order
 	for(int i = 0; i < numSplittable; i++){
 		int buffPos = splittableNode[i].nodeId % bagManager.m_maxNumSplittable;
 		if(bestSpNodes[buffPos].m_fGain > rt_eps && bLastLevel == false){
 			newLeftNodeIds[i] = occupiedNodeId;
 			occupiedNodeId += 2;
+			printf("node %d into node %d and %d\n", splittableNode[i].nodeId, newLeftNodeIds[i], newLeftNodeIds[i] + 1);
 		}
 	}
 	CreateNewNode<<<dimNumofBlock, threadPerBlock, 0, (*(cudaStream_t*)pStream)>>>(
