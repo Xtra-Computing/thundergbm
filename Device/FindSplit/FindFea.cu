@@ -124,8 +124,8 @@ void DeviceSplitter::FeaFinderAllNode(void *pStream, int bagId)
 		uint *pTest_h = new uint[numofSNode];
 		checkCudaErrors(cudaMemcpy(pTest_h, pTempNumFvalueEachNode, sizeof(uint) * numofSNode, cudaMemcpyDeviceToHost));
 		cudaDeviceSynchronize();
-		for(int i = 0; i < numofSNode; i++)
-			printf("############## size of node %d is %u\n", i, pTest_h[i]);
+//		for(int i = 0; i < numofSNode; i++)
+//			printf("############## size of node %d is %u\n", i, pTest_h[i]);
 		indexComp.FreeMem();
 	}
 	else
@@ -336,15 +336,6 @@ void DeviceSplitter::FeaFinderAllNode2(void *pStream, int bagId)
 		//copy # of feature values of each node
 		uint *pTempNumFvalueEachNode = bagManager.m_pNumFvalueEachNodeEachBag_d + bagId * bagManager.m_maxNumSplittable;
 
-		//testing
-		uint tempNumofDenseValue = thrust::reduce(thrust::device, pTempNumFvalueEachNode, pTempNumFvalueEachNode + numofSNode);
-		printf("# of useful fvalue=%d\n", tempNumofDenseValue);
-		cudaDeviceSynchronize();
-		int *id2;
-		checkCudaErrors(cudaMallocHost((void**)&id2, sizeof(int) * bagManager.m_numFeaValue));
-		LoadFvalueInsId<<<dimNumofBlockToLoadGD, blockSizeLoadGD>>>(
-						bagManager.m_numIns, manager.m_pDInsId, id2, bagManager.m_pIndicesEachBag_d, bagManager.m_numFeaValue);
-
 		clock_t start_gd = clock();
 		clock_t end_gd = clock();
 		total_fill_gd_t += (end_gd - start_gd);
@@ -377,20 +368,6 @@ void DeviceSplitter::FeaFinderAllNode2(void *pStream, int bagId)
 											eachNodeSizeInCsr, numofSNode, eachNodeFvalue);
 		cudaDeviceSynchronize();
 		GETERROR("after newCsrLenFvalue");
-
-		//testing
-		uint totalTestCsr1 = thrust::reduce(thrust::device, eachCompressedFeaLen, eachCompressedFeaLen + bagManager.m_numFea * numofSNode);
-		uint totalTestCsr2 = thrust::reduce(thrust::device, eachNodeSizeInCsr, eachNodeSizeInCsr + numofSNode);
-		if(numofSNode == 12){
-			printf("hellow ############## csr1=%u, csr2=%u\n", totalTestCsr1, totalTestCsr2);
-			for(int i = 0; i < numofSNode; i++){
-				uint nodeSize = eachNodeSizeInCsr[i];
-				uint nodeEnd = thrust::reduce(thrust::device, eachCompressedFeaLen, eachCompressedFeaLen + bagManager.m_numFea * (i + 1));
-				//if(nodeSize != nodeSize2){
-				//	printf("oh shit.......... %u v.s. %u\n", nodeSize, nodeEnd);
-				//}
-			}
-		}
 
 		int blockSizeLoadCsrLen;
 		dim3 dimNumofBlockToLoadCsrLen;
@@ -442,35 +419,6 @@ void DeviceSplitter::FeaFinderAllNode2(void *pStream, int bagId)
 													csrGD_dh, csrHess_dh);
 		cudaDeviceSynchronize();
 		GETERROR("after compCsrGDHess");
-
-		//testing; compute number of fvalue each node
-		int previousNodeSize = 0;
-		uint totalNumFeaValue = 0;
-		for(int i = 0; i < numofSNode; i++){
-			int numCsrInNode = eachNodeSizeInCsr[i];
-			uint allPrevious = eachCsrStartCurRound[previousNodeSize];
-			previousNodeSize += numCsrInNode;
-			uint previousAndCur;
-			if(i < numofSNode - 1)
-				previousAndCur = eachCsrStartCurRound[previousNodeSize];
-			else
-				previousAndCur = eachCsrStartCurRound[previousNodeSize - 1] + eachCsrLen[previousNodeSize - 1];
-			uint numofFvalue = previousAndCur - allPrevious;
-			totalNumFeaValue += numofFvalue;
-			printf("######################### size of node %d is %u (v.s. %u); csr in node is %u\n", i, numofFvalue, eachNodeFvalue[i], eachNodeSizeInCsr[i]);
-		}
-		printf("############### num of fvalue=%u\n", totalNumFeaValue);
-		//testing
-		uint *pTest_h = new uint[numofSNode];
-		checkCudaErrors(cudaMemcpy(pTest_h, pTempNumFvalueEachNode, sizeof(uint) * numofSNode, cudaMemcpyDeviceToHost));
-		cudaDeviceSynchronize();
-		for(int i = 0; i < numofSNode; i++)
-			printf("############## size of node %d is %u\n", i, pTest_h[i]);
-		for(int i = 0; i < totalNumFeaValue; i++){
-			PROCESS_ERROR(id2[i] == preFvalueInsId[i]);
-		}
-
-		cudaDeviceSynchronize();
 
 		checkCudaErrors(cudaFree(eachCsrStart));
 		checkCudaErrors(cudaFree(eachNewCsrLen));
@@ -609,16 +557,6 @@ void DeviceSplitter::FeaFinderAllNode2(void *pStream, int bagId)
 	checkCudaErrors(cudaMemcpy(allGain_h, pGainEachCsrFvalue_d, sizeof(real) * totalNumCsrFvalue, cudaMemcpyDeviceToHost));
 	checkCudaErrors(cudaMemcpy(fvalue_h, pCsrFvalue_d, sizeof(real) * totalNumCsrFvalue, cudaMemcpyDeviceToHost));
 	cudaDeviceSynchronize();
-	if(numofSNode == 12){
-		/*printf("hello\n");
-		for(int i = 2698960; i < 2700134; i++){
-			//real spFvalue = 0.5 * (fvalue_h[i] + fvalue_h[i -1]);
-			real gain = allGain_h[i];
-			if(gain > 2.89){
-				printf("i=%d, gain=%f\n", i, allGain_h[i]);
-			}
-		}*/
-	}
 
 	//find the split value and feature
 	FindSplitInfo<<<1, numofSNode, 0, (*(cudaStream_t*)pStream)>>>(

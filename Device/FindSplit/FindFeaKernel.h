@@ -51,8 +51,6 @@ __global__ void ComputeGainDense(const nodeStat *pSNodeStat, const int *pid2SNPo
 	const float rt_2eps = 2.0 * DeviceSplitter::rt_eps;
 	//one thread loads one value
 	uint gTid = GLOBAL_TID();
-	if(gTid == 7409)
-		printf("hi\n");
 	if(gTid >= numofDenseValue)//the thread has no gain to compute, i.e. a thread per gain
 		return;
 
@@ -105,12 +103,8 @@ __global__ void ComputeGainDense(const nodeStat *pSNodeStat, const int *pid2SNPo
     int segLen = pEachFeaLenEachNode[segId];
     uint segStartPos = pEachFeaStartEachNode[segId];
     uint lastFvaluePos = segStartPos + segLen - 1;
-    if(lastFvaluePos >= numofDenseValue)
-    	printf("lastFvaluePos=%u, numDense=%u, segStartPos=%u, segLen=%d, segId=%u, gTid=%u\n", lastFvaluePos, numofDenseValue, segStartPos, segLen, segId, gTid);
     double totalMissingGD = parentGD - pGDPrefixSumOnEachFeaValue[lastFvaluePos];
     double totalMissingHess = parentHess - pHessPrefixSumOnEachFeaValue[lastFvaluePos];
-    if(gTid == 7409)
-    	printf("# missing value %f, rChildHess=%f, lastHess=%f\n", totalMissingHess, rChildHess, pHessPrefixSumOnEachFeaValue[lastFvaluePos]);
     if(totalMissingHess < 1)//there is no instance with missing values
     	return;
     //missing values to the right child
@@ -149,7 +143,6 @@ __global__ void FindSplitInfo(const uint *pEachFeaStartPosEachNode, const T *pEa
 	int snPos = pPartitionId2SNPos[pid];//snId to buffer id (i.e. hash value)
 	ECHECKER(snPos);
 	pBestSplitPoint[snPos].m_fGain = pfGlobalBestGain[pid];//change the gain back to positive
-	printf("gain of pid=%d, snPos=%d is %f\n", pid, snPos, pBestSplitPoint[snPos].m_fGain);
 	if(pfGlobalBestGain[pid] <= DeviceSplitter::rt_eps)//no gain
 		return;
 
@@ -171,9 +164,6 @@ __global__ void FindSplitInfo(const uint *pEachFeaStartPosEachNode, const T *pEa
 		pLChildStat[snPos].sum_hess = snNodeStat[snPos].sum_hess - pPrefixSumHess[idxPreSum];
 		pRChildStat[snPos].sum_gd = pPrefixSumGD[idxPreSum];
 		pRChildStat[snPos].sum_hess = pPrefixSumHess[idxPreSum];
-		if(bestFeaId == 3)
-			printf("default to left: pPrefixSumHess[idxPreSum=%u]=%f, tid=%d\n",
-					idxPreSum, pPrefixSumHess[idxPreSum], pid);
 	}
 	else{
 		pBestSplitPoint[snPos].m_bDefault2Right = true;
@@ -190,9 +180,6 @@ __global__ void FindSplitInfo(const uint *pEachFeaStartPosEachNode, const T *pEa
 
 		double rChildGD = totalMissingGD + pPrefixSumGD[idxPreSum];
 		real rChildHess = totalMissingHess + pPrefixSumHess[idxPreSum];
-		if(bestFeaId == 3)
-			printf("default to right: rChildHess=%f, totalMissingHess=%f, pPrefixSumHess[idxPreSum=%u]=%f, lastFvaluePos=%u, segStartPos=%u, segLen=%u, tid=%d\n",
-					rChildHess, totalMissingHess, idxPreSum, pPrefixSumHess[idxPreSum], lastFvaluePos, segStartPos, segLen, pid);
 		ECHECKER(rChildHess);
 		real lChildGD = parentGD - rChildGD;
 		real lChildHess = parentHess - rChildHess;
@@ -205,9 +192,9 @@ __global__ void FindSplitInfo(const uint *pEachFeaStartPosEachNode, const T *pEa
 	}
 	ECHECKER(pLChildStat[snPos].sum_hess);
 	ECHECKER(pRChildStat[snPos].sum_hess);
-	printf("split: f=%d, value=%f, gain=%f, gd=%f v.s. %f, hess=%f v.s. %f, buffId=%d, key=%d, pid=%d, df2Left=%d\n", bestFeaId, pBestSplitPoint[snPos].m_fSplitValue,
-			pBestSplitPoint[snPos].m_fGain, pLChildStat[snPos].sum_gd, pRChildStat[snPos].sum_gd, pLChildStat[snPos].sum_hess,
-			pRChildStat[snPos].sum_hess, snPos, key, pid, pDefault2Right[key]);
+//	printf("split: f=%d, value=%f, gain=%f, gd=%f v.s. %f, hess=%f v.s. %f, buffId=%d, key=%d, pid=%d, df2Left=%d\n", bestFeaId, pBestSplitPoint[snPos].m_fSplitValue,
+//			pBestSplitPoint[snPos].m_fGain, pLChildStat[snPos].sum_gd, pRChildStat[snPos].sum_gd, pLChildStat[snPos].sum_hess,
+//			pRChildStat[snPos].sum_hess, snPos, key, pid, pDefault2Right[key]);
 }
 
 #endif /* DEVICESPLITTERKERNEL_H_ */
