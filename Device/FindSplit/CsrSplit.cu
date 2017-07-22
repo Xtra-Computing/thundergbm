@@ -11,35 +11,43 @@
 #include "../../SharedUtility/CudaMacro.h"
 #include "../../SharedUtility/binarySearch.h"
 
-void CsrCompression(int numofSNode, uint &totalNumCsrFvalue, uint *eachCompressedFeaStartPos, uint *eachCompressedFeaLen,
-		uint *eachNodeSizeInCsr, uint *eachCsrNodeStartPos, real *csrFvalue, double *csrGD_h, real *csrHess_h, uint *eachCsrLen){
+void CsrCompression(int numofSNode, uint &totalNumCsrFvalue, uint *eachCompressedFeaStartPos_d, uint *eachCompressedFeaLen_d,
+		uint *eachNodeSizeInCsr_d, uint *eachCsrNodeStartPos_d, real *csrFvalue_d, double *csrGD_d, real *csrHess_d, uint *eachCsrLen_d){
 	BagManager bagManager;
 	real *fvalue_h = new real[bagManager.m_numFeaValue];
 	uint *eachFeaLenEachNode_h = new uint[bagManager.m_numFea * numofSNode];
 	uint *eachFeaStartPosEachNode_h = new uint[bagManager.m_numFea * numofSNode];
+	uint *eachCsrFeaStartPos_h = new uint[bagManager.m_numFea * numofSNode];
+	uint *eachCompressedFeaLen_h = new uint[bagManager.m_numFea * numofSNode];
+	uint *eachCsrLen_h = new uint[bagManager.m_numFeaValue];
+	uint *eachCsrNodeStartPos_h = new uint[numofSNode];
+	double *csrGD_h = new double[bagManager.m_numFeaValue];
+	real *csrHess_h = new real[bagManager.m_numFeaValue];
+	uint *eachNodeSizeInCsr_h = new uint[numofSNode];
+	real *csrFvalue_h = new real[bagManager.m_numFeaValue];
 	checkCudaErrors(cudaMemcpy(fvalue_h, bagManager.m_pDenseFValueEachBag, sizeof(real) * bagManager.m_numFeaValue, cudaMemcpyDeviceToHost));
 	checkCudaErrors(cudaMemcpy(eachFeaLenEachNode_h, bagManager.m_pEachFeaLenEachNodeEachBag_d, sizeof(uint) * bagManager.m_numFea * numofSNode, cudaMemcpyDeviceToHost));
 	checkCudaErrors(cudaMemcpy(eachFeaStartPosEachNode_h, bagManager.m_pEachFeaStartPosEachNodeEachBag_d, sizeof(uint) * bagManager.m_numFea * numofSNode, cudaMemcpyDeviceToHost));
 
 	uint csrId = 0, curFvalueToCompress = 0;
 	for(int i = 0; i < bagManager.m_numFea * numofSNode; i++){
-		eachCompressedFeaLen[i] = 0;
+		eachCompressedFeaLen_h[i] = 0;
 		uint feaLen = eachFeaLenEachNode_h[i];
 		uint feaStart = eachFeaStartPosEachNode_h[i];
 		if(feaLen == 0)continue;
-		csrFvalue[csrId] = fvalue_h[feaStart];
-		eachCsrLen[csrId] = 1;
-		eachCompressedFeaLen[i] = 1;
+		csrFvalue_h[csrId] = fvalue_h[feaStart];
+		eachCsrLen_h[csrId] = 1;
+		eachCompressedFeaLen_h[i] = 1;
 		for(int l = 1; l < feaLen; l++){
 			curFvalueToCompress++;
-			if(fabs(fvalue_h[feaStart + l] - csrFvalue[csrId]) > DeviceSplitter::rt_eps){
-				eachCompressedFeaLen[i]++;
+			if(fabs(fvalue_h[feaStart + l] - csrFvalue_h[csrId]) > DeviceSplitter::rt_eps){
+				eachCompressedFeaLen_h[i]++;
 				csrId++;
-				csrFvalue[csrId] = fvalue_h[feaStart + l];
-				eachCsrLen[csrId] = 1;
+				csrFvalue_h[csrId] = fvalue_h[feaStart + l];
+				eachCsrLen_h[csrId] = 1;
 			}
 			else
-				eachCsrLen[csrId]++;
+				eachCsrLen_h[csrId]++;
 		}
 		csrId++;
 		curFvalueToCompress++;
@@ -47,16 +55,16 @@ void CsrCompression(int numofSNode, uint &totalNumCsrFvalue, uint *eachCompresse
 	for(int i = 0; i < bagManager.m_numFea * numofSNode; i++){
 		uint prefix = 0;
 		for(int l = 0; l < i; l++)
-			prefix += eachCompressedFeaLen[l];
-		eachCompressedFeaStartPos[i] = prefix;
+			prefix += eachCompressedFeaLen_h[l];
+		eachCsrFeaStartPos_h[i] = prefix;
 	}
 
 	for(int i = 0; i < numofSNode; i++){
 		int posOfLastFeaThisNode = (i + 1) * bagManager.m_numFea - 1;
 		int posOfFirstFeaThisNode = i * bagManager.m_numFea;
-		eachNodeSizeInCsr[i] = eachCompressedFeaStartPos[posOfLastFeaThisNode] - eachCompressedFeaStartPos[posOfFirstFeaThisNode];
-		eachNodeSizeInCsr[i] += eachCompressedFeaLen[posOfLastFeaThisNode];
-		eachCsrNodeStartPos[i] = eachCompressedFeaStartPos[posOfFirstFeaThisNode];
+		eachNodeSizeInCsr_h[i] = eachCsrFeaStartPos_h[posOfLastFeaThisNode] - eachCsrFeaStartPos_h[posOfFirstFeaThisNode];
+		eachNodeSizeInCsr_h[i] += eachCompressedFeaLen_h[posOfLastFeaThisNode];
+		eachCsrNodeStartPos_h[i] = eachCsrFeaStartPos_h[posOfFirstFeaThisNode];
 //		printf("node %d starts %u, len=%u\n", i, eachCsrNodeStartPos[i], eachNodeSizeInCsr[i]);
 	}
 
@@ -73,13 +81,21 @@ void CsrCompression(int numofSNode, uint &totalNumCsrFvalue, uint *eachCompresse
 	for(int i = 0; i < csrId; i++){
 		csrGD_h[i] = 0;
 		csrHess_h[i] = 0;
-		uint len = eachCsrLen[i];
+		uint len = eachCsrLen_h[i];
 		for(int v = 0; v < len; v++){
 			csrGD_h[i] += gd_h[globalPos];
 			csrHess_h[i] += hess_h[globalPos];
 			globalPos++;
 		}
 	}
+	checkCudaErrors(cudaMemcpy(eachCompressedFeaStartPos_d, eachCsrFeaStartPos_h, sizeof(uint) * bagManager.m_numFea * numofSNode, cudaMemcpyHostToDevice));
+	checkCudaErrors(cudaMemcpy(eachCompressedFeaLen_d, eachCompressedFeaLen_h, sizeof(uint) * bagManager.m_numFea * numofSNode, cudaMemcpyHostToDevice));
+	checkCudaErrors(cudaMemcpy(eachCsrLen_d, eachCsrLen_h, sizeof(uint) * bagManager.m_numFeaValue, cudaMemcpyHostToDevice));
+	checkCudaErrors(cudaMemcpy(eachCsrNodeStartPos_d, eachCsrNodeStartPos_h, sizeof(uint) * numofSNode, cudaMemcpyHostToDevice));
+	checkCudaErrors(cudaMemcpy(csrGD_d, csrGD_h, sizeof(double) * bagManager.m_numFeaValue, cudaMemcpyHostToDevice));
+	checkCudaErrors(cudaMemcpy(csrHess_d, csrHess_h, sizeof(real) * bagManager.m_numFeaValue, cudaMemcpyHostToDevice));
+	checkCudaErrors(cudaMemcpy(eachNodeSizeInCsr_d, eachNodeSizeInCsr_h, sizeof(uint) * numofSNode, cudaMemcpyHostToDevice));
+	checkCudaErrors(cudaMemcpy(csrFvalue_d, csrFvalue_h, sizeof(real) * bagManager.m_numFeaValue, cudaMemcpyHostToDevice));
 
 	printf("org=%u v.s. csr=%u\n", bagManager.m_numFeaValue, totalNumCsrFvalue);
 
@@ -88,6 +104,14 @@ void CsrCompression(int numofSNode, uint &totalNumCsrFvalue, uint *eachCompresse
 	delete[] eachFeaStartPosEachNode_h;
 	delete[] gd_h;
 	delete[] hess_h;
+	delete[] eachCsrFeaStartPos_h;
+	delete[] eachCompressedFeaLen_h;
+	delete[] eachCsrLen_h;
+	delete[] eachCsrNodeStartPos_h;
+	delete[] csrGD_h;
+	delete[] csrHess_h;
+	delete[] eachNodeSizeInCsr_h;
+	delete[] csrFvalue_h;
 }
 
 /**
