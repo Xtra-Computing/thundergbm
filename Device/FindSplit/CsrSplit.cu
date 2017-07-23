@@ -7,13 +7,15 @@
 
 #include "CsrSplit.h"
 #include "../Bagging/BagManager.h"
+#include "../Bagging/BagCsrManager.h"
 #include "../Splitter/DeviceSplitter.h"
 #include "../../SharedUtility/CudaMacro.h"
 #include "../../SharedUtility/binarySearch.h"
 
 void CsrCompression(int numofSNode, uint &totalNumCsrFvalue, uint *eachCompressedFeaStartPos_d, uint *eachCompressedFeaLen_d,
-		uint *eachNodeSizeInCsr_d, uint *eachCsrNodeStartPos_d, real *csrFvalue_d, double *csrGD_d, real *csrHess_d, uint *eachCsrLen_d){
+		uint *eachNodeSizeInCsr_d, uint *eachCsrNodeStartPos_d){
 	BagManager bagManager;
+	BagCsrManager csrManager;
 	real *fvalue_h = new real[bagManager.m_numFeaValue];
 	uint *eachFeaLenEachNode_h = new uint[bagManager.m_numFea * numofSNode];
 	uint *eachFeaStartPosEachNode_h = new uint[bagManager.m_numFea * numofSNode];
@@ -90,12 +92,13 @@ void CsrCompression(int numofSNode, uint &totalNumCsrFvalue, uint *eachCompresse
 	}
 	checkCudaErrors(cudaMemcpy(eachCompressedFeaStartPos_d, eachCsrFeaStartPos_h, sizeof(uint) * bagManager.m_numFea * numofSNode, cudaMemcpyHostToDevice));
 	checkCudaErrors(cudaMemcpy(eachCompressedFeaLen_d, eachCompressedFeaLen_h, sizeof(uint) * bagManager.m_numFea * numofSNode, cudaMemcpyHostToDevice));
-	checkCudaErrors(cudaMemcpy(eachCsrLen_d, eachCsrLen_h, sizeof(uint) * bagManager.m_numFeaValue, cudaMemcpyHostToDevice));
 	checkCudaErrors(cudaMemcpy(eachCsrNodeStartPos_d, eachCsrNodeStartPos_h, sizeof(uint) * numofSNode, cudaMemcpyHostToDevice));
-	checkCudaErrors(cudaMemcpy(csrGD_d, csrGD_h, sizeof(double) * bagManager.m_numFeaValue, cudaMemcpyHostToDevice));
-	checkCudaErrors(cudaMemcpy(csrHess_d, csrHess_h, sizeof(real) * bagManager.m_numFeaValue, cudaMemcpyHostToDevice));
 	checkCudaErrors(cudaMemcpy(eachNodeSizeInCsr_d, eachNodeSizeInCsr_h, sizeof(uint) * numofSNode, cudaMemcpyHostToDevice));
-	checkCudaErrors(cudaMemcpy(csrFvalue_d, csrFvalue_h, sizeof(real) * bagManager.m_numFeaValue, cudaMemcpyHostToDevice));
+
+	checkCudaErrors(cudaMemcpy(csrManager.getMutableCsrLen(totalNumCsrFvalue), eachCsrLen_h, sizeof(uint) * totalNumCsrFvalue, cudaMemcpyDefault));
+	checkCudaErrors(cudaMemcpy(csrManager.getMutableCsrGD(totalNumCsrFvalue), csrGD_h, sizeof(double) * totalNumCsrFvalue, cudaMemcpyDefault));
+	checkCudaErrors(cudaMemcpy(csrManager.getMutableCsrHess(totalNumCsrFvalue), csrHess_h, sizeof(real) * totalNumCsrFvalue, cudaMemcpyDefault));
+	checkCudaErrors(cudaMemcpy(csrManager.getMutableCsrFvalue(totalNumCsrFvalue), csrFvalue_h, sizeof(real) * totalNumCsrFvalue, cudaMemcpyDefault));
 
 	printf("org=%u v.s. csr=%u\n", bagManager.m_numFeaValue, totalNumCsrFvalue);
 
@@ -138,7 +141,7 @@ __global__ void LoadFvalueInsId(int numIns, const int *pOrgFvalueInsId, int *pNe
 }
 
 __global__ void newCsrLenFvalue(const int *preFvalueInsId, int numFeaValue, const int *pInsId2Nid, int maxNid,
-						  const uint *eachCsrStart, real *csrFvalue, uint numCsr, const uint *preRoundSegStartPos, const uint preRoundNumSN, int numFea,
+						  const uint *eachCsrStart, const real *csrFvalue, uint numCsr, const uint *preRoundSegStartPos, const uint preRoundNumSN, int numFea,
 						  real *eachCsrFvalueSparse, uint *csrNewLen, uint *eachNewSegLen, uint *eachNodeSizeInCsr, int numSN, uint *eachNodeFvalue){
 	//one thread for one fvalue
 	uint gTid = GLOBAL_TID();
