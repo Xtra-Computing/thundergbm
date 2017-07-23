@@ -16,8 +16,9 @@ public:
 	static uint *pEachCsrFeaLen;
 	static uint *pEachCsrNodeStartPos;
 	static uint *pEachNodeSizeInCsr;
-private:
+	static int *preFvalueInsId;
 	static uint curNumCsr;
+private:
 	static uint reservedMaxNumCsr;
 	static uint *pCsrLen;
 	static double *pCsrGD;
@@ -26,11 +27,11 @@ private:
 	void reserveSpace();
 
 public:
-	BagCsrManager();
-	uint *getMutableCsrLen(uint numCsr);
-	double *getMutableCsrGD(uint numCsr);
-	real *getMutableCsrHess(uint numCsr);
-	real *getMutableCsrFvalue(uint numCsr);
+	BagCsrManager(int numFea, int maxNumSN, uint totalNumFeaValue);
+	uint *getMutableCsrLen();
+	double *getMutableCsrGD();
+	real *getMutableCsrHess();
+	real *getMutableCsrFvalue();
 
 	const uint *getCsrLen();
 	const double *getCsrGD();

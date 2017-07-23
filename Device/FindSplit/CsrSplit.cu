@@ -15,7 +15,7 @@
 void CsrCompression(int numofSNode, uint &totalNumCsrFvalue, uint *eachCompressedFeaStartPos_d, uint *eachCompressedFeaLen_d,
 		uint *eachNodeSizeInCsr_d, uint *eachCsrNodeStartPos_d){
 	BagManager bagManager;
-	BagCsrManager csrManager;
+	BagCsrManager csrManager(bagManager.m_numFea, bagManager.m_maxNumSplittable, bagManager.m_numFeaValue);
 	real *fvalue_h = new real[bagManager.m_numFeaValue];
 	uint *eachFeaLenEachNode_h = new uint[bagManager.m_numFea * numofSNode];
 	uint *eachFeaStartPosEachNode_h = new uint[bagManager.m_numFea * numofSNode];
@@ -95,10 +95,10 @@ void CsrCompression(int numofSNode, uint &totalNumCsrFvalue, uint *eachCompresse
 	checkCudaErrors(cudaMemcpy(eachCsrNodeStartPos_d, eachCsrNodeStartPos_h, sizeof(uint) * numofSNode, cudaMemcpyHostToDevice));
 	checkCudaErrors(cudaMemcpy(eachNodeSizeInCsr_d, eachNodeSizeInCsr_h, sizeof(uint) * numofSNode, cudaMemcpyHostToDevice));
 
-	checkCudaErrors(cudaMemcpy(csrManager.getMutableCsrLen(totalNumCsrFvalue), eachCsrLen_h, sizeof(uint) * totalNumCsrFvalue, cudaMemcpyDefault));
-	checkCudaErrors(cudaMemcpy(csrManager.getMutableCsrGD(totalNumCsrFvalue), csrGD_h, sizeof(double) * totalNumCsrFvalue, cudaMemcpyDefault));
-	checkCudaErrors(cudaMemcpy(csrManager.getMutableCsrHess(totalNumCsrFvalue), csrHess_h, sizeof(real) * totalNumCsrFvalue, cudaMemcpyDefault));
-	checkCudaErrors(cudaMemcpy(csrManager.getMutableCsrFvalue(totalNumCsrFvalue), csrFvalue_h, sizeof(real) * totalNumCsrFvalue, cudaMemcpyDefault));
+	checkCudaErrors(cudaMemcpy(csrManager.getMutableCsrLen(), eachCsrLen_h, sizeof(uint) * totalNumCsrFvalue, cudaMemcpyDefault));
+	checkCudaErrors(cudaMemcpy(csrManager.getMutableCsrGD(), csrGD_h, sizeof(double) * totalNumCsrFvalue, cudaMemcpyDefault));
+	checkCudaErrors(cudaMemcpy(csrManager.getMutableCsrHess(), csrHess_h, sizeof(real) * totalNumCsrFvalue, cudaMemcpyDefault));
+	checkCudaErrors(cudaMemcpy(csrManager.getMutableCsrFvalue(), csrFvalue_h, sizeof(real) * totalNumCsrFvalue, cudaMemcpyDefault));
 
 	printf("org=%u v.s. csr=%u\n", bagManager.m_numFeaValue, totalNumCsrFvalue);
 
