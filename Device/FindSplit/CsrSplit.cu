@@ -142,7 +142,7 @@ __global__ void LoadFvalueInsId(int numIns, const int *pOrgFvalueInsId, int *pNe
 
 __global__ void newCsrLenFvalue(const int *preFvalueInsId, int numFeaValue, const int *pInsId2Nid, int maxNid,
 						  const uint *eachCsrStart, const real *csrFvalue, uint numCsr, const uint *preRoundSegStartPos, const uint preRoundNumSN, int numFea,
-						  real *eachCsrFvalueSparse, uint *csrNewLen, uint *eachNewSegLen, uint *eachNodeSizeInCsr, int numSN, uint *eachNodeFvalue){
+						  real *eachCsrFvalueSparse, uint *csrNewLen, uint *eachNewSegLen, uint *eachNodeSizeInCsr, int numSN){
 	//one thread for one fvalue
 	uint gTid = GLOBAL_TID();
 	if(gTid >= numFeaValue)//thread has nothing to do
@@ -152,7 +152,6 @@ __global__ void newCsrLenFvalue(const int *preFvalueInsId, int numFeaValue, cons
 	if(pInsId2Nid[insId] <= maxNid)//leaf node
 		return;
 	int pid = pInsId2Nid[insId] - maxNid - 1;//mapping to new node
-	atomicAdd(eachNodeFvalue + pid, 1);
 	CONCHECKER(pid < numSN && pid >= 0);
 	uint csrId = numCsr;
 	RangeBinarySearch(gTid, eachCsrStart, numCsr, csrId);

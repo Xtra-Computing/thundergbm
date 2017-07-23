@@ -335,16 +335,13 @@ void DeviceSplitter::FeaFinderAllNode2(void *pStream, int bagId)
 		checkCudaErrors(cudaMemset(eachNewCsrLen, 0, sizeof(uint) * csrManager.curNumCsr * 2));
 		checkCudaErrors(cudaMemset(csrManager.pEachCsrFeaLen, 0, sizeof(uint) * bagManager.m_numFea * numofSNode));
 		checkCudaErrors(cudaMemset(csrManager.pEachNodeSizeInCsr, 0, sizeof(uint) * bagManager.m_maxNumSplittable));
-		uint *eachNodeFvalue;
-		checkCudaErrors(cudaMallocHost((void**)&eachNodeFvalue, sizeof(uint) * numofSNode));
-		checkCudaErrors(cudaMemset(eachNodeFvalue, 0, sizeof(uint) * numofSNode));
 		newCsrLenFvalue<<<dimNumofBlockToLoadGD, blockSizeLoadGD>>>(csrManager.preFvalueInsId, numofDenseValue_previous,
 											bagManager.m_pInsIdToNodeIdEachBag + bagId * bagManager.m_numIns,
 											bagManager.m_pPreMaxNid_h[bagId], eachCsrStart,
 											csrManager.getCsrFvalue(), csrManager.curNumCsr,
 											csrManager.pEachCsrFeaStartPos, bagManager.m_pPreNumSN_h[bagId],
 											bagManager.m_numFea, eachCsrFvalueSparse, eachNewCsrLen, csrManager.pEachCsrFeaLen,
-											csrManager.pEachNodeSizeInCsr, numofSNode, eachNodeFvalue);
+											csrManager.pEachNodeSizeInCsr, numofSNode);
 		cudaDeviceSynchronize();
 		GETERROR("after newCsrLenFvalue");
 
@@ -352,14 +349,14 @@ void DeviceSplitter::FeaFinderAllNode2(void *pStream, int bagId)
 		dim3 dimNumofBlockToLoadCsrLen;
 		conf.ConfKernel(csrManager.curNumCsr * 2, blockSizeLoadCsrLen, dimNumofBlockToLoadCsrLen);
 		uint *csrMarker;
-		checkCudaErrors(cudaMallocManaged((void**)&csrMarker, sizeof(uint) * csrManager.curNumCsr * 2));
+		checkCudaErrors(cudaMalloc((void**)&csrMarker, sizeof(uint) * csrManager.curNumCsr * 2));
 		checkCudaErrors(cudaMemset(csrMarker, 0, sizeof(uint) * csrManager.curNumCsr * 2));
 		map2One<<<dimNumofBlockToLoadCsrLen, blockSizeLoadCsrLen>>>(eachNewCsrLen, csrManager.curNumCsr * 2, csrMarker);
 		GETERROR("after map2One");
 		thrust::inclusive_scan(thrust::device, csrMarker, csrMarker + csrManager.curNumCsr * 2, csrMarker);
 		cudaDeviceSynchronize();
 		uint previousNumCsr = csrManager.curNumCsr;
-		csrManager.curNumCsr = csrMarker[csrManager.curNumCsr * 2 - 1];
+		checkCudaErrors(cudaMemcpy(&csrManager.curNumCsr, csrMarker + csrManager.curNumCsr * 2 - 1, sizeof(uint), cudaMemcpyDefault));
 
 		checkCudaErrors(cudaMemset(csrManager.getMutableCsrLen(), 0, sizeof(uint) * csrManager.curNumCsr));
 		loadDenseCsr<<<dimNumofBlockToLoadCsrLen, blockSizeLoadCsrLen>>>(eachCsrFvalueSparse, eachNewCsrLen, previousNumCsr * 2, csrManager.curNumCsr, csrMarker,
