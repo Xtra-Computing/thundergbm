@@ -37,9 +37,6 @@ real *BagManager::m_pTargetValueEachBag = NULL;	//predicted target value of each
 real *BagManager::m_pInsGradEachBag = NULL;
 real *BagManager::m_pInsHessEachBag = NULL;
 real *BagManager::m_pDenseFValueEachBag = NULL;		//feature values of consideration (use for computing the split?)
-double *BagManager::m_pdGDPrefixSumEachBag = NULL;		//gd prefix sum for each feature
-real *BagManager::m_pHessPrefixSumEachBag = NULL;	//hessian prefix sum for each feature
-real *BagManager::m_pGainEachFvalueEachBag = NULL;	//gain for each feature value of each bag
 
 //for pinned memory; for computing indices in multiple level tree
 uint *BagManager::m_pIndicesEachBag_d = NULL;	//indices for multiple level tree of each bag
@@ -155,9 +152,6 @@ void BagManager::AllocMem()
 
 	//gradient and hessian prefix sum
 	checkCudaErrors(cudaMalloc((void**)&m_pDenseFValueEachBag, sizeof(real) * m_numFeaValue * m_numBag));
-	checkCudaErrors(cudaMalloc((void**)&m_pdGDPrefixSumEachBag, sizeof(double) * m_numFeaValue * m_numBag));
-	checkCudaErrors(cudaMalloc((void**)&m_pHessPrefixSumEachBag, sizeof(real) * m_numFeaValue * m_numBag));
-	checkCudaErrors(cudaMalloc((void**)&m_pGainEachFvalueEachBag, sizeof(real) * m_numFeaValue * m_numBag));
 
 	//for computing indices of more than one level trees
 	checkCudaErrors(cudaMalloc((void**)&m_pIndicesEachBag_d, sizeof(uint) * m_numFeaValue * m_numBag));

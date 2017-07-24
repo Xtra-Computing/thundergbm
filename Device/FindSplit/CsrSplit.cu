@@ -8,6 +8,7 @@
 #include "CsrSplit.h"
 #include "../Bagging/BagManager.h"
 #include "../Bagging/BagCsrManager.h"
+#include "../Memory/gbdtGPUMemManager.h"
 #include "../Splitter/DeviceSplitter.h"
 #include "../../SharedUtility/CudaMacro.h"
 #include "../../SharedUtility/binarySearch.h"
@@ -15,6 +16,7 @@
 void CsrCompression(int numofSNode, uint &totalNumCsrFvalue, uint *eachCompressedFeaStartPos_d, uint *eachCompressedFeaLen_d,
 		uint *eachNodeSizeInCsr_d, uint *eachCsrNodeStartPos_d){
 	BagManager bagManager;
+	GBDTGPUMemManager manager;
 	BagCsrManager csrManager(bagManager.m_numFea, bagManager.m_maxNumSplittable, bagManager.m_numFeaValue);
 	real *fvalue_h = new real[bagManager.m_numFeaValue];
 	uint *eachFeaLenEachNode_h = new uint[bagManager.m_numFea * numofSNode];
@@ -76,8 +78,12 @@ void CsrCompression(int numofSNode, uint &totalNumCsrFvalue, uint *eachCompresse
 	//compute csr gd and hess
 	double *gd_h = new double[bagManager.m_numFeaValue];
 	real *hess_h = new real[bagManager.m_numFeaValue];
-	checkCudaErrors(cudaMemcpy(gd_h, bagManager.m_pdGDPrefixSumEachBag, sizeof(double) * bagManager.m_numFeaValue, cudaMemcpyDeviceToHost));
-	checkCudaErrors(cudaMemcpy(hess_h, bagManager.m_pHessPrefixSumEachBag, sizeof(real) * bagManager.m_numFeaValue, cudaMemcpyDeviceToHost));
+	int *insId_h = new int[bagManager.m_numFeaValue];
+	real *insGD_h = new real[bagManager.m_numIns];
+	real *insHess_h = new real[bagManager.m_numIns];
+	checkCudaErrors(cudaMemcpy(insId_h, manager.m_pDInsId, sizeof(int) * bagManager.m_numFeaValue, cudaMemcpyDefault));
+	checkCudaErrors(cudaMemcpy(insGD_h, bagManager.m_pInsGradEachBag, sizeof(real) * bagManager.m_numIns, cudaMemcpyDefault));
+	checkCudaErrors(cudaMemcpy(insHess_h, bagManager.m_pInsHessEachBag, sizeof(real) * bagManager.m_numIns, cudaMemcpyDefault));
 
 	uint globalPos = 0;
 	for(int i = 0; i < csrId; i++){
@@ -85,8 +91,8 @@ void CsrCompression(int numofSNode, uint &totalNumCsrFvalue, uint *eachCompresse
 		csrHess_h[i] = 0;
 		uint len = eachCsrLen_h[i];
 		for(int v = 0; v < len; v++){
-			csrGD_h[i] += gd_h[globalPos];
-			csrHess_h[i] += hess_h[globalPos];
+			csrGD_h[i] += insGD_h[insId_h[globalPos]];
+			csrHess_h[i] += insHess_h[insId_h[globalPos]];
 			globalPos++;
 		}
 	}
@@ -115,6 +121,9 @@ void CsrCompression(int numofSNode, uint &totalNumCsrFvalue, uint *eachCompresse
 	delete[] csrHess_h;
 	delete[] eachNodeSizeInCsr_h;
 	delete[] csrFvalue_h;
+	delete[] insId_h;
+	delete[] insGD_h;
+	delete[] insHess_h;
 }
 
 /**

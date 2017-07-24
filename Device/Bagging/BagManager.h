@@ -43,10 +43,8 @@ public:
 	static real *m_pTargetValueEachBag;
 	static real *m_pdTrueTargetValueEachBag;
 	static real *m_pInsGradEachBag, *m_pInsHessEachBag;
+
 	static real *m_pDenseFValueEachBag;
-	static double *m_pdGDPrefixSumEachBag;
-	static real *m_pHessPrefixSumEachBag;
-	static real *m_pGainEachFvalueEachBag;
 
 	//for pinned memory; for computing indices in multiple level tree
 	static uint *m_pIndicesEachBag_d;
