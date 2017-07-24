@@ -24,8 +24,7 @@
 
 //dense array
 __global__ void LoadGDHessFvalueRoot(const real *pInsGD, const real *pInsHess, int numIns,
-						   const int *pInsId, const real *pAllFeaValue, int numFeaValue,
-						   double *pGDEachFeaValue, real *pHessEachFeaValue, real *pDenseFeaValue);
+						   const int *pInsId, int numFeaValue, double *pGDEachFeaValue, real *pHessEachFeaValue);
 __global__ void LoadGDHessFvalue(const real *pInsGD, const real *pInsHess, int numIns,
 						   const int *pInsId, const real *pAllFeaValue, const uint *pDstIndexEachFeaValue, int numFeaValue,
 						   double *pGDEachFeaValue, real *pHessEachFeaValue, real *pDenseFeaValue);

@@ -18,8 +18,8 @@
  * @brief: copy the gd, hess and feaValue for each node based on some features on similar number of values
  */
 __global__ void LoadGDHessFvalueRoot(const real *pInsGD, const real *pInsHess, int numIns,
-						   const int *pInsId, const real *pAllFeaValue, int numFeaValue,
-						   double *pGDEachFeaValue, real *pHessEachFeaValue, real *pDenseFeaValue)
+						   const int *pInsId, int numFeaValue,
+						   double *pGDEachFeaValue, real *pHessEachFeaValue)
 {
 	//one thread loads one value
 	int gTid = GLOBAL_TID();
@@ -34,7 +34,6 @@ __global__ void LoadGDHessFvalueRoot(const real *pInsGD, const real *pInsHess, i
 	//store GD and Hess.
 	pGDEachFeaValue[gTid] = pInsGD[insId];
 	pHessEachFeaValue[gTid] = pInsHess[insId];
-	pDenseFeaValue[gTid] = pAllFeaValue[gTid];
 }
 
 /**

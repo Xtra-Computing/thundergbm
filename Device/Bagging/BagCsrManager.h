@@ -24,6 +24,9 @@ private:
 	static double *pCsrGD;
 	static real *pCsrHess;
 	static real *pCsrFvalue;
+	static bool *pCsrDefault2Right;
+	static real *pCsrGain;
+	static uint *pCsrKey;
 	void reserveSpace();
 
 public:
@@ -32,11 +35,17 @@ public:
 	double *getMutableCsrGD();
 	real *getMutableCsrHess();
 	real *getMutableCsrFvalue();
+	real *getMutableCsrGain();
+	uint *getMutableCsrKey();
+	bool *getMutableDefault2Right();
 
 	const uint *getCsrLen();
 	const double *getCsrGD();
 	const real *getCsrHess();
 	const real *getCsrFvalue();
+	const real *getCsrGain();
+	const uint *getCsrKey();
+	const bool *getDefault2Right();
 };
 
 

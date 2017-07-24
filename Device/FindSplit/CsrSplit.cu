@@ -170,13 +170,11 @@ __global__ void newCsrLenFvalue(const int *preFvalueInsId, int numFeaValue, cons
 	uint orgValue;
 	//compute len of each csr
 	if(pid % 2 == 1){
-		uint testLen1 = csrNewLen[numCsrPrePartsAhead * 2 + numCsrCurPart + posInPart];
 		orgValue = atomicAdd(csrNewLen + numCsrPrePartsAhead * 2 + numCsrCurPart + posInPart, 1);
 		if(orgValue == 0)
 			eachCsrFvalueSparse[numCsrPrePartsAhead * 2 + numCsrCurPart + posInPart] = csrFvalue[csrId];
 	}
 	else{
-		uint testLen2 = csrNewLen[numCsrPrePartsAhead * 2 + posInPart];
 		orgValue = atomicAdd(csrNewLen + numCsrPrePartsAhead * 2 + posInPart, 1);
 		if(orgValue == 0)
 			eachCsrFvalueSparse[numCsrPrePartsAhead * 2 + posInPart] = csrFvalue[csrId];
@@ -186,9 +184,7 @@ __global__ void newCsrLenFvalue(const int *preFvalueInsId, int numFeaValue, cons
 	if(orgValue == 0){
 		uint feaId = segId % numFea;
 		CONCHECKER(feaId < numFea);
-		uint testLen3 = eachNewSegLen[pid * numFea + feaId];
 		uint tempLen = atomicAdd(eachNewSegLen + pid * numFea + feaId, 1);
-		uint testLen4 = eachNodeSizeInCsr[pid];
 		atomicAdd(eachNodeSizeInCsr + pid, 1);
 	}
 }

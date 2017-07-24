@@ -27,6 +27,7 @@ public:
 	double total_fill_gd_t;
 	double total_com_idx_t;
 	double total_search_t;
+	double total_csr_len_t;
 
 	//measure split
 	double total_weight_t;

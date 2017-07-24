@@ -79,6 +79,7 @@ void DeviceTrainer::GrowTree(RegTree &tree, void *pStream, int bagId)
 	pDSpliter->total_search_t = 0;
 	pDSpliter->total_fix_gain_t = 0;
 	pDSpliter->total_com_idx_t = 0;
+	pDSpliter->total_csr_len_t = 0;
 	pDSpliter->total_weight_t = 0;
 	pDSpliter->total_create_node_t = 0;
 	pDSpliter->total_unique_id_t = 0;
@@ -156,6 +157,7 @@ void DeviceTrainer::GrowTree(RegTree &tree, void *pStream, int bagId)
 	double total_fix = pDSpliter->total_fix_gain_t;
 	double total_com_idx = pDSpliter->total_com_idx_t;
 	cout << "com idx " << total_com_idx/CLOCKS_PER_SEC
+		 << "; com csr len " << pDSpliter->total_csr_len_t/CLOCKS_PER_SEC
 		 << "; scan takes " << total_scan/CLOCKS_PER_SEC << "; comp gain takes " << total_gain/CLOCKS_PER_SEC
 		 << "; fix gain takes " << total_fix / CLOCKS_PER_SEC
 		 << "; fill gd takes " << total_fill/CLOCKS_PER_SEC << "; search takes " << total_search/CLOCKS_PER_SEC << endl;
