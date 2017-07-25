@@ -2,6 +2,7 @@
 #define CUDAMACRO_H_
 
 #include <assert.h>
+#include <stdio.h>
 
 #define _DEBUG
 

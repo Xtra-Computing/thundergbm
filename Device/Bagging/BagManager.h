@@ -44,8 +44,6 @@ public:
 	static real *m_pdTrueTargetValueEachBag;
 	static real *m_pInsGradEachBag, *m_pInsHessEachBag;
 
-	static real *m_pDenseFValueEachBag;
-
 	//for pinned memory; for computing indices in multiple level tree
 	static uint *m_pIndicesEachBag_d;
 	static uint *m_pNumFvalueEachNodeEachBag_d;//the number of feature values of each (splittable?) node
