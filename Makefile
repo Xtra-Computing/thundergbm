@@ -27,9 +27,9 @@ $(debug_bin): $(OBJ)
 .PHONY: release
 .PHONY: debug
 
-release: CCFLAGS += -O2
-release: NVCCFLAGS += -O2
-release: LASTFLAG += -O2
+release: CCFLAGS += -O3
+release: NVCCFLAGS += -O3
+release: LASTFLAG += -O3
 release: $(release_bin)
 
 debug: CCFLAGS += -g

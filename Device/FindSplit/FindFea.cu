@@ -428,10 +428,11 @@ void DeviceSplitter::FeaFinderAllNode2(void *pStream, int bagId)
 		clock_t comIdx_end = clock();
 		total_com_idx_t += (comIdx_end - comIdx_start);
 		//###### compress
+		cudaDeviceSynchronize();
 		clock_t start_csr = clock();
 		CsrCompressor compressor;
 		compressor.CsrCompression(csrManager.curNumCsr, csrManager.pEachCsrFeaStartPos, csrManager.pEachCsrFeaLen,
-				csrManager.pEachNodeSizeInCsr, csrManager.pEachCsrNodeStartPos);
+								  csrManager.pEachNodeSizeInCsr, csrManager.pEachCsrNodeStartPos);
 		cudaDeviceSynchronize();
 		clock_t end_csr = clock();
 		printf("compression time: %f\n", double(end_csr - start_csr) / CLOCKS_PER_SEC);
