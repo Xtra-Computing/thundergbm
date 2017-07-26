@@ -29,6 +29,7 @@ private:
 	static uint *pCsrLen_d;
 	static uint eachNodeSizeInCsr_d;
 	static real *pCsrFvalue_d;
+	static uint *pCsrStart_d;
 public:
 	CsrCompressor();
 	void CsrCompression(uint &totalNumCsrFvalue, uint *eachCompressedFeaStartPos, uint *eachCompressedFeaLen,

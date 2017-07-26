@@ -32,8 +32,8 @@ uint CsrCompressor::totalNumCsr = 0;
 uint *CsrCompressor::pCsrFeaStartPos_d = NULL;
 uint *CsrCompressor::pCsrFeaLen_d = NULL;
 uint *CsrCompressor::pCsrLen_d = NULL;
-uint CsrCompressor::eachNodeSizeInCsr_d = 0;
-real *CsrCompressor::pCsrFvalue_d;
+real *CsrCompressor::pCsrFvalue_d = NULL;
+uint *CsrCompressor::pCsrStart_d = NULL;
 
 CsrCompressor::CsrCompressor(){
 	if(fvalue_h != NULL)
@@ -98,15 +98,55 @@ CsrCompressor::CsrCompressor(){
 	checkCudaErrors(cudaMalloc((void**)&pCsrFeaLen_d, sizeof(uint) * numFea));
 	checkCudaErrors(cudaMalloc((void**)&pCsrLen_d, sizeof(uint) * totalNumCsr));
 	checkCudaErrors(cudaMalloc((void**)&pCsrFvalue_d, sizeof(real) * totalNumCsr));
+	checkCudaErrors(cudaMalloc((void**)&pCsrStart_d, sizeof(uint) * totalNumCsr));
 	checkCudaErrors(cudaMemcpy(pCsrFeaStartPos_d, eachCsrFeaStartPos_h, sizeof(uint) * bagManager.m_numFea, cudaMemcpyHostToDevice));
 	checkCudaErrors(cudaMemcpy(pCsrFeaLen_d, eachCompressedFeaLen_h, sizeof(uint) * bagManager.m_numFea, cudaMemcpyHostToDevice));
 	checkCudaErrors(cudaMemcpy(pCsrFvalue_d, csrFvalue_h, sizeof(real) * totalNumCsr, cudaMemcpyDefault));
 	checkCudaErrors(cudaMemcpy(pCsrLen_d, eachCsrLen_h, sizeof(uint) * totalNumCsr, cudaMemcpyDefault));
+	thrust::exclusive_scan(thrust::device, pCsrLen_d, pCsrLen_d + totalNumCsr, pCsrStart_d);
+}
+
+__global__ void ComputeGD(const uint *pCsrLen, const uint *pCsrStartPos, const real *pInsGD, const real *pInsHess,
+						  const int *pInsId, double *csrGD, real *csrHess){
+	uint csrId = blockIdx.x;
+	uint tid = threadIdx.x;
+	extern __shared__ double pGD[];
+	real *pHess = (real*)(pGD + blockDim.x);
+	uint csrLen = pCsrLen[csrId];
+	uint csrStart = pCsrStartPos[csrId];
+
+	//load to shared memory
+	int i = tid;
+	real tempHess = 0;
+	double tempGD = 0;
+	while(i < csrLen){
+		int insId = pInsId[csrStart + i];
+		tempHess += pInsHess[insId];
+		tempGD += pInsGD[insId];
+		i += blockDim.x;
+	}
+	pHess[tid] = tempHess;
+	pGD[tid] = tempGD;
+
+	//reduction
+	__syncthreads();
+	for (int offset = blockDim.x / 2; offset > 0; offset >>= 1) {
+		if(tid < offset) {
+			pHess[tid] += pHess[tid + offset];
+			pGD[tid] += pGD[tid + offset];
+		}
+		__syncthreads();
+	}
+	if(tid == 0){
+		csrHess[csrId] = pHess[0];
+		csrGD[csrId] = pGD[0];
+	}
 }
 
 void CsrCompressor::CsrCompression(uint &totalNumCsrFvalue, uint *eachCompressedFeaStartPos_d, uint *eachCompressedFeaLen_d,
 								   uint *eachNodeSizeInCsr_d, uint *eachCsrNodeStartPos_d){
 	BagManager bagManager;
+	GBDTGPUMemManager manager;
 	BagCsrManager csrManager(bagManager.m_numFea, bagManager.m_maxNumSplittable, bagManager.m_numFeaValue);
 	totalNumCsrFvalue = totalNumCsr;
 	//compute csr gd and hess
@@ -119,37 +159,14 @@ void CsrCompressor::CsrCompression(uint &totalNumCsrFvalue, uint *eachCompressed
 	checkCudaErrors(cudaMemcpy(eachNodeSizeInCsr_d, &eachNodeSizeInCsr_h, sizeof(uint), cudaMemcpyHostToDevice));
 
 	//need to compute for every new tree
-	real *insGD_h = new real[bagManager.m_numIns];
-	real *insHess_h = new real[bagManager.m_numIns];
-	checkCudaErrors(cudaMemcpy(insGD_h, bagManager.m_pInsGradEachBag, sizeof(real) * bagManager.m_numIns, cudaMemcpyDeviceToHost));
-	checkCudaErrors(cudaMemcpy(insHess_h, bagManager.m_pInsHessEachBag, sizeof(real) * bagManager.m_numIns, cudaMemcpyDeviceToHost));
 	clock_t start = clock();
-	vector<double> v_csrGD(totalNumCsr, 0);
-	vector<real> v_csrHess(totalNumCsr, 0);
-	//uint globalPos = 0;
-	uint *eachCsrStartPos = new uint[totalNumCsr];
-	uint *eachCsrStartCurRound;
-	checkCudaErrors(cudaMalloc((void**)&eachCsrStartCurRound, sizeof(uint) * totalNumCsr));
-	thrust::exclusive_scan(thrust::device, pCsrLen_d, pCsrLen_d + totalNumCsr, eachCsrStartCurRound);
-	checkCudaErrors(cudaMemcpy(eachCsrStartPos, eachCsrStartCurRound, sizeof(uint) * totalNumCsr, cudaMemcpyDeviceToHost));
-	int i, v;
-	uint len, startPos;
-//#pragma omp parallel for private(i, v, len, startPos) schedule(dynamic) nowait
-	for(i = 0; i < totalNumCsr; i++){
-		len = eachCsrLen_h[i];
-		startPos = eachCsrStartPos[i];
-		for(v = 0; v < len; v++){
-			v_csrGD[i] += insGD_h[insId_h[startPos + v]];
-			v_csrHess[i] += insHess_h[insId_h[startPos + v]];
-			//globalPos++;
-		}
-	}
+	dim3 dimNumofBlockForGD;
+	dimNumofBlockForGD.x = totalNumCsr;
+	uint blockSize = 64;
+	uint sharedMemSize = blockSize * (sizeof(double) + sizeof(real));
+	ComputeGD<<<dimNumofBlockForGD, blockSize, sharedMemSize>>>(pCsrLen_d, pCsrStart_d, bagManager.m_pInsGradEachBag, bagManager.m_pInsHessEachBag,
+			manager.m_pDInsId, csrManager.getMutableCsrGD(), csrManager.getMutableCsrHess());
+	cudaDeviceSynchronize();
 	clock_t end = clock();
 	printf("compute gd & hess time: %f\n", double(end - start) / CLOCKS_PER_SEC);
-	checkCudaErrors(cudaMemcpy(csrManager.getMutableCsrGD(), v_csrGD.data(), sizeof(double) * totalNumCsr, cudaMemcpyHostToDevice));
-	checkCudaErrors(cudaMemcpy(csrManager.getMutableCsrHess(), v_csrHess.data(), sizeof(real) * totalNumCsr, cudaMemcpyHostToDevice));
-	delete[] insGD_h;
-	delete[] insHess_h;
-	delete[] eachCsrStartPos;
-	checkCudaErrors(cudaFree(eachCsrStartCurRound));
 }
