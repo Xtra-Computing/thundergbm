@@ -19,6 +19,7 @@ __global__ void loadDenseCsr(const real *eachCsrFvalueSparse, const uint *eachCs
 							 const uint *csrIdx, real *eachCsrFvalueDense, uint *eachCsrFeaLenDense);
 __global__ void compCsrGDHess(const int *preFvalueInsId, uint numFvalue, const uint *eachCsrStart, uint numCsr,
 							  const real *pInsGrad, const real *pInsHess, int numIns, double *csrGD, real *csrHess);
-
+__global__ void ComputeGD(const uint *pCsrLen, const uint *pCsrStartPos, const real *pInsGD, const real *pInsHess,
+						  const int *pInsId, double *csrGD, real *csrHess);
 
 #endif /* CSRSPLIT_H_ */

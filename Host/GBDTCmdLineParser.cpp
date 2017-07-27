@@ -39,7 +39,8 @@ bool GBDTCmdLineParser::HandleOption(char c, char *pcOptionValue)
 		numBag = atoi(pcOptionValue);
 		return true;
 	case 'c':
-		CsrCompressor::bUseCsr = true;
+		if(atoi(pcOptionValue) == 1)
+			CsrCompressor::bUseCsr = true;
 		return true;
 	default:
 		return false;

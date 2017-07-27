@@ -119,3 +119,40 @@ __global__ void compCsrGDHess(const int *preFvalueInsId, uint numUsefulFvalue, c
 	atomicAdd(csrGD + csrId, temp);
 	atomicAdd(csrHess + csrId, pInsHess[insId]);
 }
+
+__global__ void ComputeGD(const uint *pCsrLen, const uint *pCsrStartPos, const real *pInsGD, const real *pInsHess,
+						  const int *pInsId, double *csrGD, real *csrHess){
+	uint csrId = blockIdx.x;
+	uint tid = threadIdx.x;
+	extern __shared__ double pGD[];
+	real *pHess = (real*)(pGD + blockDim.x);
+	uint csrLen = pCsrLen[csrId];
+	uint csrStart = pCsrStartPos[csrId];
+
+	//load to shared memory
+	int i = tid;
+	real tempHess = 0;
+	double tempGD = 0;
+	while(i < csrLen){
+		int insId = pInsId[csrStart + i];
+		tempHess += pInsHess[insId];
+		tempGD += pInsGD[insId];
+		i += blockDim.x;
+	}
+	pHess[tid] = tempHess;
+	pGD[tid] = tempGD;
+
+	//reduction
+	__syncthreads();
+	for (int offset = blockDim.x / 2; offset > 0; offset >>= 1) {
+		if(tid < offset) {
+			pHess[tid] += pHess[tid + offset];
+			pGD[tid] += pGD[tid + offset];
+		}
+		__syncthreads();
+	}
+	if(tid == 0){
+		csrHess[csrId] = pHess[0];
+		csrGD[csrId] = pGD[0];
+	}
+}

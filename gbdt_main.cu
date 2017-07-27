@@ -111,7 +111,7 @@ int main(int argc, char *argv[])
 	//store feature key-value into array
 	int *pInsId = new int[numFeaValue];
 	real *pdValue = new real[numFeaValue];
-	int *pNumofKeyValue = new int[numFea];
+	int *pEachFeaLen = new int[numFea];
 	uint *plFeaStartPos = new uint[numFea];//get start position of each feature
 
 	//instances for prediction
@@ -124,7 +124,7 @@ int main(int argc, char *argv[])
 
 	if(bBufferFileExist == false)
 	{
-		KeyValue::VecToArray(trainer.splitter->m_vvFeaInxPair, pInsId, pdValue, pNumofKeyValue, plFeaStartPos);
+		KeyValue::VecToArray(trainer.splitter->m_vvFeaInxPair, pInsId, pdValue, pEachFeaLen, plFeaStartPos);
 		//store sparse instances to GPU memory for prediction
 		KeyValue::VecToArray(trainer.m_vvInsSparse, pFeaId, pfFeaValue, pNumofFea, plInsStartPos);
 
@@ -134,7 +134,7 @@ int main(int argc, char *argv[])
 		}
 
 		//saved to buffer file
-		FileBuffer::SetMembers(pInsId, pdValue, pNumofKeyValue, plFeaStartPos,
+		FileBuffer::SetMembers(pInsId, pdValue, pEachFeaLen, plFeaStartPos,
 							   pFeaId, pfFeaValue, pNumofFea, plInsStartPos,
 							   pTrueLabel,
 							   numFea, numIns, numFeaValue);
@@ -143,7 +143,7 @@ int main(int argc, char *argv[])
 	else//read the arrays from buffer
 	{
 		cout << "read from buffer file: " << bufferFileName << endl;
-		FileBuffer::ReadBufferFile(strFolder, pInsId, pdValue, pNumofKeyValue, plFeaStartPos,
+		FileBuffer::ReadBufferFile(strFolder, pInsId, pdValue, pEachFeaLen, plFeaStartPos,
 								   pFeaId, pfFeaValue, pNumofFea, plInsStartPos,
 								   pTrueLabel,
 								   numFea, numIns, numFeaValue);
@@ -172,15 +172,19 @@ int main(int argc, char *argv[])
 
 	//copy feature key-value to device memory
 	cudaMemcpy(manager.m_pDInsId, pInsId, numFeaValue * sizeof(int), cudaMemcpyHostToDevice);
+	cudaMemcpy(manager.m_pDNumofKeyValue, pEachFeaLen, numFea * sizeof(int), cudaMemcpyHostToDevice);
+	cudaMemcpy(manager.m_pFeaStartPos, plFeaStartPos, numFea * sizeof(uint), cudaMemcpyHostToDevice);
 	if(CsrCompressor::bUseCsr == false){
 		BagOrgManager orgManager(numFeaValue, numBag);
 		cudaMemcpy(orgManager.m_pdDFeaValue, pdValue, numFeaValue * sizeof(real), cudaMemcpyHostToDevice);
 	}
 	else{
 		CsrCompressor::pOrgFvalue = pdValue;
+		CsrCompressor::eachFeaLenEachNode_h = (uint*)pEachFeaLen;//###################################### risky
+		CsrCompressor::eachFeaStartPosEachNode_h = plFeaStartPos;
+		CsrCompressor::insId_h = pInsId;
+		CsrCompressor compressor;
 	}
-	cudaMemcpy(manager.m_pDNumofKeyValue, pNumofKeyValue, numFea * sizeof(int), cudaMemcpyHostToDevice);
-	cudaMemcpy(manager.m_pFeaStartPos, plFeaStartPos, numFea * sizeof(unsigned int), cudaMemcpyHostToDevice);
 
 	//copy instance key-value to device memory for prediction
 	cudaMemcpy(manager.m_pDFeaId, pFeaId, numFeaValue * sizeof(int), cudaMemcpyHostToDevice);
@@ -189,7 +193,6 @@ int main(int argc, char *argv[])
 	cudaMemcpy(manager.m_pInsStartPos, plInsStartPos, numIns * sizeof(uint), cudaMemcpyHostToDevice);
 
 	//free host memory
-	delete []pNumofKeyValue;
 	delete []pFeaId;
 	delete []pfFeaValue;
 	delete []pNumofFea;
@@ -267,6 +270,7 @@ cerr << "total training time (-extra idx comp) = " << total_train - total_copy_i
 
 	//free host memory
 	delete []pInsId;
+	delete []pEachFeaLen;
 	delete []plFeaStartPos;
 	delete []pdValue;//this memory is used in CsrCompressor
 

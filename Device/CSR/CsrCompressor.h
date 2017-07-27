@@ -13,14 +13,7 @@
 class CsrCompressor
 {
 private:
-	static uint *eachFeaLenEachNode_h;
-	static uint *eachFeaStartPosEachNode_h;
-	static uint *eachCsrFeaStartPos_h;
-	static uint *eachCompressedFeaLen_h;
-	static uint *eachCsrLen_h;
 	static uint eachNodeSizeInCsr_h;
-	static real *csrFvalue_h;
-	static int *insId_h;
 	static uint totalOrgNumCsr;
 
 	static uint *pCsrFeaStartPos_d;
@@ -31,7 +24,10 @@ private:
 	static uint *pCsrStart_d;
 public:
 	static bool bUseCsr;
+	static int *insId_h;
 	static real *pOrgFvalue;
+	static uint *eachFeaLenEachNode_h;
+	static uint *eachFeaStartPosEachNode_h;
 public:
 	CsrCompressor();
 	void CsrCompression(uint &totalNumCsrFvalue, uint *eachCompressedFeaStartPos, uint *eachCompressedFeaLen,
