@@ -15,6 +15,8 @@
 
 #include "Device/Memory/gbdtGPUMemManager.h"
 #include "Device/Bagging/BagManager.h"
+#include "Device/Bagging/BagOrgManager.h"
+#include "Device/CSR/CsrCompressor.h"
 #include "Device/GPUTask/GBDTTask.h"
 #include "Device/DeviceTrainer.h"
 #include "Device/DevicePredictor.h"
@@ -170,7 +172,13 @@ int main(int argc, char *argv[])
 
 	//copy feature key-value to device memory
 	cudaMemcpy(manager.m_pDInsId, pInsId, numFeaValue * sizeof(int), cudaMemcpyHostToDevice);
-	cudaMemcpy(manager.m_pdDFeaValue, pdValue, numFeaValue * sizeof(real), cudaMemcpyHostToDevice);
+	if(CsrCompressor::bUseCsr == false){
+		BagOrgManager orgManager(numFeaValue, numBag);
+		cudaMemcpy(orgManager.m_pdDFeaValue, pdValue, numFeaValue * sizeof(real), cudaMemcpyHostToDevice);
+	}
+	else{
+		CsrCompressor::pOrgFvalue = pdValue;
+	}
 	cudaMemcpy(manager.m_pDNumofKeyValue, pNumofKeyValue, numFea * sizeof(int), cudaMemcpyHostToDevice);
 	cudaMemcpy(manager.m_pFeaStartPos, plFeaStartPos, numFea * sizeof(unsigned int), cudaMemcpyHostToDevice);
 
@@ -181,7 +189,6 @@ int main(int argc, char *argv[])
 	cudaMemcpy(manager.m_pInsStartPos, plInsStartPos, numIns * sizeof(uint), cudaMemcpyHostToDevice);
 
 	//free host memory
-	delete []pdValue;
 	delete []pNumofKeyValue;
 	delete []pFeaId;
 	delete []pfFeaValue;
@@ -250,7 +257,7 @@ int main(int argc, char *argv[])
 	double total_init = (double(end_init - start_init) / CLOCKS_PER_SEC);
 	cout << "total init time = " << total_init << endl;
 	double total_train = (double(end_train_time - start_train_time) / CLOCKS_PER_SEC);
-	cout << "total training time (-extra idx comp) = " << total_train - total_copy_indexCom << endl;
+cerr << "total training time (-extra idx comp) = " << total_train - total_copy_indexCom << endl;
 	double total_all = (double(end_whole - begin_whole) / CLOCKS_PER_SEC);
 	cout << "all sec = " << total_all << endl;
 	cout << "Done" << endl;
@@ -261,6 +268,7 @@ int main(int argc, char *argv[])
 	//free host memory
 	delete []pInsId;
 	delete []plFeaStartPos;
+	delete []pdValue;//this memory is used in CsrCompressor
 
 	ReleaseCuda(context);
 	return 0;

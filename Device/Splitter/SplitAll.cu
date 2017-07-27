@@ -14,6 +14,8 @@
 #include "../Hashing.h"
 #include "../Bagging/BagManager.h"
 #include "../Memory/gbdtGPUMemManager.h"
+#include "../CSR/CsrCompressor.h"
+#include "../Bagging/BagOrgManager.h"
 #include "../../SharedUtility/CudaMacro.h"
 #include "../../SharedUtility/KernelConf.h"
 
@@ -34,6 +36,7 @@ void DeviceSplitter::SplitAll(int &m_nNumofNode, bool bLastLevel, void *pStream,
 	int curMaxNodeId = m_nNumofNode - 1;
 	PROCESS_ERROR(curMaxNodeId >= 0);
 	BagManager bagManager;
+	CsrCompressor csrCompressor;
 	bagManager.m_pPreNumSN_h[bagId] = bagManager.m_curNumofSplitableEachBag_h[bagId];
 	GBDTGPUMemManager manager;
 	GETERROR("before ComputeWeight");
@@ -149,7 +152,9 @@ void DeviceSplitter::SplitAll(int &m_nNumofNode, bool bLastLevel, void *pStream,
 
 		clock_t ins2node_start = clock();
 		InsToNewNode<<<dimGridThreadForEachUsedFea, thdPerBlockIns2node, 0, (*(cudaStream_t*)pStream)>>>(
-								 bagManager.m_pNodeTreeOnTrainingEachBag + bagId * bagManager.m_maxNumNode, manager.m_pdDFeaValue, manager.m_pDInsId,
+								 bagManager.m_pNodeTreeOnTrainingEachBag + bagId * bagManager.m_maxNumNode, BagOrgManager::m_pdDFeaValue,
+								 csrCompressor.getOrgCsrFvalue(), csrCompressor.getOrgCsrStart(), csrCompressor.getNumOrgCsr(), csrCompressor.bUseCsr,
+								 manager.m_pDInsId,
 								 manager.m_pFeaStartPos, manager.m_pDNumofKeyValue,
 								 bagManager.m_pBestSplitPointEachBag + bagId * bagManager.m_maxNumSplittable,
 								 bagManager.m_pUniqueFeaIdVecEachBag + bagId * bagManager.m_maxNumUsedFeaATree,

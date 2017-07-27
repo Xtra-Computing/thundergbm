@@ -10,6 +10,7 @@
 #include <stdlib.h>
 
 #include "GBDTCmdLineParser.h"
+#include "../Device/CSR/CsrCompressor.h"
 
 int GBDTCmdLineParser::depth = 1;
 int GBDTCmdLineParser::numTree = 1;
@@ -36,6 +37,9 @@ bool GBDTCmdLineParser::HandleOption(char c, char *pcOptionValue)
 		return true;
 	case 'b':
 		numBag = atoi(pcOptionValue);
+		return true;
+	case 'c':
+		CsrCompressor::bUseCsr = true;
 		return true;
 	default:
 		return false;

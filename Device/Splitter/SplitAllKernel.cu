@@ -10,6 +10,7 @@
 #include "../Memory/gbdtGPUMemManager.h"
 #include "../DeviceHashing.h"
 #include "../../SharedUtility/CudaMacro.h"
+#include "../../SharedUtility/binarySearch.h"
 
 #ifndef testing
 #define testing
@@ -40,8 +41,7 @@ __global__ void ComputeWeight(TreeNode *pAllTreeNode, TreeNode *pNewNode,
 	int snIdPos = nid - preMaxNodeId - 1;//nid % maxNumofSN;
 	if(nid == 0)//handle the root node
 		snIdPos = 0;
-	if(snIdPos < 0)
-		printf("nid=%d, maxNid=%d\n", nid, preMaxNodeId);
+
 	ECHECKER(snIdPos);
 
 	//mark the node as a leaf node if (1) the gain is negative or (2) the tree reaches maximum depth.
@@ -210,14 +210,15 @@ __global__ void GetUniqueFid(TreeNode *pAllTreeNode, TreeNode *pSplittableNode, 
 /**
  * @brief: assign instances (which have non-zero values on the feature of interest) to new nodes
  */
-__global__ void InsToNewNode(const TreeNode *pAllTreeNode, const real *pdFeaValue, const int *pInsId,
-							 const unsigned int *pFeaStartPos, const int *pNumofKeyValue,
+__global__ void InsToNewNode(const TreeNode *pAllTreeNode, const real *pdFeaValue,
+							 const real *pCsrFvalue, const uint *pCsrStartPos, uint numCsr, bool bUseCsr,//csr feature values
+							 const int *pInsId,
+							 const uint *pFeaStartPos, const int *pNumofKeyValue,
 							 const SplitPoint *pBestSplitPoint,
 							 const int *pUniqueFidVec, const int *pNumofUniqueFid,
 							 const int *pParentId, const int *pLChildId, const int *pRChildId,
 								 int curRoundMaxNodeId, int numofFea, int *pInsIdToNodeId, int numofIns, int flag_LEAFNODE,
-								 int maxSN, int preMaxNodeId)
-{
+								 int maxSN, int preMaxNodeId){
 	int numofUniqueFid = *pNumofUniqueFid;
 	int feaId = blockIdx.z;
 	CONCHECKER(feaId < numofUniqueFid);
@@ -233,8 +234,7 @@ __global__ void InsToNewNode(const TreeNode *pAllTreeNode, const real *pdFeaValu
 		return;
 
 	//for each instance that has value on the feature
-	unsigned int curFeaStartPos = pFeaStartPos[ufid];//this start pos is never changed (i.e. always the same as the original)
-	const real *pdCurFeaValue = pdFeaValue + curFeaStartPos;//fvalue start pos in the global memory
+	uint curFeaStartPos = pFeaStartPos[ufid];//this start pos is never changed (i.e. always the same as the original)
 	const int *pCurFeaInsId = pInsId + curFeaStartPos;//ins_id of this fea start pos in the global memory
 
 	int insId = pCurFeaInsId[perFvalueTid];
@@ -274,25 +274,28 @@ __global__ void InsToNewNode(const TreeNode *pAllTreeNode, const real *pdFeaValu
 			CONCHECKER(pRChildId[bufferPos] == pLChildId[bufferPos] + 1);//right child id > than left child id
 			CONCHECKER(pAllTreeNode[nid].rightChildId != flag_LEAFNODE);
 			double fPivot = pBestSplitPoint[bufferPos].m_fSplitValue;
-			double fvalue = pdCurFeaValue[perFvalueTid];
+			double fvalue;
+			if(bUseCsr == true){
+				uint globalPos = curFeaStartPos + perFvalueTid;
+				uint csrId;
+				RangeBinarySearch(globalPos, pCsrStartPos, numCsr, csrId);
+				CONCHECKER(csrId < numCsr);
+				fvalue = pCsrFvalue[csrId];
+			}
+			else
+				fvalue = pdFeaValue[curFeaStartPos + perFvalueTid];
 
-			if(fvalue >= fPivot){
+			if(fvalue >= fPivot)
 				pInsIdToNodeId[insId] = pRChildId[bufferPos];//right child id
-	//			atomicAdd(numInsR + bufferPos, 1);//increase numIns in right child
-			}
-			else{
+			else
 				pInsIdToNodeId[insId] = pLChildId[bufferPos];//left child id
-	//			atomicAdd(numInsL + bufferPos, 1);
-			}
 		}
-
 }
 
 __global__ void InsToNewNodeByDefault(TreeNode *pAllTreeNode, int *pInsIdToNodeId,
 									  int *pParentId, int *pLChildId, int *pRChildId,
 									  int curRoundMaxNodeId, int numofIns, int flag_LEAFNODE,
-									  const SplitPoint *pBestSplitPoint, int maxSN, int preMaxNodeId)
-{
+									  const SplitPoint *pBestSplitPoint, int maxSN, int preMaxNodeId){
 	int nGlobalThreadId = GLOBAL_TID();
 	if(nGlobalThreadId >= numofIns)//not used threads
 		return;

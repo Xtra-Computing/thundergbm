@@ -21,6 +21,7 @@
 #include "../../SharedUtility/CudaMacro.h"
 
 using std::cout;
+using std::cerr;
 using std::endl;
 
 //MakeInstanceGetter(GBDTTask);
@@ -76,7 +77,7 @@ void* GBDTTask::ProcessTask(void* pInputParam)
 	cudaStreamSynchronize(*pStream_gbdt);
 	EvalRMSE rmse;
 	float fRMSE = rmse.Eval(v_fPredValue, BagManager::m_pTrueLabel_h, v_fPredValue.size());
-	cout << "rmse=" << fRMSE << endl;
+	cerr << "rmse=" << fRMSE << endl;
 #endif
 	trainer.ReleaseTree(v_Tree);
 

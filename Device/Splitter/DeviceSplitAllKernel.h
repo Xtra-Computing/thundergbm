@@ -32,7 +32,10 @@ __global__ void GetUniqueFid(TreeNode *pAllTreeNode, TreeNode *pSplittableNode, 
 		 	 	 	 	 	 	 int *pFeaIdToBuffId, int *pUniqueFidVec,int *pNumofUniqueFid,
 		 	 	 	 	 	 	 int maxNumofUsedFea, int flag_LEAFNODE, int *pnLock);
 
-__global__ void InsToNewNode(const TreeNode *pAllTreeNode, const real *pdFeaValue, const int *pInsId,
+__global__ void InsToNewNode(const TreeNode *pAllTreeNode,
+							 const real *pdFeaValue,//non csr feature values
+							 const real *pCsrFvalue, const uint *pCsrStartPos, uint numCsr, bool bUseCsr,//csr feature values
+							 const int *pInsId,
 		 	 	 	 	 	 const unsigned int *pFeaStartPos, const int *pNumofKeyValue,
 		 	 	 	 	 	 const SplitPoint *pBestSplitPoint,
 		 	 	 	 	 	 const int *pUniqueFidVec, const int *pNumofUniqueFid,

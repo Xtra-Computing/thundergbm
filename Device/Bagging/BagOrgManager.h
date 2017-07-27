@@ -12,6 +12,7 @@
 
 class BagOrgManager{
 public:
+	static real *m_pdDFeaValue;
 	static real *m_pDenseFValueEachBag;
 	static double *m_pdGDPrefixSumEachBag;
 	static real *m_pHessPrefixSumEachBag;

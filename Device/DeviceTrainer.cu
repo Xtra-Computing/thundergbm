@@ -12,6 +12,7 @@
 #include "Memory/gbdtGPUMemManager.h"
 #include "Bagging/BagManager.h"
 #include "FindSplit/IndexComputer.h"
+#include "CSR/CsrCompressor.h"
 #include "../SharedUtility/CudaMacro.h"
 
 /**
@@ -97,8 +98,12 @@ void DeviceTrainer::GrowTree(RegTree &tree, void *pStream, int bagId)
 		cudaStreamSynchronize((*(cudaStream_t*)pStream));
 		clock_t begin_find_fea = clock();
 
-		if(nCurDepth < m_nMaxDepth)//don't need to find split for the last level
-			pDSpliter->FeaFinderAllNode2(pStream, bagId);
+		if(nCurDepth < m_nMaxDepth){//don't need to find split for the last level
+			if(CsrCompressor::bUseCsr == true)
+				pDSpliter->FeaFinderAllNode2(pStream, bagId);
+			else
+				pDSpliter->FeaFinderAllNode(pStream, bagId);
+		}
 
 		clock_t end_find_fea = clock();
 		total_find_fea_t += (double(end_find_fea - begin_find_fea) / CLOCKS_PER_SEC);

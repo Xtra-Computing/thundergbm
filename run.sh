@@ -22,6 +22,8 @@ GAMMA="-g "
 D="-d "
 #number of trees
 NUMTREE="-n "
+#use CSR compression: 0 for not using CSR; 1 for using CSR.
+CSR="-c 1"
 #file name (must appear as the last argument)
 case $1 in
 	abalone)
@@ -81,9 +83,9 @@ case $1 in
         FILENAME=${DATASET_DIR}/"real-sim" #
         ;;
     *)
-        echo "undefined dataset, use GAMMA=0.5, C=10"
-        GAMMA=${GAMMA}"0.5"
-        C=${C}"10"
+        echo "undefined dataset, use GAMMA=1, D=8"
+        GAMMA=${GAMMA}"1"
+        D=${D}"8"
         FILENAME=${DATASET_DIR}/$1
 esac
 ###options
@@ -99,4 +101,4 @@ TASK="-o 2"
 set -x
 
 #command
-./bin/release/gbdt ${GAMMA} ${D} ${NUMTREE} ${BAG} ${FILENAME}
+./bin/release/gbdt ${GAMMA} ${D} ${NUMTREE} ${CSR} ${BAG} ${FILENAME}

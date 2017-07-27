@@ -13,7 +13,6 @@
 
 //memory for instances (key on feature id)
 int *GBDTGPUMemManager::m_pDInsId = NULL;				//all the instance ids for each key-value pair
-real *GBDTGPUMemManager::m_pdDFeaValue = NULL; 	//all the feature values
 int *GBDTGPUMemManager::m_pDNumofKeyValue = NULL;		//the number of key-value pairs of each feature
 uint *GBDTGPUMemManager::m_pFeaStartPos = NULL;	//start key-value position of each feature
 
@@ -51,7 +50,6 @@ void GBDTGPUMemManager::mallocForTrainingIns(int nTotalNumofValue, int numofIns,
 
 	//memory for instances (key on feature id)
 	checkCudaErrors(cudaMalloc((void**)&m_pDInsId, sizeof(int) * m_numFeaValue));
-	checkCudaErrors(cudaMalloc((void**)&m_pdDFeaValue, sizeof(real) * m_numFeaValue));
 	checkCudaErrors(cudaMalloc((void**)&m_pDNumofKeyValue, sizeof(int) * m_numofFea));
 	checkCudaErrors(cudaMalloc((void**)&m_pFeaStartPos, sizeof(uint) * m_numofFea));
 }
@@ -59,7 +57,6 @@ void GBDTGPUMemManager::mallocForTrainingIns(int nTotalNumofValue, int numofIns,
 void GBDTGPUMemManager::freeMemForTrainingIns(){
 	//memory for instances (key on feature id)
 	checkCudaErrors(cudaFree(m_pDInsId));
-	checkCudaErrors(cudaFree(m_pdDFeaValue));
 	checkCudaErrors(cudaFree(m_pDNumofKeyValue));
 	checkCudaErrors(cudaFree(m_pFeaStartPos));
 }
@@ -76,25 +73,25 @@ void GBDTGPUMemManager::mallocForTestingIns(int nTotalNumofValue, int numofIns, 
 	m_numofIns = numofIns;
 	m_numofFea = numofFeature;
 	//memory for instances (key on instance id); for prediction
-	checkCudaErrors(cudaMallocHost((void**)&m_pDFeaId, sizeof(int) * m_numFeaValue));
-	checkCudaErrors(cudaMallocHost((void**)&m_pdDInsValue, sizeof(real) * m_numFeaValue));
-	checkCudaErrors(cudaMallocHost((void**)&m_pDNumofFea, sizeof(int) * m_numofIns));
-	checkCudaErrors(cudaMallocHost((void**)&m_pInsStartPos, sizeof(uint) * m_numofIns));
+	checkCudaErrors(cudaMallocManaged((void**)&m_pDFeaId, sizeof(int) * m_numFeaValue));
+	checkCudaErrors(cudaMallocManaged((void**)&m_pdDInsValue, sizeof(real) * m_numFeaValue));
+	checkCudaErrors(cudaMallocManaged((void**)&m_pDNumofFea, sizeof(int) * m_numofIns));
+	checkCudaErrors(cudaMallocManaged((void**)&m_pInsStartPos, sizeof(uint) * m_numofIns));
 
 	//for bags
-	checkCudaErrors(cudaMallocHost((void**)&m_pdDenseInsEachBag, sizeof(real) * m_maxUsedFeaInATree * m_numofIns * numBag));
-	checkCudaErrors(cudaMallocHost((void**)&m_pHashFeaIdToDenseInsPosBag, sizeof(int) * m_maxUsedFeaInATree * numBag));
+	checkCudaErrors(cudaMallocManaged((void**)&m_pdDenseInsEachBag, sizeof(real) * m_maxUsedFeaInATree * m_numofIns * numBag));
+	checkCudaErrors(cudaMallocManaged((void**)&m_pHashFeaIdToDenseInsPosBag, sizeof(int) * m_maxUsedFeaInATree * numBag));
 	checkCudaErrors(cudaMemset(m_pHashFeaIdToDenseInsPosBag, -1, sizeof(int) * m_maxUsedFeaInATree * numBag));
-	checkCudaErrors(cudaMallocHost((void**)&m_pSortedUsedFeaIdBag, sizeof(int) * m_maxUsedFeaInATree * numBag));
-	checkCudaErrors(cudaMallocHost((void**)&m_pAllTreeEachBag, sizeof(TreeNode) * numTreeABag * maxNumNode * numBag));
+	checkCudaErrors(cudaMallocManaged((void**)&m_pSortedUsedFeaIdBag, sizeof(int) * m_maxUsedFeaInATree * numBag));
+	checkCudaErrors(cudaMallocManaged((void**)&m_pAllTreeEachBag, sizeof(TreeNode) * numTreeABag * maxNumNode * numBag));
 	//memory set for all tree nodes
 	TreeNode *pAllTreeNodeHost = new TreeNode[numTreeABag * maxNumNode * numBag];
 	checkCudaErrors(cudaMemcpy(m_pAllTreeEachBag, pAllTreeNodeHost, sizeof(TreeNode) * numTreeABag * maxNumNode * numBag, cudaMemcpyHostToDevice));
 	delete[] pAllTreeNodeHost;
-	checkCudaErrors(cudaMallocHost((void**)&m_pStartPosOfEachTreeEachBag, sizeof(int) * numTreeABag * numBag));
+	checkCudaErrors(cudaMallocManaged((void**)&m_pStartPosOfEachTreeEachBag, sizeof(int) * numTreeABag * numBag));
 	checkCudaErrors(cudaMemset(m_pStartPosOfEachTreeEachBag, -1, sizeof(int) * numTreeABag * numBag));
 	//for individual tree
-	checkCudaErrors(cudaMallocHost((void**)&m_pNumofNodeEachTreeEachBag, sizeof(int) * numTreeABag * numBag));
+	checkCudaErrors(cudaMallocManaged((void**)&m_pNumofNodeEachTreeEachBag, sizeof(int) * numTreeABag * numBag));
 	checkCudaErrors(cudaMemset(m_pNumofNodeEachTreeEachBag, 0, sizeof(int) * numTreeABag * numBag));
 
 	m_pNumofTreeLearntEachBag_h = new int[numBag];
@@ -106,15 +103,15 @@ void GBDTGPUMemManager::mallocForTestingIns(int nTotalNumofValue, int numofIns, 
  */
 void GBDTGPUMemManager::freeMemForTestingIns(){
 	//memory for instances (key on instance id); for prediction
-	checkCudaErrors(cudaFreeHost(m_pDFeaId));
-	checkCudaErrors(cudaFreeHost(m_pdDInsValue));
-	checkCudaErrors(cudaFreeHost(m_pDNumofFea));
-	checkCudaErrors(cudaFreeHost(m_pInsStartPos));
-	checkCudaErrors(cudaFreeHost(m_pdDenseInsEachBag));
-	checkCudaErrors(cudaFreeHost(m_pHashFeaIdToDenseInsPosBag));
-	checkCudaErrors(cudaFreeHost(m_pSortedUsedFeaIdBag));
-	checkCudaErrors(cudaFreeHost(m_pAllTreeEachBag));
-	checkCudaErrors(cudaFreeHost(m_pStartPosOfEachTreeEachBag));
-	checkCudaErrors(cudaFreeHost(m_pNumofNodeEachTreeEachBag));
+	checkCudaErrors(cudaFree(m_pDFeaId));
+	checkCudaErrors(cudaFree(m_pdDInsValue));
+	checkCudaErrors(cudaFree(m_pDNumofFea));
+	checkCudaErrors(cudaFree(m_pInsStartPos));
+	checkCudaErrors(cudaFree(m_pdDenseInsEachBag));
+	checkCudaErrors(cudaFree(m_pHashFeaIdToDenseInsPosBag));
+	checkCudaErrors(cudaFree(m_pSortedUsedFeaIdBag));
+	checkCudaErrors(cudaFree(m_pAllTreeEachBag));
+	checkCudaErrors(cudaFree(m_pStartPosOfEachTreeEachBag));
+	checkCudaErrors(cudaFree(m_pNumofNodeEachTreeEachBag));
 	delete []m_pNumofTreeLearntEachBag_h;
 }

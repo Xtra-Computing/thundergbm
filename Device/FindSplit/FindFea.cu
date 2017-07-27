@@ -49,9 +49,6 @@ __global__ void SetKey(uint *pSegStart, T *pSegLen, uint *pnKey){
 
 	uint pos = segmentThreadId;
 	while(pos < segmentLen){
-//		if(pos + segmentStartPos == 8756897){
-//			print();
-//		}
 		pnKey[pos + segmentStartPos] = segmentId;
 		pos += blockDim.x;
 	}
@@ -113,7 +110,7 @@ void DeviceSplitter::FeaFinderAllNode(void *pStream, int bagId)
 		//printf("# of useful fvalue=%d\n", numofDenseValue);
 		LoadGDHessFvalue<<<dimNumofBlockToLoadGD, blockSizeLoadGD, 0, (*(cudaStream_t*)pStream)>>>(bagManager.m_pInsGradEachBag + bagId * bagManager.m_numIns, 
 															   bagManager.m_pInsHessEachBag + bagId * bagManager.m_numIns, 
-															   bagManager.m_numIns, manager.m_pDInsId, manager.m_pdDFeaValue,
+															   bagManager.m_numIns, manager.m_pDInsId, orgManager.m_pdDFeaValue,
 															   bagManager.m_pIndicesEachBag_d, bagManager.m_numFeaValue,
 															   orgManager.m_pdGDPrefixSumEachBag + bagId * bagManager.m_numFeaValue,
 															   orgManager.m_pHessPrefixSumEachBag + bagId * bagManager.m_numFeaValue,
@@ -144,7 +141,7 @@ void DeviceSplitter::FeaFinderAllNode(void *pStream, int bagId)
 		total_fill_gd_t += (end_gd - start_gd);
 
 		clock_t comIdx_start = clock();
-		checkCudaErrors(cudaMemcpy(orgManager.m_pDenseFValueEachBag + bagId * bagManager.m_numFeaValue, manager.m_pdDFeaValue, sizeof(real) * bagManager.m_numFeaValue, cudaMemcpyDefault));
+		checkCudaErrors(cudaMemcpy(orgManager.m_pDenseFValueEachBag + bagId * bagManager.m_numFeaValue, orgManager.m_pdDFeaValue, sizeof(real) * bagManager.m_numFeaValue, cudaMemcpyDefault));
 		//copy # of feature values of a node
 		manager.MemcpyHostToDeviceAsync(&manager.m_numFeaValue, bagManager.m_pNumFvalueEachNodeEachBag_d + bagId * bagManager.m_maxNumSplittable,
 										sizeof(uint), pStream);
