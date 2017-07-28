@@ -18,6 +18,7 @@
 #include "../../SharedUtility/CudaMacro.h"
 #include "../../SharedUtility/KernelConf.h"
 #include "../../SharedUtility/segmentedMax.h"
+#include "../../SharedUtility/segmentedSum.h"
 
 #include "../CSR/CsrSplit.h"
 #include "../CSR/CsrCompressor.h"
@@ -78,15 +79,21 @@ void DeviceSplitter::FeaFinderAllNode2(void *pStream, int bagId)
 		checkCudaErrors(cudaMalloc((void**)&eachCsrFvalueSparse, sizeof(real) * csrManager.curNumCsr * 2));
 		checkCudaErrors(cudaMemset(eachNewCsrLen, 0, sizeof(uint) * csrManager.curNumCsr * 2));
 		checkCudaErrors(cudaMemset(csrManager.pEachCsrFeaLen, 0, sizeof(uint) * bagManager.m_numFea * numofSNode));
-		checkCudaErrors(cudaMemset(csrManager.pEachNodeSizeInCsr, 0, sizeof(uint) * bagManager.m_maxNumSplittable));
 		newCsrLenFvalue<<<dimNumofBlockToLoadGD, blockSizeLoadGD>>>(csrManager.preFvalueInsId, numofDenseValue_previous,
 											bagManager.m_pInsIdToNodeIdEachBag + bagId * bagManager.m_numIns,
 											bagManager.m_pPreMaxNid_h[bagId], eachCsrStart,
 											csrManager.getCsrFvalue(), csrManager.curNumCsr,
 											csrManager.pEachCsrFeaStartPos, bagManager.m_pPreNumSN_h[bagId],
-											bagManager.m_numFea, eachCsrFvalueSparse, eachNewCsrLen, csrManager.pEachCsrFeaLen,
-											csrManager.pEachNodeSizeInCsr, numofSNode);
+											bagManager.m_numFea, eachCsrFvalueSparse, eachNewCsrLen, csrManager.pEachCsrFeaLen);
 		cudaDeviceSynchronize();
+
+		//compute number of CSR in each node
+		checkCudaErrors(cudaMemset(csrManager.pEachNodeSizeInCsr, 0, sizeof(uint) * bagManager.m_maxNumSplittable));
+		dim3 dimNumSeg;
+		dimNumSeg.x = numofSNode;
+		uint blockSize = 128;
+		segmentedSum<<<dimNumSeg, blockSize, blockSize * sizeof(uint)>>>(csrManager.pEachCsrFeaLen, bagManager.m_numFea, csrManager.pEachNodeSizeInCsr);
+
 		GETERROR("after newCsrLenFvalue");
 
 		int blockSizeLoadCsrLen;

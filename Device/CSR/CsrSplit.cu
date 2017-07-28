@@ -34,7 +34,7 @@ __global__ void LoadFvalueInsId(int numIns, const int *pOrgFvalueInsId, int *pNe
 
 __global__ void newCsrLenFvalue(const int *preFvalueInsId, int numFeaValue, const int *pInsId2Nid, int maxNid,
 						  const uint *eachCsrStart, const real *csrFvalue, uint numCsr, const uint *preRoundSegStartPos, const uint preRoundNumSN, int numFea,
-						  real *eachCsrFvalueSparse, uint *csrNewLen, uint *eachNewSegLen, uint *eachNodeSizeInCsr, int numSN){
+						  real *eachCsrFvalueSparse, uint *csrNewLen, uint *eachNewSegLen){
 	//one thread for one fvalue
 	uint gTid = GLOBAL_TID();
 	if(gTid >= numFeaValue)//thread has nothing to do
@@ -44,7 +44,7 @@ __global__ void newCsrLenFvalue(const int *preFvalueInsId, int numFeaValue, cons
 	if(pInsId2Nid[insId] <= maxNid)//leaf node
 		return;
 	int pid = pInsId2Nid[insId] - maxNid - 1;//mapping to new node
-	CONCHECKER(pid < numSN && pid >= 0);
+	CONCHECKER(pid >= 0);
 	uint csrId = numCsr;
 	RangeBinarySearch(gTid, eachCsrStart, numCsr, csrId);
 	CONCHECKER(csrId < numCsr);
@@ -77,9 +77,34 @@ __global__ void newCsrLenFvalue(const int *preFvalueInsId, int numFeaValue, cons
 		uint feaId = segId % numFea;
 		CONCHECKER(feaId < numFea);
 		uint tempLen = atomicAdd(eachNewSegLen + pid * numFea + feaId, 1);
-		atomicAdd(eachNodeSizeInCsr + pid, 1);
 	}
 }
+
+/*__global__ void complementaryCsrLen(uint numCsr){
+	uint csrId = GLOBAL_TID();
+	if(csrId >= numCsr)//thread has nothing to do
+		return;
+
+	uint segId = numFea * preRoundNumSN;
+	RangeBinarySearch(csrId, preRoundSegStartPos, numFea * preRoundNumSN, segId);
+	uint prePid = segId / numFea;
+	uint prePartStartPos = preRoundSegStartPos[prePid * numFea];
+	uint numCsrPrePartsAhead = prePartStartPos;
+	uint numCsrCurPart;
+	if(prePid == preRoundNumSN - 1)
+		numCsrCurPart = numCsr - prePartStartPos;
+	else
+		numCsrCurPart = preRoundSegStartPos[(prePid + 1) * numFea] - prePartStartPos;
+	uint posInPart = csrId - numCsrPrePartsAhead;//id in the partition
+	uint orgValue;
+	//compute len of each csr
+	if(pid % 2 == 1){
+		orgValue = atomicAdd(csrNewLen + numCsrPrePartsAhead * 2 + numCsrCurPart + posInPart, 1);
+	}
+	else{
+		orgValue = atomicAdd(csrNewLen + numCsrPrePartsAhead * 2 + posInPart, 1);
+	}
+}*/
 
 __global__ void map2One(const uint *eachCsrLen, uint numCsr, uint *csrMarker){
 	uint gTid = GLOBAL_TID();
