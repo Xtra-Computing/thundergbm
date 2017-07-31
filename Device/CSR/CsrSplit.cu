@@ -50,27 +50,13 @@ __global__ void newCsrLenFvalue(const int *preFvalueInsId, int numFeaValue, cons
 	__syncthreads();
 	if(gTid >= numFeaValue)//thread has nothing to do
 		return;
-	uint csrId = numCsr;
+	uint csrId;
 	RangeBinarySearch(gTid, eachCsrStart, numCsr, csrId);
 	CONCHECKER(csrId < numCsr);
-	uint segId = numFea * preRoundNumSN;
-	RangeBinarySearch(csrId, preRoundSegStartPos, numFea * preRoundNumSN, segId);
-	uint prePid = segId / numFea;
-	uint prePartStartPos = preRoundSegStartPos[prePid * numFea];
-	uint numCsrPrePartsAhead = prePartStartPos;
-	uint numCsrCurPart;
-	if(prePid == preRoundNumSN - 1)
-		numCsrCurPart = numCsr - prePartStartPos;
-	else
-		numCsrCurPart = preRoundSegStartPos[(prePid + 1) * numFea] - prePartStartPos;
-
 	//first csrId
-	if(tid == 0){
+	if(tid == 0)
 		firstCsrId = csrId;
-		maxCsrId = 0;
-	}
 	__syncthreads();
-	atomicMax(&maxCsrId, (int)csrId);
 	CONCHECKER(csrId >= firstCsrId);
 
 	int insId = preFvalueInsId[gTid];//insId is not -1, as preFvalueInsId is dense.
@@ -91,15 +77,16 @@ __global__ void newCsrLenFvalue(const int *preFvalueInsId, int numFeaValue, cons
 	//compute len of each csr
 	if(csrCounter[tid] == 0 && csrCounter[tid + blockDim.x] == 0)
 		return;
-	segId = numFea * preRoundNumSN;
+	uint segId;
 	RangeBinarySearch(firstCsrId + tid, preRoundSegStartPos, numFea * preRoundNumSN, segId);
-	prePid = segId / numFea;
-	prePartStartPos = preRoundSegStartPos[prePid * numFea];
+	uint prePid = segId / numFea;
+	uint prePartStartPos = preRoundSegStartPos[prePid * numFea];
 	uint feaId = segId % numFea;
-	numCsrPrePartsAhead = prePartStartPos;
+	uint numCsrPrePartsAhead = prePartStartPos;
 	uint posInPart = firstCsrId + tid - numCsrPrePartsAhead;//id in the partition
 	ECHECKER(firstCsrId + tid >= numCsrPrePartsAhead);
 	ECHECKER(firstCsrId + tid >= csrId);
+	uint numCsrCurPart;
 	if(prePid == preRoundNumSN - 1)
 		numCsrCurPart = numCsr - prePartStartPos;
 	else
