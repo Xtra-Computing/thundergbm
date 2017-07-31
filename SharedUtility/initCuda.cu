@@ -35,7 +35,7 @@ void UseDevice(int deviceId, CUcontext &context)
  */
 int GetMaxMemDevice(int count){
 	int id = -1;
-	unsigned int maxMem = 0;
+	size_t maxMem = 0;
 	for(int i = 0; i < count; i++) {
         cudaDeviceProp prop;
         checkCudaErrors(cudaGetDeviceProperties(&prop, i));
@@ -47,6 +47,7 @@ int GetMaxMemDevice(int count){
 				cudaDeviceReset();
 				continue;
 			}
+
 			if(nFreeMem > maxMem){
 				maxMem = nFreeMem;
 				id = i;
