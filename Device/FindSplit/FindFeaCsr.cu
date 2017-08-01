@@ -79,15 +79,23 @@ void DeviceSplitter::FeaFinderAllNode2(void *pStream, int bagId)
 		checkCudaErrors(cudaMemset(eachNewCsrLen, 0, sizeof(uint) * csrManager.curNumCsr * 2));
 		checkCudaErrors(cudaMemset(eachCsrFvalueSparse, (int)-1, sizeof(real) * csrManager.curNumCsr * 2));
 		checkCudaErrors(cudaMemset(csrManager.pEachCsrFeaLen, 0, sizeof(uint) * bagManager.m_numFea * numofSNode));
-		newCsrLenFvalue<<<dimNumofBlockToLoadGD, blockSizeLoadGD, blockSizeLoadGD * sizeof(uint) * 4>>>(
+		dim3 dimNumofBlockToCsrLen;
+		uint blockSizeCsrLen = 1024;
+		dimNumofBlockToCsrLen.x = (numofDenseValue_previous + blockSizeCsrLen - 1) / blockSizeCsrLen;
+		newCsrLenFvalue2<<<dimNumofBlockToCsrLen, blockSizeCsrLen, blockSizeCsrLen * sizeof(uint) * 4>>>(
 											csrManager.preFvalueInsId, numofDenseValue_previous,
 											bagManager.m_pInsIdToNodeIdEachBag + bagId * bagManager.m_numIns,
 											bagManager.m_pPreMaxNid_h[bagId], eachCsrStart,
 											csrManager.getCsrFvalue(), csrManager.curNumCsr,
 											csrManager.pEachCsrFeaStartPos, bagManager.m_pPreNumSN_h[bagId],
-											bagManager.m_numFea, eachCsrFvalueSparse, eachNewCsrLen, csrManager.pEachCsrFeaLen);
-
+											bagManager.m_numFea, csrManager.getCsrKey(), eachNewCsrLen, csrManager.pEachCsrFeaLen);
 		cudaDeviceSynchronize();
+
+		int blockSizeFillFvalue;
+		dim3 dimNumBlockToFillFvalue;
+		conf.ConfKernel(csrManager.curNumCsr, blockSizeFillFvalue, dimNumBlockToFillFvalue);
+		fillFvalue<<<dimNumBlockToFillFvalue, blockSizeFillFvalue>>>(csrManager.getCsrFvalue(), csrManager.curNumCsr, csrManager.pEachCsrFeaStartPos,
+				   bagManager.m_pPreNumSN_h[bagId], bagManager.m_numFea, csrManager.getCsrKey(), eachCsrFvalueSparse);
 
 		//compute number of CSR in each node
 		checkCudaErrors(cudaMemset(csrManager.pEachNodeSizeInCsr, 0, sizeof(uint) * bagManager.m_maxNumSplittable));
