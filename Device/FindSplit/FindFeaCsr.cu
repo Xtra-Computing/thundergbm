@@ -82,7 +82,7 @@ void DeviceSplitter::FeaFinderAllNode2(void *pStream, int bagId)
 		newCsrLenFvalue<<<dimNumofBlockToLoadGD, blockSizeLoadGD, blockSizeLoadGD * sizeof(uint) * 4>>>(
 											csrManager.preFvalueInsId, numofDenseValue_previous,
 											bagManager.m_pInsIdToNodeIdEachBag + bagId * bagManager.m_numIns,
-											bagManager.m_pPreMaxNid_h[bagId], eachCsrStart, csrManager.getCsrLen(),
+											bagManager.m_pPreMaxNid_h[bagId], eachCsrStart,
 											csrManager.getCsrFvalue(), csrManager.curNumCsr,
 											csrManager.pEachCsrFeaStartPos, bagManager.m_pPreNumSN_h[bagId],
 											bagManager.m_numFea, eachCsrFvalueSparse, eachNewCsrLen, csrManager.pEachCsrFeaLen);

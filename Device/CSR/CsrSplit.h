@@ -12,7 +12,7 @@
 
 __global__ void LoadFvalueInsId(int numIns, const int *pOrgFvalueInsId, int *pNewFvalueInsId, const unsigned int *pDstIndexEachFeaValue, int numFeaValue);
 __global__ void newCsrLenFvalue(const int *preFvalueInsId, int numFeaValue, const int *pInsId2Nid, int maxNid,
-						  const uint *eachCsrStart, const uint *eachOldCsrLen, const real *csrFvalue, uint numCsr, const uint *preRoundEachCsrFeaStartPos, const uint preRoundNumSN, int numFea,
+						  const uint *eachCsrStart, const real *csrFvalue, uint numCsr, const uint *preRoundEachCsrFeaStartPos, const uint preRoundNumSN, int numFea,
 						  real *eachCsrFvalueSparse, uint *csrNewLen, uint *eachCsrFeaLen);
 __global__ void map2One(const uint *eachCsrFeaLen, uint numCsr, uint *csrMarker);
 __global__ void loadDenseCsr(const real *eachCsrFvalueSparse, const uint *eachCsrFeaLen, uint numCsr, uint numCsrThisRound,

@@ -32,8 +32,29 @@ __global__ void LoadFvalueInsId(int numIns, const int *pOrgFvalueInsId, int *pNe
 	pNewFvalueInsId[idx] = pOrgFvalueInsId[gTid];
 }
 
+__device__ void computeCsrInfo(uint csrId, const uint *preRoundSegStartPos, const uint preRoundNumSN, int numFea, uint numCsr,
+							  uint &numCsrPrePartsAhead, uint &posInPart, uint &numCsrCurPart, uint &feaId){
+	uint segId;
+	RangeBinarySearch(csrId, preRoundSegStartPos, numFea * preRoundNumSN, segId);
+	uint prePid = segId / numFea;
+	uint prePartStartPos = preRoundSegStartPos[prePid * numFea];
+	feaId = segId % numFea;
+	numCsrPrePartsAhead = prePartStartPos;
+	posInPart = csrId - numCsrPrePartsAhead;//id in the partition
+	ECHECKER(csrId >= numCsrPrePartsAhead);
+	if(prePid == preRoundNumSN - 1)
+		numCsrCurPart = numCsr - prePartStartPos;
+	else
+		numCsrCurPart = preRoundSegStartPos[(prePid + 1) * numFea] - prePartStartPos;
+}
+
+__global__ void fillFvalue(const real *csrFvalue, uint numCsr, const uint *preRoundSegStartPos,
+						   const uint preRoundNumSN, int numFea, real *eachCsrFvalueSparse){
+	uint gTid = GLOBAL_TID();//one thread per csr
+}
+
 __global__ void newCsrLenFvalue(const int *preFvalueInsId, int numFeaValue, const int *pInsId2Nid, int maxNid,
-						  const uint *eachCsrStart, const uint *eachOldCsrLen, const real *csrFvalue, uint numCsr,
+						  const uint *eachCsrStart, const real *csrFvalue, uint numCsr,
 						  const uint *preRoundSegStartPos, const uint preRoundNumSN, int numFea,
 						  real *eachCsrFvalueSparse, uint *csrNewLen, uint *eachNewSegLen){
 	//one thread for one fvalue
@@ -41,7 +62,6 @@ __global__ void newCsrLenFvalue(const int *preFvalueInsId, int numFeaValue, cons
 	extern __shared__ uint csrCounter[];
 	uint *pCsrId2Pid = csrCounter + blockDim.x * 2;
 	__shared__ uint firstCsrId;
-	__shared__ int maxCsrId;
 	uint tid = threadIdx.x;
 	csrCounter[tid] = 0;
 	csrCounter[tid + blockDim.x] = 0;
@@ -77,20 +97,13 @@ __global__ void newCsrLenFvalue(const int *preFvalueInsId, int numFeaValue, cons
 	//compute len of each csr
 	if(csrCounter[tid] == 0 && csrCounter[tid + blockDim.x] == 0)
 		return;
-	uint segId;
-	RangeBinarySearch(firstCsrId + tid, preRoundSegStartPos, numFea * preRoundNumSN, segId);
-	uint prePid = segId / numFea;
-	uint prePartStartPos = preRoundSegStartPos[prePid * numFea];
-	uint feaId = segId % numFea;
-	uint numCsrPrePartsAhead = prePartStartPos;
-	uint posInPart = firstCsrId + tid - numCsrPrePartsAhead;//id in the partition
-	ECHECKER(firstCsrId + tid >= numCsrPrePartsAhead);
-	ECHECKER(firstCsrId + tid >= csrId);
+
 	uint numCsrCurPart;
-	if(prePid == preRoundNumSN - 1)
-		numCsrCurPart = numCsr - prePartStartPos;
-	else
-		numCsrCurPart = preRoundSegStartPos[(prePid + 1) * numFea] - prePartStartPos;
+	uint numCsrPrePartsAhead;
+	uint posInPart;
+	uint feaId;
+	computeCsrInfo(firstCsrId + tid, preRoundSegStartPos, preRoundNumSN, numFea, numCsr,
+				  numCsrPrePartsAhead, posInPart, numCsrCurPart, feaId);
 
 	CONCHECKER(feaId < numFea);
 	if(csrCounter[tid] > 0){
@@ -101,7 +114,6 @@ __global__ void newCsrLenFvalue(const int *preFvalueInsId, int numFeaValue, cons
 			atomicAdd(eachNewSegLen + pCsrId2Pid[tid] * numFea + feaId, 1);
 		}
 	}
-	CONCHECKER(eachOldCsrLen[firstCsrId + tid] >= csrCounter[tid] + csrCounter[tid + blockDim.x]);
 	if(csrCounter[tid + blockDim.x] > 0){
 		uint orgValue = atomicAdd(csrNewLen + numCsrPrePartsAhead * 2 + numCsrCurPart + posInPart, csrCounter[tid + blockDim.x]);
 		if(orgValue == 0 && csrCounter[tid + blockDim.x] > 0){

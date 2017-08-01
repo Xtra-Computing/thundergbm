@@ -54,6 +54,14 @@ case $1 in
 		BAG=${BAG}"1"
         FILENAME=${DATASET_DIR}/"E2006.train" #150360 features and 16087 instances
         ;;
+	insurance)
+		GAMMA=${GAMMA}"1"
+        D=${D}"5"
+		NUMTREE=${NUMTREE}"1"
+		BAG=${BAG}"1"
+        FILENAME=${DATASET_DIR}/"ins2.libsvm" #features and 11M instances
+        ;;
+
     log1p)
         GAMMA=${GAMMA}"1"
         D=${D}"3"
