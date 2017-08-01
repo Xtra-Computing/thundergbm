@@ -80,16 +80,40 @@ void DeviceSplitter::FeaFinderAllNode2(void *pStream, int bagId)
 		checkCudaErrors(cudaMemset(eachCsrFvalueSparse, (int)-1, sizeof(real) * csrManager.curNumCsr * 2));
 		checkCudaErrors(cudaMemset(csrManager.pEachCsrFeaLen, 0, sizeof(uint) * bagManager.m_numFea * numofSNode));
 		dim3 dimNumofBlockToCsrLen;
-		uint blockSizeCsrLen = 1024;
+		uint blockSizeCsrLen = 64;
 		dimNumofBlockToCsrLen.x = (numofDenseValue_previous + blockSizeCsrLen - 1) / blockSizeCsrLen;
-		newCsrLenFvalue2<<<dimNumofBlockToCsrLen, blockSizeCsrLen, blockSizeCsrLen * sizeof(uint) * 4>>>(
+		newCsrLenFvalue<<<dimNumofBlockToCsrLen, blockSizeCsrLen, blockSizeCsrLen * sizeof(uint) * 4>>>(
 											csrManager.preFvalueInsId, numofDenseValue_previous,
 											bagManager.m_pInsIdToNodeIdEachBag + bagId * bagManager.m_numIns,
 											bagManager.m_pPreMaxNid_h[bagId], eachCsrStart,
 											csrManager.getCsrFvalue(), csrManager.curNumCsr,
 											csrManager.pEachCsrFeaStartPos, bagManager.m_pPreNumSN_h[bagId],
 											bagManager.m_numFea, csrManager.getCsrKey(), eachNewCsrLen, csrManager.pEachCsrFeaLen);
+
+		uint *csrLen_dh, *csrFeaLen_hd;
+		checkCudaErrors(cudaMallocHost((void**)&csrLen_dh, sizeof(uint) * csrManager.curNumCsr * 2));
+		checkCudaErrors(cudaMallocHost((void**)&csrFeaLen_hd, sizeof(uint) * bagManager.m_numFea * numofSNode));
+		newCsrLenFvalue2<<<dimNumofBlockToCsrLen, blockSizeCsrLen, blockSizeCsrLen * sizeof(uint) * 4>>>(
+											csrManager.preFvalueInsId, numofDenseValue_previous,
+											bagManager.m_pInsIdToNodeIdEachBag + bagId * bagManager.m_numIns,
+											bagManager.m_pPreMaxNid_h[bagId], eachCsrStart,
+											csrManager.getCsrFvalue(), csrManager.curNumCsr,
+											csrManager.pEachCsrFeaStartPos, bagManager.m_pPreNumSN_h[bagId],
+											bagManager.m_numFea, csrManager.getCsrKey(), csrLen_dh, csrFeaLen_hd);
 		cudaDeviceSynchronize();
+		uint *csrLen_h = new uint[csrManager.curNumCsr * 2];
+		uint *csrFeaLen_h = new uint[bagManager.m_numFea * numofSNode];
+		checkCudaErrors(cudaMemcpy(csrLen_h, eachNewCsrLen, sizeof(uint) * csrManager.curNumCsr * 2, cudaMemcpyDeviceToHost));
+		checkCudaErrors(cudaMemcpy(csrFeaLen_h, csrManager.pEachCsrFeaLen, sizeof(uint) * bagManager.m_numFea * numofSNode, cudaMemcpyDeviceToHost));
+		for(int i = 0; i < csrManager.curNumCsr * 2; i++)
+		{
+			if(csrLen_h[i] != csrLen_dh[i])
+				printf("l1 =%u, l2 =%u, i=%d\n", csrLen_h[i], csrLen_dh[i], i);
+		}
+		for(int i = 0; i < bagManager.m_numFea * numofSNode; i++){
+			if(csrFeaLen_h[i] != csrFeaLen_hd[i])
+				printf("fl1=%u, fl2=%u, i=%d\n", csrFeaLen_h[i], csrFeaLen_hd[i], i);
+		}
 
 		int blockSizeFillFvalue;
 		dim3 dimNumBlockToFillFvalue;

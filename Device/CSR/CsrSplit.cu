@@ -79,8 +79,8 @@ __global__ void newCsrLenFvalue(const int *preFvalueInsId, int numFeaValue, cons
 	pCsrId2Pid[tid] = LARGE_4B_UINT;
 	pCsrId2Pid[tid + blockDim.x] = LARGE_4B_UINT;
 	__syncthreads();
-	if(gTid >= numFeaValue)//thread has nothing to do
-		return;
+	if(gTid < numFeaValue)//thread has nothing to do
+	{		//return;
 	uint csrId;
 	RangeBinarySearch(gTid, eachCsrStart, numCsr, csrId);
 	CONCHECKER(csrId < numCsr);
@@ -103,7 +103,7 @@ __global__ void newCsrLenFvalue(const int *preFvalueInsId, int numFeaValue, cons
 			pCsrId2Pid[counterPosInShared + blockDim.x] = pid;
 		}
 	}
-
+}
 	__syncthreads();
 	//compute len of each csr
 	if(csrCounter[tid] == 0 && csrCounter[tid + blockDim.x] == 0)
@@ -172,6 +172,8 @@ __global__ void newCsrLenFvalue2(const int *preFvalueInsId, int numFeaValue, con
 				pCsrId2Pid[counterPosInShared + blockDim.x] = pid;
 			}
 		}
+	} else {
+		__syncthreads();
 	}
 	__syncthreads();
 	//compute len of each csr
@@ -194,6 +196,7 @@ __global__ void newCsrLenFvalue2(const int *preFvalueInsId, int numFeaValue, con
 		}
 		localCsrId += (blockDim.x/2);
 	}
+	__syncthreads();
 
 }
 
