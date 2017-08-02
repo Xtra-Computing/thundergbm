@@ -29,7 +29,7 @@ __global__ void LocalReductionEachSeg(const uint *pEachSegSize, const uint *pEac
 	uint tid0 = (blockIdx.y * gridDim.x + blockIdx.x) * blockDim.x;
 	if(tid0 >= numValueThisNode){
 		pLocalMax[blockId] = 0;
-		pLocalMaxKey[blockId] = -1;
+		pLocalMaxKey[blockId] = LARGE_4B_UINT;
 		return;
 	}
 
@@ -40,7 +40,7 @@ __global__ void LocalReductionEachSeg(const uint *pEachSegSize, const uint *pEac
 	pnBetterGainKey[localTid] = -1;
 	if(localTid == 0){//initialise local best value
 		pLocalMax[blockId] = FLT_MAX;
-		pLocalMaxKey[blockId] = -1;
+		pLocalMaxKey[blockId] = LARGE_4B_UINT;
 	}
 
 	uint tidForEachNode = tid0 + threadIdx.x;

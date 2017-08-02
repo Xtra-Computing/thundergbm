@@ -34,8 +34,7 @@ __global__ void LoadFvalueInsId(int numIns, const int *pOrgFvalueInsId, int *pNe
 
 __device__ void computeCsrInfo(uint csrId, const uint *preRoundSegStartPos, const uint preRoundNumSN, int numFea, uint numCsr, const uint *csrId2SegId,
 							  uint &numCsrPrePartsAhead, uint &posInPart, uint &numCsrCurPart, uint &feaId){
-	uint segId;
-	RangeBinarySearch(csrId, preRoundSegStartPos, numFea * preRoundNumSN, segId);
+	uint segId = csrId2SegId[csrId];
 	uint prePid = segId / numFea;
 	uint prePartStartPos = preRoundSegStartPos[prePid * numFea];
 	feaId = segId % numFea;
@@ -179,8 +178,10 @@ __global__ void newCsrLenFvalue2(const int *preFvalueInsId, int numFeaValue, con
 	//compute len of each csr
 	uint localCsrId = tid / 2;
 	int offsetFlag = tid % 2;
+	uint offset = blockDim.x * offsetFlag;
 	while(localCsrId < blockDim.x){
-		if(csrCounter[localCsrId + blockDim.x * offsetFlag] > 0){
+		uint counterPos = localCsrId + offset;
+		if(csrCounter[counterPos] > 0){
 			uint numCsrCurPart;
 			uint numCsrPrePartsAhead;
 			uint posInPart;
@@ -188,16 +189,14 @@ __global__ void newCsrLenFvalue2(const int *preFvalueInsId, int numFeaValue, con
 			computeCsrInfo(firstCsrId + localCsrId, preRoundSegStartPos, preRoundNumSN, numFea, numCsr, csrId2SegId,
 						  numCsrPrePartsAhead, posInPart, numCsrCurPart, feaId);
 
-			uint orgValue = atomicAdd(csrNewLen + numCsrPrePartsAhead * 2 + numCsrCurPart * offsetFlag + posInPart, csrCounter[localCsrId + blockDim.x * offsetFlag]);
+			uint orgValue = atomicAdd(csrNewLen + numCsrPrePartsAhead * 2 + numCsrCurPart * offsetFlag + posInPart, csrCounter[counterPos]);
 			if(orgValue == 0){
-				CONCHECKER(pCsrId2Pid[localCsrId + blockDim.x * offsetFlag] < 256);
-				atomicAdd(eachNewSegLen + pCsrId2Pid[localCsrId + blockDim.x * offsetFlag] * numFea + feaId, 1);
+				CONCHECKER(pCsrId2Pid[counterPos] < 256);
+				atomicAdd(eachNewSegLen + pCsrId2Pid[counterPos] * numFea + feaId, 1);
 			}
 		}
 		localCsrId += (blockDim.x/2);
 	}
-	__syncthreads();
-
 }
 
 __global__ void map2One(const uint *eachCsrLen, uint numCsr, uint *csrMarker){
