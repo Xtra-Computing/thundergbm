@@ -169,8 +169,8 @@ __global__ void FindSplitInfo(const uint *pEachFeaStartPosEachNode, const T *pEa
 
 	T key = pnGlobalBestGainKey[pid];//position in the dense array
 	//find best feature id
-	uint bestFeaId = numFea;
-	RangeBinarySearch(key, pEachFeaStartPosEachNode + pid * numFea, numFea, bestFeaId);
+	uint segId = pnKey[key];
+	uint bestFeaId = segId % numFea;
 	CONCHECKER(bestFeaId < numFea);
 
 
@@ -192,7 +192,6 @@ __global__ void FindSplitInfo(const uint *pEachFeaStartPosEachNode, const T *pEa
 		real parentGD = snNodeStat[snPos].sum_gd;
 		real parentHess = snNodeStat[snPos].sum_hess;
 
-		uint segId = pnKey[key];
 		uint segStartPos = pEachFeaStartPosEachNode[segId];
 		T segLen = pEachFeaLenEachNode[segId];
 		uint lastFvaluePos = segStartPos + segLen - 1;
