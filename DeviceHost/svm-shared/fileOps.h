@@ -43,11 +43,11 @@ public:
 	 * @return: the starting position of this Hessian row
 	 */
 	template<class T>
-	static int WriteToFile(ofstream &writeOut, T *pContent, int numBytes)
+	static int WriteToFile(ofstream &writeOut, T *pContent, uint numBytes)
 	{
 		if(!writeOut.is_open() || pContent == NULL || numBytes <= 0)
 		{
-			cerr << "write content to file failed: input param invalid" << endl;
+			printf("write content to file failed: fileOpen?=%d, pContent=%d, numofByte=%d\n", writeOut.is_open(), pContent, numBytes);
 			return -1;
 		}
 

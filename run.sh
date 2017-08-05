@@ -19,81 +19,77 @@ BAG="-b "
 #gamma for regularisation 
 GAMMA="-g "
 #depth of trees
-D="-d "
+D="-d 8"
 #number of trees
-NUMTREE="-n "
+NUMTREE="-n 40"
 #use CSR compression: 0 for not using CSR; 1 for using CSR.
 CSR="-c 1"
 #file name (must appear as the last argument)
 case $1 in
 	abalone)
 		GAMMA=${GAMMA}"1"
-		D=${D}"3"
-		NUMTREE=${NUMTREE}"2"
 		BAG=${BAG}"1"
 		FILENAME=${DATASET_DIR}/"abalone.txt" #8 features and 4177 instances
 		;;
     cadata)
         GAMMA=${GAMMA}"1"
-        D=${D}"5"
-		NUMTREE=${NUMTREE}"1"
 		BAG=${BAG}"1"
         FILENAME=${DATASET_DIR}/"cadata" #8 features and 20640 instances
         ;;
+	covtype)
+		GAMMA=${GAMMA}"1"
+		BAG=${BAG}"1"
+        FILENAME=${DATASET_DIR}/"covtype" #90 features and 41M instances
+		;;
     yp)
 	   	GAMMA=${GAMMA}"1"
-        D=${D}"8"
-		NUMTREE=${NUMTREE}"4"
 		BAG=${BAG}"1"
         FILENAME=${DATASET_DIR}/"YearPredictionMSD" #90 features and 41M instances
         ;;
     e2006)
 		GAMMA=${GAMMA}"1"
-        D=${D}"5"
-		NUMTREE=${NUMTREE}"1"
 		BAG=${BAG}"1"
         FILENAME=${DATASET_DIR}/"E2006.train" #150360 features and 16087 instances
         ;;
 	insurance)
 		GAMMA=${GAMMA}"1"
-        D=${D}"5"
-		NUMTREE=${NUMTREE}"1"
 		BAG=${BAG}"1"
-        FILENAME=${DATASET_DIR}/"ins2.libsvm" #features and 11M instances
+        FILENAME=${DATASET_DIR}/"ins.libsvm" #features and 11M instances
         ;;
 
     log1p)
         GAMMA=${GAMMA}"1"
-        D=${D}"3"
-    	NUMTREE=${NUMTREE}"1"
 		BAG=${BAG}"1"
 	    FILENAME=${DATASET_DIR}/"log1p.E2006.train" #4,272,227 features and 16,087 instances
         ;;
     3d)
         GAMMA=${GAMMA}"1"
-        D=${D}"4"
-		NUMTREE=${NUMTREE}"10"
 		BAG=${BAG}"1"
         FILENAME=${DATASET_DIR}/"3d_spatial_network.txt"
         ;;
     higgs)
         GAMMA=${GAMMA}"1"
-        D=${D}"4"
-		NUMTREE=${NUMTREE}"4"
 		BAG=${BAG}"1"
         FILENAME=${DATASET_DIR}/"HIGGS"
         ;;
     real-sim)
 		GAMMA=${GAMMA}"1"
-        D=${D}"8"
-		NUMTREE=${NUMTREE}"1"
 		BAG=${BAG}"1"
         FILENAME=${DATASET_DIR}/"real-sim" #
+        ;;
+	susy)
+		GAMMA=${GAMMA}"1"
+		BAG=${BAG}"1"
+        FILENAME=${DATASET_DIR}/"SUSY"
+        ;;
+	webspam)
+		GAMMA=${GAMMA}"1"
+		BAG=${BAG}"1"
+        FILENAME=${DATASET_DIR}/"webspam_wc_normalized_trigram.svm"
         ;;
     *)
         echo "undefined dataset, use GAMMA=1, D=8"
         GAMMA=${GAMMA}"1"
-        D=${D}"8"
         FILENAME=${DATASET_DIR}/$1
 esac
 ###options

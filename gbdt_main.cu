@@ -63,7 +63,7 @@ int main(int argc, char *argv[])
 	int maxNumofNodePerTree = pow(2, nMaxDepth + 1) - 1;
 	int maxNumofSplittableNode = pow(2, nMaxDepth - 1);
 	int numInternalNode = pow(2, nMaxDepth) - 1;
-	int maxNumofUsedFeature = numInternalNode;
+	int maxNumofUsedFeature = numInternalNode * 5;
 
 	DevicePredictor pred;
 
@@ -99,6 +99,16 @@ int main(int argc, char *argv[])
 	if(maxNumofUsedFeature > numFea)//maximum number of used features of a tree
 		maxNumofUsedFeature = numFea;
 
+	//decide if want to use csr
+	if(numFeaValue > pow(2, 28) || (numFeaValue > pow(2, 20) && numFea < numIns / 1000)){// || ){//larger than 1GB
+		CsrCompressor::bUseCsr = true;
+cerr << "use CSR" << endl;
+	}
+	else{
+		CsrCompressor::bUseCsr = false;
+cerr << "use non-CSR" << endl;
+	}
+
 	//fill the bags
 	BagManager bagManager;
 	bagManager.InitBagManager(numIns, numFea, nNumofTree, numBag, maxNumofSplittableNode,
@@ -124,6 +134,7 @@ int main(int argc, char *argv[])
 
 	if(bBufferFileExist == false)
 	{
+		printf("write sorted featues\n");
 		KeyValue::VecToArray(trainer.splitter->m_vvFeaInxPair, pInsId, pdValue, pEachFeaLen, plFeaStartPos);
 		//store sparse instances to GPU memory for prediction
 		KeyValue::VecToArray(trainer.m_vvInsSparse, pFeaId, pfFeaValue, pNumofFea, plInsStartPos);

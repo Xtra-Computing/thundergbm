@@ -55,6 +55,7 @@ void BagCsrManager::reserveSpace(){
 	checkCudaErrors(cudaFree(pCsrGain));
 	checkCudaErrors(cudaFree(pCsrKey));
 	//reserve larger memory
+	printf("max num of csr is %u\n", reservedMaxNumCsr);
 	checkCudaErrors(cudaMalloc((void**)&pCsrLen, sizeof(uint) * reservedMaxNumCsr));
 	checkCudaErrors(cudaMalloc((void**)&pCsrGD, sizeof(double) * reservedMaxNumCsr));
 	checkCudaErrors(cudaMalloc((void**)&pCsrHess, sizeof(real) * reservedMaxNumCsr));

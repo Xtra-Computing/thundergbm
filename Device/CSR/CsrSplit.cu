@@ -48,7 +48,8 @@ __device__ void computeCsrInfo(uint csrId, const uint *preRoundSegStartPos, cons
 }
 
 __global__ void fillFvalue(const real *csrFvalue, uint numCsr, const uint *preRoundSegStartPos,
-						   const uint preRoundNumSN, int numFea, const uint *csrId2SegId, real *eachCsrFvalueSparse){
+						   const uint preRoundNumSN, int numFea, const uint *csrId2SegId,
+						   real *eachCsrFvalueSparse){
 	uint csrId = GLOBAL_TID();//one thread per csr
 	if(csrId >= numCsr)
 		return;
@@ -59,8 +60,10 @@ __global__ void fillFvalue(const real *csrFvalue, uint numCsr, const uint *preRo
 	computeCsrInfo(csrId, preRoundSegStartPos, preRoundNumSN, numFea, numCsr, csrId2SegId,
 				  numCsrPrePartsAhead, posInPart, numCsrCurPart, feaId);
 
-	eachCsrFvalueSparse[numCsrPrePartsAhead * 2 + posInPart] = csrFvalue[csrId];
-	eachCsrFvalueSparse[numCsrPrePartsAhead * 2 + numCsrCurPart + posInPart] = csrFvalue[csrId];
+	uint basePos = numCsrPrePartsAhead * 2 + posInPart;
+	real temp = csrFvalue[csrId];
+	eachCsrFvalueSparse[basePos] = temp;
+	eachCsrFvalueSparse[basePos + numCsrCurPart] = temp;
 }
 
 __global__ void newCsrLenFvalue(const int *preFvalueInsId, int numFeaValue, const int *pInsId2Nid, int maxNid,
@@ -161,15 +164,9 @@ __global__ void newCsrLenFvalue2(const int *preFvalueInsId, int numFeaValue, con
 		int insId = preFvalueInsId[gTid];//insId is not -1, as preFvalueInsId is dense.
 		int pid = pInsId2Nid[insId] - maxNid - 1;//mapping to new node
 		if(pid >= 0){//not leaf node
-			uint counterPosInShared = csrId - firstCsrId;
-			if(pid % 2 == 0){
-				atomicAdd(csrCounter + counterPosInShared, 1);
-				pCsrId2Pid[counterPosInShared] = pid;
-			}
-			else{
-				atomicAdd(csrCounter + blockDim.x + counterPosInShared, 1);
-				pCsrId2Pid[counterPosInShared + blockDim.x] = pid;
-			}
+			uint counterOffset = blockDim.x * (pid % 2) + csrId - firstCsrId;
+			atomicAdd(csrCounter + counterOffset, 1);
+			pCsrId2Pid[counterOffset] = pid;
 		}
 	} else {
 		__syncthreads();

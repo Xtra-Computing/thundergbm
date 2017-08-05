@@ -12,7 +12,8 @@
 
 __global__ void LoadFvalueInsId(int numIns, const int *pOrgFvalueInsId, int *pNewFvalueInsId, const unsigned int *pDstIndexEachFeaValue, int numFeaValue);
 __global__ void fillFvalue(const real *csrFvalue, uint numCsr, const uint *preRoundSegStartPos,
-						   const uint preRoundNumSN, int numFea, const uint *csrId2SegId, real *eachCsrFvalueSparse);
+						   const uint preRoundNumSN, int numFea, const uint *csrId2SegId,
+						   real *eachCsrFvalueSparse);
 __global__ void newCsrLenFvalue(const int *preFvalueInsId, int numFeaValue, const int *pInsId2Nid, int maxNid,
 						  const uint *eachCsrStart, const real *csrFvalue, uint numCsr, const uint *preRoundEachCsrFeaStartPos, const uint preRoundNumSN, int numFea,
 						  const uint *csrId2SegId, uint *csrNewLen, uint *eachCsrFeaLen);
