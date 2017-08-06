@@ -73,25 +73,25 @@ void GBDTGPUMemManager::mallocForTestingIns(int nTotalNumofValue, int numofIns, 
 	m_numofIns = numofIns;
 	m_numofFea = numofFeature;
 	//memory for instances (key on instance id); for prediction
-	checkCudaErrors(cudaMallocManaged((void**)&m_pDFeaId, sizeof(int) * m_numFeaValue));
-	checkCudaErrors(cudaMallocManaged((void**)&m_pdDInsValue, sizeof(real) * m_numFeaValue));
-	checkCudaErrors(cudaMallocManaged((void**)&m_pDNumofFea, sizeof(int) * m_numofIns));
-	checkCudaErrors(cudaMallocManaged((void**)&m_pInsStartPos, sizeof(uint) * m_numofIns));
+	checkCudaErrors(cudaMallocHost((void**)&m_pDFeaId, sizeof(int) * m_numFeaValue));
+	checkCudaErrors(cudaMallocHost((void**)&m_pdDInsValue, sizeof(real) * m_numFeaValue));
+	checkCudaErrors(cudaMallocHost((void**)&m_pDNumofFea, sizeof(int) * m_numofIns));
+	checkCudaErrors(cudaMallocHost((void**)&m_pInsStartPos, sizeof(uint) * m_numofIns));
 
 	//for bags
-	checkCudaErrors(cudaMallocManaged((void**)&m_pdDenseInsEachBag, sizeof(real) * m_maxUsedFeaInATree * m_numofIns * numBag));
-	checkCudaErrors(cudaMallocManaged((void**)&m_pHashFeaIdToDenseInsPosBag, sizeof(int) * m_maxUsedFeaInATree * numBag));
+	checkCudaErrors(cudaMallocHost((void**)&m_pdDenseInsEachBag, sizeof(real) * m_maxUsedFeaInATree * m_numofIns * numBag));
+	checkCudaErrors(cudaMallocHost((void**)&m_pHashFeaIdToDenseInsPosBag, sizeof(int) * m_maxUsedFeaInATree * numBag));
 	checkCudaErrors(cudaMemset(m_pHashFeaIdToDenseInsPosBag, -1, sizeof(int) * m_maxUsedFeaInATree * numBag));
-	checkCudaErrors(cudaMallocManaged((void**)&m_pSortedUsedFeaIdBag, sizeof(int) * m_maxUsedFeaInATree * numBag));
-	checkCudaErrors(cudaMallocManaged((void**)&m_pAllTreeEachBag, sizeof(TreeNode) * numTreeABag * maxNumNode * numBag));
+	checkCudaErrors(cudaMallocHost((void**)&m_pSortedUsedFeaIdBag, sizeof(int) * m_maxUsedFeaInATree * numBag));
+	checkCudaErrors(cudaMallocHost((void**)&m_pAllTreeEachBag, sizeof(TreeNode) * numTreeABag * maxNumNode * numBag));
 	//memory set for all tree nodes
 	TreeNode *pAllTreeNodeHost = new TreeNode[numTreeABag * maxNumNode * numBag];
 	checkCudaErrors(cudaMemcpy(m_pAllTreeEachBag, pAllTreeNodeHost, sizeof(TreeNode) * numTreeABag * maxNumNode * numBag, cudaMemcpyHostToDevice));
 	delete[] pAllTreeNodeHost;
-	checkCudaErrors(cudaMallocManaged((void**)&m_pStartPosOfEachTreeEachBag, sizeof(int) * numTreeABag * numBag));
+	checkCudaErrors(cudaMallocHost((void**)&m_pStartPosOfEachTreeEachBag, sizeof(int) * numTreeABag * numBag));
 	checkCudaErrors(cudaMemset(m_pStartPosOfEachTreeEachBag, -1, sizeof(int) * numTreeABag * numBag));
 	//for individual tree
-	checkCudaErrors(cudaMallocManaged((void**)&m_pNumofNodeEachTreeEachBag, sizeof(int) * numTreeABag * numBag));
+	checkCudaErrors(cudaMallocHost((void**)&m_pNumofNodeEachTreeEachBag, sizeof(int) * numTreeABag * numBag));
 	checkCudaErrors(cudaMemset(m_pNumofNodeEachTreeEachBag, 0, sizeof(int) * numTreeABag * numBag));
 
 	m_pNumofTreeLearntEachBag_h = new int[numBag];

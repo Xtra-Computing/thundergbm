@@ -128,7 +128,7 @@ void BagManager::InitBagManager(int numIns, int numFea, int numTree, int numBag,
 	AllocMem();
 
 	//initialise device memory
-	cudaMemcpy(m_pInsWeight_d, m_pInsWeight, sizeof(int) * m_numIns * m_numBag, cudaMemcpyHostToDevice);
+//	cudaMemcpy(m_pInsWeight_d, m_pInsWeight, sizeof(int) * m_numIns * m_numBag, cudaMemcpyHostToDevice);
 	cudaMemset(m_pInsIdToNodeIdEachBag, 0, sizeof(int) * m_numIns * m_numBag);
 }
 
@@ -140,7 +140,7 @@ void BagManager::AllocMem()
 	//instance information for each bag
 	PROCESS_ERROR(m_numIns > 0 && m_numBag > 0);
 	checkCudaErrors(cudaMalloc((void**)&m_pInsIdToNodeIdEachBag, sizeof(int) * m_numIns * m_numBag));
-	checkCudaErrors(cudaMalloc((void**)&m_pInsWeight_d, sizeof(int) * m_numIns * m_numBag));
+//	checkCudaErrors(cudaMalloc((void**)&m_pInsWeight_d, sizeof(int) * m_numIns * m_numBag));
 
 	/******* memory for find split ******/
 	//predicted value, gradient, hessian
@@ -196,7 +196,7 @@ void BagManager::AllocMem()
 void BagManager::FreeMem()
 {
 	cudaFree(m_pInsIdToNodeIdEachBag);
-	cudaFree(m_pInsWeight_d);
+//	cudaFree(m_pInsWeight_d);
 	cudaFree(m_pTargetValueEachBag);
 	cudaFree(m_pInsGradEachBag);
 	cudaFree(m_pInsHessEachBag);

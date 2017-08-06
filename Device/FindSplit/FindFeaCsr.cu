@@ -64,6 +64,7 @@ void DeviceSplitter::FeaFinderAllNode2(void *pStream, int bagId)
 		uint *pTempNumFvalueEachNode = bagManager.m_pNumFvalueEachNodeEachBag_d + bagId * bagManager.m_maxNumSplittable;
 
 		uint *pMaxNumFvalueOneNode = thrust::max_element(thrust::device, pTempNumFvalueEachNode, pTempNumFvalueEachNode + numofSNode);
+		cudaDeviceSynchronize();
 		checkCudaErrors(cudaMemcpy(&maxNumFeaValueOneNode, pMaxNumFvalueOneNode, sizeof(int), cudaMemcpyDeviceToHost));
 		indexComp.FreeMem();
 		PROCESS_ERROR(bagManager.m_numFeaValue >= csrManager.curNumCsr);
@@ -123,15 +124,10 @@ void DeviceSplitter::FeaFinderAllNode2(void *pStream, int bagId)
 				csrManager.getMutableCsrFvalue(),
 				csrManager.getMutableCsrLen());
 		GETERROR("after loadDenseCsr");
-		cudaDeviceSynchronize();
-
 		thrust::exclusive_scan(thrust::device, csrManager.pEachCsrFeaLen, csrManager.pEachCsrFeaLen + numofSNode * bagManager.m_numFea, csrManager.pEachCsrFeaStartPos);
 		checkCudaErrors(cudaMemset(csrManager.preFvalueInsId, -1, sizeof(int) * bagManager.m_numFeaValue));//for testing
 		LoadFvalueInsId<<<dimNumofBlockToLoadGD, blockSizeLoadGD>>>(
 						bagManager.m_numIns, manager.m_pDInsId, csrManager.preFvalueInsId, bagManager.m_pIndicesEachBag_d, bagManager.m_numFeaValue);
-		cudaDeviceSynchronize();
-
-
 		GETERROR("after LoadFvalueInsId");
 		thrust::exclusive_scan(thrust::device, csrManager.pEachNodeSizeInCsr, csrManager.pEachNodeSizeInCsr + numofSNode, csrManager.pEachCsrNodeStartPos);//newly added#########
 		numofDenseValue_previous = thrust::reduce(thrust::device, pTempNumFvalueEachNode, pTempNumFvalueEachNode + numofSNode);//number of dense fvalues.
