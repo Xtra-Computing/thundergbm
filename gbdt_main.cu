@@ -277,7 +277,7 @@ cerr << "total training time (-extra idx comp) = " << total_train - total_copy_i
 	cout << "Done" << endl;
 
 	manager.freeMemForTrainingIns();
-	manager.freeMemForTestingIns();
+//	manager.freeMemForTestingIns();
 
 	//free host memory
 	delete []pInsId;
