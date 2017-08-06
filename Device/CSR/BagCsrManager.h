@@ -10,6 +10,12 @@
 
 #include "../../SharedUtility/DataType.h"
 
+struct MemVector{
+	void *addr = NULL;
+	uint size = 0;
+	uint reservedSize = 0;
+};
+
 class BagCsrManager{
 public:
 	static uint *pEachCsrFeaStartPos;
@@ -20,14 +26,15 @@ public:
 	static uint curNumCsr;
 private:
 	static uint reservedMaxNumCsr;
-	static uint *pCsrLen;
-	static double *pCsrGD;
-	static real *pCsrHess;
-	static real *pCsrFvalue;
+	static MemVector csrLen;
+	static MemVector csrGD;
+	static MemVector csrHess;
+	static MemVector csrGain;
+	static MemVector pCsrKey;
 	static bool *pCsrDefault2Right;
-	static real *pCsrGain;
-	static uint *pCsrKey;
-	void reserveSpace();
+	static real *pCsrFvalue;
+	void reserveCsrSpace();
+	void reserveSpace(MemVector &vec, uint newSize, uint numByteEachValue);
 
 public:
 	BagCsrManager(int numFea, int maxNumSN, uint totalNumFeaValue);
@@ -38,6 +45,17 @@ public:
 	real *getMutableCsrGain();
 	uint *getMutableCsrKey();
 	bool *getMutableDefault2Right();
+
+	uint *getMutableNewCsrLen();
+	real *getMutableCsrFvalueSparse();
+	uint *getMutableCsrStart();
+	uint *getMutableCsrMarker();
+	uint *getMutableCsrStartCurRound();
+	const uint *getNewCsrLen();
+	const real *getCsrFvalueSparse();
+	const uint *getCsrStart();
+	const uint *getCsrMarker();
+	const uint *getCsrStartCurRound();
 
 	const uint *getCsrLen();
 	const double *getCsrGD();

@@ -12,6 +12,9 @@ declare -a arr=("abalone"
 				"3d")
 for i in "${arr[@]}"
 do 
-	sh ./run.sh $i
+	if [ "$1" == "l" ]
+	then	sh ./run.sh $i
+	else	sh ./small-run.sh $i
+	fi
 	echo "############################## end of $i"
 done

@@ -16,28 +16,23 @@ uint *BagCsrManager::pEachNodeSizeInCsr = NULL;
 int *BagCsrManager::preFvalueInsId = NULL;
 uint BagCsrManager::curNumCsr = 0;
 uint BagCsrManager::reservedMaxNumCsr = pow(2, 20);
-uint *BagCsrManager::pCsrLen = NULL;
-double *BagCsrManager::pCsrGD = NULL;
-real *BagCsrManager::pCsrHess = NULL;
+MemVector BagCsrManager::csrLen;//shared with pCsrStart
+MemVector BagCsrManager::csrGD; //shared with pNewCsrLen
+MemVector BagCsrManager::csrHess; //shared with pCsrFvalueSparse
+MemVector BagCsrManager::csrGain; //shared with csrMarker
+MemVector BagCsrManager::pCsrKey; //shared with pCsrStartCurRound
 real *BagCsrManager::pCsrFvalue = NULL;
 bool *BagCsrManager::pCsrDefault2Right = NULL;
-real *BagCsrManager::pCsrGain = NULL;
-uint *BagCsrManager::pCsrKey = NULL;
 
 BagCsrManager::BagCsrManager(int numFea, int maxNumSN, uint totalNumFeaValue){
-	if(pCsrLen != NULL)//already reserved memory
+	if(pCsrFvalue != NULL)//already reserved memory
 		return;
 
 	curNumCsr = 0;
-	reservedMaxNumCsr = pow(2, 20);//1M
-	checkCudaErrors(cudaMalloc((void**)&pCsrLen, sizeof(uint) * reservedMaxNumCsr));
-	checkCudaErrors(cudaMalloc((void**)&pCsrGD, sizeof(double) * reservedMaxNumCsr));
-	checkCudaErrors(cudaMalloc((void**)&pCsrHess, sizeof(real) * reservedMaxNumCsr));
+	reservedMaxNumCsr = totalNumFeaValue/40;//40 times compression ratio
+
 	checkCudaErrors(cudaMalloc((void**)&pCsrFvalue, sizeof(real) * reservedMaxNumCsr));
 	checkCudaErrors(cudaMalloc((void**)&pCsrDefault2Right, sizeof(bool) * reservedMaxNumCsr));
-	checkCudaErrors(cudaMalloc((void**)&pCsrGain, sizeof(real) * reservedMaxNumCsr));
-	checkCudaErrors(cudaMalloc((void**)&pCsrKey, sizeof(uint) * reservedMaxNumCsr));
-
 	checkCudaErrors(cudaMalloc((void**)&pEachCsrFeaStartPos, sizeof(uint) * numFea * maxNumSN));
 	checkCudaErrors(cudaMalloc((void**)&pEachCsrFeaLen, sizeof(uint) * numFea * maxNumSN));
 	checkCudaErrors(cudaMalloc((void**)&pEachCsrNodeStartPos, sizeof(uint) * maxNumSN));
@@ -46,114 +41,147 @@ BagCsrManager::BagCsrManager(int numFea, int maxNumSN, uint totalNumFeaValue){
 	checkCudaErrors(cudaMalloc((void**)&preFvalueInsId, sizeof(int) * totalNumFeaValue));
 }
 
-void BagCsrManager::reserveSpace(){
-	checkCudaErrors(cudaFree(pCsrLen));
-	checkCudaErrors(cudaFree(pCsrGD));
-	checkCudaErrors(cudaFree(pCsrHess));
+void BagCsrManager::reserveCsrSpace(){
 	checkCudaErrors(cudaFree(pCsrFvalue));
 	checkCudaErrors(cudaFree(pCsrDefault2Right));
-	checkCudaErrors(cudaFree(pCsrGain));
-	checkCudaErrors(cudaFree(pCsrKey));
+
 	//reserve larger memory
 	printf("max num of csr is %u\n", reservedMaxNumCsr);
-	checkCudaErrors(cudaMalloc((void**)&pCsrLen, sizeof(uint) * reservedMaxNumCsr));
-	checkCudaErrors(cudaMalloc((void**)&pCsrGD, sizeof(double) * reservedMaxNumCsr));
-	checkCudaErrors(cudaMalloc((void**)&pCsrHess, sizeof(real) * reservedMaxNumCsr));
 	checkCudaErrors(cudaMalloc((void**) &pCsrFvalue, sizeof(real) * reservedMaxNumCsr));
 	checkCudaErrors(cudaMalloc((void**)&pCsrDefault2Right, sizeof(bool) * reservedMaxNumCsr));
-	checkCudaErrors(cudaMalloc((void**)&pCsrGain, sizeof(real) * reservedMaxNumCsr));
-	checkCudaErrors(cudaMalloc((void**)&pCsrKey, sizeof(uint) * reservedMaxNumCsr));
 }
 
+//reserve memory for a variable
+void BagCsrManager::reserveSpace(MemVector &vec, uint newSize, uint numByteEachValue){
+	checkCudaErrors(cudaFree(vec.addr));
+	vec.size = newSize;
+	vec.reservedSize = newSize * 2;
+	checkCudaErrors(cudaMalloc((void**)&vec.addr, numByteEachValue * vec.reservedSize));
+}
+
+/** operations on cross variable reused memory **/
 uint *BagCsrManager::getMutableCsrLen(){
 	PROCESS_ERROR(curNumCsr > 0);
-	if(reservedMaxNumCsr < curNumCsr){
-		reservedMaxNumCsr = curNumCsr * 2;
-		reserveSpace();
-	}
-	PROCESS_ERROR(pCsrLen != NULL);
-	return pCsrLen;
+	if(csrLen.reservedSize < curNumCsr)
+		reserveSpace(csrLen, curNumCsr, sizeof(uint));
+	PROCESS_ERROR(csrLen.addr != NULL);
+	return (uint*)csrLen.addr;
 }
 double *BagCsrManager::getMutableCsrGD(){
 	PROCESS_ERROR(curNumCsr > 0);
-	if(reservedMaxNumCsr < curNumCsr){
-		reservedMaxNumCsr = curNumCsr * 2;
-		reserveSpace();
-	}
-	PROCESS_ERROR(pCsrGD != NULL);
-	return pCsrGD;
+	if(csrGD.reservedSize < curNumCsr)
+		reserveSpace(csrGD, curNumCsr, sizeof(double));
+
+	PROCESS_ERROR(csrGD.addr != NULL);
+	return (double*)csrGD.addr;
 }
 real *BagCsrManager::getMutableCsrHess(){
 	PROCESS_ERROR(curNumCsr > 0);
-	if(reservedMaxNumCsr < curNumCsr){
-		reservedMaxNumCsr = curNumCsr * 2;
-		reserveSpace();
-	}
-	PROCESS_ERROR(pCsrHess != NULL);
-	return pCsrHess;
+	if(csrHess.reservedSize < curNumCsr * 2)
+		reserveSpace(csrHess, curNumCsr * 2, sizeof(real));//reserve 2 times more, for sharing space with CsrFvalueSparse.
+	PROCESS_ERROR(csrHess.addr != NULL);
+	return (real*)csrHess.addr;
 }
+real *BagCsrManager::getMutableCsrGain(){
+	PROCESS_ERROR(curNumCsr > 0);
+	if(csrGain.reservedSize < curNumCsr * 2)
+		reserveSpace(csrGain, curNumCsr * 2, sizeof(real));
+	PROCESS_ERROR(csrGain.addr != NULL);
+	return (real*)csrGain.addr;
+}
+uint *BagCsrManager::getMutableCsrKey(){
+	PROCESS_ERROR(curNumCsr > 0);
+	if(pCsrKey.reservedSize < curNumCsr)
+		reserveSpace(pCsrKey, curNumCsr, sizeof(uint));
+	PROCESS_ERROR(pCsrKey.addr != NULL);
+	return (uint*)pCsrKey.addr;
+}
+
+uint *BagCsrManager::getMutableCsrStartCurRound(){
+	return getMutableCsrKey();
+}
+
+uint *BagCsrManager::getMutableCsrMarker(){
+	return (uint*)getMutableCsrGain();
+}
+
+uint *BagCsrManager::getMutableCsrStart(){
+	return getMutableCsrLen();
+}
+
+real *BagCsrManager::getMutableCsrFvalueSparse(){
+	return getMutableCsrHess();
+}
+
+uint *BagCsrManager::getMutableNewCsrLen(){
+	return (uint*)getMutableCsrGD();
+}
+
+const uint *BagCsrManager::getCsrLen(){
+	PROCESS_ERROR(csrLen.addr != NULL);
+	return (uint*)csrLen.addr;
+}
+const double *BagCsrManager::getCsrGD(){
+	PROCESS_ERROR(csrGD.addr != NULL);
+	return (double*)csrGD.addr;
+}
+const real *BagCsrManager::getCsrHess(){
+	PROCESS_ERROR(csrHess.addr != NULL);
+	return (real*)csrHess.addr;
+}
+const real *BagCsrManager::getCsrGain(){
+	PROCESS_ERROR(csrGain.addr != NULL);
+	return (real*)csrGain.addr;
+}
+const uint *BagCsrManager::getCsrKey(){
+	PROCESS_ERROR(pCsrKey.addr != NULL);
+	return (uint*)pCsrKey.addr;
+}
+const uint *BagCsrManager::getNewCsrLen(){
+	return (uint*)getCsrGD();
+}
+
+const real *BagCsrManager::getCsrFvalueSparse(){
+	return getCsrHess();
+}
+
+const uint *BagCsrManager::getCsrStart(){
+	return getCsrLen();
+}
+
+const uint *BagCsrManager::getCsrMarker(){
+	return (uint*)getCsrGain();
+}
+
+const uint *BagCsrManager::getCsrStartCurRound(){
+	return getCsrKey();//reuse this memory
+}
+
+/* operations on not cross variable reused memory */
 real *BagCsrManager::getMutableCsrFvalue(){
 	PROCESS_ERROR(curNumCsr > 0);
 	if(reservedMaxNumCsr < curNumCsr){
 		reservedMaxNumCsr = curNumCsr * 2;
-		reserveSpace();
+		reserveCsrSpace();
 	}
 	PROCESS_ERROR(pCsrFvalue != NULL);
 	return pCsrFvalue;
-}
-real *BagCsrManager::getMutableCsrGain(){
-	PROCESS_ERROR(curNumCsr > 0);
-	if(reservedMaxNumCsr < curNumCsr){
-		reservedMaxNumCsr = curNumCsr * 2;
-		reserveSpace();
-	}
-	PROCESS_ERROR(pCsrGain != NULL);
-	return pCsrGain;
-}
-uint *BagCsrManager::getMutableCsrKey(){
-	PROCESS_ERROR(curNumCsr > 0);
-	if(reservedMaxNumCsr < curNumCsr){
-		reservedMaxNumCsr = curNumCsr * 2;
-		reserveSpace();
-	}
-	PROCESS_ERROR(pCsrKey != NULL);
-	return pCsrKey;
 }
 bool *BagCsrManager::getMutableDefault2Right(){
 	PROCESS_ERROR(curNumCsr > 0);
 	if(reservedMaxNumCsr < curNumCsr){
 		reservedMaxNumCsr = curNumCsr * 2;
-		reserveSpace();
+		reserveCsrSpace();
 	}
 	PROCESS_ERROR(pCsrDefault2Right != NULL);
 	return pCsrDefault2Right;
-}
-
-const uint *BagCsrManager::getCsrLen(){
-	PROCESS_ERROR(pCsrLen != NULL);
-	return pCsrLen;
-}
-const double *BagCsrManager::getCsrGD(){
-	PROCESS_ERROR(pCsrGD != NULL);
-	return pCsrGD;
-}
-const real *BagCsrManager::getCsrHess(){
-	PROCESS_ERROR(pCsrHess != NULL);
-	return pCsrHess;
 }
 const real *BagCsrManager::getCsrFvalue(){
 	PROCESS_ERROR(pCsrFvalue != NULL);
 	return pCsrFvalue;
 }
-const real *BagCsrManager::getCsrGain(){
-	PROCESS_ERROR(pCsrGain != NULL);
-	return pCsrGain;
-}
-const uint *BagCsrManager::getCsrKey(){
-	PROCESS_ERROR(pCsrKey != NULL);
-	return pCsrKey;
-}
 const bool *BagCsrManager::getDefault2Right(){
 	PROCESS_ERROR(pCsrDefault2Right != NULL);
 	return pCsrDefault2Right;
 }
+

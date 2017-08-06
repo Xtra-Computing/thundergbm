@@ -100,7 +100,7 @@ int main(int argc, char *argv[])
 		maxNumofUsedFeature = numFea;
 
 	//decide if want to use csr
-	if(numFeaValue > pow(2, 28) || (numFeaValue > pow(2, 20) && numFea < numIns / 1000)){// || ){//larger than 1GB
+	if(numFeaValue > pow(2, 28) || (numFeaValue > pow(2, 20) && numFea < numIns / 1000)){
 		CsrCompressor::bUseCsr = true;
 cerr << "use CSR" << endl;
 	}
