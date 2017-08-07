@@ -69,6 +69,14 @@ void DeviceSplitter::FeaFinderAllNode2(void *pStream, int bagId)
 		PROCESS_ERROR(bagManager.m_numFeaValue >= csrManager.curNumCsr);
 		//split nodes
 		clock_t csr_len_t = clock();
+
+		//for testing; need to optimise later
+		uint *csrLen_d, *csrId2Pid;
+		checkCudaErrors(cudaMalloc((void**)&csrLen_d, sizeof(uint) * csrManager.curNumCsr));
+		checkCudaErrors(cudaMalloc((void**)&csrId2Pid, sizeof(uint) * csrManager.curNumCsr));
+		checkCudaErrors(cudaMemcpy(csrLen_d, csrManager.getCsrLen(), sizeof(uint) * csrManager.curNumCsr, cudaMemcpyDeviceToDevice));
+		checkCudaErrors(cudaMemset(csrId2Pid, (int)-1, sizeof(uint) * csrManager.curNumCsr));
+
 		thrust::exclusive_scan(thrust::device, csrManager.getCsrLen(), csrManager.getCsrLen() + csrManager.curNumCsr, csrManager.getMutableCsrStart());
 		checkCudaErrors(cudaMemset(csrManager.getMutableNewCsrLen(), 0, sizeof(uint) * csrManager.curNumCsr * 2));
 		checkCudaErrors(cudaMemset(csrManager.getMutableCsrFvalueSparse(), (int)-1, sizeof(real) * csrManager.curNumCsr * 2));
@@ -76,27 +84,38 @@ void DeviceSplitter::FeaFinderAllNode2(void *pStream, int bagId)
 		dim3 dimNumofBlockToCsrLen;
 		uint blockSizeCsrLen = 128;
 		dimNumofBlockToCsrLen.x = (numofDenseValue_previous + blockSizeCsrLen - 1) / blockSizeCsrLen;
-		newCsrLenFvalue2<<<dimNumofBlockToCsrLen, blockSizeCsrLen, blockSizeCsrLen * sizeof(uint) * 4>>>(
-											csrManager.preFvalueInsId, numofDenseValue_previous,
-											bagManager.m_pInsIdToNodeIdEachBag + bagId * bagManager.m_numIns,
-											bagManager.m_pPreMaxNid_h[bagId], csrManager.getCsrStart(),
-											csrManager.getCsrFvalue(), csrManager.curNumCsr,
-											csrManager.pEachCsrFeaStartPos, bagManager.m_pPreNumSN_h[bagId],
-											bagManager.m_numFea, csrManager.getCsrKey(), csrManager.getMutableNewCsrLen(), csrManager.pEachCsrFeaLen);
-
+//		newCsrLenFvalue2<<<dimNumofBlockToCsrLen, blockSizeCsrLen, blockSizeCsrLen * sizeof(uint) * 4>>>(
+//											csrManager.preFvalueInsId, numofDenseValue_previous,
+//											bagManager.m_pInsIdToNodeIdEachBag + bagId * bagManager.m_numIns,
+//											bagManager.m_pPreMaxNid_h[bagId], csrManager.getCsrStart(),
+//											csrManager.getCsrFvalue(), csrManager.curNumCsr,
+//											csrManager.pEachCsrFeaStartPos, bagManager.m_pPreNumSN_h[bagId],
+//											bagManager.m_numFea, csrManager.getCsrKey(), csrManager.getMutableNewCsrLen(), csrManager.pEachCsrFeaLen);
+		cudaDeviceSynchronize();
+		newCsrLenFvalue3<<<dimNumofBlockToCsrLen, blockSizeCsrLen, blockSizeCsrLen * sizeof(uint)>>>(
+				csrManager.preFvalueInsId, numofDenseValue_previous,
+				bagManager.m_pInsIdToNodeIdEachBag + bagId * bagManager.m_numIns,
+				bagManager.m_pPreMaxNid_h[bagId], csrManager.getCsrStart(),
+				csrManager.getCsrFvalue(), csrManager.curNumCsr,
+				csrManager.pEachCsrFeaStartPos, bagManager.m_pPreNumSN_h[bagId],
+				bagManager.m_numFea, csrManager.getCsrKey(), csrManager.getMutableNewCsrLen(), csrId2Pid);
+		cudaDeviceSynchronize();
+		GETERROR("after newCsrLenFvalue");
 		int blockSizeFillFvalue;
 		dim3 dimNumBlockToFillFvalue;
 		conf.ConfKernel(csrManager.curNumCsr, blockSizeFillFvalue, dimNumBlockToFillFvalue);
 		fillFvalue<<<dimNumBlockToFillFvalue, blockSizeFillFvalue>>>(csrManager.getCsrFvalue(), csrManager.curNumCsr, csrManager.pEachCsrFeaStartPos,
-				   bagManager.m_pPreNumSN_h[bagId], bagManager.m_numFea, csrManager.getCsrKey(), csrManager.getMutableCsrFvalueSparse());
-
+				   bagManager.m_pPreNumSN_h[bagId], bagManager.m_numFea, csrManager.getCsrKey(), csrLen_d, csrId2Pid,
+				   csrManager.getMutableCsrFvalueSparse(), csrManager.getMutableNewCsrLen(), csrManager.pEachCsrFeaLen);
+		cudaDeviceSynchronize();
+		GETERROR("after fillFvalue");
 		//compute number of CSR in each node
 		checkCudaErrors(cudaMemset(csrManager.pEachNodeSizeInCsr, 0, sizeof(uint) * bagManager.m_maxNumSplittable));
 		dim3 dimNumSeg;
 		dimNumSeg.x = numofSNode;
 		uint blockSize = 128;
 		segmentedSum<<<dimNumSeg, blockSize, blockSize * sizeof(uint)>>>(csrManager.pEachCsrFeaLen, bagManager.m_numFea, csrManager.pEachNodeSizeInCsr);
-		GETERROR("after newCsrLenFvalue");
+		GETERROR("after segmentedSum");
 
 		int blockSizeLoadCsrLen;
 		dim3 dimNumofBlockToLoadCsrLen;
@@ -210,7 +229,8 @@ void DeviceSplitter::FeaFinderAllNode2(void *pStream, int bagId)
 	checkCudaErrors(cudaMemset(csrManager.getMutableDefault2Right(), 0, sizeof(bool) * csrManager.curNumCsr));//this is important (i.e. initialisation)
 	checkCudaErrors(cudaMemset(csrManager.getMutableCsrGain(), 0, sizeof(real) * csrManager.curNumCsr));
 
-	//cout << "compute gain" << endl;
+//	cout << "compute gain" << endl;
+	uint test = thrust::reduce(thrust::device, csrManager.pEachCsrFeaLen, csrManager.pEachCsrFeaLen + numSeg);
 	clock_t start_comp_gain = clock();
 	int blockSizeComGain;
 	dim3 dimNumofBlockToComGain;

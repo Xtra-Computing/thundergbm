@@ -100,14 +100,14 @@ int main(int argc, char *argv[])
 		maxNumofUsedFeature = numFea;
 
 	//decide if want to use csr
-	if(numFeaValue > pow(2, 28) || (numFeaValue > pow(2, 20) && numFea < numIns / 1000)){
-		CsrCompressor::bUseCsr = true;
-cerr << "use CSR" << endl;
-	}
-	else{
-		CsrCompressor::bUseCsr = false;
-cerr << "use non-CSR" << endl;
-	}
+//	if(numFeaValue > pow(2, 28) || (numFeaValue > pow(2, 20) && numFea < numIns / 1000)){
+//		CsrCompressor::bUseCsr = true;
+//cerr << "use CSR" << endl;
+//	}
+//	else{
+//		CsrCompressor::bUseCsr = false;
+//cerr << "use non-CSR" << endl;
+//	}
 
 	//fill the bags
 	BagManager bagManager;
