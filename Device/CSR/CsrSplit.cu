@@ -81,31 +81,30 @@ __global__ void newCsrLenFvalue(const int *preFvalueInsId, int numFeaValue, cons
 	pCsrId2Pid[tid] = LARGE_4B_UINT;
 	pCsrId2Pid[tid + blockDim.x] = LARGE_4B_UINT;
 	__syncthreads();
-	if(gTid < numFeaValue)//thread has nothing to do
-	{		//return;
-	uint csrId;
-	RangeBinarySearch(gTid, eachCsrStart, numCsr, csrId);
-	CONCHECKER(csrId < numCsr);
-	//first csrId
-	if(tid == 0)
-		firstCsrId = csrId;
-	__syncthreads();
-	CONCHECKER(csrId >= firstCsrId);
+	if(gTid < numFeaValue){//thread has nothing to do
+		uint csrId;
+		RangeBinarySearch(gTid, eachCsrStart, numCsr, csrId);
+		CONCHECKER(csrId < numCsr);
+		//first csrId
+		if(tid == 0)
+			firstCsrId = csrId;
+		__syncthreads();
+		CONCHECKER(csrId >= firstCsrId);
 
-	int insId = preFvalueInsId[gTid];//insId is not -1, as preFvalueInsId is dense.
-	int pid = pInsId2Nid[insId] - maxNid - 1;//mapping to new node
-	if(pid >= 0){//not leaf node
-		uint counterPosInShared = csrId - firstCsrId;
-		if(pid % 2 == 0){
-			atomicAdd(csrCounter + counterPosInShared, 1);
-			pCsrId2Pid[counterPosInShared] = pid;
-		}
-		else{
-			atomicAdd(csrCounter + blockDim.x + counterPosInShared, 1);
-			pCsrId2Pid[counterPosInShared + blockDim.x] = pid;
+		int insId = preFvalueInsId[gTid];//insId is not -1, as preFvalueInsId is dense.
+		int pid = pInsId2Nid[insId] - maxNid - 1;//mapping to new node
+		if(pid >= 0){//not leaf node
+			uint counterPosInShared = csrId - firstCsrId;
+			if(pid % 2 == 0){
+				atomicAdd(csrCounter + counterPosInShared, 1);
+				pCsrId2Pid[counterPosInShared] = pid;
+			}
+			else{
+				atomicAdd(csrCounter + blockDim.x + counterPosInShared, 1);
+				pCsrId2Pid[counterPosInShared + blockDim.x] = pid;
+			}
 		}
 	}
-}
 	__syncthreads();
 	//compute len of each csr
 	if(csrCounter[tid] == 0 && csrCounter[tid + blockDim.x] == 0)

@@ -29,7 +29,7 @@ BagCsrManager::BagCsrManager(int numFea, int maxNumSN, uint totalNumFeaValue){
 		return;
 
 	curNumCsr = 0;
-	reservedMaxNumCsr = totalNumFeaValue/40;//40 times compression ratio
+	reservedMaxNumCsr = totalNumFeaValue/20;//10 times compression ratio
 
 	checkCudaErrors(cudaMalloc((void**)&pCsrFvalue, sizeof(real) * reservedMaxNumCsr));
 	checkCudaErrors(cudaMalloc((void**)&pCsrDefault2Right, sizeof(bool) * reservedMaxNumCsr));
@@ -44,7 +44,6 @@ BagCsrManager::BagCsrManager(int numFea, int maxNumSN, uint totalNumFeaValue){
 void BagCsrManager::reserveCsrSpace(){
 	checkCudaErrors(cudaFree(pCsrFvalue));
 	checkCudaErrors(cudaFree(pCsrDefault2Right));
-
 	//reserve larger memory
 	printf("max num of csr is %u\n", reservedMaxNumCsr);
 	checkCudaErrors(cudaMalloc((void**) &pCsrFvalue, sizeof(real) * reservedMaxNumCsr));
@@ -53,9 +52,11 @@ void BagCsrManager::reserveCsrSpace(){
 
 //reserve memory for a variable
 void BagCsrManager::reserveSpace(MemVector &vec, uint newSize, uint numByteEachValue){
-	checkCudaErrors(cudaFree(vec.addr));
+	if(vec.addr != NULL){
+		checkCudaErrors(cudaFree(vec.addr));
+	}
 	vec.size = newSize;
-	vec.reservedSize = newSize * 2;
+	vec.reservedSize = newSize * 1.5;
 	checkCudaErrors(cudaMalloc((void**)&vec.addr, numByteEachValue * vec.reservedSize));
 }
 

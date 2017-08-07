@@ -59,7 +59,7 @@ void DeviceSplitter::FeaFinderAllNode(void *pStream, int bagId)
 	if(numofSNode > 1)
 	{
 		IndexComputer indexComp;
-		indexComp.AllocMem(bagManager.m_numFea, numofSNode);
+		indexComp.AllocMem(bagManager.m_numFea, numofSNode, bagManager.m_maxNumSplittable);
 		PROCESS_ERROR(nNumofFeature == bagManager.m_numFea);
 		clock_t comIdx_start = clock();
 		//compute gather index via GPUs

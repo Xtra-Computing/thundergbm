@@ -34,7 +34,7 @@ public:
 	//compute indices for each feature value in feature lists
 	static void ComputeIdxGPU(int numNode, int maxNumSN, int bagId);
 
-	static void AllocMem(int nNumofFeatures, int maxNumofSpittableNode);
+	static void AllocMem(int nNumofFeatures, int curNumSN, int maxNumofSpittableNode);
 	static void FreeMem();
 };
 

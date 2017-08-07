@@ -52,7 +52,7 @@ void DeviceSplitter::FeaFinderAllNode2(void *pStream, int bagId)
 	if(numofSNode > 1)
 	{
 		IndexComputer indexComp;
-		indexComp.AllocMem(bagManager.m_numFea, numofSNode);
+		indexComp.AllocMem(bagManager.m_numFea, numofSNode, bagManager.m_maxNumSplittable);
 		PROCESS_ERROR(nNumofFeature == bagManager.m_numFea);
 		clock_t comIdx_start = clock();
 		//compute gather index via GPUs
@@ -176,7 +176,7 @@ void DeviceSplitter::FeaFinderAllNode2(void *pStream, int bagId)
 	}
 
 	cudaDeviceSynchronize();
-	//	cout << "prefix sum" << endl;
+	//cout << "prefix sum" << endl;
 	int numSeg = bagManager.m_numFea * numofSNode;
 	clock_t start_scan = clock();
 
@@ -203,7 +203,6 @@ void DeviceSplitter::FeaFinderAllNode2(void *pStream, int bagId)
 								  csrManager.getMutableCsrGD(), csrManager.getMutableCsrGD());//in place prefix sum
 	thrust::inclusive_scan_by_key(thrust::device, csrManager.getCsrKey(), csrManager.getCsrKey() + csrManager.curNumCsr,
 								  csrManager.getMutableCsrHess(), csrManager.getMutableCsrHess());
-
 	clock_t end_scan = clock();
 	total_scan_t += (end_scan - start_scan);
 
@@ -245,7 +244,6 @@ void DeviceSplitter::FeaFinderAllNode2(void *pStream, int bagId)
 	//compute # of blocks for each node
 	uint *pMaxNumFvalueOneNode = thrust::max_element(thrust::device, csrManager.pEachNodeSizeInCsr, csrManager.pEachNodeSizeInCsr + numofSNode);
 	checkCudaErrors(cudaMemcpy(&maxNumFeaValueOneNode, pMaxNumFvalueOneNode, sizeof(int), cudaMemcpyDeviceToHost));
-
 	SegmentedMax(maxNumFeaValueOneNode, numofSNode, csrManager.pEachNodeSizeInCsr, csrManager.pEachCsrNodeStartPos,
 				 csrManager.getCsrGain(), pStream, pMaxGain_d, pMaxGainKey_d);
 
@@ -264,7 +262,6 @@ void DeviceSplitter::FeaFinderAllNode2(void *pStream, int bagId)
 					  	  	  	  	  	 bagManager.m_pRChildStatEachBag + bagId * bagManager.m_maxNumSplittable,
 					  	  	  	  	  	 bagManager.m_pLChildStatEachBag + bagId * bagManager.m_maxNumSplittable);
 	cudaStreamSynchronize((*(cudaStream_t*)pStream));
-
 	checkCudaErrors(cudaFree(pMaxGain_d));
 	checkCudaErrors(cudaFree(pMaxGainKey_d));
 }
