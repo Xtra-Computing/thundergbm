@@ -49,10 +49,12 @@ __device__ void computeCsrInfo(uint csrId, const uint *preRoundSegStartPos, cons
 
 __global__ void fillFvalue(const real *csrFvalue, uint numCsr, const uint *preRoundSegStartPos,
 						   const uint preRoundNumSN, int numFea, const uint *csrId2SegId, const uint *oldCsrLen,
-						   const uint *csrId2Pid, real *eachCsrFvalueSparse, uint *newCsrLen, uint *newCsrFeaLen){
+						   const unsigned char *csrId2Pid, real *eachCsrFvalueSparse, uint *newCsrLen, uint *newCsrFeaLen){
 	uint csrId = GLOBAL_TID();//one thread per csr
+	if(csrId >= numCsr)
+		return;
 	uint pid = csrId2Pid[csrId];
-	if(csrId >= numCsr || pid == LARGE_4B_UINT)
+	if(pid == LARGE_1B_UCHAR)
 		return;
 	uint numCsrCurPart;
 	uint numCsrPrePartsAhead;
@@ -142,7 +144,7 @@ __global__ void newCsrLenFvalue2(const int *preFvalueInsId, int numFeaValue, con
 __global__ void newCsrLenFvalue3(const int *preFvalueInsId, int numFeaValue, const int *pInsId2Nid, int maxNid,
 						  const uint *eachCsrStart, const real *csrFvalue, uint numCsr,
 						  const uint *preRoundSegStartPos, const uint preRoundNumSN, int numFea, const uint *csrId2SegId,
-						  uint *csrNewLen, uint *csrId2Pid){
+						  uint *csrNewLen, unsigned char *csrId2Pid){
 	//one thread for one fvalue
 	uint gTid = GLOBAL_TID();
 	extern __shared__ uint csrCounter[];
@@ -162,7 +164,7 @@ __global__ void newCsrLenFvalue3(const int *preFvalueInsId, int numFeaValue, con
 
 		int insId = preFvalueInsId[gTid];//insId is not -1, as preFvalueInsId is dense.
 		int pid = pInsId2Nid[insId] - maxNid - 1;//mapping to new node
-		csrId2Pid[csrId] = pid < 0 ? LARGE_4B_UINT : pid;
+		csrId2Pid[csrId] = pid < 0 ? LARGE_1B_UCHAR : pid;
 		if(pid >= 0 && pid % 2 == 0){//not leaf node and it's first part.
 			uint counterOffset = csrId - firstCsrId;
 			uint orgValue = atomicAdd(csrCounter + counterOffset, 1);

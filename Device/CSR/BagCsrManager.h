@@ -30,8 +30,8 @@ private:
 	static MemVector csrGD;
 	static MemVector csrHess;
 	static MemVector csrGain;
-	static MemVector pCsrKey;
-	static bool *pCsrDefault2Right;
+	static MemVector csrKey;
+	static MemVector csrDefault2Right;
 	static real *pCsrFvalue;
 	void reserveCsrSpace();
 	void reserveSpace(MemVector &vec, uint newSize, uint numByteEachValue);
@@ -51,12 +51,15 @@ public:
 	uint *getMutableCsrStart();
 	uint *getMutableCsrMarker();
 	uint *getMutableCsrStartCurRound();
+	unsigned char *getMutableCsrId2Pid();
+	uint *getMutableCsrOldLen();
 	const uint *getNewCsrLen();
 	const real *getCsrFvalueSparse();
 	const uint *getCsrStart();
 	const uint *getCsrMarker();
 	const uint *getCsrStartCurRound();
-
+	const unsigned char *getCsrId2Pid();
+	const uint *getCsrOldLen();
 	const uint *getCsrLen();
 	const double *getCsrGD();
 	const real *getCsrHess();

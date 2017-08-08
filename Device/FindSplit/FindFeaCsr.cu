@@ -71,11 +71,8 @@ void DeviceSplitter::FeaFinderAllNode2(void *pStream, int bagId)
 		clock_t csr_len_t = clock();
 
 		//for testing; need to optimise later
-		uint *csrLen_d, *csrId2Pid;
-		checkCudaErrors(cudaMalloc((void**)&csrLen_d, sizeof(uint) * csrManager.curNumCsr));
-		checkCudaErrors(cudaMalloc((void**)&csrId2Pid, sizeof(uint) * csrManager.curNumCsr));
-		checkCudaErrors(cudaMemcpy(csrLen_d, csrManager.getCsrLen(), sizeof(uint) * csrManager.curNumCsr, cudaMemcpyDeviceToDevice));
-		checkCudaErrors(cudaMemset(csrId2Pid, (int)-1, sizeof(uint) * csrManager.curNumCsr));
+		checkCudaErrors(cudaMemcpy(csrManager.getMutableCsrOldLen(), csrManager.getCsrLen(), sizeof(uint) * csrManager.curNumCsr, cudaMemcpyDeviceToDevice));
+		checkCudaErrors(cudaMemset(csrManager.getMutableCsrId2Pid(), (int)-1, sizeof(char) * csrManager.curNumCsr));
 
 		thrust::exclusive_scan(thrust::device, csrManager.getCsrLen(), csrManager.getCsrLen() + csrManager.curNumCsr, csrManager.getMutableCsrStart());
 		checkCudaErrors(cudaMemset(csrManager.getMutableNewCsrLen(), 0, sizeof(uint) * csrManager.curNumCsr * 2));
@@ -98,14 +95,14 @@ void DeviceSplitter::FeaFinderAllNode2(void *pStream, int bagId)
 				bagManager.m_pPreMaxNid_h[bagId], csrManager.getCsrStart(),
 				csrManager.getCsrFvalue(), csrManager.curNumCsr,
 				csrManager.pEachCsrFeaStartPos, bagManager.m_pPreNumSN_h[bagId],
-				bagManager.m_numFea, csrManager.getCsrKey(), csrManager.getMutableNewCsrLen(), csrId2Pid);
+				bagManager.m_numFea, csrManager.getCsrKey(), csrManager.getMutableNewCsrLen(), csrManager.getMutableCsrId2Pid());
 		cudaDeviceSynchronize();
 		GETERROR("after newCsrLenFvalue");
 		int blockSizeFillFvalue;
 		dim3 dimNumBlockToFillFvalue;
 		conf.ConfKernel(csrManager.curNumCsr, blockSizeFillFvalue, dimNumBlockToFillFvalue);
 		fillFvalue<<<dimNumBlockToFillFvalue, blockSizeFillFvalue>>>(csrManager.getCsrFvalue(), csrManager.curNumCsr, csrManager.pEachCsrFeaStartPos,
-				   bagManager.m_pPreNumSN_h[bagId], bagManager.m_numFea, csrManager.getCsrKey(), csrLen_d, csrId2Pid,
+				   bagManager.m_pPreNumSN_h[bagId], bagManager.m_numFea, csrManager.getCsrKey(), csrManager.getCsrOldLen(), csrManager.getCsrId2Pid(),
 				   csrManager.getMutableCsrFvalueSparse(), csrManager.getMutableNewCsrLen(), csrManager.pEachCsrFeaLen);
 		cudaDeviceSynchronize();
 		GETERROR("after fillFvalue");
