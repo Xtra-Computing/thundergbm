@@ -76,7 +76,6 @@ void DeviceSplitter::FeaFinderAllNode2(void *pStream, int bagId)
 
 		thrust::exclusive_scan(thrust::device, csrManager.getCsrLen(), csrManager.getCsrLen() + csrManager.curNumCsr, csrManager.getMutableCsrStart());
 		checkCudaErrors(cudaMemset(csrManager.getMutableNewCsrLen(), 0, sizeof(uint) * csrManager.curNumCsr * 2));
-		checkCudaErrors(cudaMemset(csrManager.getMutableCsrFvalueSparse(), (int)-1, sizeof(real) * csrManager.curNumCsr * 2));
 		checkCudaErrors(cudaMemset(csrManager.pEachCsrFeaLen, 0, sizeof(uint) * bagManager.m_numFea * numofSNode));
 		dim3 dimNumofBlockToCsrLen;
 		uint blockSizeCsrLen = 128;
@@ -98,12 +97,21 @@ void DeviceSplitter::FeaFinderAllNode2(void *pStream, int bagId)
 				bagManager.m_numFea, csrManager.getCsrKey(), csrManager.getMutableNewCsrLen(), csrManager.getMutableCsrId2Pid());
 		cudaDeviceSynchronize();
 		GETERROR("after newCsrLenFvalue");
+		LoadFvalueInsId<<<dimNumofBlockToLoadGD, blockSizeLoadGD>>>(
+						bagManager.m_numIns, manager.m_pDInsId, csrManager.preFvalueInsId, bagManager.m_pIndicesEachBag_d, bagManager.m_numFeaValue);
+		GETERROR("after LoadFvalueInsId");
+
+		if(bagManager.m_numFeaValue < csrManager.curNumCsr * 2){//reuse memory for storing the index
+			checkCudaErrors(cudaFree(bagManager.m_pIndicesEachBag_d));
+			checkCudaErrors(cudaMalloc((void**)&bagManager.m_pIndicesEachBag_d, sizeof(uint) * csrManager.curNumCsr * 2));
+		}
+		real *pCsrFvalueSpare = (real*)bagManager.m_pIndicesEachBag_d;//reuse memory
 		int blockSizeFillFvalue;
 		dim3 dimNumBlockToFillFvalue;
 		conf.ConfKernel(csrManager.curNumCsr, blockSizeFillFvalue, dimNumBlockToFillFvalue);
 		fillFvalue<<<dimNumBlockToFillFvalue, blockSizeFillFvalue>>>(csrManager.getCsrFvalue(), csrManager.curNumCsr, csrManager.pEachCsrFeaStartPos,
 				   bagManager.m_pPreNumSN_h[bagId], bagManager.m_numFea, csrManager.getCsrKey(), csrManager.getCsrOldLen(), csrManager.getCsrId2Pid(),
-				   csrManager.getMutableCsrFvalueSparse(), csrManager.getMutableNewCsrLen(), csrManager.pEachCsrFeaLen);
+				   pCsrFvalueSpare, csrManager.getMutableNewCsrLen(), csrManager.pEachCsrFeaLen);
 		cudaDeviceSynchronize();
 		GETERROR("after fillFvalue");
 		//compute number of CSR in each node
@@ -126,15 +134,12 @@ void DeviceSplitter::FeaFinderAllNode2(void *pStream, int bagId)
 		checkCudaErrors(cudaMemcpy(&csrManager.curNumCsr, csrManager.getCsrMarker() + csrManager.curNumCsr * 2 - 1, sizeof(uint), cudaMemcpyDefault));
 
 		checkCudaErrors(cudaMemset(csrManager.getMutableCsrLen(), 0, sizeof(uint) * csrManager.curNumCsr));
-		loadDenseCsr<<<dimNumofBlockToLoadCsrLen, blockSizeLoadCsrLen>>>(csrManager.getCsrFvalueSparse(), csrManager.getNewCsrLen(),
+		loadDenseCsr<<<dimNumofBlockToLoadCsrLen, blockSizeLoadCsrLen>>>(pCsrFvalueSpare, csrManager.getNewCsrLen(),
 				previousNumCsr * 2, csrManager.curNumCsr, csrManager.getCsrMarker(),
 				csrManager.getMutableCsrFvalue(), csrManager.getMutableCsrLen());
 		GETERROR("after loadDenseCsr");
 		thrust::exclusive_scan(thrust::device, csrManager.pEachCsrFeaLen, csrManager.pEachCsrFeaLen + numofSNode * bagManager.m_numFea, csrManager.pEachCsrFeaStartPos);
-		checkCudaErrors(cudaMemset(csrManager.preFvalueInsId, -1, sizeof(int) * bagManager.m_numFeaValue));//for testing
-		LoadFvalueInsId<<<dimNumofBlockToLoadGD, blockSizeLoadGD>>>(
-						bagManager.m_numIns, manager.m_pDInsId, csrManager.preFvalueInsId, bagManager.m_pIndicesEachBag_d, bagManager.m_numFeaValue);
-		GETERROR("after LoadFvalueInsId");
+
 		thrust::exclusive_scan(thrust::device, csrManager.pEachNodeSizeInCsr, csrManager.pEachNodeSizeInCsr + numofSNode, csrManager.pEachCsrNodeStartPos);
 		numofDenseValue_previous = thrust::reduce(thrust::device, pTempNumFvalueEachNode, pTempNumFvalueEachNode + numofSNode);//number of dense fvalues.
 

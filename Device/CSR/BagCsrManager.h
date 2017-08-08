@@ -47,14 +47,12 @@ public:
 	bool *getMutableDefault2Right();
 
 	uint *getMutableNewCsrLen();
-	real *getMutableCsrFvalueSparse();
 	uint *getMutableCsrStart();
 	uint *getMutableCsrMarker();
 	uint *getMutableCsrStartCurRound();
 	unsigned char *getMutableCsrId2Pid();
 	uint *getMutableCsrOldLen();
 	const uint *getNewCsrLen();
-	const real *getCsrFvalueSparse();
 	const uint *getCsrStart();
 	const uint *getCsrMarker();
 	const uint *getCsrStartCurRound();

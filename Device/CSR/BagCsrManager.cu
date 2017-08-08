@@ -18,11 +18,11 @@ uint BagCsrManager::curNumCsr = 0;
 uint BagCsrManager::reservedMaxNumCsr = pow(2, 20);
 MemVector BagCsrManager::csrLen;//shared with pCsrStart
 MemVector BagCsrManager::csrGD; //shared with pNewCsrLen
-MemVector BagCsrManager::csrHess; //shared with pCsrFvalueSparse
+MemVector BagCsrManager::csrHess;
 MemVector BagCsrManager::csrGain; //shared with csrMarker and old
 MemVector BagCsrManager::csrKey; //shared with pCsrStartCurRound
 real *BagCsrManager::pCsrFvalue = NULL;
-MemVector BagCsrManager::csrDefault2Right;
+MemVector BagCsrManager::csrDefault2Right; //shared with csrId2Pid
 
 BagCsrManager::BagCsrManager(int numFea, int maxNumSN, uint totalNumFeaValue){
 	if(pCsrFvalue != NULL)//already reserved memory
@@ -75,8 +75,8 @@ double *BagCsrManager::getMutableCsrGD(){
 }
 real *BagCsrManager::getMutableCsrHess(){
 	PROCESS_ERROR(curNumCsr > 0);
-	if(csrHess.reservedSize < curNumCsr * 2)
-		reserveSpace(csrHess, curNumCsr * 2, sizeof(real));//reserve 2 times more, for sharing space with CsrFvalueSparse.
+	if(csrHess.reservedSize < curNumCsr)
+		reserveSpace(csrHess, curNumCsr, sizeof(real));
 	PROCESS_ERROR(csrHess.addr != NULL);
 	return (real*)csrHess.addr;
 }
@@ -116,10 +116,6 @@ uint *BagCsrManager::getMutableCsrStart(){
 	return getMutableCsrLen();
 }
 
-real *BagCsrManager::getMutableCsrFvalueSparse(){
-	return getMutableCsrHess();
-}
-
 uint *BagCsrManager::getMutableNewCsrLen(){
 	return (uint*)getMutableCsrGD();
 }
@@ -149,10 +145,6 @@ const uint *BagCsrManager::getCsrKey(){
 }
 const uint *BagCsrManager::getNewCsrLen(){
 	return (uint*)getCsrGD();
-}
-
-const real *BagCsrManager::getCsrFvalueSparse(){
-	return getCsrHess();
 }
 
 const uint *BagCsrManager::getCsrStart(){
