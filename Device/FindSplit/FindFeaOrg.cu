@@ -20,6 +20,7 @@
 #include "../../SharedUtility/CudaMacro.h"
 #include "../../SharedUtility/KernelConf.h"
 #include "../../SharedUtility/segmentedMax.h"
+#include "../../SharedUtility/setSegmentKey.h"
 
 /**
  * @brief: efficient best feature finder

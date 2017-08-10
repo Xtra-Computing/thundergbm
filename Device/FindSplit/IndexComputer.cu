@@ -21,6 +21,7 @@
 #include "../../SharedUtility/powerOfTwo.h"
 #include "../../SharedUtility/HostUtility.h"
 #include "../../SharedUtility/binarySearch.h"
+#include "../../SharedUtility/setSegmentKey.h"
 
 using std::vector;
 
@@ -218,23 +219,25 @@ void IndexComputer::AllocMem(int nNumofFeatures, int curNumSN, int maxNumSN)
 {
 	m_numFea = nNumofFeatures;
 	m_maxNumofSN = maxNumSN;
-if(m_pnKey == NULL){
-	checkCudaErrors(cudaMalloc((void**)&pPartitionMarker, sizeof(unsigned char) * m_totalFeaValue));
-	//histogram based partitioning
-	m_numElementEachThd = 16;
-	if(m_maxNumofSN > m_numElementEachThd)
-		m_numElementEachThd = m_maxNumofSN;//make sure the memory usage is the same as the training data set
-	m_totalNumEffectiveThd = Ceil(m_totalFeaValue, m_numElementEachThd);
-	checkCudaErrors(cudaMalloc((void**)&m_pHistogram_d, sizeof(uint) * m_maxNumofSN * m_totalNumEffectiveThd));
-	checkCudaErrors(cudaMalloc((void**)&m_pnKey, sizeof(uint) * m_maxNumofSN * m_totalNumEffectiveThd));
-	checkCudaErrors(cudaMalloc((void**)&m_pEachNodeStartPos_d, sizeof(uint) * m_maxNumofSN));
-}
-	for(int i = 0; i < curNumSN; i++){//memset for prefix sum on each partition
+	if(m_pnKey == NULL){
+		//histogram based partitioning
+		m_numElementEachThd = 16;
+		if(m_maxNumofSN > m_numElementEachThd)
+			m_numElementEachThd = m_maxNumofSN;//make sure the memory usage is the same as the training data set
+		m_totalNumEffectiveThd = Ceil(m_totalFeaValue, m_numElementEachThd);
 
-		int flag = (i % 2 == 0 ? 0:(-1));
-		checkCudaErrors(cudaMemset(m_pnKey + i * m_totalNumEffectiveThd, flag, sizeof(uint) * m_totalNumEffectiveThd));
+		checkCudaErrors(cudaMalloc((void**)&pPartitionMarker, sizeof(unsigned char) * m_totalFeaValue));
+		uint totalMemSize =  sizeof(uint) * m_maxNumofSN * m_totalNumEffectiveThd * 2;
+		checkCudaErrors(cudaMalloc((void**)&m_pHistogram_d, totalMemSize));
+		m_pnKey = m_pHistogram_d + m_maxNumofSN * m_totalNumEffectiveThd;
+		checkCudaErrors(cudaMalloc((void**)&m_pEachNodeStartPos_d, sizeof(uint) * m_maxNumofSN));
 	}
 
+	dim3 dimNumofBlockToSetKey;
+	dimNumofBlockToSetKey.y = curNumSN;
+	uint blockSize = 128;
+	dimNumofBlockToSetKey.x = (m_totalNumEffectiveThd + blockSize - 1) / blockSize;
+	SetKey<<<dimNumofBlockToSetKey, blockSize>>>(m_totalNumEffectiveThd, m_pnKey);
 }
 
 //free memory

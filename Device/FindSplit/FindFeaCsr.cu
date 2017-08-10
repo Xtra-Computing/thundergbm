@@ -19,6 +19,7 @@
 #include "../../SharedUtility/KernelConf.h"
 #include "../../SharedUtility/segmentedMax.h"
 #include "../../SharedUtility/segmentedSum.h"
+#include "../../SharedUtility/setSegmentKey.h"
 
 #include "../CSR/CsrSplit.h"
 #include "../CSR/CsrCompressor.h"
