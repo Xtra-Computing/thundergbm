@@ -81,67 +81,7 @@ __global__ void fillFvalue(const real *csrFvalue, uint numCsr, const uint *preRo
 	}
 }
 
-__global__ void newCsrLenFvalue2(const int *preFvalueInsId, int numFeaValue, const int *pInsId2Nid, int maxNid,
-						  const uint *eachCsrStart, const real *csrFvalue, uint numCsr,
-						  const uint *preRoundSegStartPos, const uint preRoundNumSN, int numFea, const uint *csrId2SegId,
-						  uint *csrNewLen, uint *eachNewSegLen){
-	//one thread for one fvalue
-	uint gTid = GLOBAL_TID();
-	extern __shared__ uint csrCounter[];
-	uint *pCsrId2Pid = csrCounter + blockDim.x * 2;
-	__shared__ uint firstCsrId;
-	uint tid = threadIdx.x;
-	csrCounter[tid] = 0;
-	csrCounter[tid + blockDim.x] = 0;
-	pCsrId2Pid[tid] = LARGE_4B_UINT;
-	pCsrId2Pid[tid + blockDim.x] = LARGE_4B_UINT;
-	__syncthreads();
-	if(gTid < numFeaValue){//thread has value to load
-		uint csrId;
-		RangeBinarySearch(gTid, eachCsrStart, numCsr, csrId);
-		CONCHECKER(csrId < numCsr);
-		//first csrId
-		if(tid == 0)
-			firstCsrId = csrId;
-		__syncthreads();
-		CONCHECKER(csrId >= firstCsrId);
-
-		int insId = preFvalueInsId[gTid];//insId is not -1, as preFvalueInsId is dense.
-		int pid = pInsId2Nid[insId] - maxNid - 1;//mapping to new node
-		if(pid >= 0){//not leaf node
-			uint counterOffset = blockDim.x * (pid % 2) + csrId - firstCsrId;
-			atomicAdd(csrCounter + counterOffset, 1);
-			pCsrId2Pid[counterOffset] = pid;
-		}
-	} else {
-		__syncthreads();
-	}
-	__syncthreads();
-	//compute len of each csr
-	uint localCsrId = tid / 2;
-	int offsetFlag = tid % 2;
-	uint offset = blockDim.x * offsetFlag;
-	while(localCsrId < blockDim.x){
-		uint counterPos = localCsrId + offset;
-		if(csrCounter[counterPos] > 0){
-			uint numCsrCurPart;
-			uint numCsrPrePartsAhead;
-			uint posInPart;
-			uint feaId;
-			computeCsrInfo(firstCsrId + localCsrId, preRoundSegStartPos, preRoundNumSN, numFea, numCsr, csrId2SegId,
-						  numCsrPrePartsAhead, posInPart, numCsrCurPart, feaId);
-
-			uint orgValue = atomicAdd(csrNewLen + numCsrPrePartsAhead * 2 + numCsrCurPart * offsetFlag + posInPart, csrCounter[counterPos]);
-			if(orgValue == 0){
-				CONCHECKER(pCsrId2Pid[counterPos] < 256);
-				atomicAdd(eachNewSegLen + pCsrId2Pid[counterPos] * numFea + feaId, 1);
-			}
-		}
-		localCsrId += (blockDim.x/2);
-	}
-}
-
-__global__ void newCsrLenFvalue3(const int *preFvalueInsId, int numFeaValue, const int *pInsId2Nid, int maxNid,
+__global__ void newCsrLenFvalue(const int *preFvalueInsId, int numFeaValue, const int *pInsId2Nid, int maxNid,
 						  const uint *eachCsrStart, const real *csrFvalue, uint numCsr,
 						  const uint *preRoundSegStartPos, const uint preRoundNumSN, int numFea, const uint *csrId2SegId,
 						  uint *csrNewLen, unsigned char *csrId2Pid){

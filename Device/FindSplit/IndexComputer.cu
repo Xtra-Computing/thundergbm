@@ -29,6 +29,7 @@ int IndexComputer::m_totalFeaValue = -1;//total number of feature values in the 
 int IndexComputer::m_numFea = -1;	//number of features
 int IndexComputer::m_maxNumofSN = -1;
 long long IndexComputer::m_total_copy = -1;
+uint IndexComputer::numIntMem = 0;
 
 unsigned char *IndexComputer::pPartitionMarker = NULL;
 uint *IndexComputer::m_pnKey = NULL;
@@ -157,6 +158,14 @@ __global__ void EachFeaLenEachNode(const unsigned char *pPartitionMarker, uint m
 void IndexComputer::ComputeIdxGPU(int numSNode, int maxNumSN, int bagId){
 	PROCESS_ERROR(m_totalFeaValue > 0 && numSNode > 0 && maxNumSN >= 0);
 	
+	m_pnKey = m_pHistogram_d + m_maxNumofSN * m_totalNumEffectiveThd;//this is important, as address of pHistogram may change.
+
+	dim3 dimNumofBlockToSetKey;
+	dimNumofBlockToSetKey.y = numSNode;
+	uint blockSize = 128;
+	dimNumofBlockToSetKey.x = (m_totalNumEffectiveThd + blockSize - 1) / blockSize;
+	SetKey<<<dimNumofBlockToSetKey, blockSize>>>(m_totalNumEffectiveThd, m_pnKey);
+
 	BagManager bagManager;
 	GBDTGPUMemManager manager;
 	KernelConf conf;
@@ -227,17 +236,11 @@ void IndexComputer::AllocMem(int nNumofFeatures, int curNumSN, int maxNumSN)
 		m_totalNumEffectiveThd = Ceil(m_totalFeaValue, m_numElementEachThd);
 
 		checkCudaErrors(cudaMalloc((void**)&pPartitionMarker, sizeof(unsigned char) * m_totalFeaValue));
-		uint totalMemSize =  sizeof(uint) * m_maxNumofSN * m_totalNumEffectiveThd * 2;
-		checkCudaErrors(cudaMalloc((void**)&m_pHistogram_d, totalMemSize));
-		m_pnKey = m_pHistogram_d + m_maxNumofSN * m_totalNumEffectiveThd;
+		numIntMem =  m_maxNumofSN * m_totalNumEffectiveThd * 2;
+		checkCudaErrors(cudaMalloc((void**)&m_pHistogram_d, numIntMem * sizeof(uint)));
 		checkCudaErrors(cudaMalloc((void**)&m_pEachNodeStartPos_d, sizeof(uint) * m_maxNumofSN));
+		m_pnKey = m_pHistogram_d + m_maxNumofSN * m_totalNumEffectiveThd;//this is important, as address of pHistogram may change.
 	}
-
-	dim3 dimNumofBlockToSetKey;
-	dimNumofBlockToSetKey.y = curNumSN;
-	uint blockSize = 128;
-	dimNumofBlockToSetKey.x = (m_totalNumEffectiveThd + blockSize - 1) / blockSize;
-	SetKey<<<dimNumofBlockToSetKey, blockSize>>>(m_totalNumEffectiveThd, m_pnKey);
 }
 
 //free memory

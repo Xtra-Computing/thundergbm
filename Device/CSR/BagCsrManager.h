@@ -27,7 +27,6 @@ public:
 private:
 	static uint reservedMaxNumCsr;
 	static MemVector csrLen;
-	static MemVector csrGD;
 	static MemVector csrHess;
 	static MemVector csrGain;
 	static MemVector csrKey;
@@ -39,27 +38,23 @@ private:
 public:
 	BagCsrManager(int numFea, int maxNumSN, uint totalNumFeaValue);
 	uint *getMutableCsrLen();
-	double *getMutableCsrGD();
 	real *getMutableCsrHess();
 	real *getMutableCsrFvalue();
 	real *getMutableCsrGain();
 	uint *getMutableCsrKey();
 	bool *getMutableDefault2Right();
 
-	uint *getMutableNewCsrLen();
 	uint *getMutableCsrStart();
 	uint *getMutableCsrMarker();
 	uint *getMutableCsrStartCurRound();
 	unsigned char *getMutableCsrId2Pid();
 	uint *getMutableCsrOldLen();
-	const uint *getNewCsrLen();
 	const uint *getCsrStart();
 	const uint *getCsrMarker();
 	const uint *getCsrStartCurRound();
 	const unsigned char *getCsrId2Pid();
 	const uint *getCsrOldLen();
 	const uint *getCsrLen();
-	const double *getCsrGD();
 	const real *getCsrHess();
 	const real *getCsrFvalue();
 	const real *getCsrGain();

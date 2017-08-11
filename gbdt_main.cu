@@ -185,16 +185,17 @@ cerr << "use non-CSR" << endl;
 	cudaMemcpy(manager.m_pDInsId, pInsId, numFeaValue * sizeof(int), cudaMemcpyHostToDevice);
 	cudaMemcpy(manager.m_pDNumofKeyValue, pEachFeaLen, numFea * sizeof(int), cudaMemcpyHostToDevice);
 	cudaMemcpy(manager.m_pFeaStartPos, plFeaStartPos, numFea * sizeof(uint), cudaMemcpyHostToDevice);
-	if(CsrCompressor::bUseCsr == false){
-		BagOrgManager orgManager(numFeaValue, numBag);
-		cudaMemcpy(orgManager.m_pdDFeaValue, pdValue, numFeaValue * sizeof(real), cudaMemcpyHostToDevice);
-	}
-	else{
+	if(CsrCompressor::bUseCsr == true){
 		CsrCompressor::pOrgFvalue = pdValue;
 		CsrCompressor::eachFeaLenEachNode_h = (uint*)pEachFeaLen;//###################################### risky
 		CsrCompressor::eachFeaStartPosEachNode_h = plFeaStartPos;
 		CsrCompressor::insId_h = pInsId;
 		CsrCompressor compressor;
+		//compression may be unsuccessful if the compression is inefficient.
+	}
+	if(CsrCompressor::bUseCsr == false){//compression is inefficient
+		BagOrgManager orgManager(numFeaValue, numBag);
+		cudaMemcpy(orgManager.m_pdDFeaValue, pdValue, numFeaValue * sizeof(real), cudaMemcpyHostToDevice);
 	}
 
 	//copy instance key-value to device memory for prediction

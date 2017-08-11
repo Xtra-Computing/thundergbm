@@ -80,6 +80,15 @@ CsrCompressor::CsrCompressor(){
 	eachNodeSizeInCsr_h = totalOrgNumCsr;
 	printf("org=%u v.s. csr=%u\n", manager.m_numFeaValue, totalOrgNumCsr);
 	PROCESS_ERROR(totalOrgNumCsr < manager.m_numFeaValue);
+	if(totalOrgNumCsr * 4 > manager.m_numFeaValue){
+		bUseCsr = false;
+
+		delete[] eachCsrFeaStartPos_h;
+		delete[] eachCompressedFeaLen_h;
+		delete[] eachCsrLen_h;
+		delete[] csrFvalue_h;
+		return;
+	}
 
 	checkCudaErrors(cudaMalloc((void**)&pCsrFeaStartPos_d, sizeof(uint) * numFea));
 	checkCudaErrors(cudaMalloc((void**)&pCsrFeaLen_d, sizeof(uint) * numFea));
@@ -88,8 +97,8 @@ CsrCompressor::CsrCompressor(){
 	checkCudaErrors(cudaMalloc((void**)&pCsrStart_d, sizeof(uint) * totalOrgNumCsr));
 	checkCudaErrors(cudaMemcpy(pCsrFeaStartPos_d, eachCsrFeaStartPos_h, sizeof(uint) * numFea, cudaMemcpyHostToDevice));
 	checkCudaErrors(cudaMemcpy(pCsrFeaLen_d, eachCompressedFeaLen_h, sizeof(uint) * numFea, cudaMemcpyHostToDevice));
-	checkCudaErrors(cudaMemcpy(pCsrFvalue_d, csrFvalue_h, sizeof(real) * totalOrgNumCsr, cudaMemcpyDefault));
 	checkCudaErrors(cudaMemcpy(pCsrLen_d, eachCsrLen_h, sizeof(uint) * totalOrgNumCsr, cudaMemcpyDefault));
+	checkCudaErrors(cudaMemcpy(pCsrFvalue_d, csrFvalue_h, sizeof(real) * totalOrgNumCsr, cudaMemcpyDefault));
 	thrust::exclusive_scan(thrust::device, pCsrLen_d, pCsrLen_d + totalOrgNumCsr, pCsrStart_d);
 
 	delete[] eachCsrFeaStartPos_h;
@@ -99,7 +108,7 @@ CsrCompressor::CsrCompressor(){
 }
 
 void CsrCompressor::CsrCompression(uint &totalNumCsrFvalue, uint *eachCompressedFeaStartPos_d, uint *eachCompressedFeaLen_d,
-								   uint *eachNodeSizeInCsr_d, uint *eachCsrNodeStartPos_d){
+								   uint *eachNodeSizeInCsr_d, uint *eachCsrNodeStartPos_d, double *pGD_d, real *pHess_d){
 	BagManager bagManager;
 	GBDTGPUMemManager manager;
 	BagCsrManager csrManager(manager.m_numofFea, bagManager.m_maxNumSplittable, manager.m_numFeaValue);
@@ -120,8 +129,9 @@ void CsrCompressor::CsrCompression(uint &totalNumCsrFvalue, uint *eachCompressed
 	uint blockSize = 64;
 	uint sharedMemSize = blockSize * (sizeof(double) + sizeof(real));
 	ComputeGD<<<dimNumofBlockForGD, blockSize, sharedMemSize>>>(pCsrLen_d, pCsrStart_d, bagManager.m_pInsGradEachBag, bagManager.m_pInsHessEachBag,
-			manager.m_pDInsId, csrManager.getMutableCsrGD(), csrManager.getMutableCsrHess());
+			manager.m_pDInsId, pGD_d, pHess_d);
 	cudaDeviceSynchronize();
+	GETERROR("after ComputeGD");
 	clock_t end = clock();
 	printf("compute gd & hess time: %f\n", double(end - start) / CLOCKS_PER_SEC);
 }

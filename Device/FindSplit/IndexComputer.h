@@ -20,6 +20,7 @@ public:
 	static int m_maxNumofSN;
 	static long long m_total_copy;
 
+	static uint numIntMem;
 	//device memory
 	static unsigned char *pPartitionMarker;
 	static uint *m_pnKey;
