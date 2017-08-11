@@ -149,23 +149,7 @@ __global__ void loadDenseCsr(const real *eachCsrFvalueSparse, const uint *eachCs
 	}
 }
 
-__global__ void compCsrGDHess(const int *preFvalueInsId, uint numUsefulFvalue, const uint *eachCsrStart, uint numCsr,
-							  const real *pInsGrad, const real *pInsHess, int numIns,
-							  double *csrGD, real *csrHess){
-	uint gTid = GLOBAL_TID();
-	if(gTid >= numUsefulFvalue)
-		return;
-	uint csrId = numCsr;
-	RangeBinarySearch(gTid, eachCsrStart, numCsr, csrId);
-	CONCHECKER(csrId < numCsr);
-	int insId = preFvalueInsId[gTid];
-	CONCHECKER(insId >= 0 && insId < numIns);
-	double temp = pInsGrad[insId];
-	atomicAdd(csrGD + csrId, temp);
-	atomicAdd(csrHess + csrId, pInsHess[insId]);
-}
-
-__global__ void ComputeGD(const uint *pCsrLen, const uint *pCsrStartPos, const real *pInsGD, const real *pInsHess,
+__global__ void ComputeGDHess(const uint *pCsrLen, const uint *pCsrStartPos, const real *pInsGD, const real *pInsHess,
 						  const int *pInsId, double *csrGD, real *csrHess){
 	uint csrId = blockIdx.x;
 	uint tid = threadIdx.x;

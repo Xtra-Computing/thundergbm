@@ -57,6 +57,7 @@ void DeviceSplitter::FeaFinderAllNode2(void *pStream, int bagId)
 	dim3 dimNumofBlockToLoadGD;
 	conf.ConfKernel(bagManager.m_numFeaValue, blockSizeLoadGD, dimNumofBlockToLoadGD);
 	int maxNumFeaValueOneNode = -1;
+	clock_t csr_len_t;
 	if(numofSNode > 1)
 	{
 		PROCESS_ERROR(nNumofFeature == bagManager.m_numFea);
@@ -74,7 +75,7 @@ void DeviceSplitter::FeaFinderAllNode2(void *pStream, int bagId)
 		indexComp.FreeMem();
 		PROCESS_ERROR(bagManager.m_numFeaValue >= csrManager.curNumCsr);
 		//split nodes
-		clock_t csr_len_t = clock();
+		csr_len_t = clock();
 
 		//for testing; need to optimise later
 		checkCudaErrors(cudaMemcpy(csrManager.getMutableCsrOldLen(), csrManager.getCsrLen(), sizeof(uint) * csrManager.curNumCsr, cudaMemcpyDeviceToDevice));
@@ -138,32 +139,9 @@ void DeviceSplitter::FeaFinderAllNode2(void *pStream, int bagId)
 
 		thrust::exclusive_scan(thrust::device, csrManager.pEachNodeSizeInCsr, csrManager.pEachNodeSizeInCsr + numofSNode, csrManager.pEachCsrNodeStartPos);
 		numofDenseValue_previous = thrust::reduce(thrust::device, pTempNumFvalueEachNode, pTempNumFvalueEachNode + numofSNode);//number of dense fvalues.
-
+		thrust::exclusive_scan(thrust::device, csrManager.getCsrLen(), csrManager.getCsrLen() + csrManager.curNumCsr, csrManager.getMutableCsrStartCurRound());
 		PROCESS_ERROR(csrManager.curNumCsr <= bagManager.m_numFeaValue);
 		cudaDeviceSynchronize();
-		if(indexComp.numIntMem < csrManager.curNumCsr * 4){//make sure enough memory for reuse
-			checkCudaErrors(cudaFree(indexComp.m_pHistogram_d));
-			printf("reallocate memory for histogram (sn=%d): %u v.s. %u.......\n", numofSNode, indexComp.numIntMem, csrManager.curNumCsr * 6);
-			indexComp.numIntMem = csrManager.curNumCsr * 4 * 1.5;
-			checkCudaErrors(cudaMalloc((void**)&indexComp.m_pHistogram_d, sizeof(uint) * indexComp.numIntMem));
-		}
-		pGD_d = (double*)indexComp.m_pHistogram_d;//reuse memory; must be here, as curNumCsr may change in different level.
-		pHess_d = (real*)(indexComp.m_pHistogram_d + csrManager.curNumCsr * 2);//reuse memory
-		checkCudaErrors(cudaMemset(pGD_d, 0, sizeof(double) * csrManager.curNumCsr));
-		checkCudaErrors(cudaMemset(pHess_d, 0, sizeof(real) * csrManager.curNumCsr));
-		GETERROR("before scan");
-		thrust::exclusive_scan(thrust::device, csrManager.getCsrLen(), csrManager.getCsrLen() + csrManager.curNumCsr, csrManager.getMutableCsrStartCurRound());
-		compCsrGDHess<<<dimNumofBlockToLoadGD, blockSizeLoadGD>>>(csrManager.preFvalueInsId, numofDenseValue_previous,
-													csrManager.getCsrStartCurRound(), csrManager.curNumCsr,
-													bagManager.m_pInsGradEachBag + bagId * bagManager.m_numIns,
-													bagManager.m_pInsHessEachBag + bagId * bagManager.m_numIns,
-													bagManager.m_numIns,
-													pGD_d, pHess_d);
-		cudaDeviceSynchronize();
-		GETERROR("after compCsrGDHess");
-		clock_t csr_len_end = clock();
-		total_csr_len_t += (csr_len_end - csr_len_t);
-		GETERROR("after compCsrGDHess");
 	}
 	else
 	{
@@ -191,26 +169,40 @@ void DeviceSplitter::FeaFinderAllNode2(void *pStream, int bagId)
 		total_com_idx_t += (comIdx_end - comIdx_start);
 		//###### compress
 		cudaDeviceSynchronize();
-		clock_t start_csr = clock();
 		CsrCompressor compressor;
-		if(indexComp.numIntMem < compressor.totalOrgNumCsr * 4){//make sure enough memory for reuse
-			checkCudaErrors(cudaFree(indexComp.m_pHistogram_d));
-			printf("reallocate memory for histogram (sn=1): %u v.s. %u.......\n", indexComp.numIntMem, compressor.totalOrgNumCsr * 6);
-			indexComp.numIntMem = compressor.totalOrgNumCsr * 4 * 1.5;
-			checkCudaErrors(cudaMalloc((void**)&indexComp.m_pHistogram_d, sizeof(uint) * indexComp.numIntMem));
-		}
-		cudaDeviceSynchronize();
-		pGD_d = (double*)indexComp.m_pHistogram_d;//reuse memory; must be here, as curNumCsr may change in different level.
-		pHess_d = (real*)(indexComp.m_pHistogram_d + compressor.totalOrgNumCsr * 2);//reuse memory
 		compressor.CsrCompression(csrManager.curNumCsr, csrManager.pEachCsrFeaStartPos, csrManager.pEachCsrFeaLen,
-								  csrManager.pEachNodeSizeInCsr, csrManager.pEachCsrNodeStartPos, pGD_d, pHess_d);
-		cudaDeviceSynchronize();
-		GETERROR("after CsrCompression");
-		clock_t end_csr = clock();
-		printf("compression time: %f\n", double(end_csr - start_csr) / CLOCKS_PER_SEC);
+								  csrManager.pEachNodeSizeInCsr, csrManager.pEachCsrNodeStartPos);
 	}
-
+	//need to compute for every new tree
+	if(indexComp.numIntMem < csrManager.curNumCsr * 4){//make sure enough memory for reuse
+		checkCudaErrors(cudaFree(indexComp.m_pHistogram_d));
+		printf("reallocate memory for histogram (sn=1): %u v.s. %u.......\n", indexComp.numIntMem, csrManager.curNumCsr * 6);
+		indexComp.numIntMem = csrManager.curNumCsr * 4 * 1.5;
+		checkCudaErrors(cudaMalloc((void**)&indexComp.m_pHistogram_d, sizeof(uint) * indexComp.numIntMem));
+	}
 	cudaDeviceSynchronize();
+	pGD_d = (double*)indexComp.m_pHistogram_d;//reuse memory; must be here, as curNumCsr may change in different level.
+	pHess_d = (real*)(indexComp.m_pHistogram_d + csrManager.curNumCsr * 2);//reuse memory
+	checkCudaErrors(cudaMemset(pGD_d, 0, sizeof(double) * csrManager.curNumCsr));
+	checkCudaErrors(cudaMemset(pHess_d, 0, sizeof(real) * csrManager.curNumCsr));
+	dim3 dimNumofBlockForGD;
+	dimNumofBlockForGD.x = csrManager.curNumCsr;
+	uint blockSizeForGD = 64;
+	uint sharedMemSizeForGD = blockSizeForGD * (sizeof(double) + sizeof(real));
+	const uint *pCsrStartPos_d;
+	if(numofSNode == 1)
+		pCsrStartPos_d = CsrCompressor::pCsrStart_d;
+	else
+		pCsrStartPos_d = csrManager.getCsrStartCurRound();
+	ComputeGDHess<<<dimNumofBlockForGD, blockSizeForGD, sharedMemSizeForGD>>>(csrManager.getCsrLen(), pCsrStartPos_d,
+			bagManager.m_pInsGradEachBag + bagId * bagManager.m_numIns,
+			bagManager.m_pInsHessEachBag + bagId * bagManager.m_numIns,
+			csrManager.preFvalueInsId, pGD_d, pHess_d);
+	cudaDeviceSynchronize();
+	GETERROR("after ComputeGD");
+	clock_t csr_len_end = clock();
+	total_csr_len_t += (csr_len_end - csr_len_t);
+
 	//cout << "prefix sum" << endl;
 	int numSeg = bagManager.m_numFea * numofSNode;
 	clock_t start_scan = clock();

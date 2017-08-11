@@ -108,7 +108,7 @@ CsrCompressor::CsrCompressor(){
 }
 
 void CsrCompressor::CsrCompression(uint &totalNumCsrFvalue, uint *eachCompressedFeaStartPos_d, uint *eachCompressedFeaLen_d,
-								   uint *eachNodeSizeInCsr_d, uint *eachCsrNodeStartPos_d, double *pGD_d, real *pHess_d){
+								   uint *eachNodeSizeInCsr_d, uint *eachCsrNodeStartPos_d){
 	BagManager bagManager;
 	GBDTGPUMemManager manager;
 	BagCsrManager csrManager(manager.m_numofFea, bagManager.m_maxNumSplittable, manager.m_numFeaValue);
@@ -121,17 +121,4 @@ void CsrCompressor::CsrCompression(uint &totalNumCsrFvalue, uint *eachCompressed
 
 	checkCudaErrors(cudaMemset(eachCsrNodeStartPos_d, 0, sizeof(uint)));
 	checkCudaErrors(cudaMemcpy(eachNodeSizeInCsr_d, &eachNodeSizeInCsr_h, sizeof(uint), cudaMemcpyHostToDevice));
-
-	//need to compute for every new tree
-	clock_t start = clock();
-	dim3 dimNumofBlockForGD;
-	dimNumofBlockForGD.x = totalOrgNumCsr;
-	uint blockSize = 64;
-	uint sharedMemSize = blockSize * (sizeof(double) + sizeof(real));
-	ComputeGD<<<dimNumofBlockForGD, blockSize, sharedMemSize>>>(pCsrLen_d, pCsrStart_d, bagManager.m_pInsGradEachBag, bagManager.m_pInsHessEachBag,
-			manager.m_pDInsId, pGD_d, pHess_d);
-	cudaDeviceSynchronize();
-	GETERROR("after ComputeGD");
-	clock_t end = clock();
-	printf("compute gd & hess time: %f\n", double(end - start) / CLOCKS_PER_SEC);
 }

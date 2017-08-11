@@ -17,12 +17,12 @@ private:
 
 	static uint *pCsrFeaStartPos_d;
 	static uint *pCsrFeaLen_d;
-	static uint *pCsrLen_d;
 	static uint eachNodeSizeInCsr_d;
 	static real *pCsrFvalue_d;
-	static uint *pCsrStart_d;
 public:
 	static uint totalOrgNumCsr;
+	static uint *pCsrLen_d;
+	static uint *pCsrStart_d;
 	static bool bUseCsr;
 	static int *insId_h;
 	static real *pOrgFvalue;
@@ -31,7 +31,7 @@ public:
 public:
 	CsrCompressor();
 	void CsrCompression(uint &totalNumCsrFvalue, uint *eachCompressedFeaStartPos, uint *eachCompressedFeaLen,
-		uint *eachNodeSizeInCsr, uint *eachCsrNodeStartPos, double *pGD_d, real *pHess_d);
+		uint *eachNodeSizeInCsr, uint *eachCsrNodeStartPos);
 	const real *getOrgCsrFvalue(){return pCsrFvalue_d;}
 	const uint *getOrgCsrStart(){return pCsrStart_d;}
 	uint getNumOrgCsr(){return totalOrgNumCsr;}

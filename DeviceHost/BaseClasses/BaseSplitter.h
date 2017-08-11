@@ -38,8 +38,6 @@ public:
 public:
 	virtual ~BaseSplitter(){}
 
-	//predict the value for each instance and compute their gradient
-	virtual void ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> > & vvInsSparse, void *stream, int bagId) = 0;
 public:
 	//for sorting on each feature
 	const static int LEAFNODE = -2;
@@ -59,7 +57,7 @@ public:
 		}
 		cout << endl;
 	}
-
+	virtual void ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> > & vvInsSparse,  void *stream, int bagId) = 0;
 public:
 	int m_nRound;
 	int m_nCurDept;
