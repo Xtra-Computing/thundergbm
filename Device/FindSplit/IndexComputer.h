@@ -21,6 +21,7 @@ public:
 	static long long m_total_copy;
 
 	static uint numIntMem;
+	static uint numCharMem;
 	//device memory
 	static unsigned char *pPartitionMarker;
 	static uint *m_pnKey;

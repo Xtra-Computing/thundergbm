@@ -9,12 +9,7 @@
 #define BAGCSRMANAGER_H_
 
 #include "../../SharedUtility/DataType.h"
-
-struct MemVector{
-	void *addr = NULL;
-	uint size = 0;
-	uint reservedSize = 0;
-};
+#include "../../SharedUtility/memVector.h"
 
 class BagCsrManager{
 public:
@@ -27,20 +22,17 @@ public:
 private:
 	static uint reservedMaxNumCsr;
 	static MemVector csrLen;
-	static MemVector csrHess;
-	static MemVector csrGain;
+	static MemVector csrMarker;
 	static MemVector csrKey;
 	static MemVector csrDefault2Right;
 	static real *pCsrFvalue;
 	void reserveCsrSpace();
-	void reserveSpace(MemVector &vec, uint newSize, uint numByteEachValue);
 
 public:
 	BagCsrManager(int numFea, int maxNumSN, uint totalNumFeaValue);
 	uint *getMutableCsrLen();
 	real *getMutableCsrHess();
 	real *getMutableCsrFvalue();
-	real *getMutableCsrGain();
 	uint *getMutableCsrKey();
 	bool *getMutableDefault2Right();
 
@@ -57,7 +49,6 @@ public:
 	const uint *getCsrLen();
 	const real *getCsrHess();
 	const real *getCsrFvalue();
-	const real *getCsrGain();
 	const uint *getCsrKey();
 	const bool *getDefault2Right();
 };

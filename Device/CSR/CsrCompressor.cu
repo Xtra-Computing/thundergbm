@@ -108,7 +108,7 @@ CsrCompressor::CsrCompressor(){
 }
 
 void CsrCompressor::CsrCompression(uint &totalNumCsrFvalue, uint *eachCompressedFeaStartPos_d, uint *eachCompressedFeaLen_d,
-								   uint *eachNodeSizeInCsr_d, uint *eachCsrNodeStartPos_d){
+								   uint *eachNodeSizeInCsr_d, uint *eachCsrNodeStartPos_d, real *pCsrFvalue, uint *pCsrLen){
 	BagManager bagManager;
 	GBDTGPUMemManager manager;
 	BagCsrManager csrManager(manager.m_numofFea, bagManager.m_maxNumSplittable, manager.m_numFeaValue);
@@ -116,8 +116,8 @@ void CsrCompressor::CsrCompression(uint &totalNumCsrFvalue, uint *eachCompressed
 	//compute csr gd and hess
 	checkCudaErrors(cudaMemcpy(eachCompressedFeaStartPos_d, pCsrFeaStartPos_d, sizeof(uint) * bagManager.m_numFea, cudaMemcpyDeviceToDevice));
 	checkCudaErrors(cudaMemcpy(eachCompressedFeaLen_d, pCsrFeaLen_d, sizeof(uint) * bagManager.m_numFea, cudaMemcpyDeviceToDevice));
-	checkCudaErrors(cudaMemcpy(csrManager.getMutableCsrFvalue(), pCsrFvalue_d, sizeof(real) * totalOrgNumCsr, cudaMemcpyDeviceToDevice));
-	checkCudaErrors(cudaMemcpy(csrManager.getMutableCsrLen(), pCsrLen_d, sizeof(uint) * totalOrgNumCsr, cudaMemcpyDeviceToDevice));
+	checkCudaErrors(cudaMemcpy(pCsrFvalue, pCsrFvalue_d, sizeof(real) * totalOrgNumCsr, cudaMemcpyDeviceToDevice));
+	checkCudaErrors(cudaMemcpy(pCsrLen, pCsrLen_d, sizeof(uint) * totalOrgNumCsr, cudaMemcpyDeviceToDevice));
 
 	checkCudaErrors(cudaMemset(eachCsrNodeStartPos_d, 0, sizeof(uint)));
 	checkCudaErrors(cudaMemcpy(eachNodeSizeInCsr_d, &eachNodeSizeInCsr_h, sizeof(uint), cudaMemcpyHostToDevice));

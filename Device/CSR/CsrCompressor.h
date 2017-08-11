@@ -31,7 +31,7 @@ public:
 public:
 	CsrCompressor();
 	void CsrCompression(uint &totalNumCsrFvalue, uint *eachCompressedFeaStartPos, uint *eachCompressedFeaLen,
-		uint *eachNodeSizeInCsr, uint *eachCsrNodeStartPos);
+		uint *eachNodeSizeInCsr, uint *eachCsrNodeStartPos, real *pCsrFvalue, uint *pCsrLen);
 	const real *getOrgCsrFvalue(){return pCsrFvalue_d;}
 	const uint *getOrgCsrStart(){return pCsrStart_d;}
 	uint getNumOrgCsr(){return totalOrgNumCsr;}

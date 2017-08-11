@@ -30,6 +30,7 @@ int IndexComputer::m_numFea = -1;	//number of features
 int IndexComputer::m_maxNumofSN = -1;
 long long IndexComputer::m_total_copy = -1;
 uint IndexComputer::numIntMem = 0;
+uint IndexComputer::numCharMem = 0;
 
 unsigned char *IndexComputer::pPartitionMarker = NULL;
 uint *IndexComputer::m_pnKey = NULL;
@@ -231,15 +232,19 @@ void IndexComputer::AllocMem(int nNumofFeatures, int curNumSN, int maxNumSN)
 	if(m_pnKey == NULL){
 		//histogram based partitioning
 		m_numElementEachThd = 16;
+		if(m_totalFeaValue >= 424827542)
+			m_numElementEachThd = 512;
 		if(m_maxNumofSN > m_numElementEachThd)
 			m_numElementEachThd = m_maxNumofSN;//make sure the memory usage is the same as the training data set
 		m_totalNumEffectiveThd = Ceil(m_totalFeaValue, m_numElementEachThd);
 
+		numCharMem = m_totalFeaValue;
 		checkCudaErrors(cudaMalloc((void**)&pPartitionMarker, sizeof(unsigned char) * m_totalFeaValue));
 		numIntMem =  m_maxNumofSN * m_totalNumEffectiveThd * 2;
 		checkCudaErrors(cudaMalloc((void**)&m_pHistogram_d, numIntMem * sizeof(uint)));
 		checkCudaErrors(cudaMalloc((void**)&m_pEachNodeStartPos_d, sizeof(uint) * m_maxNumofSN));
 		m_pnKey = m_pHistogram_d + m_maxNumofSN * m_totalNumEffectiveThd;//this is important, as address of pHistogram may change.
+		printf("index comp requires %f GB\n", (numIntMem * 4 + m_totalFeaValue)/(1024.0*1024.0*1024.0));
 	}
 }
 

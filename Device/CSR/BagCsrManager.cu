@@ -17,8 +17,7 @@ int *BagCsrManager::preFvalueInsId = NULL;
 uint BagCsrManager::curNumCsr = 0;
 uint BagCsrManager::reservedMaxNumCsr = pow(2, 20);
 MemVector BagCsrManager::csrLen;//shared with pCsrStart
-MemVector BagCsrManager::csrHess;
-MemVector BagCsrManager::csrGain; //shared with csrMarker and old
+MemVector BagCsrManager::csrMarker; //shared with old length
 MemVector BagCsrManager::csrKey; //shared with pCsrStartCurRound
 real *BagCsrManager::pCsrFvalue = NULL;
 MemVector BagCsrManager::csrDefault2Right; //shared with csrId2Pid
@@ -46,49 +45,26 @@ void BagCsrManager::reserveCsrSpace(){
 	checkCudaErrors(cudaMalloc((void**) &pCsrFvalue, sizeof(real) * reservedMaxNumCsr));
 }
 
-//reserve memory for a variable
-void BagCsrManager::reserveSpace(MemVector &vec, uint newSize, uint numByteEachValue){
-	if(vec.addr != NULL){
-		checkCudaErrors(cudaFree(vec.addr));
-	}
-	vec.size = newSize;
-	vec.reservedSize = newSize * 1.5;
-	checkCudaErrors(cudaMalloc((void**)&vec.addr, numByteEachValue * vec.reservedSize));
-}
-
 /** operations on cross variable reused memory **/
 uint *BagCsrManager::getMutableCsrLen(){
 	PROCESS_ERROR(curNumCsr > 0);
 	if(csrLen.reservedSize < curNumCsr)
-		reserveSpace(csrLen, curNumCsr, sizeof(uint));
+		csrLen.reserveSpace(curNumCsr, sizeof(uint));
 	PROCESS_ERROR(csrLen.addr != NULL);
 	return (uint*)csrLen.addr;
 }
-real *BagCsrManager::getMutableCsrHess(){
-	PROCESS_ERROR(curNumCsr > 0);
-	if(csrHess.reservedSize < curNumCsr)
-		reserveSpace(csrHess, curNumCsr, sizeof(real));
-	PROCESS_ERROR(csrHess.addr != NULL);
-	return (real*)csrHess.addr;
-}
-real *BagCsrManager::getMutableCsrGain(){
-	PROCESS_ERROR(curNumCsr > 0);
-	if(csrGain.reservedSize < curNumCsr * 2)
-		reserveSpace(csrGain, curNumCsr * 2, sizeof(real));
-	PROCESS_ERROR(csrGain.addr != NULL);
-	return (real*)csrGain.addr;
-}
+
 uint *BagCsrManager::getMutableCsrKey(){
 	PROCESS_ERROR(curNumCsr > 0);
 	if(csrKey.reservedSize < curNumCsr)
-		reserveSpace(csrKey, curNumCsr, sizeof(uint));
+		csrKey.reserveSpace(curNumCsr, sizeof(uint));
 	PROCESS_ERROR(csrKey.addr != NULL);
 	return (uint*)csrKey.addr;
 }
 bool *BagCsrManager::getMutableDefault2Right(){
 	PROCESS_ERROR(curNumCsr > 0);
 	if(csrDefault2Right.reservedSize < curNumCsr)
-		reserveSpace(csrDefault2Right, curNumCsr, sizeof(bool));
+		csrDefault2Right.reserveSpace(curNumCsr, sizeof(bool));
 	PROCESS_ERROR(csrDefault2Right.addr != NULL);
 	return (bool*)csrDefault2Right.addr;
 }
@@ -100,7 +76,11 @@ unsigned char *BagCsrManager::getMutableCsrId2Pid(){
 	return (unsigned char*)getMutableDefault2Right();
 }
 uint *BagCsrManager::getMutableCsrMarker(){
-	return (uint*)getMutableCsrGain();
+	PROCESS_ERROR(curNumCsr > 0);
+	if(csrMarker.reservedSize < curNumCsr * 2)
+		csrMarker.reserveSpace(curNumCsr * 2, sizeof(uint));
+	PROCESS_ERROR(csrMarker.addr != NULL);
+	return (uint*)csrMarker.addr;
 }
 
 uint *BagCsrManager::getMutableCsrStart(){
@@ -108,21 +88,14 @@ uint *BagCsrManager::getMutableCsrStart(){
 }
 
 uint *BagCsrManager::getMutableCsrOldLen(){
-	return (uint*)getMutableCsrGain();
+	return (uint*)getMutableCsrMarker();
 }
 
 const uint *BagCsrManager::getCsrLen(){
 	PROCESS_ERROR(csrLen.addr != NULL);
 	return (uint*)csrLen.addr;
 }
-const real *BagCsrManager::getCsrHess(){
-	PROCESS_ERROR(csrHess.addr != NULL);
-	return (real*)csrHess.addr;
-}
-const real *BagCsrManager::getCsrGain(){
-	PROCESS_ERROR(csrGain.addr != NULL);
-	return (real*)csrGain.addr;
-}
+
 const uint *BagCsrManager::getCsrKey(){
 	PROCESS_ERROR(csrKey.addr != NULL);
 	return (uint*)csrKey.addr;
@@ -133,7 +106,8 @@ const uint *BagCsrManager::getCsrStart(){
 }
 
 const uint *BagCsrManager::getCsrMarker(){
-	return (uint*)getCsrGain();
+	PROCESS_ERROR(csrMarker.addr != NULL);
+	return (uint*)csrMarker.addr;
 }
 
 const uint *BagCsrManager::getCsrStartCurRound(){
@@ -143,7 +117,7 @@ const unsigned char *BagCsrManager::getCsrId2Pid(){
 	return (unsigned char*)getDefault2Right();
 }
 const uint *BagCsrManager::getCsrOldLen(){
-	return (uint*)getCsrGain();
+	return (uint*)getCsrMarker();
 }
 
 /* operations on not cross variable reused memory */
