@@ -10,6 +10,7 @@
 #define INDEXCOMPUTER_H_
 
 #include "../../DeviceHost/NodeStat.h"
+#include "../../SharedUtility/memVector.h"
 
 class IndexComputer
 {
@@ -23,7 +24,7 @@ public:
 	static uint numIntMem;
 	static uint numCharMem;
 	//device memory
-	static unsigned char *pPartitionMarker;
+	static MemVector partitionMarker;
 	static uint *m_pnKey;
 
 	//histogram based partitioning

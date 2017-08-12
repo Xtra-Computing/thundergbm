@@ -32,7 +32,7 @@ long long IndexComputer::m_total_copy = -1;
 uint IndexComputer::numIntMem = 0;
 uint IndexComputer::numCharMem = 0;
 
-unsigned char *IndexComputer::pPartitionMarker = NULL;
+MemVector IndexComputer::partitionMarker;
 uint *IndexComputer::m_pnKey = NULL;
 
 //histogram based partitioning
@@ -176,13 +176,13 @@ void IndexComputer::ComputeIdxGPU(int numSNode, int maxNumSN, int bagId){
 
 	int *pTmpInsIdToNodeId = bagManager.m_pInsIdToNodeIdEachBag + bagId * bagManager.m_numIns;
 	MarkPartition<<<dimNumofBlockForFvalue, blockSizeForFvalue>>>(bagManager.m_pPreMaxNid_h[bagId], manager.m_pDInsId, pTmpInsIdToNodeId,
-																  m_totalFeaValue, pPartitionMarker);
+																  m_totalFeaValue, (unsigned char*)partitionMarker.addr);
 	GETERROR("after MarkPartition");
 
 	dim3 numBlkDim;
 	int numThdPerBlk;
 	conf.ConfKernel(m_totalNumEffectiveThd, numThdPerBlk, numBlkDim);
-	PartitionHistogram<<<numBlkDim, numThdPerBlk, numSNode * numThdPerBlk * sizeof(uint)>>>(pPartitionMarker, m_totalFeaValue, numSNode,
+	PartitionHistogram<<<numBlkDim, numThdPerBlk, numSNode * numThdPerBlk * sizeof(uint)>>>((unsigned char*)partitionMarker.addr, m_totalFeaValue, numSNode,
 																	     	 m_numElementEachThd, m_totalNumEffectiveThd, m_pHistogram_d);
 	GETERROR("after PartitionHistogram");
 	//compute prefix sum for one array
@@ -201,7 +201,7 @@ void IndexComputer::ComputeIdxGPU(int numSNode, int maxNumSN, int bagId){
 	uint *pTmpGatherIdx = bagManager.m_pIndicesEachBag_d + bagId * bagManager.m_numFeaValue;
 	int flags = -1;//all bits are 1
 	checkCudaErrors(cudaMemset(pTmpGatherIdx, flags, sizeof(uint) * m_totalFeaValue));//when leaves appear, this is effective.
-	CollectGatherIdx<<<numBlkDim, numThdPerBlk, numSNode * numThdPerBlk * sizeof(uint)>>>(pPartitionMarker, m_totalFeaValue,
+	CollectGatherIdx<<<numBlkDim, numThdPerBlk, numSNode * numThdPerBlk * sizeof(uint)>>>((unsigned char*)partitionMarker.addr, m_totalFeaValue,
 												  m_pHistogram_d, m_pEachNodeStartPos_d, numSNode,
 												  m_numElementEachThd, m_totalNumEffectiveThd, pTmpGatherIdx);
 	GETERROR("after CollectGatherIdx");
@@ -214,7 +214,7 @@ void IndexComputer::ComputeIdxGPU(int numSNode, int maxNumSN, int bagId){
 											  bagId * bagManager.m_maxNumSplittable * bagManager.m_numFea;
 
 	checkCudaErrors(cudaMemset(pTmpEachFeaLenEachNode, 0, sizeof(int) * bagManager.m_maxNumSplittable * m_numFea));
-	EachFeaLenEachNode<<<dimNumofBlockForFvalue, blockSizeForFvalue>>>(pPartitionMarker, m_totalFeaValue, pTmpEachFeaLenEachNode,
+	EachFeaLenEachNode<<<dimNumofBlockForFvalue, blockSizeForFvalue>>>((unsigned char*)partitionMarker.addr, m_totalFeaValue, pTmpEachFeaLenEachNode,
 																	   m_numFea, numSNode, manager.m_pFeaStartPos);
 	thrust::exclusive_scan(thrust::system::cuda::par, pTmpEachFeaLenEachNode, pTmpEachFeaLenEachNode + m_numFea * numSNode, pTmpEachFeaStartPosEachNode);
 	
@@ -232,14 +232,15 @@ void IndexComputer::AllocMem(int nNumofFeatures, int curNumSN, int maxNumSN)
 	if(m_pnKey == NULL){
 		//histogram based partitioning
 		m_numElementEachThd = 16;
-		if(m_totalFeaValue >= 424827542)
-			m_numElementEachThd = 512;
+		if(m_totalFeaValue >= 500000000)
+			m_numElementEachThd = 2048;
 		if(m_maxNumofSN > m_numElementEachThd)
 			m_numElementEachThd = m_maxNumofSN;//make sure the memory usage is the same as the training data set
 		m_totalNumEffectiveThd = Ceil(m_totalFeaValue, m_numElementEachThd);
 
 		numCharMem = m_totalFeaValue;
-		checkCudaErrors(cudaMalloc((void**)&pPartitionMarker, sizeof(unsigned char) * m_totalFeaValue));
+//		checkCudaErrors(cudaMalloc((void**)&pPartitionMarker, sizeof(unsigned char) * m_totalFeaValue));
+		partitionMarker.reserveSpace(m_totalFeaValue, 1);
 		numIntMem =  m_maxNumofSN * m_totalNumEffectiveThd * 2;
 		checkCudaErrors(cudaMalloc((void**)&m_pHistogram_d, numIntMem * sizeof(uint)));
 		checkCudaErrors(cudaMalloc((void**)&m_pEachNodeStartPos_d, sizeof(uint) * m_maxNumofSN));

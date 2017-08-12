@@ -75,12 +75,12 @@ void DeviceSplitter::FeaFinderAllNode2(void *pStream, int bagId)
 		csr_len_t = clock();
 
 		if(indexComp.numCharMem < csrManager.curNumCsr * 4){//make sure enough memory for reuse
-			checkCudaErrors(cudaFree(indexComp.pPartitionMarker));
+			checkCudaErrors(cudaFree(indexComp.partitionMarker.addr));
 			printf("reallocate memory for histogram (sn=1): %u v.s. %u.......\n", indexComp.numCharMem, csrManager.curNumCsr * 6);
 			indexComp.numCharMem = csrManager.curNumCsr * 4 * 1.5;
-			checkCudaErrors(cudaMalloc((void**)&indexComp.pPartitionMarker, indexComp.numCharMem));
+			checkCudaErrors(cudaMalloc((void**)&indexComp.partitionMarker.addr, indexComp.numCharMem));
 		}
-		uint *pOldCsrLen_d = (uint*)indexComp.pPartitionMarker;
+		uint *pOldCsrLen_d = (uint*)indexComp.partitionMarker.addr;
 		checkCudaErrors(cudaMemcpy(pOldCsrLen_d, csrManager.getCsrLen(), sizeof(uint) * csrManager.curNumCsr, cudaMemcpyDeviceToDevice));
 		checkCudaErrors(cudaMemset(csrManager.getMutableCsrId2Pid(), (int)-1, sizeof(char) * csrManager.curNumCsr));
 
