@@ -22,9 +22,7 @@ public:
 private:
 	static uint reservedMaxNumCsr;
 	static MemVector csrLen;
-	static MemVector csrMarker;
 	static MemVector csrKey;
-	static MemVector csrDefault2Right;
 	static real *pCsrFvalue;
 	void reserveCsrSpace();
 
@@ -34,23 +32,13 @@ public:
 	real *getMutableCsrHess();
 	real *getMutableCsrFvalue();
 	uint *getMutableCsrKey();
-	bool *getMutableDefault2Right();
 
 	uint *getMutableCsrStart();
-	uint *getMutableCsrMarker();
-	uint *getMutableCsrStartCurRound();
-	unsigned char *getMutableCsrId2Pid();
-	uint *getMutableCsrOldLen();
 	const uint *getCsrStart();
-	const uint *getCsrMarker();
-	const uint *getCsrStartCurRound();
-	const unsigned char *getCsrId2Pid();
-	const uint *getCsrOldLen();
 	const uint *getCsrLen();
 	const real *getCsrHess();
 	const real *getCsrFvalue();
 	const uint *getCsrKey();
-	const bool *getDefault2Right();
 };
 
 

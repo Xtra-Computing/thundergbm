@@ -234,7 +234,7 @@ void IndexComputer::AllocMem(int nNumofFeatures, int curNumSN, int maxNumSN)
 		//histogram based partitioning
 		m_numElementEachThd = 16;
 		if(m_totalFeaValue >= 500000000)
-			m_numElementEachThd = 2048;
+			m_numElementEachThd = 4096;
 		if(m_maxNumofSN > m_numElementEachThd)
 			m_numElementEachThd = m_maxNumofSN;//make sure the memory usage is the same as the training data set
 		m_totalNumEffectiveThd = Ceil(m_totalFeaValue, m_numElementEachThd);
