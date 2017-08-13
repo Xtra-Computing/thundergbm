@@ -28,7 +28,7 @@ public:
 	static uint *m_pnKey;
 
 	//histogram based partitioning
-	static uint *m_pHistogram_d;
+	static MemVector histogram_d;
 	static uint m_numElementEachThd;
 	static uint m_totalNumEffectiveThd;
 	static uint *m_pEachNodeStartPos_d;

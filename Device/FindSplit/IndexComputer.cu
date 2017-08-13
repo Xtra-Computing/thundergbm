@@ -36,7 +36,7 @@ MemVector IndexComputer::partitionMarker;
 uint *IndexComputer::m_pnKey = NULL;
 
 //histogram based partitioning
-uint *IndexComputer::m_pHistogram_d = NULL;
+MemVector IndexComputer::histogram_d;
 uint IndexComputer::m_numElementEachThd = LARGE_4B_UINT;
 uint IndexComputer::m_totalNumEffectiveThd = LARGE_4B_UINT;
 uint *IndexComputer::m_pEachNodeStartPos_d;
@@ -159,13 +159,14 @@ __global__ void EachFeaLenEachNode(const unsigned char *pPartitionMarker, uint m
 void IndexComputer::ComputeIdxGPU(int numSNode, int maxNumSN, int bagId){
 	PROCESS_ERROR(m_totalFeaValue > 0 && numSNode > 0 && maxNumSN >= 0);
 	
-	m_pnKey = m_pHistogram_d + m_maxNumofSN * m_totalNumEffectiveThd;//this is important, as address of pHistogram may change.
+	m_pnKey = ((uint*)histogram_d.addr) + m_maxNumofSN * m_totalNumEffectiveThd;//this is important, as address of pHistogram may change.
 
 	dim3 dimNumofBlockToSetKey;
 	dimNumofBlockToSetKey.y = numSNode;
 	uint blockSize = 128;
 	dimNumofBlockToSetKey.x = (m_totalNumEffectiveThd + blockSize - 1) / blockSize;
 	SetKey<<<dimNumofBlockToSetKey, blockSize>>>(m_totalNumEffectiveThd, m_pnKey);
+	GETERROR("after set key in computeIdxGPU");
 
 	BagManager bagManager;
 	GBDTGPUMemManager manager;
@@ -183,15 +184,15 @@ void IndexComputer::ComputeIdxGPU(int numSNode, int maxNumSN, int bagId){
 	int numThdPerBlk;
 	conf.ConfKernel(m_totalNumEffectiveThd, numThdPerBlk, numBlkDim);
 	PartitionHistogram<<<numBlkDim, numThdPerBlk, numSNode * numThdPerBlk * sizeof(uint)>>>((unsigned char*)partitionMarker.addr, m_totalFeaValue, numSNode,
-																	     	 m_numElementEachThd, m_totalNumEffectiveThd, m_pHistogram_d);
+																	     	 m_numElementEachThd, m_totalNumEffectiveThd, (uint*)histogram_d.addr);
 	GETERROR("after PartitionHistogram");
 	//compute prefix sum for one array
 	thrust::inclusive_scan_by_key(thrust::system::cuda::par, m_pnKey, m_pnKey + m_totalNumEffectiveThd * numSNode,
-								  m_pHistogram_d, m_pHistogram_d);//in place prefix sum
+								 (uint*)histogram_d.addr, (uint*)histogram_d.addr);//in place prefix sum
 
 	//get number of fvalue in each partition (i.e. each new node)
 	uint *pTempNumFvalueEachNode = bagManager.m_pNumFvalueEachNodeEachBag_d + bagId * bagManager.m_maxNumSplittable;
-	ComputeNumFvalueEachNode<<<1, numSNode>>>(m_pHistogram_d, m_totalNumEffectiveThd, pTempNumFvalueEachNode);
+	ComputeNumFvalueEachNode<<<1, numSNode>>>((uint*)histogram_d.addr, m_totalNumEffectiveThd, pTempNumFvalueEachNode);
 	cudaDeviceSynchronize();//this is very important
 
 	checkCudaErrors(cudaMemcpy(m_pEachNodeStartPos_d, pTempNumFvalueEachNode, sizeof(uint) * numSNode, cudaMemcpyDeviceToDevice));
@@ -202,7 +203,7 @@ void IndexComputer::ComputeIdxGPU(int numSNode, int maxNumSN, int bagId){
 	int flags = -1;//all bits are 1
 	checkCudaErrors(cudaMemset(pTmpGatherIdx, flags, sizeof(uint) * m_totalFeaValue));//when leaves appear, this is effective.
 	CollectGatherIdx<<<numBlkDim, numThdPerBlk, numSNode * numThdPerBlk * sizeof(uint)>>>((unsigned char*)partitionMarker.addr, m_totalFeaValue,
-												  m_pHistogram_d, m_pEachNodeStartPos_d, numSNode,
+												  (uint*)histogram_d.addr, m_pEachNodeStartPos_d, numSNode,
 												  m_numElementEachThd, m_totalNumEffectiveThd, pTmpGatherIdx);
 	GETERROR("after CollectGatherIdx");
 
@@ -239,12 +240,11 @@ void IndexComputer::AllocMem(int nNumofFeatures, int curNumSN, int maxNumSN)
 		m_totalNumEffectiveThd = Ceil(m_totalFeaValue, m_numElementEachThd);
 
 		numCharMem = m_totalFeaValue;
-//		checkCudaErrors(cudaMalloc((void**)&pPartitionMarker, sizeof(unsigned char) * m_totalFeaValue));
 		partitionMarker.reserveSpace(m_totalFeaValue, 1);
 		numIntMem =  m_maxNumofSN * m_totalNumEffectiveThd * 2;
-		checkCudaErrors(cudaMalloc((void**)&m_pHistogram_d, numIntMem * sizeof(uint)));
+		histogram_d.reserveSpace(numIntMem, sizeof(uint));
 		checkCudaErrors(cudaMalloc((void**)&m_pEachNodeStartPos_d, sizeof(uint) * m_maxNumofSN));
-		m_pnKey = m_pHistogram_d + m_maxNumofSN * m_totalNumEffectiveThd;//this is important, as address of pHistogram may change.
+		m_pnKey = ((uint*)histogram_d.addr) + m_maxNumofSN * m_totalNumEffectiveThd;//this is important, as address of pHistogram may change.
 		printf("index comp requires %f GB\n", (numIntMem * 4 + m_totalFeaValue)/(1024.0*1024.0*1024.0));
 	}
 }

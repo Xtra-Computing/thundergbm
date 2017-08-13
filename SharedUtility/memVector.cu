@@ -13,6 +13,9 @@ void MemVector::reserveSpace(uint newSize, uint numByteEachValue){
 		checkCudaErrors(cudaFree(addr));
 	}
 	size = newSize;
-	reservedSize = newSize * 1.5;
+	if(newSize * numByteEachValue > 4 * 1024 * 1024 * 1024)//larger than 1GB
+		reservedSize = newSize;
+	else
+		reservedSize = newSize * 2;
 	checkCudaErrors(cudaMalloc((void**)&addr, numByteEachValue * reservedSize));
 }

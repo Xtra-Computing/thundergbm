@@ -74,11 +74,9 @@ void DeviceSplitter::FeaFinderAllNode2(void *pStream, int bagId)
 		//split nodes
 		csr_len_t = clock();
 
-		if(indexComp.numCharMem < csrManager.curNumCsr * 4){//make sure enough memory for reuse
-			checkCudaErrors(cudaFree(indexComp.partitionMarker.addr));
-			printf("reallocate memory for histogram (sn=1): %u v.s. %u.......\n", indexComp.numCharMem, csrManager.curNumCsr * 6);
-			indexComp.numCharMem = csrManager.curNumCsr * 4 * 1.5;
-			checkCudaErrors(cudaMalloc((void**)&indexComp.partitionMarker.addr, indexComp.numCharMem));
+		if(indexComp.partitionMarker.reservedSize < csrManager.curNumCsr * 4){//make sure enough memory for reuse
+			printf("reallocate memory for histogram (sn=1): %u v.s. %u.......\n", indexComp.partitionMarker.reservedSize/4, csrManager.curNumCsr);
+			indexComp.partitionMarker.reserveSpace(csrManager.curNumCsr * 4, sizeof(unsigned char));
 		}
 		uint *pOldCsrLen_d = (uint*)indexComp.partitionMarker.addr;
 		checkCudaErrors(cudaMemcpy(pOldCsrLen_d, csrManager.getCsrLen(), sizeof(uint) * csrManager.curNumCsr, cudaMemcpyDeviceToDevice));
@@ -86,7 +84,7 @@ void DeviceSplitter::FeaFinderAllNode2(void *pStream, int bagId)
 
 		thrust::exclusive_scan(thrust::device, csrManager.getCsrLen(), csrManager.getCsrLen() + csrManager.curNumCsr, csrManager.getMutableCsrStart());
 
-		uint *pCsrNewLen_d = indexComp.m_pHistogram_d;
+		uint *pCsrNewLen_d = (uint*)(indexComp.histogram_d.addr);
 		checkCudaErrors(cudaMemset(pCsrNewLen_d, 0, sizeof(uint) * csrManager.curNumCsr * 2));
 		checkCudaErrors(cudaMemset(csrManager.pEachCsrFeaLen, 0, sizeof(uint) * bagManager.m_numFea * numofSNode));
 		dim3 dimNumofBlockToCsrLen;
@@ -105,7 +103,7 @@ void DeviceSplitter::FeaFinderAllNode2(void *pStream, int bagId)
 						bagManager.m_numIns, manager.m_pDInsId, csrManager.preFvalueInsId, bagManager.m_pIndicesEachBag_d, bagManager.m_numFeaValue);
 		GETERROR("after LoadFvalueInsId");
 
-		real *pCsrFvalueSpare = (real*)(indexComp.m_pHistogram_d + csrManager.curNumCsr * 2);//reuse memory
+		real *pCsrFvalueSpare = (real*)(((int*)indexComp.histogram_d.addr) + csrManager.curNumCsr * 2);//reuse memory
 
 		int blockSizeFillFvalue;
 		dim3 dimNumBlockToFillFvalue;
@@ -178,16 +176,14 @@ void DeviceSplitter::FeaFinderAllNode2(void *pStream, int bagId)
 								  csrManager.pEachNodeSizeInCsr, csrManager.pEachCsrNodeStartPos, csrManager.getMutableCsrFvalue(), csrManager.getMutableCsrLen());
 	}
 	//need to compute for every new tree
-	if(indexComp.numIntMem < csrManager.curNumCsr * 4){//make sure enough memory for reuse
-		checkCudaErrors(cudaFree(indexComp.m_pHistogram_d));
+	if(indexComp.histogram_d.reservedSize < csrManager.curNumCsr * 4){//make sure enough memory for reuse
 		printf("reallocate memory for histogram (sn=1): %u v.s. %u.......\n", indexComp.numIntMem, csrManager.curNumCsr * 6);
-		indexComp.numIntMem = csrManager.curNumCsr * 4 * 1.5;
-		checkCudaErrors(cudaMalloc((void**)&indexComp.m_pHistogram_d, sizeof(uint) * indexComp.numIntMem));
+		indexComp.histogram_d.reserveSpace(csrManager.curNumCsr * 4, sizeof(uint));
 	}
 	cudaDeviceSynchronize();
-	double *pGD_d = (double*)indexComp.m_pHistogram_d;//reuse memory; must be here, as curNumCsr may change in different level.
-	real *pHess_d = (real*)(indexComp.m_pHistogram_d + csrManager.curNumCsr * 2);//reuse memory
-	real *pGain_d = (real*)(indexComp.m_pHistogram_d + csrManager.curNumCsr * 3);
+	double *pGD_d = (double*)indexComp.histogram_d.addr;//reuse memory; must be here, as curNumCsr may change in different level.
+	real *pHess_d = (real*)(((uint*)indexComp.histogram_d.addr) + csrManager.curNumCsr * 2);//reuse memory
+	real *pGain_d = (real*)(((uint*)indexComp.histogram_d.addr) + csrManager.curNumCsr * 3);
 	checkCudaErrors(cudaMemset(pGD_d, 0, sizeof(double) * csrManager.curNumCsr));
 	checkCudaErrors(cudaMemset(pHess_d, 0, sizeof(real) * csrManager.curNumCsr));
 	dim3 dimNumofBlockForGD;
