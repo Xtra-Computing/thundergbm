@@ -87,6 +87,7 @@ void BagManager::InitBagManager(int numIns, int numFea, int numTree, int numBag,
 	printf("device id=%d\n", deviceId);
 
 	GETERROR("error before init bag manager");
+	printf("ins=%d, numBag=%d, maxSN=%d, maxNumNode=%d\n", numIns, numBag, maxNumSN, maxNumNode);
 	PROCESS_ERROR(numIns > 0 && numBag > 0 && maxNumSN > 0 && maxNumNode > 0);
 	m_numIns = numIns;
 	m_numFea = numFea;

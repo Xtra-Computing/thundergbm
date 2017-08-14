@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 fname="stderr.test"
 dataset=["abalone", "cadata", "covetype", "e2006", "higgs", "car ins", 
-		"log1p", "realsim", "susy", "year pre", "3d"]
+		"log1p", "new20", "realsim", "susy", "year pre", "3d"]
 result=["2.26841", "72842", "0.36872", "0.3716", "0.446322", "38.9215",
-		"0.37719", "0.705245", "0.37673", "9.34178", "3.42847e+07"]
+		"0.37719", "0.784027", "0.705245", "0.37673", "9.34178", "3.42847e+07"]
 new_result=[]
 
 with open(fname) as f:

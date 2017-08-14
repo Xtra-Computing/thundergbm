@@ -75,6 +75,14 @@ case $1 in
 		BAG=${BAG}"1"
 	    FILENAME=${DATASET_DIR}/"log1p.E2006.train" #4,272,227 features and 16,087 instances
         ;;
+	new20)
+        GAMMA=${GAMMA}"1"
+		D=${D}"4"
+		NUMTREE=${NUMTREE}"4"
+		BAG=${BAG}"1"
+	    FILENAME=${DATASET_DIR}/"news20.binary" #4,272,227 features and 16,087 instances
+        ;;
+
     real-sim)
 		GAMMA=${GAMMA}"1"
         D=${D}"8"

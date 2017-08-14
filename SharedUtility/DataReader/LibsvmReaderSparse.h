@@ -113,8 +113,8 @@ void LibSVMDataReader::ReaderHelper(vector<vector<KeyValue> > &v_vInstance, vect
 	//get a sample
 	char cColon;
 	uint numFeaValue = 0;
+	uint maxFeaId = 0;
 	do {
-		j++;
 		getline(readIn, str);
         if (str == "") break;
 		istringstream in(str);
@@ -126,12 +126,13 @@ void LibSVMDataReader::ReaderHelper(vector<vector<KeyValue> > &v_vInstance, vect
 
 		//get features of a sample
 		int nFeature;
-		real x;
+		real x = 0xffffffff;
 		while (in >> nFeature >> cColon >> x)
 		{
+			if(nFeature > maxFeaId)
+				maxFeaId = nFeature;
 			numFeaValue++;
 			//assert(x > 0 && x <= 1);
-			//cout << nFeature << " " << cColon << endl;
 			assert(cColon == ':');
 			if(bUseDense == true)
 			{
@@ -153,6 +154,9 @@ void LibSVMDataReader::ReaderHelper(vector<vector<KeyValue> > &v_vInstance, vect
 			Push(nFeature - 1, x, vSample);
 			i++;
 		}
+		//skip an empty line (usually this case happens in the last line)
+		if(x == 0xffffffff)
+			continue;
 		//fill the value of the rest of the features as 0
 		if(bUseDense == true)
 		{
@@ -162,7 +166,7 @@ void LibSVMDataReader::ReaderHelper(vector<vector<KeyValue> > &v_vInstance, vect
 				i++;
 			}
 		}
-
+		j++;
 		v_vInstance.push_back(vSample);
 
 		//clear vector
@@ -174,7 +178,7 @@ void LibSVMDataReader::ReaderHelper(vector<vector<KeyValue> > &v_vInstance, vect
 	{
 		readIn.clear();
 	}
-    printf("# of instances: %d; # of features: %d; # of fvalue: %d\n", v_vInstance.size(), nNumofFeatures, numFeaValue);
+    printf("# of instances: %d;  max feature id2: %d; # of fvalue: %d\n", v_vInstance.size(), maxFeaId, numFeaValue);
 }
 
 

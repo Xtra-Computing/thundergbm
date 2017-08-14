@@ -132,6 +132,7 @@ void DeviceSplitter::FeaFinderAllNode(void *pStream, int bagId)
 	//construct keys for exclusive scan
 	uint *pnKey_d;
 	checkCudaErrors(cudaMalloc((void**)&pnKey_d, bagManager.m_numFeaValue * sizeof(uint)));
+	checkCudaErrors(cudaMemset(pnKey_d, -1, sizeof(uint) * bagManager.m_numFeaValue));
 	uint *pTempEachFeaStartEachNode = bagManager.m_pEachFeaStartPosEachNodeEachBag_d + bagId * bagManager.m_maxNumSplittable * bagManager.m_numFea;
 
 	//set keys by GPU
@@ -145,9 +146,17 @@ void DeviceSplitter::FeaFinderAllNode(void *pStream, int bagId)
 	dim3 dimNumofBlockToSetKey;
 	dimNumofBlockToSetKey.x = totalNumArray;
 	uint blockSize = 128;
+//	printf("#of sn=%d, maxLen=%u\n", numofSNode, maxSegLen);
 	dimNumofBlockToSetKey.y = (maxSegLen + blockSize - 1) / blockSize;
-	SetKey<<<totalNumArray, blockSize, sizeof(uint) * 2, (*(cudaStream_t*)pStream)>>>
+	if(totalNumArray < 1000000)
+		SetKey<<<totalNumArray, blockSize, sizeof(uint) * 2, (*(cudaStream_t*)pStream)>>>
 			(pTempEachFeaStartEachNode, pTempEachFeaLenEachNode, pnKey_d);
+	else{
+		int numSegEachBlk = 1000;
+		int numofBlkSetKey = (totalNumArray + numSegEachBlk - 1) / numSegEachBlk;
+		SetKey<<<numofBlkSetKey, blockSize, 0, (*(cudaStream_t*)pStream)>>>(pTempEachFeaStartEachNode, pTempEachFeaLenEachNode,
+				numSegEachBlk, totalNumArray, pnKey_d);
+	}
 	cudaStreamSynchronize((*(cudaStream_t*)pStream));
 
 	//compute prefix sum for gd and hess (more than one arrays)

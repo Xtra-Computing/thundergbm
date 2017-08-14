@@ -240,12 +240,13 @@ void IndexComputer::AllocMem(int nNumofFeatures, int curNumSN, int maxNumSN)
 		m_totalNumEffectiveThd = Ceil(m_totalFeaValue, m_numElementEachThd);
 
 		numCharMem = m_totalFeaValue;
-		partitionMarker.reserveSpace(m_totalFeaValue, 1);
 		numIntMem =  m_maxNumofSN * m_totalNumEffectiveThd * 2;
+		printf("index comp requires %f GB\n", (numIntMem * 4 + m_totalFeaValue)/(1024.0*1024.0*1024.0));
+
+		partitionMarker.reserveSpace(m_totalFeaValue, 1);
 		histogram_d.reserveSpace(numIntMem, sizeof(uint));
 		checkCudaErrors(cudaMalloc((void**)&m_pEachNodeStartPos_d, sizeof(uint) * m_maxNumofSN));
 		m_pnKey = ((uint*)histogram_d.addr) + m_maxNumofSN * m_totalNumEffectiveThd;//this is important, as address of pHistogram may change.
-		printf("index comp requires %f GB\n", (numIntMem * 4 + m_totalFeaValue)/(1024.0*1024.0*1024.0));
 	}
 }
 

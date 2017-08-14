@@ -180,7 +180,7 @@ void DeviceSplitter::FeaFinderAllNode2(void *pStream, int bagId)
 	}
 	//need to compute for every new tree
 	if(indexComp.histogram_d.reservedSize < csrManager.curNumCsr * 4){//make sure enough memory for reuse
-		printf("reallocate memory for histogram (sn=%u): %u v.s. %u.......\n", numofSNode, indexComp.numIntMem, csrManager.curNumCsr * 6);
+		printf("reallocate memory for histogram (sn=%u): %u v.s. %u.......\n", numofSNode, indexComp.histogram_d.reservedSize, csrManager.curNumCsr * 4);
 		indexComp.histogram_d.reserveSpace(csrManager.curNumCsr * 4, sizeof(uint));
 	}
 	cudaDeviceSynchronize();
