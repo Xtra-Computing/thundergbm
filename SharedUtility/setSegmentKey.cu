@@ -33,7 +33,8 @@ __global__ void SetKey(const uint *pSegStart, const int *pSegLen, int numSegEach
 			uint tid = blockIdx.y * blockDim.x + threadIdx.x;//for supporting multiple blocks for one segment
 			uint pos = tid + segmentStartPos;
 			while(pos < segmentLen + segmentStartPos){
-				pnKey[pos] = segId;
+				//pnKey[pos] = segId;
+				asm("st.global.cg.u32 [%1], %0;" :: "r"(segId), "l"(pnKey + pos) : "memory");
 				pos += blockDim.x;
 			}
 		}

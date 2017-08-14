@@ -17,6 +17,9 @@ public:
 	static double *m_pdGDPrefixSumEachBag;
 	static real *m_pHessPrefixSumEachBag;
 	static real *m_pGainEachFvalueEachBag;
+	static uint *m_pnKey_d;
+	static uint *m_pnTid2Fid;
+	static bool needCopy;
 	BagOrgManager(uint numFeaValue, int numBag);
 };
 

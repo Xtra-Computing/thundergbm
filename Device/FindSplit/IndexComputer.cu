@@ -15,6 +15,8 @@
 #include "IndexComputer.h"
 #include "../Hashing.h"
 #include "../Bagging/BagManager.h"
+#include "../Bagging/BagOrgManager.h"
+#include "../CSR/CsrCompressor.h"
 #include "../Memory/gbdtGPUMemManager.h"
 #include "../../SharedUtility/CudaMacro.h"
 #include "../../SharedUtility/KernelConf.h"
@@ -137,7 +139,7 @@ __global__ void CollectGatherIdx(const unsigned char *pPartitionMarker, uint mar
 /**
   * @brief: store gather indices
   */
-__global__ void EachFeaLenEachNode(const unsigned char *pPartitionMarker, uint markerLen,
+__global__ void EachFeaLenEachNodeCSR(const unsigned char *pPartitionMarker, uint markerLen,
 								 int *pEachFeaLenEachNode, uint numFea,
 								 uint numParition, uint *pEachFeaStart){
 	int gTid = GLOBAL_TID();
@@ -152,6 +154,26 @@ __global__ void EachFeaLenEachNode(const unsigned char *pPartitionMarker, uint m
 	RangeBinarySearch(gTid, pEachFeaStart, numFea, feaId);
 	atomicAdd(&pEachFeaLenEachNode[pid * numFea + feaId], 1);
 }
+
+/**
+  * @brief: store gather indices
+  */
+__global__ void EachFeaLenEachNodeOrg(const unsigned char *pPartitionMarker, uint markerLen,
+								 int *pEachFeaLenEachNode, const uint *tid2Fid, uint numFea,
+								 uint numParition, uint *pEachFeaStart){
+	int gTid = GLOBAL_TID();
+	if(gTid >= markerLen)//thread has nothing to collect
+		return;
+
+	int pid = pPartitionMarker[gTid];
+	if(pid >= numParition){
+		return;//skip this element, as element is marked as leaf.
+	}
+	uint feaId = tid2Fid[gTid];
+	//RangeBinarySearch(gTid, pEachFeaStart, numFea, feaId);
+	atomicAdd(&pEachFeaLenEachNode[pid * numFea + feaId], 1);
+}
+
 
 /**
   * @brief: compute gether index by GPUs
@@ -215,8 +237,13 @@ void IndexComputer::ComputeIdxGPU(int numSNode, int maxNumSN, int bagId){
 											  bagId * bagManager.m_maxNumSplittable * bagManager.m_numFea;
 
 	checkCudaErrors(cudaMemset(pTmpEachFeaLenEachNode, 0, sizeof(int) * bagManager.m_maxNumSplittable * m_numFea));
-	EachFeaLenEachNode<<<dimNumofBlockForFvalue, blockSizeForFvalue>>>((unsigned char*)partitionMarker.addr, m_totalFeaValue, pTmpEachFeaLenEachNode,
+	if(CsrCompressor::bUseCsr == true)
+		EachFeaLenEachNodeCSR<<<dimNumofBlockForFvalue, blockSizeForFvalue>>>((unsigned char*)partitionMarker.addr, m_totalFeaValue, pTmpEachFeaLenEachNode,
 																	   m_numFea, numSNode, manager.m_pFeaStartPos);
+	else
+		EachFeaLenEachNodeOrg<<<dimNumofBlockForFvalue, blockSizeForFvalue>>>((unsigned char*)partitionMarker.addr, m_totalFeaValue, pTmpEachFeaLenEachNode,
+																			  BagOrgManager::m_pnTid2Fid, m_numFea, numSNode, manager.m_pFeaStartPos);
+
 	thrust::exclusive_scan(thrust::system::cuda::par, pTmpEachFeaLenEachNode, pTmpEachFeaLenEachNode + m_numFea * numSNode, pTmpEachFeaStartPosEachNode);
 	
 	//get feature values start position of each new node

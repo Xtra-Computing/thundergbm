@@ -130,9 +130,7 @@ void DeviceSplitter::FeaFinderAllNode(void *pStream, int bagId)
 	cudaStreamSynchronize((*(cudaStream_t*)pStream));//wait until the pinned memory (m_pEachFeaLenEachNodeEachBag_dh) is filled
 
 	//construct keys for exclusive scan
-	uint *pnKey_d;
-	checkCudaErrors(cudaMalloc((void**)&pnKey_d, bagManager.m_numFeaValue * sizeof(uint)));
-	checkCudaErrors(cudaMemset(pnKey_d, -1, sizeof(uint) * bagManager.m_numFeaValue));
+	MEMSET(orgManager.m_pnKey_d, -1, sizeof(uint) * bagManager.m_numFeaValue);
 	uint *pTempEachFeaStartEachNode = bagManager.m_pEachFeaStartPosEachNodeEachBag_d + bagId * bagManager.m_maxNumSplittable * bagManager.m_numFea;
 
 	//set keys by GPU
@@ -150,20 +148,24 @@ void DeviceSplitter::FeaFinderAllNode(void *pStream, int bagId)
 	dimNumofBlockToSetKey.y = (maxSegLen + blockSize - 1) / blockSize;
 	if(totalNumArray < 1000000)
 		SetKey<<<totalNumArray, blockSize, sizeof(uint) * 2, (*(cudaStream_t*)pStream)>>>
-			(pTempEachFeaStartEachNode, pTempEachFeaLenEachNode, pnKey_d);
+			(pTempEachFeaStartEachNode, pTempEachFeaLenEachNode, orgManager.m_pnKey_d);
 	else{
 		int numSegEachBlk = 1000;
 		int numofBlkSetKey = (totalNumArray + numSegEachBlk - 1) / numSegEachBlk;
 		SetKey<<<numofBlkSetKey, blockSize, 0, (*(cudaStream_t*)pStream)>>>(pTempEachFeaStartEachNode, pTempEachFeaLenEachNode,
-				numSegEachBlk, totalNumArray, pnKey_d);
+				numSegEachBlk, totalNumArray, orgManager.m_pnKey_d);
+	}
+	if(orgManager.needCopy == true){
+		checkCudaErrors(cudaMemcpy(orgManager.m_pnTid2Fid, orgManager.m_pnKey_d, sizeof(uint) * bagManager.m_numFeaValue, cudaMemcpyDeviceToDevice));
+		orgManager.needCopy = false;
 	}
 	cudaStreamSynchronize((*(cudaStream_t*)pStream));
 
 	//compute prefix sum for gd and hess (more than one arrays)
 	double *pTempGDSum = orgManager.m_pdGDPrefixSumEachBag + bagId * bagManager.m_numFeaValue;
 	real *pTempHessSum = orgManager.m_pHessPrefixSumEachBag + bagId * bagManager.m_numFeaValue;
-	thrust::inclusive_scan_by_key(thrust::system::cuda::par, pnKey_d, pnKey_d + bagManager.m_numFeaValue, pTempGDSum, pTempGDSum);//in place prefix sum
-	thrust::inclusive_scan_by_key(thrust::system::cuda::par, pnKey_d, pnKey_d + bagManager.m_numFeaValue, pTempHessSum, pTempHessSum);
+	thrust::inclusive_scan_by_key(thrust::system::cuda::par, orgManager.m_pnKey_d, orgManager.m_pnKey_d + bagManager.m_numFeaValue, pTempGDSum, pTempGDSum);//in place prefix sum
+	thrust::inclusive_scan_by_key(thrust::system::cuda::par, orgManager.m_pnKey_d, orgManager.m_pnKey_d + bagManager.m_numFeaValue, pTempHessSum, pTempHessSum);
 
 	clock_t end_scan = clock();
 	total_scan_t += (end_scan - start_scan);
@@ -184,7 +186,7 @@ void DeviceSplitter::FeaFinderAllNode(void *pStream, int bagId)
 											DeviceSplitter::m_lambda, orgManager.m_pdGDPrefixSumEachBag + bagId * bagManager.m_numFeaValue,
 											orgManager.m_pHessPrefixSumEachBag + bagId * bagManager.m_numFeaValue,
 											orgManager.m_pDenseFValueEachBag + bagId * bagManager.m_numFeaValue,
-											numofDenseValue, pTempEachFeaStartEachNode, pTempEachFeaLenEachNode, pnKey_d, bagManager.m_numFea,
+											numofDenseValue, pTempEachFeaStartEachNode, pTempEachFeaLenEachNode, orgManager.m_pnKey_d, bagManager.m_numFea,
 											orgManager.m_pGainEachFvalueEachBag + bagId * bagManager.m_numFeaValue,
 											pDefault2Right);
 	cudaStreamSynchronize((*(cudaStream_t*)pStream));
@@ -230,12 +232,11 @@ void DeviceSplitter::FeaFinderAllNode(void *pStream, int bagId)
 				  	  	  	  	  	 bagManager.m_pSNodeStatEachBag + bagId * bagManager.m_maxNumSplittable,
 				  	  	  	  	  	 orgManager.m_pdGDPrefixSumEachBag + bagId * bagManager.m_numFeaValue,
 				  	  	  	  	  	 orgManager.m_pHessPrefixSumEachBag + bagId * bagManager.m_numFeaValue,
-				  	  	  	  	  	 pDefault2Right, pnKey_d,
+				  	  	  	  	  	 pDefault2Right, orgManager.m_pnKey_d,
 				  	  	  	  	  	 bagManager.m_pBestSplitPointEachBag + bagId * bagManager.m_maxNumSplittable,
 				  	  	  	  	  	 bagManager.m_pRChildStatEachBag + bagId * bagManager.m_maxNumSplittable,
 				  	  	  	  	  	 bagManager.m_pLChildStatEachBag + bagId * bagManager.m_maxNumSplittable);
 	cudaStreamSynchronize((*(cudaStream_t*)pStream));
-	checkCudaErrors(cudaFree(pnKey_d));
 	checkCudaErrors(cudaFree(pDefault2Right));
 	checkCudaErrors(cudaFree(pfGlobalBestGain_d));
 	checkCudaErrors(cudaFree(pnGlobalBestGainKey_d));
