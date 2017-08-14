@@ -27,7 +27,7 @@
 #endif//_DEBUG
 
 #ifndef _DEBUG
-#define MEMSET() ((void)0)
+#define MEMSET(addr, flag, numByte) ((void)0)
 #else
 #define MEMSET(addr, flag, numByte) do{												\
 	checkCudaErrors(cudaMemset(addr, flag, numByte));								\
