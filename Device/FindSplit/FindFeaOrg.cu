@@ -150,7 +150,7 @@ void DeviceSplitter::FeaFinderAllNode(void *pStream, int bagId)
 		SetKey<<<totalNumArray, blockSize, sizeof(uint) * 2, (*(cudaStream_t*)pStream)>>>
 			(pTempEachFeaStartEachNode, pTempEachFeaLenEachNode, orgManager.m_pnKey_d);
 	else{
-		int numSegEachBlk = 1000;
+		int numSegEachBlk = totalNumArray/10000;
 		int numofBlkSetKey = (totalNumArray + numSegEachBlk - 1) / numSegEachBlk;
 		SetKey<<<numofBlkSetKey, blockSize, 0, (*(cudaStream_t*)pStream)>>>(pTempEachFeaStartEachNode, pTempEachFeaLenEachNode,
 				numSegEachBlk, totalNumArray, orgManager.m_pnKey_d);
