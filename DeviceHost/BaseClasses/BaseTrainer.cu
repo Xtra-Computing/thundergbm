@@ -17,6 +17,7 @@
 #include "../../Device/DevicePredictor.h"
 #include "../../Host/Evaluation/RMSE.h"
 #include "../../Device/Bagging/BagManager.h"
+#include "../../SharedUtility/CudaMacro.h"
 
 
 int BaseTrainer::m_nMaxNumofTree = -1;

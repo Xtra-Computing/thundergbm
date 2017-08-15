@@ -17,6 +17,7 @@ real *BagOrgManager::m_pdDFeaValue = NULL;
 uint *BagOrgManager::m_pnKey_d = NULL;
 uint *BagOrgManager::m_pnTid2Fid = NULL;
 bool BagOrgManager::needCopy = true;
+bool *BagOrgManager::m_pDefault2Right = NULL;
 
 BagOrgManager::BagOrgManager(uint numFeaValue, int numBag){
 	if(m_pDenseFValueEachBag != NULL)
@@ -30,5 +31,5 @@ BagOrgManager::BagOrgManager(uint numFeaValue, int numBag){
 	checkCudaErrors(cudaMalloc((void**)&m_pdGDPrefixSumEachBag, sizeof(double) * numFeaValue * numBag));
 	checkCudaErrors(cudaMalloc((void**)&m_pHessPrefixSumEachBag, sizeof(real) * numFeaValue * numBag));
 	checkCudaErrors(cudaMalloc((void**)&m_pGainEachFvalueEachBag, sizeof(real) * numFeaValue * numBag));
-
+	checkCudaErrors(cudaMalloc((void**)&m_pDefault2Right, sizeof(bool) * numFeaValue));
 }

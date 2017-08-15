@@ -19,7 +19,7 @@ BAG="-b "
 #gamma for regularisation 
 GAMMA="-g "
 #depth of trees
-D="-d 8"
+D="-d 6"
 #number of trees
 NUMTREE="-n 40"
 #use CSR compression: 0 for not using CSR; 1 for using CSR.

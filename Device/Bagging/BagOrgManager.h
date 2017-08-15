@@ -19,6 +19,7 @@ public:
 	static real *m_pGainEachFvalueEachBag;
 	static uint *m_pnKey_d;
 	static uint *m_pnTid2Fid;
+	static bool *m_pDefault2Right;
 	static bool needCopy;
 	BagOrgManager(uint numFeaValue, int numBag);
 };

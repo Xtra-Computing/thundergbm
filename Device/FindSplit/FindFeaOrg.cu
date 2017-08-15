@@ -171,9 +171,7 @@ void DeviceSplitter::FeaFinderAllNode(void *pStream, int bagId)
 	total_scan_t += (end_scan - start_scan);
 
 	//default to left or right
-	bool *pDefault2Right;
-	checkCudaErrors(cudaMalloc((void**)&pDefault2Right, sizeof(bool) * bagManager.m_numFeaValue));
-	checkCudaErrors(cudaMemset(pDefault2Right, 0, sizeof(bool) * bagManager.m_numFeaValue));
+	checkCudaErrors(cudaMemset(orgManager.m_pDefault2Right, 0, sizeof(bool) * bagManager.m_numFeaValue));
 
 	//cout << "compute gain" << endl;
 	clock_t start_comp_gain = clock();
@@ -188,7 +186,7 @@ void DeviceSplitter::FeaFinderAllNode(void *pStream, int bagId)
 											orgManager.m_pDenseFValueEachBag + bagId * bagManager.m_numFeaValue,
 											numofDenseValue, pTempEachFeaStartEachNode, pTempEachFeaLenEachNode, orgManager.m_pnKey_d, bagManager.m_numFea,
 											orgManager.m_pGainEachFvalueEachBag + bagId * bagManager.m_numFeaValue,
-											pDefault2Right);
+											orgManager.m_pDefault2Right);
 	cudaStreamSynchronize((*(cudaStream_t*)pStream));
 	GETERROR("after ComputeGainDense");
 	
@@ -232,12 +230,11 @@ void DeviceSplitter::FeaFinderAllNode(void *pStream, int bagId)
 				  	  	  	  	  	 bagManager.m_pSNodeStatEachBag + bagId * bagManager.m_maxNumSplittable,
 				  	  	  	  	  	 orgManager.m_pdGDPrefixSumEachBag + bagId * bagManager.m_numFeaValue,
 				  	  	  	  	  	 orgManager.m_pHessPrefixSumEachBag + bagId * bagManager.m_numFeaValue,
-				  	  	  	  	  	 pDefault2Right, orgManager.m_pnKey_d,
+				  	  	  	  	orgManager.m_pDefault2Right, orgManager.m_pnKey_d,
 				  	  	  	  	  	 bagManager.m_pBestSplitPointEachBag + bagId * bagManager.m_maxNumSplittable,
 				  	  	  	  	  	 bagManager.m_pRChildStatEachBag + bagId * bagManager.m_maxNumSplittable,
 				  	  	  	  	  	 bagManager.m_pLChildStatEachBag + bagId * bagManager.m_maxNumSplittable);
 	cudaStreamSynchronize((*(cudaStream_t*)pStream));
-	checkCudaErrors(cudaFree(pDefault2Right));
 	checkCudaErrors(cudaFree(pfGlobalBestGain_d));
 	checkCudaErrors(cudaFree(pnGlobalBestGainKey_d));
 }

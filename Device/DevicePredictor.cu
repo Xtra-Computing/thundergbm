@@ -31,8 +31,8 @@ void DevicePredictor::PredictSparseIns(vector<vector<KeyValue> > &v_vInstance, v
 
 	if(manager.m_maxUsedFeaInATree < numofUsedFea)
 	{
-		cout << "numofUsedFea=" << numofUsedFea << " v.s. maxUsedFeaInTrees " << manager.m_maxUsedFeaInATree << endl;
-		exit(0);
+		cout << "ERROR here: numofUsedFea=" << numofUsedFea << " v.s. maxUsedFeaInTrees " << manager.m_maxUsedFeaInATree << endl;
+		PROCESS_ERROR(manager.m_maxUsedFeaInATree >= numofUsedFea);
 	}
 
 	//build the hash table for feature id and position id
