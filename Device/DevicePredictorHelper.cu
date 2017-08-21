@@ -36,10 +36,10 @@ __global__ void PredMultiTarget(real *pdTargetValue, int numofDenseIns, const Tr
 								const real *pDenseIns, int numofUsedFea,
 								const int *pnHashFeaIdToPos, int maxDepth)
 {
-	int nGlobalThreadId = GLOBAL_TID();
-	if(nGlobalThreadId >= numofDenseIns)
+	int gTid = GLOBAL_TID();
+	if(gTid >= numofDenseIns)
 		return;
-	int targetId = nGlobalThreadId;
+	int targetId = gTid;
 
 	int pid = 0; //node id
 	const TreeNode *curNode = pAllTreeNode + pid;
@@ -75,7 +75,6 @@ __global__ void PredMultiTarget(real *pdTargetValue, int numofDenseIns, const Tr
 			break;
 		}
 	}
-
 	pdTargetValue[targetId] += pAllTreeNode[pid].predValue;
 }
 

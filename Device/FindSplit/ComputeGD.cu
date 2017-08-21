@@ -32,6 +32,9 @@ __global__ void PredTargetViaTrainingResult(real *pdTargetValue, int numofIns, c
 	if(gTid >= numofIns)
 		return;
 	uint nid = pIns2Nid[gTid];
+	ECHECKER(pIns2Nid[gTid]);
+	while(pAllTreeNode[nid].loss < -9.0)//-10.0 is the value for pruned node
+		nid = pAllTreeNode[nid].parentId;
 	pdTargetValue[gTid] += pAllTreeNode[nid].predValue;
 }
 
@@ -88,7 +91,7 @@ bool bOptimisePred = true;
 		//memset dense instances
 		real *pTempDense = manager.m_pdDenseInsEachBag + bagId * bagManager.m_maxNumUsedFeaATree * bagManager.m_numIns;
 		checkCudaErrors(cudaMemset(pTempDense, -1, sizeof(real) * bagManager.m_maxNumUsedFeaATree * bagManager.m_numIns));
-
+		GETERROR("before FillMultiDense");
 		FillMultiDense<<<dimGridThreadForEachIns, sharedMemSizeEachIns, 0, (*(cudaStream_t*)pStream)>>>(
 											  pDevInsValue, pInsStartPos, pDevFeaId, pNumofFea,
 											  pTempDense,

@@ -63,7 +63,7 @@ int main(int argc, char *argv[])
 	int maxNumofNodePerTree = pow(2, nMaxDepth + 1) - 1;
 	int maxNumofSplittableNode = pow(2, nMaxDepth - 1);
 	int numInternalNode = pow(2, nMaxDepth) - 1;
-	int maxNumofUsedFeature = numInternalNode * 8;
+	int maxNumofUsedFeature = numInternalNode * 20;
 
 	DevicePredictor pred;
 
@@ -98,6 +98,7 @@ int main(int argc, char *argv[])
 	cout << "data has " << numFea << " features, " << numIns << " instances, and " << numFeaValue << " fea values" << endl;
 	if(maxNumofUsedFeature > numFea)//maximum number of used features of a tree
 		maxNumofUsedFeature = numFea;
+	printf("max numof used fea is %d\n", maxNumofUsedFeature);
 
 	//decide if want to use csr
 	if(numFeaValue > pow(2, 28) || (numFeaValue > pow(2, 20) && numFea < numIns / 1000) || numFea / 10 < numIns){

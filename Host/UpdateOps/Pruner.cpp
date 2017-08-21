@@ -47,19 +47,21 @@ int Pruner::TryPruneLeaf(TreeNode** nodes, int nid, int npruned)
     if(node->isRoot())//root node cannot be pruned
     	return npruned;
 
-    int pid = node->parentId;
-    PROCESS_ERROR(pid >= 0);
-    leafChildCnt[pid]++;
+    int parentId = node->parentId;
+    PROCESS_ERROR(parentId >= 0);
+    leafChildCnt[parentId]++;
     PROCESS_ERROR(min_loss > 0);
 
     //try pruning two leaf nodes
-    if(leafChildCnt[pid] >= 2 && nodes[pid]->loss < min_loss)
+    if(leafChildCnt[parentId] >= 2 && nodes[parentId]->loss < min_loss)
     {
-    	PROCESS_ERROR(leafChildCnt[pid] == 2);
+    	PROCESS_ERROR(leafChildCnt[parentId] == 2);
     	// need to be pruned
-    	ChangeToLeaf(nodes[pid], nodes[pid]->base_weight);
+    	nodes[nodes[parentId]->leftChildId]->loss = -10.0;//mark the left child node as pruned
+    	nodes[nodes[parentId]->rightChildId]->loss = -10.0;//mark the right child node as pruned
+    	ChangeToLeaf(nodes[parentId], nodes[parentId]->base_weight);
     	// tail recursion
-    	return this->TryPruneLeaf(nodes, pid, npruned+2);
+    	return this->TryPruneLeaf(nodes, parentId, npruned+2);
     }
     else
     {

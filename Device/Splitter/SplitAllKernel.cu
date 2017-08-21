@@ -51,7 +51,7 @@ __global__ void ComputeWeight(TreeNode *pAllTreeNode, TreeNode *pNewNode,
 	pAllTreeNode[nid].base_weight = (-pNewNodeStat[snIdPos].sum_gd / (pNewNodeStat[snIdPos].sum_hess + lambda));
 	if(pBestSplitPoint[snIdPos].m_fGain <= rt_eps || bLastLevel == true)
 	{
-		//printf("gd=%f, hess=%f, lambda=%f; w=%f\n", pSNodeStat[snIdPos].sum_gd, pSNodeStat[snIdPos].sum_hess, lambda, nodeWeight);
+		//printf("gain < %f: gd=%f, hess=%f, lambda=%f; w=%f\n", rt_eps, pNewNodeStat[snIdPos].sum_gd, pNewNodeStat[snIdPos].sum_hess, lambda, pAllTreeNode[nid].base_weight);
 		//weight of a leaf node
 		pAllTreeNode[nid].predValue = pAllTreeNode[nid].base_weight;
 		pAllTreeNode[nid].rightChildId = flag_LEAFNODE;
