@@ -31,6 +31,7 @@ void DeviceSplitter::FeaFinderAllNode2(void *pStream, int bagId)
 	BagManager bagManager;
 	BagCsrManager csrManager(bagManager.m_numFea, bagManager.m_maxNumSplittable, bagManager.m_numFeaValue);
 	int numofSNode = bagManager.m_curNumofSplitableEachBag_h[bagId];
+	printf("numof sn=%d\n", numofSNode);
 
 	IndexComputer indexComp;
 	indexComp.AllocMem(bagManager.m_numFea, numofSNode, bagManager.m_maxNumSplittable);
@@ -221,6 +222,7 @@ void DeviceSplitter::FeaFinderAllNode2(void *pStream, int bagId)
 	checkCudaErrors(cudaMemcpyAsync(&maxSegLen, pMaxLen, sizeof(uint), cudaMemcpyDeviceToHost, (*(cudaStream_t*)pStream)));
 	cudaStreamSynchronize((*(cudaStream_t*)pStream));
 
+	MEMSET(csrManager.getMutableCsrKey(), -1, csrManager.curNumCsr * sizeof(uint));
 	dim3 dimNumofBlockToSetKey;
 	dimNumofBlockToSetKey.x = numSeg;
 	uint blockSize = 128;
@@ -258,11 +260,11 @@ void DeviceSplitter::FeaFinderAllNode2(void *pStream, int bagId)
 	GETERROR("after ComputeGainDense");
 
 	//change the gain of the first feature value to 0
-	int blockSizeFirstGain;
-	dim3 dimNumofBlockFirstGain;
-	conf.ConfKernel(numSeg, blockSizeFirstGain, dimNumofBlockFirstGain);
-	FirstFeaGain<<<dimNumofBlockFirstGain, blockSizeFirstGain, 0, (*(cudaStream_t*)pStream)>>>(
-			csrManager.pEachCsrFeaStartPos, numSeg, pGain_d, csrManager.curNumCsr);
+//	int blockSizeFirstGain;
+//	dim3 dimNumofBlockFirstGain;
+//	conf.ConfKernel(numSeg, blockSizeFirstGain, dimNumofBlockFirstGain);
+//	FirstFeaGain<<<dimNumofBlockFirstGain, blockSizeFirstGain, 0, (*(cudaStream_t*)pStream)>>>(
+//			csrManager.pEachCsrFeaStartPos, numSeg, pGain_d, csrManager.curNumCsr);
 
 	//	cout << "searching" << endl;
 	cudaDeviceSynchronize();
@@ -292,6 +294,7 @@ void DeviceSplitter::FeaFinderAllNode2(void *pStream, int bagId)
 					  	  	  	  	  	 bagManager.m_pRChildStatEachBag + bagId * bagManager.m_maxNumSplittable,
 					  	  	  	  	  	 bagManager.m_pLChildStatEachBag + bagId * bagManager.m_maxNumSplittable);
 	cudaStreamSynchronize((*(cudaStream_t*)pStream));
+//	printf("completed splitting node.....................................\n");
 	checkCudaErrors(cudaFree(pMaxGain_d));
 	checkCudaErrors(cudaFree(pMaxGainKey_d));
 }

@@ -66,6 +66,18 @@ __global__ void LoadGDHessFvalue(const real *pInsGD, const real *pInsHess, int n
 	pDenseFeaValue[idx] = pAllFeaValue[gTid];
 }
 
+__device__ bool NeedCompGain(double RChildHess, double LChildHess){
+	if(LChildHess >= DeviceSplitter::min_child_weight && RChildHess >= DeviceSplitter::min_child_weight)
+		return true;
+	return false;
+}
+__device__ double ComputeGain(double lChildGD, double lChildHess, real lambda, double rChildGD, double rChildHess, double parentGD, double parentHess){
+	double gain = (lChildGD * lChildGD)/(lChildHess + lambda) +
+				  (rChildGD * rChildGD)/(rChildHess + lambda) -
+				  (parentGD * parentGD)/(parentHess + lambda);
+	return gain;
+}
+
 /**
  * @brief: change the gain of the first value of each feature to 0
  */

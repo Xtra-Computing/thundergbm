@@ -17,7 +17,7 @@ int *BagCsrManager::preFvalueInsId = NULL;
 uint BagCsrManager::curNumCsr = 0;
 uint BagCsrManager::reservedMaxNumCsr = pow(2, 20);
 MemVector BagCsrManager::csrLen;//shared with pCsrStart
-MemVector BagCsrManager::csrKey; //shared
+MemVector BagCsrManager::csrKey;
 real *BagCsrManager::pCsrFvalue = NULL;
 
 BagCsrManager::BagCsrManager(int numFea, int maxNumSN, uint totalNumFeaValue){

@@ -32,13 +32,8 @@ __global__ void LoadGDHessFvalue(const real *pInsGD, const real *pInsHess, int n
 __global__ void FirstFeaGain(const unsigned int *pEachFeaStartPosEachNode, int numFeaStartPos, real *pGainOnEachFeaValue, uint numFeaValue);
 
 //helper functions
-template<class T>
-__device__ bool NeedUpdate(T &RChildHess, T &LChildHess)
-{
-	if(LChildHess >= DeviceSplitter::min_child_weight && RChildHess >= DeviceSplitter::min_child_weight)
-		return true;
-	return false;
-}
+__device__ bool NeedCompGain(double RChildHess, double LChildHess);
+__device__ double ComputeGain(double tempGD, double tempHess, real lambda, double rChildGD, double rChildHess, double parentGD, double parentHess);
 
 template<class T>
 __global__ void ComputeGainDense(const nodeStat *pSNodeStat, const int *pid2SNPos, real lambda,
@@ -59,71 +54,89 @@ __global__ void ComputeGainDense(const nodeStat *pSNodeStat, const int *pid2SNPo
 	int snPos = pid2SNPos[pid];
 	ECHECKER(snPos);
 
-	if(gTid == 0)
-	{
-		//assign gain to 0 to the first feature value
-    	pGainOnEachFeaValue[gTid] = 0;
-		return;
-	}
-
-	//if the previous fea value is the same as the current fea value, gain is 0 for the current fea value.
-	real preFvalue = pDenseFeaValue[gTid - 1], curFvalue = pDenseFeaValue[gTid];
-	if(preFvalue - curFvalue <= rt_2eps && preFvalue - curFvalue >= -rt_2eps)//############## backwards is not considered!
-	{//avoid same feature value different gain issue
-		pGainOnEachFeaValue[gTid] = 0;
-		return;
-	}
-
-	int exclusiveSumPos = gTid - 1;//following xgboost using exclusive sum on gd and hess
-
-	//forward consideration (fvalues are sorted descendingly)
-	double rChildGD = pGDPrefixSumOnEachFeaValue[exclusiveSumPos];
-	double rChildHess = pHessPrefixSumOnEachFeaValue[exclusiveSumPos];
-	double parentGD = pSNodeStat[snPos].sum_gd;
-	double parentHess = pSNodeStat[snPos].sum_hess;
-	double tempGD = parentGD - rChildGD;
-	double tempHess = parentHess - rChildHess;
-	bool needUpdate = NeedUpdate(rChildHess, tempHess);
-    if(needUpdate == true)//need to compute the gain
-    {
-    	ECHECKER(tempHess > 0);
-    	ECHECKER(parentHess > 0);
-		double tempGain = (tempGD * tempGD)/(tempHess + lambda) +
-						  	   (rChildGD * rChildGD)/(rChildHess + lambda) -
-	  						   (parentGD * parentGD)/(parentHess + lambda);
-    	pGainOnEachFeaValue[gTid] = tempGain;
-    }
-    else{
-    	//assign gain to 0
-    	pGainOnEachFeaValue[gTid] = 0;
-    }
-
-    //backward consideration
     int segLen = pEachFeaLenEachNode[segId];
     uint segStartPos = pEachFeaStartEachNode[segId];
-    uint lastFvaluePos = segStartPos + segLen - 1;
-    double totalMissingGD = parentGD - pGDPrefixSumOnEachFeaValue[lastFvaluePos];
-    double totalMissingHess = parentHess - pHessPrefixSumOnEachFeaValue[lastFvaluePos];
-    if(totalMissingHess < 1)//there is no instance with missing values
-    	return;
-    //missing values to the right child
-    rChildGD += totalMissingGD;
-    rChildHess += totalMissingHess;
-    tempGD = parentGD - rChildGD;
-    tempHess = parentHess - rChildHess;
-    needUpdate = NeedUpdate(rChildHess, tempHess);
-    if(needUpdate == true){
-    	ECHECKER(tempHess > 0);
-    	ECHECKER(parentHess > 0);
-    	double tempGain = (tempGD * tempGD)/(tempHess + lambda) +
-			  	   	    (rChildGD * rChildGD)/(rChildHess + lambda) -
-			  	   	    (parentGD * parentGD)/(parentHess + lambda);
+	uint lastFvaluePos = segStartPos + segLen - 1;
+	double parentGD = pSNodeStat[snPos].sum_gd;
+	double parentHess = pSNodeStat[snPos].sum_hess;
+	double totalMissingGD = parentGD - pGDPrefixSumOnEachFeaValue[lastFvaluePos];
+	double totalMissingHess = parentHess - pHessPrefixSumOnEachFeaValue[lastFvaluePos];
 
-    	if(tempGain > 0 && tempGain - pGainOnEachFeaValue[gTid] > 0.1){
-    		pGainOnEachFeaValue[gTid] = tempGain;
+	if(gTid == segStartPos){//include all sum statistics; store the gain at the first pos of each segment
+    	//check default to left
+		double totalGD = pGDPrefixSumOnEachFeaValue[lastFvaluePos];
+		double totalHess = pHessPrefixSumOnEachFeaValue[lastFvaluePos];
+		bool needUpdate = NeedCompGain(totalHess, totalMissingHess);
+    	real all2Left = 0, all2Right = -1.0;
+    	if(needUpdate == true){
+    		CONCHECKER(totalHess > 0);
+    		CONCHECKER(totalMissingHess > 0);
+    		all2Left = ComputeGain(totalMissingGD, totalMissingHess, lambda, totalGD, totalHess, parentGD, parentHess);
+    		all2Right = ComputeGain(totalGD, totalHess, lambda, totalMissingGD, totalMissingHess, parentGD, parentHess);
+    	}
+
+    	//check default to right
+    	if(all2Left < all2Right){
+    		pGainOnEachFeaValue[gTid] = all2Right;
     		pDefault2Right[gTid] = true;
     	}
-    }
+    	else
+    		pGainOnEachFeaValue[gTid] = all2Left;
+//    	if(7773118 == gTid)
+//    		printf("gain=%f, totalHess=%f, totalMissHess=%f, last+1=%f, last-1=%f, last=%f, last-2=%f, last=%u\n",
+//    				pGainOnEachFeaValue[gTid], totalHess, totalMissingHess, pHessPrefixSumOnEachFeaValue[lastFvaluePos+1],
+//    				pHessPrefixSumOnEachFeaValue[lastFvaluePos],
+//    				pHessPrefixSumOnEachFeaValue[lastFvaluePos-1], pHessPrefixSumOnEachFeaValue[lastFvaluePos-2], lastFvaluePos);
+	}
+	else{
+		//if the previous fea value is the same as the current fea value, gain is 0 for the current fea value.
+		real preFvalue = pDenseFeaValue[gTid - 1], curFvalue = pDenseFeaValue[gTid];
+		if(preFvalue - curFvalue <= rt_2eps && preFvalue - curFvalue >= -rt_2eps)//############## backwards is not considered!
+		{//avoid same feature value different gain issue
+			pGainOnEachFeaValue[gTid] = 0;
+			return;
+		}
+
+		int exclusiveSumPos = gTid - 1;//following xgboost using exclusive sum on gd and hess
+
+		//forward consideration (fvalues are sorted descendingly)
+		double rChildGD = pGDPrefixSumOnEachFeaValue[exclusiveSumPos];
+		double rChildHess = pHessPrefixSumOnEachFeaValue[exclusiveSumPos];
+		double tempGD = parentGD - rChildGD;
+		double tempHess = parentHess - rChildHess;
+		bool needUpdate = NeedCompGain(rChildHess, tempHess);
+		if(needUpdate == true)//need to compute the gain
+		{
+			ECHECKER(tempHess > 0);
+			ECHECKER(parentHess > 0);
+			double tempGain = ComputeGain(tempGD, tempHess, lambda, rChildGD, rChildHess, parentGD, parentHess);
+			pGainOnEachFeaValue[gTid] = tempGain;
+		}
+		else{
+			//assign gain to 0
+			pGainOnEachFeaValue[gTid] = 0;
+		}
+
+		//backward consideration
+		if(totalMissingHess < 1)//there is no instance with missing values
+			return;
+		//missing values to the right child
+		rChildGD += totalMissingGD;
+		rChildHess += totalMissingHess;
+		tempGD = parentGD - rChildGD;
+		tempHess = parentHess - rChildHess;
+		needUpdate = NeedCompGain(rChildHess, tempHess);
+		if(needUpdate == true){
+			ECHECKER(tempHess > 0);
+			ECHECKER(parentHess > 0);
+			double tempGain = ComputeGain(tempGD, tempHess, lambda, rChildGD, rChildHess, parentGD, parentHess);
+
+			if(tempGain > 0 && tempGain - pGainOnEachFeaValue[gTid] > 0.1){
+				pGainOnEachFeaValue[gTid] = tempGain;
+				pDefault2Right[gTid] = true;
+			}
+		}
+	}//end of forward and backward consideration
 }
 
 /**
@@ -150,46 +163,70 @@ __global__ void FindSplitInfo(const uint *pEachFeaStartPosEachNode, const T *pEa
 	uint segId = pnKey[key];
 	uint bestFeaId = segId % numFea;
 	CONCHECKER(bestFeaId < numFea);
-
-
 	pBestSplitPoint[snPos].m_nFeatureId = bestFeaId;
-	pBestSplitPoint[snPos].m_fSplitValue = 0.5f * (pDenseFeaValue[key] + pDenseFeaValue[key - 1]);
 	pBestSplitPoint[snPos].m_bDefault2Right = false;
 
-	//child node stat
-	int idxPreSum = key - 1;//follow xgboost using exclusive
-	if(pDefault2Right[key] == false){
-		pLChildStat[snPos].sum_gd = snNodeStat[snPos].sum_gd - pPrefixSumGD[idxPreSum];
-		pLChildStat[snPos].sum_hess = snNodeStat[snPos].sum_hess - pPrefixSumHess[idxPreSum];
-		pRChildStat[snPos].sum_gd = pPrefixSumGD[idxPreSum];
-		pRChildStat[snPos].sum_hess = pPrefixSumHess[idxPreSum];
+	//handle all to left/right case
+	uint segStartPos = pEachFeaStartPosEachNode[segId];
+	T segLen = pEachFeaLenEachNode[segId];
+	uint lastFvaluePos = segStartPos + segLen - 1;
+	if(key == 0 || (key > 0 && pnKey[key] != pnKey[key - 1])){//first element of the feature
+        const real gap = fabs(pDenseFeaValue[key]) + DeviceSplitter::rt_eps;
+        //printf("############## %u v.s. %u; %u\n", bestFeaId, bestFeaId, pPrefixSumHess[key]);
+//        printf("missing %f all to one node: fid=%u, pnKey[%u]=%u != pnKey[%u]=%u, segLen=%u, parentHess=%f, startPos=%u..........................\n",
+//        		pPrefixSumHess[key], bestFeaId, key, pnKey[key], key-1, pnKey[key-1], pEachFeaLenEachNode[segId],
+//        		snNodeStat[snPos].sum_hess, pEachFeaStartPosEachNode[segId]);
+		if(pDefault2Right[key] == true){//all non-missing to left
+			pBestSplitPoint[snPos].m_bDefault2Right = true;
+			pBestSplitPoint[snPos].m_fSplitValue = pDenseFeaValue[lastFvaluePos] + gap;
+			pLChildStat[snPos].sum_gd = pPrefixSumGD[lastFvaluePos];
+			pLChildStat[snPos].sum_hess = pPrefixSumHess[lastFvaluePos];
+			pRChildStat[snPos].sum_gd = snNodeStat[snPos].sum_gd - pPrefixSumGD[lastFvaluePos];
+			pRChildStat[snPos].sum_hess = snNodeStat[snPos].sum_hess - pPrefixSumHess[lastFvaluePos];
+		}
+		else{//all non-missing to right
+			pBestSplitPoint[snPos].m_fSplitValue = pDenseFeaValue[lastFvaluePos] - gap;
+			pLChildStat[snPos].sum_gd = snNodeStat[snPos].sum_gd - pPrefixSumGD[lastFvaluePos];
+			pLChildStat[snPos].sum_hess = snNodeStat[snPos].sum_hess - pPrefixSumHess[lastFvaluePos];
+			pRChildStat[snPos].sum_gd = pPrefixSumGD[lastFvaluePos];
+			pRChildStat[snPos].sum_hess = pPrefixSumHess[lastFvaluePos];
+		}
 	}
-	else{
-		pBestSplitPoint[snPos].m_bDefault2Right = true;
+	else{//non-first element of the feature
+		pBestSplitPoint[snPos].m_fSplitValue = 0.5f * (pDenseFeaValue[key] + pDenseFeaValue[key - 1]);
 
-		real parentGD = snNodeStat[snPos].sum_gd;
-		real parentHess = snNodeStat[snPos].sum_hess;
+		//child node stat
+		int idxPreSum = key - 1;//follow xgboost using exclusive
+		if(pDefault2Right[key] == false){
+			pLChildStat[snPos].sum_gd = snNodeStat[snPos].sum_gd - pPrefixSumGD[idxPreSum];
+			pLChildStat[snPos].sum_hess = snNodeStat[snPos].sum_hess - pPrefixSumHess[idxPreSum];
+			pRChildStat[snPos].sum_gd = pPrefixSumGD[idxPreSum];
+			pRChildStat[snPos].sum_hess = pPrefixSumHess[idxPreSum];
+		}
+		else{
+			pBestSplitPoint[snPos].m_bDefault2Right = true;
 
-		uint segStartPos = pEachFeaStartPosEachNode[segId];
-		T segLen = pEachFeaLenEachNode[segId];
-		uint lastFvaluePos = segStartPos + segLen - 1;
-		real totalMissingGD = parentGD - pPrefixSumGD[lastFvaluePos];
-		real totalMissingHess = parentHess - pPrefixSumHess[lastFvaluePos];
+			real parentGD = snNodeStat[snPos].sum_gd;
+			real parentHess = snNodeStat[snPos].sum_hess;
 
-		double rChildGD = totalMissingGD + pPrefixSumGD[idxPreSum];
-		real rChildHess = totalMissingHess + pPrefixSumHess[idxPreSum];
-		ECHECKER(rChildHess);
-		real lChildGD = parentGD - rChildGD;
-		real lChildHess = parentHess - rChildHess;
-		ECHECKER(lChildHess);
+			real totalMissingGD = parentGD - pPrefixSumGD[lastFvaluePos];
+			real totalMissingHess = parentHess - pPrefixSumHess[lastFvaluePos];
 
-		pRChildStat[snPos].sum_gd = rChildGD;
-		pRChildStat[snPos].sum_hess = rChildHess;
-		pLChildStat[snPos].sum_gd = lChildGD;
-		pLChildStat[snPos].sum_hess = lChildHess;
+			double rChildGD = totalMissingGD + pPrefixSumGD[idxPreSum];
+			real rChildHess = totalMissingHess + pPrefixSumHess[idxPreSum];
+			ECHECKER(rChildHess);
+			real lChildGD = parentGD - rChildGD;
+			real lChildHess = parentHess - rChildHess;
+			ECHECKER(lChildHess);
+
+			pRChildStat[snPos].sum_gd = rChildGD;
+			pRChildStat[snPos].sum_hess = rChildHess;
+			pLChildStat[snPos].sum_gd = lChildGD;
+			pLChildStat[snPos].sum_hess = lChildHess;
+		}
+		ECHECKER(pLChildStat[snPos].sum_hess);
+		ECHECKER(pRChildStat[snPos].sum_hess);
 	}
-	ECHECKER(pLChildStat[snPos].sum_hess);
-	ECHECKER(pRChildStat[snPos].sum_hess);
 
 //	printf("split: f=%d, value=%f, gain=%f, gd=%f v.s. %f, hess=%f v.s. %f, buffId=%d, key=%d, pid=%d, df2Left=%d\n", bestFeaId, pBestSplitPoint[snPos].m_fSplitValue,
 //			pBestSplitPoint[snPos].m_fGain, pLChildStat[snPos].sum_gd, pRChildStat[snPos].sum_gd, pLChildStat[snPos].sum_hess,
