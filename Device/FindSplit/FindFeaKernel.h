@@ -82,11 +82,6 @@ __global__ void ComputeGainDense(const nodeStat *pSNodeStat, const int *pid2SNPo
     	}
     	else
     		pGainOnEachFeaValue[gTid] = all2Left;
-//    	if(7773118 == gTid)
-//    		printf("gain=%f, totalHess=%f, totalMissHess=%f, last+1=%f, last-1=%f, last=%f, last-2=%f, last=%u\n",
-//    				pGainOnEachFeaValue[gTid], totalHess, totalMissingHess, pHessPrefixSumOnEachFeaValue[lastFvaluePos+1],
-//    				pHessPrefixSumOnEachFeaValue[lastFvaluePos],
-//    				pHessPrefixSumOnEachFeaValue[lastFvaluePos-1], pHessPrefixSumOnEachFeaValue[lastFvaluePos-2], lastFvaluePos);
 	}
 	else{
 		//if the previous fea value is the same as the current fea value, gain is 0 for the current fea value.
@@ -172,10 +167,6 @@ __global__ void FindSplitInfo(const uint *pEachFeaStartPosEachNode, const T *pEa
 	uint lastFvaluePos = segStartPos + segLen - 1;
 	if(key == 0 || (key > 0 && pnKey[key] != pnKey[key - 1])){//first element of the feature
         const real gap = fabs(pDenseFeaValue[key]) + DeviceSplitter::rt_eps;
-        //printf("############## %u v.s. %u; %u\n", bestFeaId, bestFeaId, pPrefixSumHess[key]);
-//        printf("missing %f all to one node: fid=%u, pnKey[%u]=%u != pnKey[%u]=%u, segLen=%u, parentHess=%f, startPos=%u..........................\n",
-//        		pPrefixSumHess[key], bestFeaId, key, pnKey[key], key-1, pnKey[key-1], pEachFeaLenEachNode[segId],
-//        		snNodeStat[snPos].sum_hess, pEachFeaStartPosEachNode[segId]);
 		if(pDefault2Right[key] == true){//all non-missing to left
 			pBestSplitPoint[snPos].m_bDefault2Right = true;
 			pBestSplitPoint[snPos].m_fSplitValue = pDenseFeaValue[lastFvaluePos] + gap;

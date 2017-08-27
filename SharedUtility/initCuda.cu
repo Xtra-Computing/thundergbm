@@ -63,8 +63,8 @@ int GetMaxMemDevice(int count){
 
 bool InitCUDA(CUcontext &context, char gpuType = 'T')
 {
-//   UseDevice(0, context);
-//	return true;
+   UseDevice(1, context);
+	return true;
 
     int count;
 

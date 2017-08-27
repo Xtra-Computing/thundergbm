@@ -72,7 +72,7 @@ void DeviceSplitter::ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> >
 	KernelConf conf;
 	//start prediction
 //###################  for my future experiments
-bool bOptimisePred = true;
+bool bOptimisePred = false;
 	if(nNumofTree > 0 && numofUsedFea >0 && bOptimisePred == false)//numofUsedFea > 0 means the tree has more than one node.
 	{
 		uint startPos = 0;
@@ -85,14 +85,11 @@ bool bOptimisePred = true;
 		int *pNumofFea = manager.m_pDNumofFea + startInsId;
 		int numofInsToFill = nNumofIns;
 
-		dim3 dimGridThreadForEachIns;
-		conf.ComputeBlock(numofInsToFill, dimGridThreadForEachIns);
-		int sharedMemSizeEachIns = 1;
 		//memset dense instances
 		real *pTempDense = manager.m_pdDenseInsEachBag + bagId * bagManager.m_maxNumUsedFeaATree * bagManager.m_numIns;
 		checkCudaErrors(cudaMemset(pTempDense, -1, sizeof(real) * bagManager.m_maxNumUsedFeaATree * bagManager.m_numIns));
 		GETERROR("before FillMultiDense");
-		FillMultiDense<<<dimGridThreadForEachIns, sharedMemSizeEachIns, 0, (*(cudaStream_t*)pStream)>>>(
+		FillMultiDense<<<numofInsToFill, 1, 0, (*(cudaStream_t*)pStream)>>>(
 											  pDevInsValue, pInsStartPos, pDevFeaId, pNumofFea,
 											  pTempDense,
 										  	  manager.m_pSortedUsedFeaIdBag + bagId * bagManager.m_maxNumUsedFeaATree,
@@ -106,10 +103,7 @@ bool bOptimisePred = true;
 	{
 		assert(pLastTree != NULL);
 		if(bOptimisePred == false){
-			dim3 dimGridThreadForEachIns;
-			conf.ComputeBlock(nNumofIns, dimGridThreadForEachIns);
-			int sharedMemSizeEachIns = 1;
-			PredMultiTarget<<<dimGridThreadForEachIns, sharedMemSizeEachIns, 0, (*(cudaStream_t*)pStream)>>>(
+			PredMultiTarget<<<nNumofIns, 1, 0, (*(cudaStream_t*)pStream)>>>(
 												  bagManager.m_pTargetValueEachBag + bagId * bagManager.m_numIns,
 												  nNumofIns, pLastTree,
 												  manager.m_pdDenseInsEachBag + bagId * bagManager.m_maxNumUsedFeaATree * bagManager.m_numIns,

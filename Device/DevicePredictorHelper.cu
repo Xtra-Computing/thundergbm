@@ -43,11 +43,7 @@ __global__ void PredMultiTarget(real *pdTargetValue, int numofDenseIns, const Tr
 
 	int pid = 0; //node id
 	const TreeNode *curNode = pAllTreeNode + pid;
-	if(curNode->nodeId != 0)
-	{
-		printf("id of root node is %d should be 0\n", curNode->nodeId);
-		return;
-	}
+	CONCHECKER(curNode->nodeId == 0);
 	int counter = 0;
 	while(curNode->featureId != -1)//!curNode->isLeaf()
 	{
@@ -69,11 +65,7 @@ __global__ void PredMultiTarget(real *pdTargetValue, int numofDenseIns, const Tr
 		curNode = pAllTreeNode + pid;
 
 		counter++;
-		if(counter > maxDepth)//for skipping from deadlock
-		{
-			printf("%s has bugs; fid=%d\n", __PRETTY_FUNCTION__, fid);
-			break;
-		}
+		CONCHECKER(counter <= maxDepth);
 	}
 	pdTargetValue[targetId] += pAllTreeNode[pid].predValue;
 }
