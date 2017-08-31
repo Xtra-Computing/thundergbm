@@ -99,8 +99,12 @@ void DeviceTrainer::GrowTree(RegTree &tree, void *pStream, int bagId)
 		clock_t begin_find_fea = clock();
 
 		if(nCurDepth < m_nMaxDepth){//don't need to find split for the last level
-			if(CsrCompressor::bUseCsr == true)
-				pDSpliter->FeaFinderAllNode2(pStream, bagId);
+			if(CsrCompressor::bUseCsr == true){
+if(testNaiveCsr == true)
+	pDSpliter->FeaFinderAllNode3(pStream, bagId);
+else
+	pDSpliter->FeaFinderAllNode2(pStream, bagId);
+}
 			else
 				pDSpliter->FeaFinderAllNode(pStream, bagId);
 		}

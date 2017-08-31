@@ -41,10 +41,20 @@ public:
 public:
 	void FeaFinderAllNode(void *pStream, int bagId);
 	void FeaFinderAllNode2(void *pStream, int bagId);
+	void FeaFinderAllNode3(void *pStream, int bagId);
 	void SplitAll(int &m_nNumofNode, bool bLastLevel, void *pStream, int bagId);
 	virtual void ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> > & vvInsSparse,  void *stream, int bagId);
 };
 
-
+//for experiments
+extern real *fvalue_d;
+extern real *fvalue_org_d;
+extern real *fhess_d;
+extern double *fgd_d;
+extern real *fgain_d;
+extern bool testNaiveCsr;
+extern bool optimiseSetKey;
+extern double total_extra_time;
+extern bool alwaysCsr;
 
 #endif /* DEVICESPLITTER_H_ */

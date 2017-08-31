@@ -10,12 +10,12 @@
 #define GETMIN_H_
 #include <cuda_runtime.h>
 #include "DataType.h"
+#include "CudaMacro.h"
 
 template<class T>
 __device__ void GetMinValueOriginal(real *pfValues, T *pnKey)
 {
-	if(blockDim.x % 32 != 0)
-		printf("Warning: block size isn't suited to reduction. getBlockMin may have error! #################\n");
+	CONCHECKER(blockDim.x % 32 == 0);
 	//Reduce by a factor of 2, and minimize step size
 	for (int i = blockDim.x / 2; i > 0 ; i >>= 1) {
 		int tid = threadIdx.x;

@@ -1,5 +1,6 @@
 #!/bin/bash
-declare -a arr=("abalone"
+declare -a arr=(
+				"abalone"
 			 	"cadata"
 				"covtype"
 			 	"e2006"
@@ -11,6 +12,7 @@ declare -a arr=("abalone"
 				"susy"
 			 	"yp"
 				"3d")
+
 for i in "${arr[@]}"
 do 
 	if [ "$1" == "l" ]

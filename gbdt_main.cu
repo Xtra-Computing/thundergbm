@@ -29,6 +29,14 @@
 
 #include "Host/GBDTCmdLineParser.h"
 
+real *fvalue_d;
+real *fvalue_org_d;
+real *fhess_d;
+double *fgd_d;
+real *fgain_d;
+bool alwaysCsr = false;
+bool testNaiveCsr = alwaysCsr;
+double total_extra_time = 0.0;
 int main(int argc, char *argv[])
 {
 	char fileName[1024];
@@ -106,7 +114,8 @@ int main(int argc, char *argv[])
 	else
 		CsrCompressor::bUseCsr = false;
 
-//CsrCompressor::bUseCsr = false;
+if(alwaysCsr == true)
+	CsrCompressor::bUseCsr = true;
 
 	if(CsrCompressor::bUseCsr == true)
 		cerr << "use CSR" << endl;
@@ -166,6 +175,16 @@ int main(int argc, char *argv[])
 	}
 	bagManager.m_pTrueLabel_h = pTrueLabel;
 
+if(testNaiveCsr == true){
+checkCudaErrors(cudaMalloc((void**)&fvalue_d, sizeof(real) * numFeaValue));
+checkCudaErrors(cudaMalloc((void**)&fvalue_org_d, sizeof(real) * numFeaValue));
+checkCudaErrors(cudaMalloc((void**)&fhess_d, sizeof(real) * numFeaValue));
+checkCudaErrors(cudaMalloc((void**)&fgd_d, sizeof(double) * numFeaValue));
+checkCudaErrors(cudaMalloc((void**)&fgain_d, sizeof(real) * numFeaValue));
+checkCudaErrors(cudaMemcpy(fvalue_d, pdValue, sizeof(real) * numFeaValue, cudaMemcpyHostToDevice));
+checkCudaErrors(cudaMemcpy(fvalue_org_d, pdValue, sizeof(real) * numFeaValue, cudaMemcpyHostToDevice));
+checkCudaErrors(cudaMemcpy(fgain_d, pdValue, sizeof(real) * numFeaValue, cudaMemcpyHostToDevice));
+}
 	//initialise gpu memory allocator
 	GBDTGPUMemManager manager;
 	PROCESS_ERROR(numFeaValue > 0);
@@ -198,6 +217,9 @@ int main(int argc, char *argv[])
 		CsrCompressor compressor;
 		//compression may be unsuccessful if the compression is inefficient.
 	}
+if(alwaysCsr == true)
+	CsrCompressor::bUseCsr = true;
+
 	if(CsrCompressor::bUseCsr == false){//compression is inefficient
 		BagOrgManager orgManager(numFeaValue, numBag);
 		cudaMemcpy(orgManager.m_pdDFeaValue, pdValue, numFeaValue * sizeof(real), cudaMemcpyHostToDevice);
@@ -278,6 +300,7 @@ int main(int argc, char *argv[])
 	cout << "total init time = " << total_init << endl;
 	double total_train = (double(end_train_time - start_train_time) / CLOCKS_PER_SEC);
 cerr << "total training time (-extra idx comp) = " << total_train - total_copy_indexCom << endl;
+cerr << "total_extra_time: " << total_extra_time << endl;
 	double total_all = (double(end_whole - begin_whole) / CLOCKS_PER_SEC);
 	cout << "all sec = " << total_all << endl;
 	cout << "Done" << endl;

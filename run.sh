@@ -21,7 +21,7 @@ GAMMA="-g "
 #depth of trees
 D="-d 6"
 #number of trees
-NUMTREE="-n 40"
+NUMTREE="-n 2"
 #use CSR compression: 0 for not using CSR; 1 for using CSR.
 CSR="-c 1"
 #file name (must appear as the last argument)

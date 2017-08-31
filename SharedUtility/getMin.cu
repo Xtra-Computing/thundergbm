@@ -3,8 +3,7 @@
 
 
 __device__ int getBlockMin(const float *values, int *index) {
-	if(blockDim.x % 32 != 0)
-		printf("Warning: block size isn't suited to reduction. getBlockMin may have error! #################\n");
+	CONCHECKER(blockDim.x % 32 == 0);
 	int tid = threadIdx.x;
 	index[tid] = tid;
 	__syncthreads();
@@ -21,8 +20,7 @@ __device__ int getBlockMin(const float *values, int *index) {
 
 __device__ void GetMinValueOriginal(real *pfValues)
 {
-	if(blockDim.x % 32 != 0)
-		printf("Warning: block size isn't suited to reduction. getBlockMin may have error! #################\n");
+	CONCHECKER(blockDim.x % 32 == 0);
 	//Reduce by a factor of 2, and minimize step size
 	for (int i = blockDim.x / 2; i > 0 ; i >>= 1) {
 		int tid = threadIdx.x;

@@ -259,16 +259,25 @@ void IndexComputer::AllocMem(int nNumofFeatures, int curNumSN, int maxNumSN)
 	m_maxNumofSN = maxNumSN;
 	if(m_pnKey == NULL){
 		//histogram based partitioning
-		m_numElementEachThd = 16;
-		if(m_totalFeaValue >= 500000000)
-			m_numElementEachThd = 4096;
-		if(m_maxNumofSN > m_numElementEachThd)
-			m_numElementEachThd = m_maxNumofSN;//make sure the memory usage is the same as the training data set
-		m_totalNumEffectiveThd = Ceil(m_totalFeaValue, m_numElementEachThd);
+	m_numElementEachThd = 0;
+bool optimiseThreadWorkLoad = true;
+		if(optimiseThreadWorkLoad == true){
+			float gigbyte;
+			do{
+				m_numElementEachThd += 16;
+				m_totalNumEffectiveThd = Ceil(m_totalFeaValue, m_numElementEachThd);
+				numIntMem =  m_maxNumofSN * m_totalNumEffectiveThd * 2;
+				gigbyte = ((unsigned long)numIntMem * 4 + m_totalFeaValue)/(1024.0*1024.0*1024.0);
+			}while(gigbyte > 2.0);
+		}
+		else{
+			m_numElementEachThd = 16;
+		}
 
+		m_totalNumEffectiveThd = Ceil(m_totalFeaValue, m_numElementEachThd);
 		numCharMem = m_totalFeaValue;
 		numIntMem =  m_maxNumofSN * m_totalNumEffectiveThd * 2;
-		printf("index comp requires %f GB\n", (numIntMem * 4 + m_totalFeaValue)/(1024.0*1024.0*1024.0));
+		printf("index comp requires %f GB, a thread handles %d elements\n", (numIntMem * 4 + m_totalFeaValue)/(1024.0*1024.0*1024.0), m_numElementEachThd);
 
 		partitionMarker.reserveSpace(m_totalFeaValue, 1);
 		histogram_d.reserveSpace(numIntMem, sizeof(uint));

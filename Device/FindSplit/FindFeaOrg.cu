@@ -22,6 +22,7 @@
 #include "../../SharedUtility/segmentedMax.h"
 #include "../../SharedUtility/setSegmentKey.h"
 
+bool optimiseSetKey = true;
 /**
  * @brief: efficient best feature finder
  */
@@ -146,14 +147,19 @@ void DeviceSplitter::FeaFinderAllNode(void *pStream, int bagId)
 	uint blockSize = 128;
 //	printf("#of sn=%d, maxLen=%u\n", numofSNode, maxSegLen);
 	dimNumofBlockToSetKey.y = (maxSegLen + blockSize - 1) / blockSize;
-	if(totalNumArray < 1000000)
+	if(optimiseSetKey == false)
 		SetKey<<<totalNumArray, blockSize, sizeof(uint) * 2, (*(cudaStream_t*)pStream)>>>
 			(pTempEachFeaStartEachNode, pTempEachFeaLenEachNode, orgManager.m_pnKey_d);
 	else{
-		int numSegEachBlk = totalNumArray/10000;
-		int numofBlkSetKey = (totalNumArray + numSegEachBlk - 1) / numSegEachBlk;
-		SetKey<<<numofBlkSetKey, blockSize, 0, (*(cudaStream_t*)pStream)>>>(pTempEachFeaStartEachNode, pTempEachFeaLenEachNode,
-				numSegEachBlk, totalNumArray, orgManager.m_pnKey_d);
+		if(totalNumArray < 1000000)
+			SetKey<<<totalNumArray, blockSize, sizeof(uint) * 2, (*(cudaStream_t*)pStream)>>>
+				(pTempEachFeaStartEachNode, pTempEachFeaLenEachNode, orgManager.m_pnKey_d);
+		else{
+			int numSegEachBlk = totalNumArray/10000;
+			int numofBlkSetKey = (totalNumArray + numSegEachBlk - 1) / numSegEachBlk;
+			SetKey<<<numofBlkSetKey, blockSize, 0, (*(cudaStream_t*)pStream)>>>(pTempEachFeaStartEachNode, pTempEachFeaLenEachNode,
+					numSegEachBlk, totalNumArray, orgManager.m_pnKey_d);
+		}
 	}
 	if(orgManager.needCopy == true){
 		checkCudaErrors(cudaMemcpy(orgManager.m_pnTid2Fid, orgManager.m_pnKey_d, sizeof(uint) * bagManager.m_numFeaValue, cudaMemcpyDeviceToDevice));
