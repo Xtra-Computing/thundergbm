@@ -27,7 +27,7 @@ __global__ void LoadGDHessFvalueRoot(const real *pInsGD, const real *pInsHess, i
 						   const int *pInsId, int numFeaValue, double *pGDEachFeaValue, real *pHessEachFeaValue);
 __global__ void LoadGDHessFvalue(const real *pInsGD, const real *pInsHess, int numIns,
 						   const int *pInsId, const real *pAllFeaValue, const uint *pDstIndexEachFeaValue, int numFeaValue,
-						   double *pGDEachFeaValue, real *pHessEachFeaValue, real *pDenseFeaValue);
+						   double *pGDEachFeaValue, real *pHessEachFeaValue, real *pDenseFeaValue, uint*);
 
 __global__ void FirstFeaGain(const unsigned int *pEachFeaStartPosEachNode, int numFeaStartPos, real *pGainOnEachFeaValue, uint numFeaValue);
 

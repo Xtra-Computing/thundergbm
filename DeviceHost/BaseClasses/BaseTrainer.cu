@@ -93,21 +93,21 @@ void BaseTrainer::TrainGBDT(vector<RegTree> & vTree, void *pStream, int bagId)
 		total_split += total_split_t;
 
 #ifdef _DEBUG
-		//run the GBDT prediction process
-		DevicePredictor pred;
-		clock_t begin_pre, end_pre;
-		vector<real> v_fPredValue;
-
-		begin_pre = clock();
-		vector<vector<KeyValue> > dummy;
-		pred.PredictSparseIns(dummy, vTree, v_fPredValue, pStream, bagId);
-		end_pre = clock();
-		double prediction_time = (double(end_pre - begin_pre) / CLOCKS_PER_SEC);
-		cout << "prediction sec = " << prediction_time << endl;
-
-		EvalRMSE rmse;
-		float fRMSE = rmse.Eval(v_fPredValue, BagManager::m_pTrueLabel_h, v_fPredValue.size());
-		cout << "rmse=" << fRMSE << endl;
+//		//run the GBDT prediction process
+//		DevicePredictor pred;
+//		clock_t begin_pre, end_pre;
+//		vector<real> v_fPredValue;
+//
+//		begin_pre = clock();
+//		vector<vector<KeyValue> > dummy;
+//		pred.PredictSparseIns(dummy, vTree, v_fPredValue, pStream, bagId);
+//		end_pre = clock();
+//		double prediction_time = (double(end_pre - begin_pre) / CLOCKS_PER_SEC);
+//		cout << "prediction sec = " << prediction_time << endl;
+//
+//		EvalRMSE rmse;
+//		float fRMSE = rmse.Eval(v_fPredValue, BagManager::m_pTrueLabel_h, v_fPredValue.size());
+//		cout << "rmse=" << fRMSE << endl;
 #endif
 	}
 

@@ -3,13 +3,17 @@
  *
  *  Created on: 5 May 2016
  *      Author: Zeyi Wen
- *		@brief: 
+ *		@brief:
  */
 
 #include <thrust/scan.h>
 #include <thrust/extrema.h>
 #include <thrust/reduce.h>
 #include <thrust/execution_policy.h>
+#include <thrust/sort.h>
+#include <thrust/sequence.h>
+#include <thrust/binary_search.h>
+#include <thrust/adjacent_difference.h>
 
 #include "IndexComputer.h"
 #include "FindFeaKernel.h"
@@ -25,6 +29,36 @@
 /**
  * @brief: efficient best feature finder
  */
+const int BLOCK_SIZE_ = 512;
+
+const int NUM_BLOCKS = 32 * 56;
+
+#define KERNEL_LOOP(i, n) \
+  for (int i = blockIdx.x * blockDim.x + threadIdx.x; \
+       i < (n); \
+       i += blockDim.x * gridDim.x)
+__global__ void kernel_div(uint *keys, int n_keys, int n_f){
+    KERNEL_LOOP(i, n_keys){
+        keys[i] = keys[i] / n_f;
+    }
+}
+__global__ void MarkPartition(int preMaxNid, int *pFvToInsId, int *pInsIdToNodeId,
+                              int totalNumFv, uint *pParitionMarker, uint *tid2fid, int n_f) {
+    int gTid = GLOBAL_TID();
+    if (gTid >= totalNumFv)//thread has nothing to mark; note that "totalNumFv" will not decrease!
+        return;
+
+    uint insId = pFvToInsId[gTid];
+    int nid = pInsIdToNodeId[insId];
+    if (nid <= preMaxNid) {//instance in leaf node
+//        pParitionMarker[gTid] = 255 * n_f + tid2fid[gTid];//can only support 8 level trees
+        pParitionMarker[gTid] = INT_MAX;//can only support 8 level trees
+        return;
+    }
+    int partitionId = nid - preMaxNid - 1;
+    ECHECKER(partitionId);
+    pParitionMarker[gTid] = partitionId * n_f + tid2fid[gTid];
+}
 void DeviceSplitter::FeaFinderAllNode(void *pStream, int bagId)
 {
 	GBDTGPUMemManager manager;
@@ -59,36 +93,61 @@ void DeviceSplitter::FeaFinderAllNode(void *pStream, int bagId)
 	int numofDenseValue = -1, maxNumFeaValueOneNode = -1;
 	if(numofSNode > 1)
 	{
-		IndexComputer indexComp;
-		indexComp.AllocMem(bagManager.m_numFea, numofSNode, bagManager.m_maxNumSplittable);
-		PROCESS_ERROR(nNumofFeature == bagManager.m_numFea);
-		clock_t comIdx_start = clock();
-		//compute gather index via GPUs
-		indexComp.ComputeIdxGPU(numofSNode, maxNumofSplittable, bagId);
-		clock_t comIdx_end = clock();
-		total_com_idx_t += (comIdx_end - comIdx_start);
+//		IndexComputer indexComp;
+//		indexComp.AllocMem(bagManager.m_numFea, numofSNode, bagManager.m_maxNumSplittable);
+//		PROCESS_ERROR(nNumofFeature == bagManager.m_numFea);
+//		clock_t comIdx_start = clock();
+//		//compute gather index via GPUs
+////		indexComp.ComputeIdxGPU(numofSNode, maxNumofSplittable, bagId);
+//		clock_t comIdx_end = clock();
+//		total_com_idx_t += (comIdx_end - comIdx_start);
+//
+//		//copy # of feature values of each node
+//		uint *pTempNumFvalueEachNode = bagManager.m_pNumFvalueEachNodeEachBag_d + bagId * bagManager.m_maxNumSplittable;
+//
+//		clock_t start_gd = clock();
+//		//scatter operation
+//		//total fvalue to load may be smaller than m_totalFeaValue, due to some nodes becoming leaves.
+//		numofDenseValue = thrust::reduce(thrust::device, pTempNumFvalueEachNode, pTempNumFvalueEachNode + numofSNode);
+//		//printf("# of useful fvalue=%d\n", numofDenseValue);
 
-		//copy # of feature values of each node
-		uint *pTempNumFvalueEachNode = bagManager.m_pNumFvalueEachNodeEachBag_d + bagId * bagManager.m_maxNumSplittable;
-	
-		clock_t start_gd = clock();
-		//scatter operation
-		//total fvalue to load may be smaller than m_totalFeaValue, due to some nodes becoming leaves.
-		numofDenseValue = thrust::reduce(thrust::device, pTempNumFvalueEachNode, pTempNumFvalueEachNode + numofSNode);
-		//printf("# of useful fvalue=%d\n", numofDenseValue);
-		LoadGDHessFvalue<<<dimNumofBlockToLoadGD, blockSizeLoadGD, 0, (*(cudaStream_t*)pStream)>>>(bagManager.m_pInsGradEachBag + bagId * bagManager.m_numIns, 
-															   bagManager.m_pInsHessEachBag + bagId * bagManager.m_numIns, 
+        int *pTmpInsIdToNodeId = bagManager.m_pInsIdToNodeIdEachBag + bagId * bagManager.m_numIns;
+        int blockSizeForFvalue;
+        dim3 dimNumofBlockForFvalue;
+        conf.ConfKernel(bagManager.m_numFeaValue, blockSizeForFvalue, dimNumofBlockForFvalue);
+        MarkPartition << < dimNumofBlockForFvalue, blockSizeForFvalue >> >
+                                                   (bagManager.m_pPreMaxNid_h[bagId], manager.m_pDInsId, pTmpInsIdToNodeId,
+                                                           bagManager.m_numFeaValue, orgManager.m_pnKey_d, BagOrgManager::m_pnTid2Fid, bagManager.m_numFea);
+        thrust::sequence(thrust::system::cuda::par, bagManager.m_pIndicesEachBag_d,
+                         bagManager.m_pIndicesEachBag_d + bagManager.m_numFeaValue, 0);
+        thrust::stable_sort_by_key(thrust::system::cuda::par, orgManager.m_pnKey_d, orgManager.m_pnKey_d + bagManager.m_numFeaValue, bagManager.m_pIndicesEachBag_d, thrust::less<uint>());
+//
+		LoadGDHessFvalue<<<dimNumofBlockToLoadGD, blockSizeLoadGD, 0, (*(cudaStream_t*)pStream)>>>(bagManager.m_pInsGradEachBag + bagId * bagManager.m_numIns,
+															   bagManager.m_pInsHessEachBag + bagId * bagManager.m_numIns,
 															   bagManager.m_numIns, manager.m_pDInsId, orgManager.m_pdDFeaValue,
 															   bagManager.m_pIndicesEachBag_d, bagManager.m_numFeaValue,
 															   orgManager.m_pdGDPrefixSumEachBag + bagId * bagManager.m_numFeaValue,
 															   orgManager.m_pHessPrefixSumEachBag + bagId * bagManager.m_numFeaValue,
-															   orgManager.m_pDenseFValueEachBag + bagId * bagManager.m_numFeaValue);
+															   orgManager.m_pDenseFValueEachBag + bagId * bagManager.m_numFeaValue,
+                                                                orgManager.m_pnKey_d);
+		thrust::counting_iterator<int> search_begin(0);
+        thrust::upper_bound(thrust::cuda::par, orgManager.m_pnKey_d, orgManager.m_pnKey_d + bagManager.m_numFeaValue, search_begin, search_begin + bagManager.m_numFea * numofSNode, bagManager.m_pEachFeaLenEachNodeEachBag_d);
+		thrust::adjacent_difference(thrust::cuda::par, bagManager.m_pEachFeaLenEachNodeEachBag_d, bagManager.m_pEachFeaLenEachNodeEachBag_d + bagManager.m_numFea * numofSNode, bagManager.m_pEachFeaLenEachNodeEachBag_d);
+		thrust::exclusive_scan(thrust::cuda::par, bagManager.m_pEachFeaLenEachNodeEachBag_d, bagManager.m_pEachFeaLenEachNodeEachBag_d + bagManager.m_numFea * numofSNode, bagManager.m_pEachFeaStartPosEachNodeEachBag_d);
+
+        kernel_div<<<NUM_BLOCKS,BLOCK_SIZE_>>>(orgManager.m_pnKey_d, bagManager.m_numFeaValue, bagManager.m_numFea);
+		thrust::upper_bound(thrust::cuda::par, orgManager.m_pnKey_d, orgManager.m_pnKey_d + bagManager.m_numFeaValue, search_begin, search_begin + numofSNode, bagManager.m_pNumFvalueEachNodeEachBag_d);
+		thrust::adjacent_difference(thrust::cuda::par, bagManager.m_pNumFvalueEachNodeEachBag_d, bagManager.m_pNumFvalueEachNodeEachBag_d + numofSNode, bagManager.m_pNumFvalueEachNodeEachBag_d);
+		thrust::exclusive_scan(thrust::cuda::par, bagManager.m_pNumFvalueEachNodeEachBag_d, bagManager.m_pNumFvalueEachNodeEachBag_d + numofSNode, bagManager.m_pFvalueStartPosEachNodeEachBag_d);
+
 		cudaStreamSynchronize((*(cudaStream_t*)pStream));
-		clock_t end_gd = clock();
-		total_fill_gd_t += (end_gd - start_gd);
+//		clock_t end_gd = clock();
+//		total_fill_gd_t += (end_gd - start_gd);
+        uint *pTempNumFvalueEachNode = bagManager.m_pNumFvalueEachNodeEachBag_d + bagId * bagManager.m_maxNumSplittable;
 		uint *pMaxNumFvalueOneNode = thrust::max_element(thrust::device, pTempNumFvalueEachNode, pTempNumFvalueEachNode + numofSNode);
 		checkCudaErrors(cudaMemcpy(&maxNumFeaValueOneNode, pMaxNumFvalueOneNode, sizeof(int), cudaMemcpyDeviceToHost));
-		indexComp.FreeMem();
+		numofDenseValue = thrust::reduce(thrust::device, pTempNumFvalueEachNode, pTempNumFvalueEachNode + numofSNode);
+//		indexComp.FreeMem();
 	}
 	else
 	{
@@ -189,7 +248,7 @@ void DeviceSplitter::FeaFinderAllNode(void *pStream, int bagId)
 											orgManager.m_pDefault2Right);
 	cudaStreamSynchronize((*(cudaStream_t*)pStream));
 	GETERROR("after ComputeGainDense");
-	
+
 	//change the gain of the first feature value to 0
 	int numFeaStartPos = bagManager.m_numFea * numofSNode;
 //	printf("num fea start pos=%d (%d * %d)\n", numFeaStartPos, bagManager.m_numFea, numofSNode);

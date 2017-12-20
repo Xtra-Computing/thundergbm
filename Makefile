@@ -14,7 +14,7 @@ $(shell mkdir -p $(ODIR)/release)
 $(shell mkdir -p $(ODIR)/debug)
 $(shell mkdir -p $(ODIR)/$(obj_folder))
 
-FILES = $(shell find ./ -name '*.cpp' -or -name '*.cu')
+FILES = $(shell find ./gbdt_main.cu Device Host DeviceHost SharedUtility -name '*.cpp' -or -name '*.cu')
 SOURCE = $(notdir $(FILES))             #remove directory
 OBJS = $(patsubst %.cpp, %.o,$(SOURCE:.cpp=.o)) #replace .cpp to .o
 OBJ = $(patsubst %.cu, %.o,$(OBJS:.cu=.o))      #replace .cu to .o
@@ -69,4 +69,4 @@ all: release
 .PHONY:clean
 
 clean:
-	rm -f *.o *.txt bin/*.bin bin/result.txt bin/release/* bin/debug/*
+	rm -f *.o bin/*.bin bin/result.txt bin/release/* bin/debug/*

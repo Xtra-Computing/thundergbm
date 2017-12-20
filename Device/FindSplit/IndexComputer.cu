@@ -24,7 +24,18 @@
 #include "../../SharedUtility/HostUtility.h"
 #include "../../SharedUtility/binarySearch.h"
 #include "../../SharedUtility/setSegmentKey.h"
+#include <thrust/sort.h>
+#include <thrust/binary_search.h>
+#include <thrust/adjacent_difference.h>
 
+const int BLOCK_SIZE_ = 512;
+
+const int NUM_BLOCKS = 32 * 56;
+
+#define KERNEL_LOOP(i, n) \
+  for (int i = blockIdx.x * blockDim.x + threadIdx.x; \
+       i < (n); \
+       i += blockDim.x * gridDim.x)
 using std::vector;
 
 int IndexComputer::m_totalFeaValue = -1;//total number of feature values in the whole dataset
@@ -43,6 +54,11 @@ uint IndexComputer::m_numElementEachThd = LARGE_4B_UINT;
 uint IndexComputer::m_totalNumEffectiveThd = LARGE_4B_UINT;
 uint *IndexComputer::m_pEachNodeStartPos_d;
 
+__global__ void compute_id(const unsigned char *pid_map, uint *fid_map, int num_f, uint *pf_id, int n_id){
+    KERNEL_LOOP(i, n_id){
+        pf_id[i] = pid_map[i] * num_f + fid_map[i];
+    }
+}
 /**
   *@brief: mark feature values beloning to node with id=snId by 1
   */
@@ -237,15 +253,25 @@ void IndexComputer::ComputeIdxGPU(int numSNode, int maxNumSN, int bagId){
 											  bagId * bagManager.m_maxNumSplittable * bagManager.m_numFea;
 
 	checkCudaErrors(cudaMemset(pTmpEachFeaLenEachNode, 0, sizeof(int) * bagManager.m_maxNumSplittable * m_numFea));
-	if(CsrCompressor::bUseCsr == true)
-		EachFeaLenEachNodeCSR<<<dimNumofBlockForFvalue, blockSizeForFvalue>>>((unsigned char*)partitionMarker.addr, m_totalFeaValue, pTmpEachFeaLenEachNode,
-																	   m_numFea, numSNode, manager.m_pFeaStartPos);
-	else
-		EachFeaLenEachNodeOrg<<<dimNumofBlockForFvalue, blockSizeForFvalue>>>((unsigned char*)partitionMarker.addr, m_totalFeaValue, pTmpEachFeaLenEachNode,
-																			  BagOrgManager::m_pnTid2Fid, m_numFea, numSNode, manager.m_pFeaStartPos);
+//	if(CsrCompressor::bUseCsr == true)
+//		EachFeaLenEachNodeCSR<<<dimNumofBlockForFvalue, blockSizeForFvalue>>>((unsigned char*)partitionMarker.addr, m_totalFeaValue, pTmpEachFeaLenEachNode,
+//																	   m_numFea, numSNode, manager.m_pFeaStartPos);
+//	else {
+//		EachFeaLenEachNodeOrg << < dimNumofBlockForFvalue, blockSizeForFvalue >> >
+//														   ((unsigned char *) partitionMarker.addr, m_totalFeaValue, pTmpEachFeaLenEachNode,
+//																   BagOrgManager::m_pnTid2Fid, m_numFea, numSNode, manager.m_pFeaStartPos);
+//	}
+    uint *pf_id;
+        cudaMalloc((void**)&pf_id, sizeof(uint) * m_totalFeaValue);
+        compute_id<<<NUM_BLOCKS, BLOCK_SIZE_>>>((const unsigned char *)partitionMarker.addr, BagOrgManager::m_pnTid2Fid, m_numFea, pf_id, m_totalFeaValue);
+        thrust::sort(thrust::cuda::par, pf_id, pf_id + m_totalFeaValue);
+        thrust::counting_iterator<int> search_begin(0);
+        thrust::upper_bound(thrust::cuda::par, pf_id, pf_id + m_totalFeaValue, search_begin, search_begin + m_numFea * numSNode, pTmpEachFeaLenEachNode);
+        thrust::adjacent_difference(thrust::cuda::par, pTmpEachFeaLenEachNode, pTmpEachFeaLenEachNode + m_numFea * numSNode, pTmpEachFeaLenEachNode);
+        cudaFree(pf_id);
 
 	thrust::exclusive_scan(thrust::system::cuda::par, pTmpEachFeaLenEachNode, pTmpEachFeaLenEachNode + m_numFea * numSNode, pTmpEachFeaStartPosEachNode);
-	
+
 	//get feature values start position of each new node
 	checkCudaErrors(cudaMemcpy(pTmpFvalueStartPosEachNode, m_pEachNodeStartPos_d, sizeof(uint) * numSNode, cudaMemcpyDeviceToDevice));
 }

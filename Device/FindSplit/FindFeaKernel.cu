@@ -39,33 +39,65 @@ __global__ void LoadGDHessFvalueRoot(const real *pInsGD, const real *pInsHess, i
 /**
  * @brief: copy the gd, hess and feaValue for each node based on some features on similar number of values
  */
+#define KERNEL_LOOP(i, n) \
+  for (int i = blockIdx.x * blockDim.x + threadIdx.x; \
+       i < (n); \
+       i += blockDim.x * gridDim.x)
+//__global__ void LoadGDHessFvalue(const real *pInsGD, const real *pInsHess, int numIns,
+//						   const int *pInsId, const real *pAllFeaValue, const unsigned int *pDstIndexEachFeaValue, int numFeaValue,
+//						   double *pGDEachFeaValue, real *pHessEachFeaValue, real *pDenseFeaValue, uint *seg_id)
+//{
+//	//one thread loads one value
+//
+//	int gTid = GLOBAL_TID();
+//
+//	if(gTid >= numFeaValue)//thread has nothing to load
+//		return;
+//
+//	int insId = pInsId[gTid];//instance id
+//
+//	CONCHECKER(insId < numIns);
+//
+//	//index for scatter
+//	uint idx = pDstIndexEachFeaValue[gTid];
+//	if(idx == LARGE_4B_UINT)//instance is in a leaf node
+//		return;
+//
+//	CONCHECKER(idx < numFeaValue);
+//
+//	//scatter: store GD, Hess and the feature value.
+//	pGDEachFeaValue[idx] = pInsGD[insId];
+//	pHessEachFeaValue[idx] = pInsHess[insId];
+//	pDenseFeaValue[idx] = pAllFeaValue[gTid];
+//}
+
 __global__ void LoadGDHessFvalue(const real *pInsGD, const real *pInsHess, int numIns,
-						   const int *pInsId, const real *pAllFeaValue, const unsigned int *pDstIndexEachFeaValue, int numFeaValue,
-						   double *pGDEachFeaValue, real *pHessEachFeaValue, real *pDenseFeaValue)
+                                 const int *pInsId, const real *pAllFeaValue, const unsigned int *pDstIndexEachFeaValue, int numFeaValue,
+                                 double *pGDEachFeaValue, real *pHessEachFeaValue, real *pDenseFeaValue, uint *seg_id)
 {
-	//one thread loads one value
-	int gTid = GLOBAL_TID();
+    //one thread loads one value
 
-	if(gTid >= numFeaValue)//thread has nothing to load
-		return;
+    int gTid = GLOBAL_TID();
 
-	int insId = pInsId[gTid];//instance id
+    if(gTid >= numFeaValue)//thread has nothing to load
+        return;
 
-	CONCHECKER(insId < numIns);
 
-	//index for scatter
-	uint idx = pDstIndexEachFeaValue[gTid];
-	if(idx == LARGE_4B_UINT)//instance is in a leaf node
-		return;
+//	CONCHECKER(insId < numIns);
 
-	CONCHECKER(idx < numFeaValue);
+    //index for scatter
+    uint idx = pDstIndexEachFeaValue[gTid];
+    int insId = pInsId[idx];//instance id
+    if(seg_id[gTid] == INT_MAX)//instance is in a leaf node
+        return;
 
-	//scatter: store GD, Hess and the feature value.
-	pGDEachFeaValue[idx] = pInsGD[insId];
-	pHessEachFeaValue[idx] = pInsHess[insId];
-	pDenseFeaValue[idx] = pAllFeaValue[gTid];
+    CONCHECKER(idx < numFeaValue);
+
+    //scatter: store GD, Hess and the feature value.
+    pGDEachFeaValue[gTid] = pInsGD[insId];
+    pHessEachFeaValue[gTid] = pInsHess[insId];
+    pDenseFeaValue[gTid] = pAllFeaValue[idx];
 }
-
 __device__ bool NeedCompGain(double RChildHess, double LChildHess){
 	if(LChildHess >= DeviceSplitter::min_child_weight && RChildHess >= DeviceSplitter::min_child_weight)
 		return true;

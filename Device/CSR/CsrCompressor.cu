@@ -79,7 +79,7 @@ CsrCompressor::CsrCompressor(){
 	totalOrgNumCsr = csrId;
 	eachNodeSizeInCsr_h = totalOrgNumCsr;
 	printf("org=%u v.s. csr=%u\n", manager.m_numFeaValue, totalOrgNumCsr);
-	PROCESS_ERROR(totalOrgNumCsr < manager.m_numFeaValue);
+//	PROCESS_ERROR(totalOrgNumCsr < manager.m_numFeaValue);
 	if(totalOrgNumCsr * 4 > manager.m_numFeaValue){
 		bUseCsr = false;
 

@@ -151,7 +151,7 @@ void BagManager::AllocMem()
 	checkCudaErrors(cudaMalloc((void**)&m_pInsHessEachBag, sizeof(real) * m_numIns * m_numBag));
 
 	//for computing indices of more than one level trees
-	checkCudaErrors(cudaMalloc((void**)&m_pIndicesEachBag_d, sizeof(uint) * m_numFeaValue * m_numBag));
+	checkCudaErrors(cudaMallocManaged((void**)&m_pIndicesEachBag_d, sizeof(uint) * m_numFeaValue * m_numBag));
 	checkCudaErrors(cudaMalloc((void**)&m_pNumFvalueEachNodeEachBag_d, sizeof(uint) * m_maxNumSplittable * m_numBag));
 	checkCudaErrors(cudaMalloc((void**)&m_pFvalueStartPosEachNodeEachBag_d, sizeof(uint) * m_maxNumSplittable * m_numBag));
 	checkCudaErrors(cudaMalloc((void**)&m_pEachFeaStartPosEachNodeEachBag_d, sizeof(uint) * m_maxNumSplittable * m_numBag * m_numFea));

@@ -62,22 +62,22 @@ void* GBDTTask::ProcessTask(void* pInputParam)
 	trainer.SaveModel("tree.txt", v_Tree);
 
 #ifdef _DEBUG
-	//run the GBDT prediction process
-	DevicePredictor pred;
-	clock_t begin_pre, end_pre;
-	vector<real> v_fPredValue;
-
-	begin_pre = clock();
-	vector<vector<KeyValue> > dummy;
-	pred.PredictSparseIns(dummy, v_Tree, v_fPredValue, pStream_gbdt, bagId);
-	end_pre = clock();
-	double prediction_time = (double(end_pre - begin_pre) / CLOCKS_PER_SEC);
-	cout << "prediction sec = " << prediction_time << endl;
-
-	cudaStreamSynchronize(*pStream_gbdt);
-	EvalRMSE rmse;
-	float fRMSE = rmse.Eval(v_fPredValue, BagManager::m_pTrueLabel_h, v_fPredValue.size());
-	cerr << "rmse=" << fRMSE << endl;
+//	//run the GBDT prediction process
+//	DevicePredictor pred;
+//	clock_t begin_pre, end_pre;
+//	vector<real> v_fPredValue;
+//
+//	begin_pre = clock();
+//	vector<vector<KeyValue> > dummy;
+//	pred.PredictSparseIns(dummy, v_Tree, v_fPredValue, pStream_gbdt, bagId);
+//	end_pre = clock();
+//	double prediction_time = (double(end_pre - begin_pre) / CLOCKS_PER_SEC);
+//	cout << "prediction sec = " << prediction_time << endl;
+//
+//	cudaStreamSynchronize(*pStream_gbdt);
+//	EvalRMSE rmse;
+//	float fRMSE = rmse.Eval(v_fPredValue, BagManager::m_pTrueLabel_h, v_fPredValue.size());
+//	cerr << "rmse=" << fRMSE << endl;
 #endif
 	trainer.ReleaseTree(v_Tree);
 

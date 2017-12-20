@@ -72,7 +72,7 @@ void DeviceSplitter::ComputeGD(vector<RegTree> &vTree, vector<vector<KeyValue> >
 	KernelConf conf;
 	//start prediction
 //###################  for my future experiments
-bool bOptimisePred = false;
+bool bOptimisePred = true;
 	if(nNumofTree > 0 && numofUsedFea >0 && bOptimisePred == false)//numofUsedFea > 0 means the tree has more than one node.
 	{
 		uint startPos = 0;
