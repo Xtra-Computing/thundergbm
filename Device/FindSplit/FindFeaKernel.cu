@@ -104,10 +104,11 @@ __device__ bool NeedCompGain(double RChildHess, double LChildHess){
 	return false;
 }
 __device__ double ComputeGain(double lChildGD, double lChildHess, real lambda, double rChildGD, double rChildHess, double parentGD, double parentHess){
-	double gain = (lChildGD * lChildGD)/(lChildHess + lambda) +
-				  (rChildGD * rChildGD)/(rChildHess + lambda) -
-				  (parentGD * parentGD)/(parentHess + lambda);
-	return gain;
+	if (lChildHess >= DeviceSplitter::min_child_weight && rChildHess >= DeviceSplitter::min_child_weight)
+		return (lChildGD * lChildGD) / (lChildHess + lambda) + (rChildGD * rChildGD) / (rChildHess + lambda) -
+			   (parentGD * parentGD) / (parentHess + lambda);
+	else
+		return 0;
 }
 
 /**

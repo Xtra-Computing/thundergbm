@@ -11,6 +11,7 @@
 
 #include <float.h>
 #include <limits>
+#include <cmath>
 
 #include "../Splitter/DeviceSplitter.h"
 #include "../../Host/UpdateOps/SplitPoint.h"
@@ -37,101 +38,63 @@ __device__ double ComputeGain(double tempGD, double tempHess, real lambda, doubl
 
 template<class T>
 __global__ void ComputeGainDense(const nodeStat *pSNodeStat, const int *pid2SNPos, real lambda,
-							const double *pGDPrefixSumOnEachFeaValue, const real *pHessPrefixSumOnEachFeaValue,
-							const real *pDenseFeaValue, int numofDenseValue,
-							const uint *pEachFeaStartEachNode, const T *pEachFeaLenEachNode,
-							const uint *pnKey, int numFea, real *pGainOnEachFeaValue, bool *pDefault2Right)
-{
+								 const double *pGDPrefixSumOnEachFeaValue, const real *pHessPrefixSumOnEachFeaValue,
+								 const real *pDenseFeaValue, int numofDenseValue,
+								 const uint *pEachFeaStartEachNode, const T *pEachFeaLenEachNode,
+								 const uint *pnKey, int numFea, real *pGainOnEachFeaValue, bool *pDefault2Right) {
 	const float rt_2eps = 2.0 * DeviceSplitter::rt_eps;
 	//one thread loads one value
 	uint gTid = GLOBAL_TID();
-	if(gTid >= numofDenseValue)//the thread has no gain to compute, i.e. a thread per gain
+	if (gTid >= numofDenseValue)//the thread has no gain to compute, i.e. a thread per gain
 		return;
 
 	uint segId = pnKey[gTid];
-	uint pid = segId / numFea;
 
-	int snPos = pid2SNPos[pid];
-	ECHECKER(snPos);
+	int snPos = pid2SNPos[segId / numFea];
 
-    int segLen = pEachFeaLenEachNode[segId];
-    uint segStartPos = pEachFeaStartEachNode[segId];
+	int segLen = pEachFeaLenEachNode[segId];
+	uint segStartPos = pEachFeaStartEachNode[segId];
 	uint lastFvaluePos = segStartPos + segLen - 1;
 	double parentGD = pSNodeStat[snPos].sum_gd;
 	double parentHess = pSNodeStat[snPos].sum_hess;
-	double totalMissingGD = parentGD - pGDPrefixSumOnEachFeaValue[lastFvaluePos];
-	double totalMissingHess = parentHess - pHessPrefixSumOnEachFeaValue[lastFvaluePos];
+	double totalGD = pGDPrefixSumOnEachFeaValue[lastFvaluePos];
+	double totalHess = pHessPrefixSumOnEachFeaValue[lastFvaluePos];
+	double totalMissingGD = parentGD - totalGD;
+	double totalMissingHess = parentHess - totalHess;
 
-	if(gTid == segStartPos){//include all sum statistics; store the gain at the first pos of each segment
-    	//check default to left
-		double totalGD = pGDPrefixSumOnEachFeaValue[lastFvaluePos];
-		double totalHess = pHessPrefixSumOnEachFeaValue[lastFvaluePos];
-		bool needUpdate = NeedCompGain(totalHess, totalMissingHess);
-    	real all2Left = 0, all2Right = -1.0;
-    	if(needUpdate == true){
-    		CONCHECKER(totalHess > 0);
-    		CONCHECKER(totalMissingHess > 0);
-    		all2Left = ComputeGain(totalMissingGD, totalMissingHess, lambda, totalGD, totalHess, parentGD, parentHess);
-    		all2Right = ComputeGain(totalGD, totalHess, lambda, totalMissingGD, totalMissingHess, parentGD, parentHess);
-    	}
-
-    	//check default to right
-    	if(all2Left < all2Right){
-    		pGainOnEachFeaValue[gTid] = all2Right;
-    		pDefault2Right[gTid] = true;
-    	}
-    	else
-    		pGainOnEachFeaValue[gTid] = all2Left;
-	}
-	else{
+	if (gTid == segStartPos) {//include all sum statistics; store the gain at the first pos of each segment
+		pGainOnEachFeaValue[gTid] = ComputeGain(totalMissingGD, totalMissingHess, lambda, totalGD, totalHess, parentGD,
+												parentHess);
+	} else {
 		//if the previous fea value is the same as the current fea value, gain is 0 for the current fea value.
 		real preFvalue = pDenseFeaValue[gTid - 1], curFvalue = pDenseFeaValue[gTid];
-		if(preFvalue - curFvalue <= rt_2eps && preFvalue - curFvalue >= -rt_2eps)//############## backwards is not considered!
-		{//avoid same feature value different gain issue
-			pGainOnEachFeaValue[gTid] = 0;
-			return;
-		}
+		if (fabsf(preFvalue - curFvalue) > rt_2eps) {//avoid same feature value different gain issue
+			int exclusiveSumPos = gTid - 1;//following xgboost using exclusive sum on gd and hess
 
-		int exclusiveSumPos = gTid - 1;//following xgboost using exclusive sum on gd and hess
+			//forward consideration (fvalues are sorted descendingly)
+			double rChildGD = pGDPrefixSumOnEachFeaValue[exclusiveSumPos];
+			double rChildHess = pHessPrefixSumOnEachFeaValue[exclusiveSumPos];
+			double missing2left_gain = ComputeGain(parentGD - rChildGD, parentHess - rChildHess, lambda, rChildGD,
+												   rChildHess, parentGD, parentHess);
 
-		//forward consideration (fvalues are sorted descendingly)
-		double rChildGD = pGDPrefixSumOnEachFeaValue[exclusiveSumPos];
-		double rChildHess = pHessPrefixSumOnEachFeaValue[exclusiveSumPos];
-		double tempGD = parentGD - rChildGD;
-		double tempHess = parentHess - rChildHess;
-		bool needUpdate = NeedCompGain(rChildHess, tempHess);
-		if(needUpdate == true)//need to compute the gain
-		{
-			ECHECKER(tempHess > 0);
-			ECHECKER(parentHess > 0);
-			double tempGain = ComputeGain(tempGD, tempHess, lambda, rChildGD, rChildHess, parentGD, parentHess);
-			pGainOnEachFeaValue[gTid] = tempGain;
-		}
-		else{
-			//assign gain to 0
-			pGainOnEachFeaValue[gTid] = 0;
-		}
+			//backward consideration
+			double max_gain;
+			if (totalMissingHess >= 1) {
+				//missing values to the right child
+				rChildGD += totalMissingGD;
+				rChildHess += totalMissingHess;
+				double missing2right_gain = ComputeGain(parentGD - rChildGD, parentHess - rChildHess, lambda, rChildGD,
+														rChildHess, parentGD, parentHess);
 
-		//backward consideration
-		if(totalMissingHess < 1)//there is no instance with missing values
-			return;
-		//missing values to the right child
-		rChildGD += totalMissingGD;
-		rChildHess += totalMissingHess;
-		tempGD = parentGD - rChildGD;
-		tempHess = parentHess - rChildHess;
-		needUpdate = NeedCompGain(rChildHess, tempHess);
-		if(needUpdate == true){
-			ECHECKER(tempHess > 0);
-			ECHECKER(parentHess > 0);
-			double tempGain = ComputeGain(tempGD, tempHess, lambda, rChildGD, rChildHess, parentGD, parentHess);
-
-			if(tempGain > 0 && tempGain - pGainOnEachFeaValue[gTid] > 0.1){
-				pGainOnEachFeaValue[gTid] = tempGain;
-				pDefault2Right[gTid] = true;
-			}
-		}
-	}//end of forward and backward consideration
+				if (missing2right_gain > 0 && missing2right_gain - missing2left_gain > 0.1) {
+					max_gain = missing2right_gain;
+					pDefault2Right[gTid] = true;
+				}
+			} else
+				max_gain = missing2left_gain;
+			pGainOnEachFeaValue[gTid] = max_gain;
+		}//end of forward and backward consideration
+	}
 }
 
 /**
