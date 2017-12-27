@@ -121,23 +121,6 @@ void DeviceSplitter::FeaFinderAllNode(void *pStream, int bagId)
         thrust::sequence(thrust::system::cuda::par, bagManager.m_pIndicesEachBag_d,
                          bagManager.m_pIndicesEachBag_d + bagManager.m_numFeaValue, 0);
         thrust::stable_sort_by_key(thrust::system::cuda::par, orgManager.m_pnKey_d, orgManager.m_pnKey_d + bagManager.m_numFeaValue, bagManager.m_pIndicesEachBag_d, thrust::less<uint>());
-        thrust::counting_iterator<int> search_begin(0);
-        thrust::upper_bound(thrust::cuda::par, orgManager.m_pnKey_d, orgManager.m_pnKey_d + bagManager.m_numFeaValue, search_begin, search_begin + bagManager.m_numFea * numofSNode, bagManager.m_pEachFeaLenEachNodeEachBag_d);
-        thrust::adjacent_difference(thrust::cuda::par, bagManager.m_pEachFeaLenEachNodeEachBag_d, bagManager.m_pEachFeaLenEachNodeEachBag_d + bagManager.m_numFea * numofSNode, bagManager.m_pEachFeaLenEachNodeEachBag_d);
-        thrust::exclusive_scan(thrust::cuda::par, bagManager.m_pEachFeaLenEachNodeEachBag_d, bagManager.m_pEachFeaLenEachNodeEachBag_d + bagManager.m_numFea * numofSNode, bagManager.m_pEachFeaStartPosEachNodeEachBag_d);
-
-        kernel_div<<<NUM_BLOCKS,BLOCK_SIZE_>>>(orgManager.m_pnKey_d, bagManager.m_numFeaValue, bagManager.m_numFea);
-        thrust::upper_bound(thrust::cuda::par, orgManager.m_pnKey_d, orgManager.m_pnKey_d + bagManager.m_numFeaValue, search_begin, search_begin + numofSNode, bagManager.m_pNumFvalueEachNodeEachBag_d);
-        thrust::adjacent_difference(thrust::cuda::par, bagManager.m_pNumFvalueEachNodeEachBag_d, bagManager.m_pNumFvalueEachNodeEachBag_d + numofSNode, bagManager.m_pNumFvalueEachNodeEachBag_d);
-        thrust::exclusive_scan(thrust::cuda::par, bagManager.m_pNumFvalueEachNodeEachBag_d, bagManager.m_pNumFvalueEachNodeEachBag_d + numofSNode, bagManager.m_pFvalueStartPosEachNodeEachBag_d);
-
-        cudaStreamSynchronize((*(cudaStream_t*)pStream));
-//		clock_t end_gd = clock();
-//		total_fill_gd_t += (end_gd - start_gd);
-        uint *pTempNumFvalueEachNode = bagManager.m_pNumFvalueEachNodeEachBag_d + bagId * bagManager.m_maxNumSplittable;
-        uint *pMaxNumFvalueOneNode = thrust::max_element(thrust::device, pTempNumFvalueEachNode, pTempNumFvalueEachNode + numofSNode);
-        checkCudaErrors(cudaMemcpy(&maxNumFeaValueOneNode, pMaxNumFvalueOneNode, sizeof(int), cudaMemcpyDeviceToHost));
-        numofDenseValue = thrust::reduce(thrust::device, pTempNumFvalueEachNode, pTempNumFvalueEachNode + numofSNode);
 //
 		LoadGDHessFvalue<<<dimNumofBlockToLoadGD, blockSizeLoadGD, 0, (*(cudaStream_t*)pStream)>>>(bagManager.m_pInsGradEachBag + bagId * bagManager.m_numIns,
 															   bagManager.m_pInsHessEachBag + bagId * bagManager.m_numIns,
@@ -147,6 +130,23 @@ void DeviceSplitter::FeaFinderAllNode(void *pStream, int bagId)
 															   orgManager.m_pHessPrefixSumEachBag + bagId * bagManager.m_numFeaValue,
 															   orgManager.m_pDenseFValueEachBag + bagId * bagManager.m_numFeaValue,
                                                                 orgManager.m_pnKey_d);
+		thrust::counting_iterator<int> search_begin(0);
+        thrust::upper_bound(thrust::cuda::par, orgManager.m_pnKey_d, orgManager.m_pnKey_d + bagManager.m_numFeaValue, search_begin, search_begin + bagManager.m_numFea * numofSNode, bagManager.m_pEachFeaLenEachNodeEachBag_d);
+		thrust::adjacent_difference(thrust::cuda::par, bagManager.m_pEachFeaLenEachNodeEachBag_d, bagManager.m_pEachFeaLenEachNodeEachBag_d + bagManager.m_numFea * numofSNode, bagManager.m_pEachFeaLenEachNodeEachBag_d);
+		thrust::exclusive_scan(thrust::cuda::par, bagManager.m_pEachFeaLenEachNodeEachBag_d, bagManager.m_pEachFeaLenEachNodeEachBag_d + bagManager.m_numFea * numofSNode, bagManager.m_pEachFeaStartPosEachNodeEachBag_d);
+
+        kernel_div<<<NUM_BLOCKS,BLOCK_SIZE_>>>(orgManager.m_pnKey_d, bagManager.m_numFeaValue, bagManager.m_numFea);
+		thrust::upper_bound(thrust::cuda::par, orgManager.m_pnKey_d, orgManager.m_pnKey_d + bagManager.m_numFeaValue, search_begin, search_begin + numofSNode, bagManager.m_pNumFvalueEachNodeEachBag_d);
+		thrust::adjacent_difference(thrust::cuda::par, bagManager.m_pNumFvalueEachNodeEachBag_d, bagManager.m_pNumFvalueEachNodeEachBag_d + numofSNode, bagManager.m_pNumFvalueEachNodeEachBag_d);
+		thrust::exclusive_scan(thrust::cuda::par, bagManager.m_pNumFvalueEachNodeEachBag_d, bagManager.m_pNumFvalueEachNodeEachBag_d + numofSNode, bagManager.m_pFvalueStartPosEachNodeEachBag_d);
+
+		cudaStreamSynchronize((*(cudaStream_t*)pStream));
+//		clock_t end_gd = clock();
+//		total_fill_gd_t += (end_gd - start_gd);
+        uint *pTempNumFvalueEachNode = bagManager.m_pNumFvalueEachNodeEachBag_d + bagId * bagManager.m_maxNumSplittable;
+		uint *pMaxNumFvalueOneNode = thrust::max_element(thrust::device, pTempNumFvalueEachNode, pTempNumFvalueEachNode + numofSNode);
+		checkCudaErrors(cudaMemcpy(&maxNumFeaValueOneNode, pMaxNumFvalueOneNode, sizeof(int), cudaMemcpyDeviceToHost));
+		numofDenseValue = thrust::reduce(thrust::device, pTempNumFvalueEachNode, pTempNumFvalueEachNode + numofSNode);
 //		indexComp.FreeMem();
 	}
 	else
