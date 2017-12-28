@@ -37,8 +37,8 @@ BagCsrManager::BagCsrManager(int numFea, int maxNumSN, uint totalNumFeaValue){
 	checkCudaErrors(cudaMalloc((void**)&pEachNodeSizeInCsr, sizeof(uint) * maxNumSN));
 
 	checkCudaErrors(cudaMalloc((void**)&preFvalueInsId, sizeof(int) * totalNumFeaValue));
-    checkCudaErrors(cudaMallocManaged((void**)&m_pnKey_d, totalNumFeaValue * sizeof(uint)));
-    checkCudaErrors(cudaMallocManaged((void**)&m_pnTid2Fid, totalNumFeaValue * sizeof(uint)));
+    checkCudaErrors(cudaMalloc((void**)&m_pnKey_d, totalNumFeaValue * sizeof(uint)));
+    checkCudaErrors(cudaMalloc((void**)&m_pnTid2Fid, totalNumFeaValue * sizeof(uint)));
 }
 
 void BagCsrManager::reserveCsrSpace(){
