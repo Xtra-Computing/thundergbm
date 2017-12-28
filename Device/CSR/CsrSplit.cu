@@ -5,14 +5,17 @@
  *      Author: zeyi
  */
 
+#include <climits>
 #include "CsrSplit.h"
 #include "../../SharedUtility/CudaMacro.h"
 #include "../../SharedUtility/binarySearch.h"
+#include "../../SharedUtility/DataType.h"
 
 /**
  * @brief: efficient best feature finder
  */
-__global__ void LoadFvalueInsId(int numIns, const int *pOrgFvalueInsId, int *pNewFvalueInsId, const unsigned int *pDstIndexEachFeaValue, int numFeaValue)
+__global__ void LoadFvalueInsId(int numIns, const int *pOrgFvalueInsId, int *pNewFvalueInsId, const unsigned int *pDstIndexEachFeaValue,
+					 int numFeaValue, uint *seg_id)
 {
 	//one thread loads one value
 	int gTid = GLOBAL_TID();
@@ -22,14 +25,15 @@ __global__ void LoadFvalueInsId(int numIns, const int *pOrgFvalueInsId, int *pNe
 
 	//index for scatter
 	uint idx = pDstIndexEachFeaValue[gTid];
-	if(idx == LARGE_4B_UINT)//instance is in a leaf node
+//	if(idx == LARGE_4B_UINT)//instance is in a leaf node
+    if (seg_id[gTid == INT_MAX])
 		return;
 
-	CONCHECKER(idx < numFeaValue);
+//	CONCHECKER(idx < numFeaValue);
 
 	//scatter: store the feature value ins id.
-	CONCHECKER(numIns >= pOrgFvalueInsId[gTid] && pOrgFvalueInsId[gTid] >= 0);
-	pNewFvalueInsId[idx] = pOrgFvalueInsId[gTid];
+//	CONCHECKER(numIns >= pOrgFvalueInsId[gTid] && pOrgFvalueInsId[gTid] >= 0);
+	pNewFvalueInsId[gTid] = pOrgFvalueInsId[idx];
 }
 
 __device__ void computeCsrInfo(uint csrId, const uint *preRoundSegStartPos, const uint preRoundNumSN, int numFea, uint numCsr, const uint *csrId2SegId,

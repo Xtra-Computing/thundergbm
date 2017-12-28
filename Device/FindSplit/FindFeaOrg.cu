@@ -25,40 +25,40 @@
 #include "../../SharedUtility/KernelConf.h"
 #include "../../SharedUtility/segmentedMax.h"
 #include "../../SharedUtility/setSegmentKey.h"
-
+#include "../../Device/DeviceTrainer.h"
 /**
  * @brief: efficient best feature finder
  */
-const int BLOCK_SIZE_ = 512;
-
-const int NUM_BLOCKS = 32 * 56;
-
-#define KERNEL_LOOP(i, n) \
-  for (int i = blockIdx.x * blockDim.x + threadIdx.x; \
-       i < (n); \
-       i += blockDim.x * gridDim.x)
-__global__ void kernel_div(uint *keys, int n_keys, int n_f){
-    KERNEL_LOOP(i, n_keys){
-        keys[i] = keys[i] / n_f;
-    }
-}
-__global__ void MarkPartition(int preMaxNid, int *pFvToInsId, int *pInsIdToNodeId,
-                              int totalNumFv, uint *pParitionMarker, uint *tid2fid, int n_f) {
-    int gTid = GLOBAL_TID();
-    if (gTid >= totalNumFv)//thread has nothing to mark; note that "totalNumFv" will not decrease!
-        return;
-
-    uint insId = pFvToInsId[gTid];
-    int nid = pInsIdToNodeId[insId];
-    if (nid <= preMaxNid) {//instance in leaf node
-//        pParitionMarker[gTid] = 255 * n_f + tid2fid[gTid];//can only support 8 level trees
-        pParitionMarker[gTid] = INT_MAX;//can only support 8 level trees
-        return;
-    }
-    int partitionId = nid - preMaxNid - 1;
-    ECHECKER(partitionId);
-    pParitionMarker[gTid] = partitionId * n_f + tid2fid[gTid];
-}
+//const int BLOCK_SIZE_ = 512;
+//
+//const int NUM_BLOCKS = 32 * 56;
+//
+//#define KERNEL_LOOP(i, n) \
+//  for (int i = blockIdx.x * blockDim.x + threadIdx.x; \
+//       i < (n); \
+//       i += blockDim.x * gridDim.x)
+//__global__ void kernel_div(uint *keys, int n_keys, int n_f){
+//    KERNEL_LOOP(i, n_keys){
+//        keys[i] = keys[i] / n_f;
+//    }
+//}
+//__global__ void MarkPartition(int preMaxNid, int *pFvToInsId, int *pInsIdToNodeId,
+//                              int totalNumFv, uint *pParitionMarker, uint *tid2fid, int n_f) {
+//    int gTid = GLOBAL_TID();
+//    if (gTid >= totalNumFv)//thread has nothing to mark; note that "totalNumFv" will not decrease!
+//        return;
+//
+//    uint insId = pFvToInsId[gTid];
+//    int nid = pInsIdToNodeId[insId];
+//    if (nid <= preMaxNid) {//instance in leaf node
+////        pParitionMarker[gTid] = 255 * n_f + tid2fid[gTid];//can only support 8 level trees
+//        pParitionMarker[gTid] = INT_MAX;//can only support 8 level trees
+//        return;
+//    }
+//    int partitionId = nid - preMaxNid - 1;
+//    ECHECKER(partitionId);
+//    pParitionMarker[gTid] = partitionId * n_f + tid2fid[gTid];
+//}
 void DeviceSplitter::FeaFinderAllNode(void *pStream, int bagId)
 {
 	GBDTGPUMemManager manager;
@@ -115,7 +115,7 @@ void DeviceSplitter::FeaFinderAllNode(void *pStream, int bagId)
         int blockSizeForFvalue;
         dim3 dimNumofBlockForFvalue;
         conf.ConfKernel(bagManager.m_numFeaValue, blockSizeForFvalue, dimNumofBlockForFvalue);
-        MarkPartition << < dimNumofBlockForFvalue, blockSizeForFvalue >> >
+        MarkPartition2 << < dimNumofBlockForFvalue, blockSizeForFvalue >> >
                                                    (bagManager.m_pPreMaxNid_h[bagId], manager.m_pDInsId, pTmpInsIdToNodeId,
                                                            bagManager.m_numFeaValue, orgManager.m_pnKey_d, BagOrgManager::m_pnTid2Fid, bagManager.m_numFea);
         thrust::sequence(thrust::system::cuda::par, bagManager.m_pIndicesEachBag_d,

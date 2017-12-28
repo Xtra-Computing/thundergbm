@@ -8,9 +8,12 @@
 #ifndef CSRSPLIT_H_
 #define CSRSPLIT_H_
 
+#include <host_defines.h>
+#include <zconf.h>
 #include "../../SharedUtility/DataType.h"
 
-__global__ void LoadFvalueInsId(int numIns, const int *pOrgFvalueInsId, int *pNewFvalueInsId, const unsigned int *pDstIndexEachFeaValue, int numFeaValue);
+__global__ void LoadFvalueInsId(int numIns, const int *pOrgFvalueInsId, int *pNewFvalueInsId, const unsigned int *pDstIndexEachFeaValue,
+						   int numFeaValue, uint *seg_id);
 __global__ void fillFvalue(const real *csrFvalue, uint numCsr, const uint *preRoundSegStartPos,
 						   const uint preRoundNumSN, int numFea, const uint *csrId2SegId, const uint *oldCsrLen,
 						   const unsigned char *csrId2Pid, real *eachCsrFvalueSparse, uint *newCsrLen, uint *newCsrFeaLen);

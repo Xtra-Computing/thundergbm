@@ -80,15 +80,15 @@ CsrCompressor::CsrCompressor(){
 	eachNodeSizeInCsr_h = totalOrgNumCsr;
 	printf("org=%u v.s. csr=%u\n", manager.m_numFeaValue, totalOrgNumCsr);
 //	PROCESS_ERROR(totalOrgNumCsr < manager.m_numFeaValue);
-	if(totalOrgNumCsr * 4 > manager.m_numFeaValue){
-		bUseCsr = false;
-
-		delete[] eachCsrFeaStartPos_h;
-		delete[] eachCompressedFeaLen_h;
-		delete[] eachCsrLen_h;
-		delete[] csrFvalue_h;
-		return;
-	}
+//	if(totalOrgNumCsr * 4 > manager.m_numFeaValue){
+//		bUseCsr = false;
+//
+//		delete[] eachCsrFeaStartPos_h;
+//		delete[] eachCompressedFeaLen_h;
+//		delete[] eachCsrLen_h;
+//		delete[] csrFvalue_h;
+//		return;
+//	}
 
 	checkCudaErrors(cudaMalloc((void**)&pCsrFeaStartPos_d, sizeof(uint) * numFea));
 	checkCudaErrors(cudaMalloc((void**)&pCsrFeaLen_d, sizeof(uint) * numFea));

@@ -19,6 +19,9 @@ public:
 	static uint *pEachNodeSizeInCsr;
 	static int *preFvalueInsId;
 	static uint curNumCsr;
+	static uint *m_pnKey_d;
+	static uint *m_pnTid2Fid;
+	static bool needCopy;
 private:
 	static uint reservedMaxNumCsr;
 	static MemVector csrLen;

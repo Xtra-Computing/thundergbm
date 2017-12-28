@@ -106,12 +106,8 @@ int main(int argc, char *argv[])
 	else
 		CsrCompressor::bUseCsr = false;
 
-CsrCompressor::bUseCsr = false;
+//CsrCompressor::bUseCsr = false;
 
-	if(CsrCompressor::bUseCsr == true)
-		cerr << "use CSR" << endl;
-	else
-		cerr << "use non-CSR" << endl;
 
 
 	//fill the bags
@@ -190,6 +186,7 @@ CsrCompressor::bUseCsr = false;
 	cudaMemcpy(manager.m_pDInsId, pInsId, numFeaValue * sizeof(int), cudaMemcpyHostToDevice);
 	cudaMemcpy(manager.m_pDNumofKeyValue, pEachFeaLen, numFea * sizeof(int), cudaMemcpyHostToDevice);
 	cudaMemcpy(manager.m_pFeaStartPos, plFeaStartPos, numFea * sizeof(uint), cudaMemcpyHostToDevice);
+//    CsrCompressor::bUseCsr = false;
 	if(CsrCompressor::bUseCsr == true){
 		CsrCompressor::pOrgFvalue = pdValue;
 		CsrCompressor::eachFeaLenEachNode_h = (uint*)pEachFeaLen;//###################################### risky
@@ -203,6 +200,10 @@ CsrCompressor::bUseCsr = false;
 		cudaMemcpy(orgManager.m_pdDFeaValue, pdValue, numFeaValue * sizeof(real), cudaMemcpyHostToDevice);
 	}
 
+    if(CsrCompressor::bUseCsr == true)
+        cerr << "use CSR" << endl;
+    else
+        cerr << "use non-CSR" << endl;
 	//copy instance key-value to device memory for prediction
 	cudaMemcpy(manager.m_pDFeaId, pFeaId, numFeaValue * sizeof(int), cudaMemcpyHostToDevice);
 	cudaMemcpy(manager.m_pdDInsValue, pfFeaValue, numFeaValue * sizeof(real), cudaMemcpyHostToDevice);

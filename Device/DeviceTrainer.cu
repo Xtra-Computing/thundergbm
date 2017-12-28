@@ -216,3 +216,25 @@ void DeviceTrainer::StoreFinalTree(TreeNode *pAllNode, int numofNode, void *pStr
 										manager.m_pAllTreeEachBag + treeStartPos, sizeof(TreeNode) * numofNode, pStream);
 	manager.m_pNumofTreeLearntEachBag_h[bagId]++;
 }
+__global__ void kernel_div(uint *keys, int n_keys, int n_f){
+	KERNEL_LOOP(i, n_keys){
+		keys[i] = keys[i] / n_f;
+	}
+}
+__global__ void MarkPartition2(int preMaxNid, int *pFvToInsId, int *pInsIdToNodeId,
+							   int totalNumFv, uint *pParitionMarker, uint *tid2fid, int n_f) {
+	int gTid = GLOBAL_TID();
+	if (gTid >= totalNumFv)//thread has nothing to mark; note that "totalNumFv" will not decrease!
+		return;
+
+	uint insId = pFvToInsId[gTid];
+	int nid = pInsIdToNodeId[insId];
+	if (nid <= preMaxNid) {//instance in leaf node
+//        pParitionMarker[gTid] = 255 * n_f + tid2fid[gTid];//can only support 8 level trees
+		pParitionMarker[gTid] = INT_MAX;//can only support 8 level trees
+		return;
+	}
+	int partitionId = nid - preMaxNid - 1;
+	ECHECKER(partitionId);
+	pParitionMarker[gTid] = partitionId * n_f + tid2fid[gTid];
+}

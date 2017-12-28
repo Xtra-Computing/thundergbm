@@ -24,6 +24,7 @@
 #include "../../SharedUtility/HostUtility.h"
 #include "../../SharedUtility/binarySearch.h"
 #include "../../SharedUtility/setSegmentKey.h"
+#include "../CSR/BagCsrManager.h"
 #include <thrust/sort.h>
 #include <thrust/binary_search.h>
 #include <thrust/adjacent_difference.h>
@@ -254,21 +255,21 @@ void IndexComputer::ComputeIdxGPU(int numSNode, int maxNumSN, int bagId){
 
 	checkCudaErrors(cudaMemset(pTmpEachFeaLenEachNode, 0, sizeof(int) * bagManager.m_maxNumSplittable * m_numFea));
 //	if(CsrCompressor::bUseCsr == true)
-//		EachFeaLenEachNodeCSR<<<dimNumofBlockForFvalue, blockSizeForFvalue>>>((unsigned char*)partitionMarker.addr, m_totalFeaValue, pTmpEachFeaLenEachNode,
-//																	   m_numFea, numSNode, manager.m_pFeaStartPos);
+		EachFeaLenEachNodeCSR<<<dimNumofBlockForFvalue, blockSizeForFvalue>>>((unsigned char*)partitionMarker.addr, m_totalFeaValue, pTmpEachFeaLenEachNode,
+																	   m_numFea, numSNode, manager.m_pFeaStartPos);
 //	else {
 //		EachFeaLenEachNodeOrg << < dimNumofBlockForFvalue, blockSizeForFvalue >> >
 //														   ((unsigned char *) partitionMarker.addr, m_totalFeaValue, pTmpEachFeaLenEachNode,
-//																   BagOrgManager::m_pnTid2Fid, m_numFea, numSNode, manager.m_pFeaStartPos);
+//																   BagCsrManager::m_pnTid2Fid, m_numFea, numSNode, manager.m_pFeaStartPos);
 //	}
-    uint *pf_id;
-        cudaMalloc((void**)&pf_id, sizeof(uint) * m_totalFeaValue);
-        compute_id<<<NUM_BLOCKS, BLOCK_SIZE_>>>((const unsigned char *)partitionMarker.addr, BagOrgManager::m_pnTid2Fid, m_numFea, pf_id, m_totalFeaValue);
-        thrust::sort(thrust::cuda::par, pf_id, pf_id + m_totalFeaValue);
-        thrust::counting_iterator<int> search_begin(0);
-        thrust::upper_bound(thrust::cuda::par, pf_id, pf_id + m_totalFeaValue, search_begin, search_begin + m_numFea * numSNode, pTmpEachFeaLenEachNode);
-        thrust::adjacent_difference(thrust::cuda::par, pTmpEachFeaLenEachNode, pTmpEachFeaLenEachNode + m_numFea * numSNode, pTmpEachFeaLenEachNode);
-        cudaFree(pf_id);
+//    uint *pf_id;
+//        cudaMalloc((void**)&pf_id, sizeof(uint) * m_totalFeaValue);
+//        compute_id<<<NUM_BLOCKS, BLOCK_SIZE_>>>((const unsigned char *)partitionMarker.addr, BagOrgManager::m_pnTid2Fid, m_numFea, pf_id, m_totalFeaValue);
+//        thrust::sort(thrust::cuda::par, pf_id, pf_id + m_totalFeaValue);
+//        thrust::counting_iterator<int> search_begin(0);
+//        thrust::upper_bound(thrust::cuda::par, pf_id, pf_id + m_totalFeaValue, search_begin, search_begin + m_numFea * numSNode, pTmpEachFeaLenEachNode);
+//        thrust::adjacent_difference(thrust::cuda::par, pTmpEachFeaLenEachNode, pTmpEachFeaLenEachNode + m_numFea * numSNode, pTmpEachFeaLenEachNode);
+//        cudaFree(pf_id);
 
 	thrust::exclusive_scan(thrust::system::cuda::par, pTmpEachFeaLenEachNode, pTmpEachFeaLenEachNode + m_numFea * numSNode, pTmpEachFeaStartPosEachNode);
 

@@ -16,6 +16,9 @@ uint *BagCsrManager::pEachNodeSizeInCsr = NULL;
 int *BagCsrManager::preFvalueInsId = NULL;
 uint BagCsrManager::curNumCsr = 0;
 uint BagCsrManager::reservedMaxNumCsr = pow(2, 20);
+uint* BagCsrManager::m_pnKey_d = NULL;
+uint* BagCsrManager::m_pnTid2Fid = NULL;
+bool BagCsrManager::needCopy = true;
 MemVector BagCsrManager::csrLen;//shared with pCsrStart
 MemVector BagCsrManager::csrKey;
 real *BagCsrManager::pCsrFvalue = NULL;
@@ -34,6 +37,8 @@ BagCsrManager::BagCsrManager(int numFea, int maxNumSN, uint totalNumFeaValue){
 	checkCudaErrors(cudaMalloc((void**)&pEachNodeSizeInCsr, sizeof(uint) * maxNumSN));
 
 	checkCudaErrors(cudaMalloc((void**)&preFvalueInsId, sizeof(int) * totalNumFeaValue));
+    checkCudaErrors(cudaMallocManaged((void**)&m_pnKey_d, totalNumFeaValue * sizeof(uint)));
+    checkCudaErrors(cudaMallocManaged((void**)&m_pnTid2Fid, totalNumFeaValue * sizeof(uint)));
 }
 
 void BagCsrManager::reserveCsrSpace(){
