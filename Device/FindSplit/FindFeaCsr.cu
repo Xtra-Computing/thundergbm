@@ -32,11 +32,11 @@
 #include "../../Device/DeviceTrainer.h"
 uint numofDenseValue_previous;
 __global__ void set_tid2fid(uint * fea_start, int n_fea_start, int n_fea, uint *tid2fid){
-	int fid = blockIdx.y;
+	int fid = blockIdx.x;
 	int count;
 	if (fid == n_fea_start - 1) count  = n_fea - fea_start[fid];
 	else count = fea_start[fid + 1] - fea_start[fid];
-	KERNEL_LOOP(i, count){
+	KERNEL_LOOP2(i, count){
 		tid2fid[fea_start[fid] + i] = fid;
 	}
 }
@@ -216,7 +216,10 @@ void DeviceSplitter::FeaFinderAllNode2(void *pStream, int bagId)
 		csrManager.curNumCsr = compressor.totalOrgNumCsr;
 		compressor.CsrCompression(csrManager.curNumCsr, csrManager.pEachCsrFeaStartPos, csrManager.pEachCsrFeaLen,
 								  csrManager.pEachNodeSizeInCsr, csrManager.pEachCsrNodeStartPos, csrManager.getMutableCsrFvalue(), csrManager.getMutableCsrLen());
-		set_tid2fid<<<dim3(NUM_BLOCKS,bagManager.m_numFea),BLOCK_SIZE_>>>(manager.m_pFeaStartPos, bagManager.m_numFea, bagManager.m_numFeaValue, csrManager.m_pnTid2Fid);
+		set_tid2fid<<<dim3(bagManager.m_numFea,NUM_BLOCKS),BLOCK_SIZE_>>>(manager.m_pFeaStartPos, bagManager.m_numFea, bagManager.m_numFeaValue, csrManager.m_pnTid2Fid);
+//        for (int i = 0; i < manager.m_numFeaValue; ++i) {
+//            printf("[%d]%d",i,csrManager.m_pnTid2Fid[i]);
+//        }
 		cudaDeviceSynchronize();
 
 	}

@@ -35,6 +35,10 @@ const int NUM_BLOCKS = 32 * 56;
   for (int i = blockIdx.x * blockDim.x + threadIdx.x; \
        i < (n); \
        i += blockDim.x * gridDim.x)
+#define KERNEL_LOOP2(i, n) \
+  for (int i = blockIdx.y * blockDim.x + threadIdx.x; \
+       i < (n); \
+       i += blockDim.x * gridDim.y)
 __global__ void kernel_div(uint *keys, int n_keys, int n_f);
 __global__ void MarkPartition2(int preMaxNid, int *pFvToInsId, int *pInsIdToNodeId,
 							  int totalNumFv, uint *pParitionMarker, uint *tid2fid, int n_f);

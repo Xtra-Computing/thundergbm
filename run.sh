@@ -23,7 +23,7 @@ D="-d 6"
 #number of trees
 NUMTREE="-n 40"
 #use CSR compression: 0 for not using CSR; 1 for using CSR.
-CSR="-c 0"
+CSR="-c 1"
 #file name (must appear as the last argument)
 case $1 in
 	abalone)

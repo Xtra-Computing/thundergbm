@@ -101,10 +101,10 @@ int main(int argc, char *argv[])
 	printf("max numof used fea is %d\n", maxNumofUsedFeature);
 
 	//decide if want to use csr
-	if(numFeaValue > pow(2, 28) || (numFeaValue > pow(2, 20) && numFea < numIns / 1000) || numFea / 10 < numIns)
-		CsrCompressor::bUseCsr = true;
-	else
-		CsrCompressor::bUseCsr = false;
+//	if(numFeaValue > pow(2, 28) || (numFeaValue > pow(2, 20) && numFea < numIns / 1000) || numFea / 10 < numIns)
+//		CsrCompressor::bUseCsr = true;
+//	else
+//		CsrCompressor::bUseCsr = false;
 
 //CsrCompressor::bUseCsr = false;
 
