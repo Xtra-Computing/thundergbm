@@ -109,7 +109,7 @@ SparseColumns::SparseColumns(const DataSet &dataset) {
     const DataSet::node2d &instances = dataset.instances();
 
     /**
-     * construct csr matrix, then convert to csc matrix
+     * construct csr matrix, then convert to csc matrix and sort columns by feature values
      */
     vector<float_type> csr_val;
     vector<int> csr_col_ind;//index of each value of all the instances

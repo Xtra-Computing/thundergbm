@@ -2,6 +2,7 @@
 // Created by jiashuai on 17-9-17.
 //
 #include <thundergbm/dataset.h>
+#include <thundergbm/tree.h>
 #include "thundergbm/syncarray.h"
 
 template<typename T>
@@ -77,8 +78,17 @@ void SyncArray<T>::copy_from(const SyncArray<T> &source) {
 #endif
 }
 
-template<typename T>
-void SyncArray<T>::mem_set(const T &value) {
+template<>
+void SyncArray<int>::mem_set(const int &value) {
+#ifdef USE_CUDA
+    CUDA_CHECK(cudaMemset(device_data(), value, mem_size()));
+#else
+    memset(host_data(), value, mem_size());
+#endif
+}
+
+template<>
+void SyncArray<float_type>::mem_set(const float_type &value) {
 #ifdef USE_CUDA
     CUDA_CHECK(cudaMemset(device_data(), value, mem_size()));
 #else
@@ -92,3 +102,8 @@ class SyncArray<int>;
 template
 class SyncArray<float_type>;
 
+template
+class SyncArray<Tree::TreeNode>;
+
+template
+class SyncArray<InsStat>;

@@ -7,8 +7,6 @@
 TEST(TestSparseColums, dataset_loading) {
     DataSet dataSet;
     dataSet.load_from_file(DATASET_DIR "test_dataset.txt");
+//    dataSet.load_from_file(DATASET_DIR "mnist.scale");
     SparseColumns sparseColumns(dataSet);
-    LOG(DEBUG) << sparseColumns.csc_val;
-    LOG(DEBUG) << sparseColumns.csc_col_ptr;
-    LOG(DEBUG) << sparseColumns.csc_row_ind;
 }
