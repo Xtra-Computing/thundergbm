@@ -21,7 +21,7 @@ public:
      */
     explicit SyncArray(size_t count);
 
-    SyncArray() : mem(nullptr), size_(0) {};
+    SyncArray() : mem(nullptr), size_(0) {}
 
     ~SyncArray();
 
@@ -32,6 +32,10 @@ public:
     T *host_data();
 
     T *device_data();
+
+    T *device_end();
+
+    const T *device_end() const;
 
     void set_host_data(T *host_ptr) {
         mem->set_host_data(host_ptr);
@@ -99,12 +103,12 @@ public:
     void log(el::base::type::ostream_t &ostream) const override;
 
 private:
-    SyncArray<T> &operator=(const SyncArray<T> &);
 
     SyncArray(const SyncArray<T> &);
 
     SyncMem *mem;
     size_t size_;
+
 };
 
 #endif //THUNDERGBM_SYNCDATA_H

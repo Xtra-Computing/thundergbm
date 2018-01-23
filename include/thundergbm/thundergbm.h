@@ -10,7 +10,7 @@
 
 #include "cuda_runtime_api.h"
 #include "thundergbm/util/log.h"
-#include "util/common.h"
+#include "thundergbm/util/common.h"
 #include "config.h"
 
 typedef float float_type;

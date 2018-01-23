@@ -61,7 +61,8 @@ template<typename T>
 void SyncArray<T>::log(el::base::type::ostream_t &ostream) const {
     int i;
     ostream << "[";
-    for (i = 0; i < size() - 1 && i < el::base::consts::kMaxLogPerContainer - 1; ++i) {
+//    for (i = 0; i < size() - 1 && i < el::base::consts::kMaxLogPerContainer - 1; ++i) {
+    for (i = 0; i < size() - 1; ++i) {
         ostream << host_data()[i] << ",";
     }
     ostream << host_data()[i];
@@ -76,6 +77,16 @@ void SyncArray<T>::copy_from(const SyncArray<T> &source) {
 #else
     copy_from(source.host_data(), source.size());
 #endif
+}
+
+template<typename T>
+T *SyncArray<T>::device_end() {
+    return device_data() + size();
+}
+
+template<typename T>
+const T *SyncArray<T>::device_end() const {
+    return device_data() + size();
 }
 
 template<>
@@ -106,4 +117,4 @@ template
 class SyncArray<Tree::TreeNode>;
 
 template
-class SyncArray<InsStat>;
+class SyncArray<GHPair>;

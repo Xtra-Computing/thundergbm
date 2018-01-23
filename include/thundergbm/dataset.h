@@ -47,9 +47,11 @@ public:
     size_t n_column;
     int nnz;
 
-    SparseColumns(const DataSet &);
+    void init(const DataSet &dataSet);
 
-    ~SparseColumns();
+    explicit SparseColumns(const DataSet &);
+
+    SparseColumns() : n_column(0), nnz(0) {};
 };
 
 #endif //THUNDERGBM_DATASET_H

@@ -8,10 +8,6 @@
 #include "thrust/system/cuda/detail/par.h"
 
 void DataSet::load_from_file(string file_name) {
-    auto find_last_line = [](char *ptr, const char *begin) {
-        while (ptr != begin && *ptr != '\n' && *ptr != '\r') --ptr;
-        return ptr;
-    };
     LOG(INFO) << "loading LIBSVM dataset from file \"" << file_name << "\"";
     y_.clear();
     instances_.clear();
@@ -21,6 +17,11 @@ void DataSet::load_from_file(string file_name) {
 
     std::array<char, 2 << 20> buffer{}; //16M
     const int nthread = omp_get_max_threads();
+
+    auto find_last_line = [](char *ptr, const char *begin) {
+        while (ptr != begin && *ptr != '\n' && *ptr != '\r') --ptr;
+        return ptr;
+    };
 
     while (ifs) {
         ifs.read(buffer.data(), buffer.size());
@@ -103,6 +104,10 @@ const vector<float_type> &DataSet::y() const {
 }
 
 SparseColumns::SparseColumns(const DataSet &dataset) {
+    init(dataset);
+}
+
+void SparseColumns::init(const DataSet &dataset) {
     LOG(INFO) << "constructing sparse columns";
     n_column = dataset.n_features();
     size_t n_instances = dataset.n_instances();
@@ -168,10 +173,6 @@ SparseColumns::SparseColumns(const DataSet &dataset) {
     int *row_ind_data = csc_row_ind.device_data();
     for (int i = 0; i < n_column; ++i) {
         thrust::sort_by_key(thrust::system::cuda::par, val_data + col_ptr_data[i], val_data + col_ptr_data[i + 1],
-                            row_ind_data + col_ptr_data[i], thrust::less<float_type>());
+                            row_ind_data + col_ptr_data[i], thrust::greater<float_type>());
     }
-}
-
-SparseColumns::~SparseColumns() {
-
 }

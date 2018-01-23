@@ -2,8 +2,11 @@ cmake_minimum_required(VERSION 3.9)
 project(thundergbm)
 
 set(CMAKE_CXX_STANDARD 11)
-set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -std=c++11")
+set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -std=c++11 -gencode arch=compute_60,code=sm_60 --expt-extended-lambda")
 
+if (NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Release)
+endif ()
 # find pacages
 find_package(CUDA REQUIRED)
 
@@ -23,3 +26,4 @@ add_subdirectory(src/test)
 # configuration file
 set(DATASET_DIR ${PROJECT_SOURCE_DIR}/dataset/)
 configure_file(include/thundergbm/config.h.in config.h)
+
