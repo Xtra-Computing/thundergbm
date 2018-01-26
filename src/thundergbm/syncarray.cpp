@@ -118,3 +118,6 @@ class SyncArray<Tree::TreeNode>;
 
 template
 class SyncArray<GHPair>;
+
+template
+class SyncArray<bool>;

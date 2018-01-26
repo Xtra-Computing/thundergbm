@@ -8,7 +8,7 @@ Tree::Tree(int depth) {
 }
 
 void Tree::init(int depth) {
-    int n_max_nodes = static_cast<int>(pow(2, depth) - 1);
+    int n_max_nodes = static_cast<int>(pow(2, depth + 1) - 1);
     nodes.resize(n_max_nodes);
     TreeNode *node_data = nodes.host_data();
     for (int i = 0; i < n_max_nodes; ++i) {

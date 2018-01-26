@@ -77,20 +77,22 @@ public:
         int fid;
         ///node id
         int nid;
-        float_type loss;
-        float_type base_weight;
+        float_type gain;
+//        float_type base_weight;
+        float_type split_value;
+        int split_index;
+        bool default_right;
+        bool is_leaf;
 
-        unsigned int n_instances;
+//        unsigned int n_instances;
 
         GHPair sum_gh_pair;
 
-        TreeNode() : fid(0), nid(0), loss(0), base_weight(0), n_instances(0), sum_gh_pair() {};
-
         friend std::ostream &operator<<(std::ostream &os,
                                         const TreeNode &node) {
-            os << string_format("\nnid:%d,fid:%d,loss:%.2f,base_weight:%.2f,#ins:%d,sg:%.2f,sh:%.2f", node.nid,
-                                node.fid, node.loss, node.base_weight, node.n_instances, node.sum_gh_pair.g,
-                                node.sum_gh_pair.h);
+            os << string_format("\nnid:%d,l:%d,fid:%d,f/i:%.2f/%d,gain:%.2f,r:%d,", node.nid, node.is_leaf,
+                                node.fid, node.split_value, node.split_index, node.gain, node.default_right);
+            os << "g/h:" << node.sum_gh_pair;
             return os;
         }
     };
