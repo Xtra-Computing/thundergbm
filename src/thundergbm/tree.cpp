@@ -13,5 +13,6 @@ void Tree::init(int depth) {
     TreeNode *node_data = nodes.host_data();
     for (int i = 0; i < n_max_nodes; ++i) {
         node_data[i].nid = i;
+        node_data[i].fid = -1;
     }
 }

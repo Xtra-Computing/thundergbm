@@ -16,7 +16,7 @@ __global__ void lambda_kernel(size_t len, L lambda) {
 }
 
 template<typename L>
-__global__ void lambda_2d_sparse_kernel(int len1, int *len2, L lambda) {
+__global__ void lambda_2d_sparse_kernel(int len1, const int *len2, L lambda) {
     int i = blockIdx.x;
     int begin = len2[i];
     int end = len2[i + 1];
@@ -36,7 +36,7 @@ void device_loop(int len, L lambda) {
 
 
 template<unsigned int NUM_BLOCK = 32 * 56, unsigned int BLOCK_SIZE = 512, typename L>
-void device_lambda_2d_sparse(int len1, int *len2, L lambda) {
+void device_lambda_2d_sparse(int len1, const int *len2, L lambda) {
     if (len1 > 0) {
         lambda_2d_sparse_kernel << < dim3(len1, NUM_BLOCK), BLOCK_SIZE >> > (len1, len2, lambda);
         CUDA_CHECK(cudaPeekAtLastError());

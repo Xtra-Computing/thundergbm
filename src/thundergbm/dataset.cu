@@ -120,7 +120,7 @@ void SparseColumns::init(const DataSet &dataset) {
     vector<int> csr_col_ind;//index of each value of all the instances
     vector<int> csr_row_ptr(1, 0);//the start positions of the instances
 
-    LOG(DEBUG) << "converting libsvm sparse rows to csr matrix";
+    LOG(INFO) << "converting libsvm sparse rows to csr matrix";
     for (const auto &ins : instances) {//convert libsvm format to csr format
         for (const auto &j : ins) {
             csr_val.push_back(j.value);
@@ -135,7 +135,7 @@ void SparseColumns::init(const DataSet &dataset) {
             << string_format("dataset density = %.2f%% (%d feature values)", (float) nnz / n_instances / n_column * 100,
                              nnz);
 
-    LOG(DEBUG) << "copy csr matrix to GPU";
+    LOG(INFO) << "copy csr matrix to GPU";
     //three arrays (on GPU/CPU) for csr representation
     SyncArray<float_type> val;
     SyncArray<int> col_ind;
@@ -167,7 +167,7 @@ void SparseColumns::init(const DataSet &dataset) {
     cusparseDestroy(handle);
     cusparseDestroyMatDescr(descr);
 
-    LOG(DEBUG) << "sorting feature values";
+    LOG(INFO) << "sorting feature values";
     int *col_ptr_data = csc_col_ptr.host_data();
     float_type *val_data = csc_val.device_data();
     int *row_ind_data = csc_row_ind.device_data();

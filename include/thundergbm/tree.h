@@ -78,7 +78,7 @@ public:
         ///node id
         int nid;
         float_type gain;
-//        float_type base_weight;
+        float_type base_weight;
         float_type split_value;
         int split_index;
         bool default_right;
@@ -90,16 +90,23 @@ public:
 
         friend std::ostream &operator<<(std::ostream &os,
                                         const TreeNode &node) {
-            os << string_format("\nnid:%d,l:%d,fid:%d,f/i:%.2f/%d,gain:%.2f,r:%d,", node.nid, node.is_leaf,
-                                node.fid, node.split_value, node.split_index, node.gain, node.default_right);
+            os << string_format("\nnid:%d,l:%d,fid:%d,f/i:%f/%d,gain:%.2f,r:%d,w:%f,", node.nid, node.is_leaf,
+                                node.fid, node.split_value, node.split_index, node.gain, node.default_right, node.base_weight);
             os << "g/h:" << node.sum_gh_pair;
             return os;
+        }
+        HOST_DEVICE void calc_weight(float_type lambda){
+            this->base_weight = - sum_gh_pair.g / (sum_gh_pair.h + lambda);
         }
     };
 
     explicit Tree(int depth);
 
     Tree() = default;
+    Tree(const Tree &tree){
+        nodes.resize(tree.nodes.size());
+        nodes.copy_from(tree.nodes);
+    }
 
     void init(int depth);
 

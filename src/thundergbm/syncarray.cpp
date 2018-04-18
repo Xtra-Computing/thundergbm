@@ -61,8 +61,8 @@ template<typename T>
 void SyncArray<T>::log(el::base::type::ostream_t &ostream) const {
     int i;
     ostream << "[";
-//    for (i = 0; i < size() - 1 && i < el::base::consts::kMaxLogPerContainer - 1; ++i) {
-    for (i = 0; i < size() - 1; ++i) {
+    for (i = 0; i < size() - 1 && i < el::base::consts::kMaxLogPerContainer - 1; ++i) {
+//    for (i = 0; i < size() - 1; ++i) {
         ostream << host_data()[i] << ",";
     }
     ostream << host_data()[i];
