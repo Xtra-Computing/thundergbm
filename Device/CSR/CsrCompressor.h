@@ -23,7 +23,7 @@ public:
 	static uint totalOrgNumCsr;
 	static uint *pCsrLen_d;
 	static uint *pCsrStart_d;
-	static bool bUseCsr;
+	static bool bUseRle;
 	static int *insId_h;
 	static real *pOrgFvalue;
 	static uint *eachFeaLenEachNode_h;

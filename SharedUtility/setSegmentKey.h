@@ -18,20 +18,29 @@ __global__ void SetKey(const uint *pSegStart, const T *pSegLen, uint *pnKey){
 		segmentLen = pSegLen[segmentId];
 	}
 	__syncthreads();
+
 	if(segmentLen == 0)
 		return;
+
 	if(threadIdx.x == 0)
 		segmentStartPos = pSegStart[segmentId];
 	__syncthreads();
 
 	uint tid0 = blockIdx.y * blockDim.x;//for supporting multiple blocks for one segment
+
+//	if(segmentId > 0 && threadIdx.x == 0|| blockIdx.y * blockDim.x + threadIdx.x + pSegStart[segmentId] == 8479362)
+//		printf("????????????????? length=%d, segId=%d, tid0=%d, blockDim.x=%d, startPos=%d\n", segmentLen, segmentId, tid0, blockDim.x, segmentStartPos);
+
 	if(tid0 >= segmentLen)
 		return;
 	uint segmentThreadId = tid0 + threadIdx.x;
 
 	uint pos = segmentThreadId + segmentStartPos;
+
 	while(pos < segmentLen + segmentStartPos){
 		pnKey[pos] = segmentId;
+//		if(pos == 8479362)// && segmentLen == 5999)
+//			printf("????????????????????????????? segId=%d, segLen=%d, key=%d\n", segmentId, segmentLen, pnKey[pos]);
 		//asm("st.global.cg.u32 [%1], %0;" :: "=r"(segmentId), "l"(pnKey + pos + segmentStartPos) : "memory");
 		pos += blockDim.x;
 	}

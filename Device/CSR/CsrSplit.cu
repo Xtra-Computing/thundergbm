@@ -49,7 +49,8 @@ __device__ void computeCsrInfo(uint csrId, const uint *preRoundSegStartPos, cons
 
 __global__ void fillFvalue(const real *csrFvalue, uint numCsr, const uint *preRoundSegStartPos,
 						   const uint preRoundNumSN, int numFea, const uint *csrId2SegId, const uint *oldCsrLen,
-						   const unsigned char *csrId2Pid, real *eachCsrFvalueSparse, uint *newCsrLen, uint *newCsrFeaLen){
+						   const unsigned char *csrId2Pid, real *eachCsrFvalueSparse, uint *newCsrLen, uint *newCsrFeaLen,
+						   const uint *eachNodeSizeInCsr, const uint *pEachCsrNodeStartPos, uint *hess_cnt_d){
 	uint csrId = GLOBAL_TID();//one thread per csr
 	if(csrId >= numCsr)
 		return;
@@ -57,11 +58,17 @@ __global__ void fillFvalue(const real *csrFvalue, uint numCsr, const uint *preRo
 	if(pid == LARGE_1B_UCHAR)
 		return;
 	uint numCsrCurPart;
-	uint numCsrPrePartsAhead;
+	uint numCsrPrePartsAhead;//all previous node-features
 	uint posInPart;
 	uint feaId;
 	computeCsrInfo(csrId, preRoundSegStartPos, preRoundNumSN, numFea, numCsr, csrId2SegId,
 				  numCsrPrePartsAhead, posInPart, numCsrCurPart, feaId);
+
+	uint tempFid;
+	RangeBinarySearch(csrId, preRoundSegStartPos, preRoundNumSN * 28, tempFid);
+	tempFid = tempFid % 28;
+	if(tempFid != feaId)
+		printf("hello world...................00000000000000 fid %d v.s. %d\n", tempFid, feaId);
 
 	uint basePos = numCsrPrePartsAhead * 2 + posInPart;
 	real temp = csrFvalue[csrId];
@@ -70,6 +77,8 @@ __global__ void fillFvalue(const real *csrFvalue, uint numCsr, const uint *preRo
 
 	//compute csr length and csr feature length
 	uint csrLen = oldCsrLen[csrId] - newCsrLen[basePos];
+//atomicAdd(hess_cnt_d + feaId, oldCsrLen[csrId]);
+	atomicAdd(hess_cnt_d + feaId, newCsrLen[basePos]);
 	CONCHECKER(oldCsrLen[csrId] >= newCsrLen[basePos]);
 	uint firstPartId = (pid % 2 == 0) ? pid : (pid - 1);
 	if(newCsrLen[basePos] > 0){
@@ -78,6 +87,19 @@ __global__ void fillFvalue(const real *csrFvalue, uint numCsr, const uint *preRo
 	if(csrLen > 0){
 		atomicAdd(newCsrFeaLen + (firstPartId + 1) * numFea + feaId, 1);
 		newCsrLen[basePos + numCsrCurPart] = csrLen;
+
+if(basePos + numCsrCurPart == 12796850 || csrId == 6398425){
+	printf("\n\n oldLen=%d, newLen1=%d, newLen2=%d\n\n", oldCsrLen[csrId], newCsrLen[basePos], newCsrLen[basePos + numCsrCurPart]);
+}
+		atomicAdd(hess_cnt_d + feaId, newCsrLen[basePos + numCsrCurPart]);
+		uint oldNid = pid/2;
+		uint nsize = eachNodeSizeInCsr[oldNid];
+		if(numCsrCurPart != nsize)
+			printf("hello world...................0000000000000000 curParSize %d v.s. %d\n", numCsrCurPart, nsize);
+		uint tempPid;
+		RangeBinarySearch(csrId, pEachCsrNodeStartPos, preRoundNumSN, tempPid);
+		if(!(tempPid * 2 == pid || tempPid * 2 + 1 == pid))
+			printf("hello world...................0000000000000000 pid %d v.s. %d\n", pid, tempPid);
 	}
 }
 
@@ -141,7 +163,7 @@ __global__ void loadDenseCsr(const real *eachCsrFvalueSparse, const uint *eachCs
 	uint gTid = GLOBAL_TID();
 	if(gTid >= numCsr)
 		return;
-	if(eachCsrFeaLen[gTid] != 0){
+	if(eachCsrFeaLen[gTid] > 0){
 		uint idx = csrIdx[gTid] - 1;//inclusive scan is used to compute indices.
 		CONCHECKER(csrIdx[gTid] <= numCsrThisRound);
 		eachCsrFeaLenDense[idx] = eachCsrFeaLen[gTid];
@@ -150,20 +172,26 @@ __global__ void loadDenseCsr(const real *eachCsrFvalueSparse, const uint *eachCs
 }
 
 __global__ void ComputeGDHess(const uint *pCsrLen, const uint *pCsrStartPos, const real *pInsGD, const real *pInsHess,
-						  const int *pInsId, double *csrGD, real *csrHess){
+						  const int *pInsId, double *csrGD, double *csrHess, uint *access_cnt_d){
 	uint csrId = blockIdx.x;
 	uint tid = threadIdx.x;
 	extern __shared__ double pGD[];
-	real *pHess = (real*)(pGD + blockDim.x);
+	double *pHess = (pGD + blockDim.x);
+	pHess[tid] = 0;
+	__syncthreads();
+
 	uint csrLen = pCsrLen[csrId];
 	uint csrStart = pCsrStartPos[csrId];
 
 	//load to shared memory
 	int i = tid;
-	real tempHess = 0;
+	double tempHess = 0;
 	double tempGD = 0;
 	while(i < csrLen){
 		int insId = pInsId[csrStart + i];
+		access_cnt_d[csrStart + i] += 1;
+		if(access_cnt_d[csrStart + i] > 1)
+			printf("shitting at ............... %d, cnt=%d\n", csrStart + i, access_cnt_d[csrStart + i]);
 		tempHess += pInsHess[insId];
 		tempGD += pInsGD[insId];
 		i += blockDim.x;
@@ -181,6 +209,7 @@ __global__ void ComputeGDHess(const uint *pCsrLen, const uint *pCsrStartPos, con
 		__syncthreads();
 	}
 	if(tid == 0){
+		CONCHECKER(pHess[0] > 0);
 		csrHess[csrId] = pHess[0];
 		csrGD[csrId] = pGD[0];
 	}

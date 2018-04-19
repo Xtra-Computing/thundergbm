@@ -35,7 +35,11 @@ __global__ void PredTargetViaTrainingResult(real *pdTargetValue, int numofIns, c
 	ECHECKER(pIns2Nid[gTid]);
 	while(pAllTreeNode[nid].loss < -9.0)//-10.0 is the value for pruned node
 		nid = pAllTreeNode[nid].parentId;
+
+	real test = pdTargetValue[gTid];
 	pdTargetValue[gTid] += pAllTreeNode[nid].predValue;
+//	if(gTid == 10444952)//pdTargetValue[gTid] > 1 &&
+//		printf("???????????? predicted wrong from training results: tid=%d, predicted=%f, previous=%f, added=%f\n", gTid, pdTargetValue[gTid], test, pAllTreeNode[nid].predValue);
 }
 
 /**
@@ -140,6 +144,10 @@ bool bOptimisePred = true;
 	real *pTempGD = bagManager.m_pInsGradEachBag + bagId * bagManager.m_numIns;
 	vector<real> hostGD(bagManager.m_numIns);
 	cudaMemcpy(hostGD.data(), pTempGD, sizeof(real) * bagManager.m_numIns, cudaMemcpyDeviceToHost);
+	for(int i = 0; i < hostGD.size(); i++){
+//		if(hostGD[i] > 1)
+//			printf("shitting $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$, gd=%f, i=%d\n", hostGD[i], i);
+	}
 	vector<double> dHostGD(hostGD.begin(), hostGD.end());
 	double *pdTempGD;
 	cudaMalloc((void**)&pdTempGD, sizeof(double) * bagManager.m_numIns);

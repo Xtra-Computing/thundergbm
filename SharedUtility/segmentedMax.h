@@ -17,6 +17,8 @@
 #include "CudaMacro.h"
 #include "KernelConf.h"
 
+#include <unistd.h>
+
 template<class T>
 __global__ void LocalReductionEachSeg(const uint *pEachSegSize, const uint *pEachSegStartPos,
 										   const real *pValueAllSeg, real *pLocalMax, T *pLocalMaxKey)
@@ -101,9 +103,8 @@ __global__ void GlobalReductionEachSeg(const real *pLocalMax, const T *pLocalMax
 }
 
 template<class T>
-void SegmentedMax(int sizeofLargestSeg, int numSeg, const uint *pEachSegSize, const uint *pEachSegStartPos,
-				  const real *pValueAllSeg, void *pStream, real *pEachSegMax, T *pEachSegMaxKey){
-	cudaStream_t tempStream = *(cudaStream_t*)pStream;
+void SegmentedMax(int sizeofLargestSeg, int numNode, const uint *pEachSegSize, const uint *pEachSegStartPos,
+				  const real *pValueAllSeg, void *pStream, real *pEachNodeMax, T *pEachSegMaxKey){
 	real *pLocalMax;
 	T *pLocalMaxKey;
 	//compute # of blocks for each segment
@@ -113,18 +114,24 @@ void SegmentedMax(int sizeofLargestSeg, int numSeg, const uint *pEachSegSize, co
 	KernelConf conf;
 	conf.ConfKernel(sizeofLargestSeg, blockSizeLocalReduction, dimNumofBlockLocalReduction);
 	PROCESS_ERROR(dimNumofBlockLocalReduction.z == 1);
-	dimNumofBlockLocalReduction.z = numSeg;	//each node per super block
+	dimNumofBlockLocalReduction.z = numNode;	//each node per super block
 	int numBlockPerSeg = dimNumofBlockLocalReduction.x * dimNumofBlockLocalReduction.y;
 
-	checkCudaErrors(cudaMalloc((void**)&pLocalMax, sizeof(real) * numBlockPerSeg * numSeg));
-	checkCudaErrors(cudaMalloc((void**)&pLocalMaxKey, sizeof(T) * numBlockPerSeg * numSeg));
-	checkCudaErrors(cudaMemset(pLocalMaxKey, -1, sizeof(T) * numBlockPerSeg * numSeg));
+	checkCudaErrors(cudaMalloc((void**)&pLocalMax, sizeof(real) * numBlockPerSeg * numNode));
+	checkCudaErrors(cudaMalloc((void**)&pLocalMaxKey, sizeof(T) * numBlockPerSeg * numNode));
+	checkCudaErrors(cudaMemset(pLocalMaxKey, -1, sizeof(T) * numBlockPerSeg * numNode));
 	cudaDeviceSynchronize();
 	//find the block level best gain for each node
-	LocalReductionEachSeg<<<dimNumofBlockLocalReduction, blockSizeLocalReduction, 0, tempStream>>>(
+	LocalReductionEachSeg<<<dimNumofBlockLocalReduction, blockSizeLocalReduction>>>(
 									pEachSegSize, pEachSegStartPos, pValueAllSeg, pLocalMax, pLocalMaxKey);
-	cudaStreamSynchronize(tempStream);
 	GETERROR("after PickLocalBestSplitEachNode");
+
+	cudaDeviceSynchronize();
+	real *test_d = thrust::min_element(thrust::device, pLocalMax, pLocalMax + numBlockPerSeg * numNode);
+	real test;
+	checkCudaErrors(cudaMemcpy(&test, test_d, sizeof(real), cudaMemcpyDeviceToHost));
+	cudaDeviceSynchronize();
+	printf("max in segmented max=%f; blkPerSeg=%d, numSeg=%d, largestSeg=%d, blksize=%d\n", test, numBlockPerSeg, numNode, sizeofLargestSeg, blockSizeLocalReduction);
 
 	//find the global best gain for each node
 	if(numBlockPerSeg > 1){
@@ -133,15 +140,32 @@ void SegmentedMax(int sizeofLargestSeg, int numSeg, const uint *pEachSegSize, co
 		conf.ConfKernel(numBlockPerSeg, blockSizeBestGain, dimNumofBlockDummy);
 		if(blockSizeBestGain < 64)//make sure the reduction is power of two
 			blockSizeBestGain = 64;
-		GlobalReductionEachSeg<<<numSeg, blockSizeBestGain, 0, tempStream>>>(
-										pLocalMax, pLocalMaxKey, pEachSegMax, pEachSegMaxKey, numBlockPerSeg, numSeg);
-		cudaStreamSynchronize((*(cudaStream_t*)pStream));
+		GlobalReductionEachSeg<<<numNode, blockSizeBestGain>>>(
+				pLocalMax, pLocalMaxKey, pEachNodeMax, pEachSegMaxKey, numBlockPerSeg, numNode);
+		cudaDeviceSynchronize();
 		GETERROR("after PickGlobalBestSplitEachNode");
 	}
 	else{//local best fea is the global best fea
-		checkCudaErrors(cudaMemcpyAsync(pLocalMax, pEachSegMax, sizeof(real) * numSeg, cudaMemcpyDeviceToDevice, tempStream));
-		checkCudaErrors(cudaMemcpyAsync(pLocalMaxKey, pEachSegMaxKey, sizeof(T) * numSeg, cudaMemcpyDeviceToDevice, tempStream));
+		checkCudaErrors(cudaMemcpy(pEachNodeMax, pLocalMax, sizeof(real) * numNode, cudaMemcpyDeviceToDevice));
+		checkCudaErrors(cudaMemcpy(pEachSegMaxKey, pLocalMaxKey, sizeof(T) * numNode, cudaMemcpyDeviceToDevice));
 	}
+
+	cudaDeviceSynchronize();
+	real *globalMax_end = new real[numNode];
+	checkCudaErrors(cudaMemcpy(globalMax_end, pEachNodeMax, sizeof(real) * numNode, cudaMemcpyDeviceToHost));
+	T *g_keys = new T[numNode];
+	checkCudaErrors(cudaMemcpy(g_keys, pEachSegMaxKey, sizeof(T) * numNode, cudaMemcpyDeviceToHost));
+	cudaDeviceSynchronize();
+	real finalMax = 0;
+	T finalKey = -1;
+	for(int i = 0; i < numNode; i++){
+		if(finalMax < globalMax_end[i]){
+			finalMax = globalMax_end[i];
+			finalKey = g_keys[i];
+		}
+	}
+	printf("finalMax=%f, finalKey=%d\n", finalMax, finalKey);
+
 	checkCudaErrors(cudaFree(pLocalMax));
 	checkCudaErrors(cudaFree(pLocalMaxKey));
 }

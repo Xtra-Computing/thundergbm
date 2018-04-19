@@ -9,6 +9,7 @@
 #include "BaseTrainer.h"
 
 #include <ctime>
+#include <sys/time.h>
 
 #include "../../DeviceHost/TreeNode.h"
 #include "../../Host/Tree/PrintTree.h"
@@ -50,9 +51,10 @@ void BaseTrainer::InitTrainer(int nNumofTree, int nMaxDepth, double fLabda, doub
  */
 void BaseTrainer::TrainGBDT(vector<RegTree> & vTree, void *pStream, int bagId)
 {
-	clock_t begin_gd, begin_grow;
-	clock_t end_gd, end_grow;
-	double total_gd = 0, total_grow = 0, total_find_fea = 0, total_split = 0;
+	timeval begin_gd, end_gd;
+	clock_t begin_grow, end_grow;
+	long total_gd = 0, total_find_fea = 0, total_split = 0;;
+	double total_grow = 0;
 
 	total_init_t = 0;
 	BagManager bagManager;
@@ -66,10 +68,12 @@ void BaseTrainer::TrainGBDT(vector<RegTree> & vTree, void *pStream, int bagId)
 		clock_t start_round = clock();
 
 		//predict the data by the existing trees
-		begin_gd = clock();
+		gettimeofday(&begin_gd, NULL);
 		splitter->ComputeGD(vTree, m_vvInsSparse, pStream, bagId);
-		end_gd = clock();
-		total_gd += (double(end_gd - begin_gd) / CLOCKS_PER_SEC);
+		gettimeofday(&end_gd, NULL);
+		int diff_gd = (end_gd.tv_sec - begin_gd.tv_sec) * 1000000;
+		diff_gd += end_gd.tv_usec - begin_gd.tv_usec;
+		total_gd += diff_gd;
 		//initialise a tree
 		RegTree tree;
 		InitTree(tree, pStream, bagId);

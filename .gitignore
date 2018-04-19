@@ -1,4 +1,8 @@
 .project
+bin
+*.binary
+*.out
+*.idea
 tags
 .cproject
 .settings
@@ -12,3 +16,4 @@ core
 *.DS_Store
 *.o
 *.swp
+2myrun.sh

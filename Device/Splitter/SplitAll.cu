@@ -153,7 +153,7 @@ void DeviceSplitter::SplitAll(int &m_nNumofNode, bool bLastLevel, void *pStream,
 		clock_t ins2node_start = clock();
 		InsToNewNode<<<dimGridThreadForEachUsedFea, thdPerBlockIns2node, 0, (*(cudaStream_t*)pStream)>>>(
 								 bagManager.m_pNodeTreeOnTrainingEachBag + bagId * bagManager.m_maxNumNode, BagOrgManager::m_pdDFeaValue,
-								 csrCompressor.getOrgCsrFvalue(), csrCompressor.getOrgCsrStart(), csrCompressor.getNumOrgCsr(), csrCompressor.bUseCsr,
+								 csrCompressor.getOrgCsrFvalue(), csrCompressor.getOrgCsrStart(), csrCompressor.getNumOrgCsr(), csrCompressor.bUseRle,
 								 manager.m_pDInsId,
 								 manager.m_pFeaStartPos, manager.m_pDNumofKeyValue,
 								 bagManager.m_pBestSplitPointEachBag + bagId * bagManager.m_maxNumSplittable,

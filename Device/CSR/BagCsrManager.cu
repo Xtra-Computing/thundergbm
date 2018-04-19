@@ -54,8 +54,11 @@ uint *BagCsrManager::getMutableCsrLen(){
 
 uint *BagCsrManager::getMutableCsrKey(){
 	PROCESS_ERROR(curNumCsr > 0);
-	if(csrKey.reservedSize < curNumCsr)
-		csrKey.reserveSpace(curNumCsr, sizeof(uint));
+	printf("csrKey reservedSize %d; curNumCsr %d\n", csrKey.reservedSize, curNumCsr);
+	if(csrKey.reservedSize < curNumCsr){
+		csrKey.reserveSpace(curNumCsr * 4, sizeof(uint));
+		printf("reserving memory\n");
+	}
 	PROCESS_ERROR(csrKey.addr != NULL);
 	return (uint*)csrKey.addr;
 }

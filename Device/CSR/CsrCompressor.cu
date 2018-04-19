@@ -30,11 +30,11 @@ uint *CsrCompressor::pCsrFeaLen_d = NULL;
 uint *CsrCompressor::pCsrLen_d = NULL;
 real *CsrCompressor::pCsrFvalue_d = NULL;
 uint *CsrCompressor::pCsrStart_d = NULL;
-bool CsrCompressor::bUseCsr = false;
+bool CsrCompressor::bUseRle = false;
 real *CsrCompressor::pOrgFvalue = NULL;
 
 CsrCompressor::CsrCompressor(){
-	if(pCsrFeaStartPos_d != NULL || bUseCsr == false)
+	if(pCsrFeaStartPos_d != NULL || bUseRle == false)
 		return;
 	GBDTGPUMemManager manager;
 	uint numFea = manager.m_numofFea;
@@ -80,9 +80,9 @@ CsrCompressor::CsrCompressor(){
 	eachNodeSizeInCsr_h = totalOrgNumCsr;
 	printf("org=%u v.s. csr=%u\n", manager.m_numFeaValue, totalOrgNumCsr);
 	PROCESS_ERROR(totalOrgNumCsr < manager.m_numFeaValue);
-if(alwaysCsr == false)
+if(alwaysRle == false)
 	if(totalOrgNumCsr * 4 > manager.m_numFeaValue){
-		bUseCsr = false;
+		bUseRle = false;
 
 		delete[] eachCsrFeaStartPos_h;
 		delete[] eachCompressedFeaLen_h;
@@ -90,6 +90,10 @@ if(alwaysCsr == false)
 		delete[] csrFvalue_h;
 		return;
 	}
+
+//for(int f = 0; f < numFea; f++){
+//	printf("fstart=%d, flen=%d\n", eachCsrFeaStartPos_h[f], eachCompressedFeaLen_h[f]);
+//}
 
 	checkCudaErrors(cudaMalloc((void**)&pCsrFeaStartPos_d, sizeof(uint) * numFea));
 	checkCudaErrors(cudaMalloc((void**)&pCsrFeaLen_d, sizeof(uint) * numFea));

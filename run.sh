@@ -21,7 +21,7 @@ GAMMA="-g "
 #depth of trees
 D="-d 6"
 #number of trees
-NUMTREE="-n 2"
+NUMTREE="-n 40"
 #use CSR compression: 0 for not using CSR; 1 for using CSR.
 CSR="-c 1"
 #file name (must appear as the last argument)
@@ -40,6 +40,11 @@ case $1 in
 		GAMMA=${GAMMA}"1"
 		BAG=${BAG}"1"
         FILENAME=${DATASET_DIR}/"covtype" #90 features and 41M instances
+		;;
+	product)
+		GAMMA=${GAMMA}"1"
+		BAG=${BAG}"1"
+		FILENAME=${DATASET_DIR}/"product.libsvm"
 		;;
     yp)
 	   	GAMMA=${GAMMA}"1"

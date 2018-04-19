@@ -34,8 +34,8 @@ real *fvalue_org_d;
 real *fhess_d;
 double *fgd_d;
 real *fgain_d;
-bool alwaysCsr = false;
-bool testNaiveCsr = alwaysCsr;
+bool alwaysRle = true;
+bool testNaiveCsr = alwaysRle;
 double total_extra_time = 0.0;
 int main(int argc, char *argv[])
 {
@@ -71,7 +71,7 @@ int main(int argc, char *argv[])
 	int maxNumofNodePerTree = pow(2, nMaxDepth + 1) - 1;
 	int maxNumofSplittableNode = pow(2, nMaxDepth - 1);
 	int numInternalNode = pow(2, nMaxDepth) - 1;
-	int maxNumofUsedFeature = numInternalNode * 20;
+	int maxNumofUsedFeature = 30;//numInternalNode * 40;
 
 	DevicePredictor pred;
 
@@ -108,19 +108,19 @@ int main(int argc, char *argv[])
 		maxNumofUsedFeature = numFea;
 	printf("max numof used fea is %d\n", maxNumofUsedFeature);
 
-	//decide if want to use csr
+	//decide if want to use rle
 	if(numFeaValue > pow(2, 28) || (numFeaValue > pow(2, 20) && numFea < numIns / 1000) || numFea / 10 < numIns)
-		CsrCompressor::bUseCsr = true;
+		CsrCompressor::bUseRle = true;
 	else
-		CsrCompressor::bUseCsr = false;
+		CsrCompressor::bUseRle = false;
 
-if(alwaysCsr == true)
-	CsrCompressor::bUseCsr = true;
+if(alwaysRle == true)
+	CsrCompressor::bUseRle = true;
 
-	if(CsrCompressor::bUseCsr == true)
-		cerr << "use CSR" << endl;
+	if(CsrCompressor::bUseRle == true)
+		cerr << "use RLE" << endl;
 	else
-		cerr << "use non-CSR" << endl;
+		cerr << "use non-RLE" << endl;
 
 
 	//fill the bags
@@ -175,6 +175,16 @@ if(alwaysCsr == true)
 	}
 	bagManager.m_pTrueLabel_h = pTrueLabel;
 
+//print instance information
+	int insId = 10444952;
+	long start = plInsStartPos[insId];
+	long end = plInsStartPos[insId + 1] - 1;
+	printf("%f ", pTrueLabel[insId]);
+	for(int i = start; i <= end; i++){
+		printf("%d:%f\t", pFeaId[i], pfFeaValue[i]);
+	}
+	printf("\n");
+
 if(testNaiveCsr == true){
 checkCudaErrors(cudaMalloc((void**)&fvalue_d, sizeof(real) * numFeaValue));
 checkCudaErrors(cudaMalloc((void**)&fvalue_org_d, sizeof(real) * numFeaValue));
@@ -206,10 +216,13 @@ checkCudaErrors(cudaMemcpy(fgain_d, pdValue, sizeof(real) * numFeaValue, cudaMem
 	indexCom.m_total_copy = 0;
 
 	//copy feature key-value to device memory
+//	for(int f = 0; f < numFea; f++){
+//		printf("fstart=%d, flen=%d\n", plFeaStartPos[f], pEachFeaLen[f]);
+//	}
 	cudaMemcpy(manager.m_pDInsId, pInsId, numFeaValue * sizeof(int), cudaMemcpyHostToDevice);
 	cudaMemcpy(manager.m_pDNumofKeyValue, pEachFeaLen, numFea * sizeof(int), cudaMemcpyHostToDevice);
 	cudaMemcpy(manager.m_pFeaStartPos, plFeaStartPos, numFea * sizeof(uint), cudaMemcpyHostToDevice);
-	if(CsrCompressor::bUseCsr == true){
+	if(CsrCompressor::bUseRle == true){
 		CsrCompressor::pOrgFvalue = pdValue;
 		CsrCompressor::eachFeaLenEachNode_h = (uint*)pEachFeaLen;//###################################### risky
 		CsrCompressor::eachFeaStartPosEachNode_h = plFeaStartPos;
@@ -217,10 +230,10 @@ checkCudaErrors(cudaMemcpy(fgain_d, pdValue, sizeof(real) * numFeaValue, cudaMem
 		CsrCompressor compressor;
 		//compression may be unsuccessful if the compression is inefficient.
 	}
-if(alwaysCsr == true)
-	CsrCompressor::bUseCsr = true;
+if(alwaysRle == true)
+	CsrCompressor::bUseRle = true;
 
-	if(CsrCompressor::bUseCsr == false){//compression is inefficient
+	if(CsrCompressor::bUseRle == false){//compression is inefficient
 		BagOrgManager orgManager(numFeaValue, numBag);
 		cudaMemcpy(orgManager.m_pdDFeaValue, pdValue, numFeaValue * sizeof(real), cudaMemcpyHostToDevice);
 	}

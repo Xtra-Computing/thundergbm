@@ -55,6 +55,6 @@ extern real *fgain_d;
 extern bool testNaiveCsr;
 extern bool optimiseSetKey;
 extern double total_extra_time;
-extern bool alwaysCsr;
+extern bool alwaysRle;
 
 #endif /* DEVICESPLITTER_H_ */

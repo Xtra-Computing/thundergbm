@@ -6,6 +6,7 @@
  *		@brief: 
  */
 
+#include <sys/time.h>
 #include "DeviceTrainer.h"
 #include "Splitter/Initiator.h"
 #include "Splitter/DeviceSplitter.h"
@@ -91,15 +92,17 @@ void DeviceTrainer::GrowTree(RegTree &tree, void *pStream, int bagId)
 	while(bagManager.m_curNumofSplitableEachBag_h[bagId] > 0 && nCurDepth <= m_nMaxDepth)
 	{
 		pDSpliter->m_nCurDept = nCurDepth;
-//		cout << "splitting " << nCurDepth << " level..." << endl;
+		cout << "splitting " << nCurDepth << " level..." << endl;
 
 		vector<SplitPoint> vBest;
 		vector<nodeStat> rchildStat, lchildStat;
 		cudaStreamSynchronize((*(cudaStream_t*)pStream));
-		clock_t begin_find_fea = clock();
+		timeval begin_find_fea, end_find_fea;
+		clock_t begin_grow;
+		gettimeofday(&begin_find_fea, NULL);
 
 		if(nCurDepth < m_nMaxDepth){//don't need to find split for the last level
-			if(CsrCompressor::bUseCsr == true){
+			if(CsrCompressor::bUseRle == true){
 if(testNaiveCsr == true)
 	pDSpliter->FeaFinderAllNode3(pStream, bagId);
 else
@@ -109,11 +112,14 @@ else
 				pDSpliter->FeaFinderAllNode(pStream, bagId);
 		}
 
-		clock_t end_find_fea = clock();
-		total_find_fea_t += (double(end_find_fea - begin_find_fea) / CLOCKS_PER_SEC);
+		gettimeofday(&end_find_fea, NULL);
+		int diff_find = (end_find_fea.tv_sec - begin_find_fea.tv_sec) * 1000000;
+		diff_find += end_find_fea.tv_usec - begin_find_fea.tv_usec;
+		total_find_fea_t += diff_find;
 
 		//split all the splittable nodes
-		clock_t start_split_t = clock();
+		timeval start_split_t, end_split_t;
+		gettimeofday(&start_split_t, NULL);
 		bool bLastLevel = false;
 		if(nCurDepth == m_nMaxDepth)
 			bLastLevel = true;
@@ -125,8 +131,10 @@ else
 
 		manager.MemcpyDeviceToHostAsync(bagManager.m_pNumofNewNodeTreeOnTrainingEachBag + bagId, bagManager.m_curNumofSplitableEachBag_h + bagId,
 								   sizeof(int), pStream);
-		clock_t end_split_t = clock();
-		total_split_t += (double(end_split_t - start_split_t) / CLOCKS_PER_SEC);
+		gettimeofday(&end_split_t, NULL);
+		int diff_split = (end_split_t.tv_sec - start_split_t.tv_sec) * 1000000;
+		diff_split += end_split_t.tv_usec - start_split_t.tv_usec;
+		total_split_t += diff_split;
 		nCurDepth++;
 	}
 

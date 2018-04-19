@@ -40,7 +40,7 @@ bool GBDTCmdLineParser::HandleOption(char c, char *pcOptionValue)
 		return true;
 	case 'c':
 		if(atoi(pcOptionValue) == 1)
-			CsrCompressor::bUseCsr = true;
+			CsrCompressor::bUseRle = true;
 		return true;
 	default:
 		return false;
