@@ -91,10 +91,6 @@ if(alwaysRle == false)
 		return;
 	}
 
-//for(int f = 0; f < numFea; f++){
-//	printf("fstart=%d, flen=%d\n", eachCsrFeaStartPos_h[f], eachCompressedFeaLen_h[f]);
-//}
-
 	checkCudaErrors(cudaMalloc((void**)&pCsrFeaStartPos_d, sizeof(uint) * numFea));
 	checkCudaErrors(cudaMalloc((void**)&pCsrFeaLen_d, sizeof(uint) * numFea));
 	checkCudaErrors(cudaMalloc((void**)&pCsrLen_d, sizeof(uint) * totalOrgNumCsr));
