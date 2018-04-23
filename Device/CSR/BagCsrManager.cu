@@ -25,9 +25,9 @@ BagCsrManager::BagCsrManager(int numFea, int maxNumSN, uint totalNumFeaValue){
 		return;
 
 	curNumCsr = 0;
-	reservedMaxNumCsr = totalNumFeaValue/20;//10 times compression ratio
+	reservedMaxNumCsr = totalNumFeaValue;//10 times compression ratio
 
-	checkCudaErrors(cudaMalloc((void**)&pCsrFvalue, sizeof(real) * reservedMaxNumCsr));
+	checkCudaErrors(cudaMallocHost((void**)&pCsrFvalue, sizeof(real) * reservedMaxNumCsr));
 	checkCudaErrors(cudaMalloc((void**)&pEachCsrFeaStartPos, sizeof(uint) * numFea * maxNumSN));
 	checkCudaErrors(cudaMalloc((void**)&pEachCsrFeaLen, sizeof(uint) * numFea * maxNumSN));
 	checkCudaErrors(cudaMalloc((void**)&pEachCsrNodeStartPos, sizeof(uint) * maxNumSN));
