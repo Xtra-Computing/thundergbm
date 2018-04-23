@@ -678,7 +678,7 @@ if(firstTime == true){//free mem only once, due to memory reuse
 	checkCudaErrors(cudaMalloc((void**)&pCsrHess_d, sizeof(real) * totalNumCsrFvalue_merge));
 	checkCudaErrors(cudaMalloc((void**)&pEachCsrNodeSize_d, sizeof(uint) * numofSNode));
 	checkCudaErrors(cudaMalloc((void**)&pEachCsrNodeStart_d, sizeof(uint) * numofSNode));
-
+csrManager.curNumCsr = totalNumCsrFvalue_merge;
 	checkCudaErrors(cudaMemcpy(csrManager.pEachCsrFeaStartPos, eachCompressedFeaStartPos_merge, sizeof(uint) * numSeg, cudaMemcpyHostToDevice));
 	checkCudaErrors(cudaMemcpy(csrManager.pEachCsrFeaLen, eachCompressedFeaLen_merge, sizeof(uint) * numSeg, cudaMemcpyHostToDevice));
 	checkCudaErrors(cudaMemcpy(csrManager.pCsrFvalue, csrFvalue_merge, sizeof(real) * totalNumCsrFvalue_merge, cudaMemcpyHostToDevice));
@@ -692,8 +692,7 @@ if(firstTime == true){//free mem only once, due to memory reuse
 
 
 	//construct keys for exclusive scan
-	uint *pnCsrKey_d;
-	checkCudaErrors(cudaMalloc((void**)&pnCsrKey_d, sizeof(uint) * totalNumCsrFvalue_merge));
+	checkCudaErrors(cudaMemset(csrManager.getMutableCsrKey(), -1, sizeof(uint) * csrManager.curNumCsr));
 
 	//set keys by GPU
 	uint maxSegLen = 0;
@@ -705,12 +704,12 @@ if(firstTime == true){//free mem only once, due to memory reuse
 	uint blockSize = 128;
 	dimNumofBlockToSetKey.y = (maxSegLen + blockSize - 1) / blockSize;
 	SetKey<<<numSeg, blockSize, sizeof(uint) * 2, (*(cudaStream_t*)pStream)>>>
-			(csrManager.pEachCsrFeaStartPos, csrManager.pEachCsrFeaLen, pnCsrKey_d);
+			(csrManager.pEachCsrFeaStartPos, csrManager.pEachCsrFeaLen, csrManager.getMutableCsrKey());
 	cudaStreamSynchronize((*(cudaStream_t*)pStream));
 
 	//compute prefix sum for gd and hess (more than one arrays)
-	thrust::inclusive_scan_by_key(thrust::device, pnCsrKey_d, pnCsrKey_d + totalNumCsrFvalue_merge, pCsrGD_d, pCsrGD_d);//in place prefix sum
-	thrust::inclusive_scan_by_key(thrust::device, pnCsrKey_d, pnCsrKey_d + totalNumCsrFvalue_merge, pCsrHess_d, pCsrHess_d);
+	thrust::inclusive_scan_by_key(thrust::device, csrManager.getCsrKey(), csrManager.getCsrKey() + totalNumCsrFvalue_merge, pCsrGD_d, pCsrGD_d);//in place prefix sum
+	thrust::inclusive_scan_by_key(thrust::device, csrManager.getCsrKey(), csrManager.getCsrKey() + totalNumCsrFvalue_merge, pCsrHess_d, pCsrHess_d);
 
 	clock_t end_scan = clock();
 	total_scan_t += (end_scan - start_scan);
@@ -730,7 +729,7 @@ if(firstTime == true){//free mem only once, due to memory reuse
 											bagManager.m_pSNodeStatEachBag + bagId * bagManager.m_maxNumSplittable,
 											bagManager.m_pPartitionId2SNPosEachBag + bagId * bagManager.m_maxNumSplittable,
 											DeviceSplitter::m_lambda, pCsrGD_d, pCsrHess_d, csrManager.pCsrFvalue,
-											totalNumCsrFvalue_merge, csrManager.pEachCsrFeaStartPos, csrManager.pEachCsrFeaLen, pnCsrKey_d, bagManager.m_numFea,
+											totalNumCsrFvalue_merge, csrManager.pEachCsrFeaStartPos, csrManager.pEachCsrFeaLen, csrManager.getCsrKey(), bagManager.m_numFea,
 											pGainEachCsrFvalue_d, pCsrDefault2Right_d);
 	cudaStreamSynchronize((*(cudaStream_t*)pStream));
 	GETERROR("after ComputeGainDense");
@@ -766,7 +765,7 @@ if(firstTime == true){//free mem only once, due to memory reuse
 										 bagManager.m_pPartitionId2SNPosEachBag + bagId * bagManager.m_maxNumSplittable, nNumofFeature,
 					  	  	  	  	  	 bagManager.m_pSNodeStatEachBag + bagId * bagManager.m_maxNumSplittable,
 					  	  	  	  	  	 pCsrGD_d, pCsrHess_d,
-					  	  	  	  	  	 pCsrDefault2Right_d, pnCsrKey_d,
+					  	  	  	  	  	 pCsrDefault2Right_d, csrManager.getCsrKey(),
 					  	  	  	  	  	 bagManager.m_pBestSplitPointEachBag + bagId * bagManager.m_maxNumSplittable,
 					  	  	  	  	  	 bagManager.m_pRChildStatEachBag + bagId * bagManager.m_maxNumSplittable,
 					  	  	  	  	  	 bagManager.m_pLChildStatEachBag + bagId * bagManager.m_maxNumSplittable);
@@ -780,7 +779,6 @@ if(firstTime == true){//free mem only once, due to memory reuse
 	checkCudaErrors(cudaFree(pCsrGD_d));
 	checkCudaErrors(cudaFree(pCsrHess_d));
 	checkCudaErrors(cudaFree(pCsrDefault2Right_d));
-	checkCudaErrors(cudaFree(pnCsrKey_d));
 }
 
 
