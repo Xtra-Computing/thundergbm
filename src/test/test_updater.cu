@@ -21,13 +21,13 @@ public:
     SparseColumns columns;
     unsigned int n_instances;
 
-    int depth = 3;
-    int n_trees = 3;
+    int depth = 6;
+    int n_trees = 20;
     float_type min_child_weight = 1;
     float_type lambda = 1;
     float_type gamma = 1;
     float_type rt_eps = 1e-6;
-    string path = DATASET_DIR "iris.scale";
+    string path = DATASET_DIR "YearPredictionMSD";
 
     void SetUp() override {
 #ifdef NDEBUG
@@ -40,36 +40,36 @@ public:
         trees.resize(n_trees);
         stats.init(n_instances);
         int round = 0;
-        for (Tree &tree:trees) {
+        {
             TIMED_SCOPE(timerObj, "construct tree");
-            init_stats(dataSet);
-            init_tree(tree);
-            int i;
-            for (i = 0; i < depth; ++i) {
-                if (!find_split(tree, i)) break;
-            }
-            //annotate leaf nodes in last level
-            {
-                Tree::TreeNode *last_level_nodes_data = tree.nodes.device_data() + int(pow(2,depth) - 1);
-                int n_nodes_last_level = static_cast<int>(pow(2, depth));
+            for (Tree &tree:trees) {
+                init_stats(dataSet);
+                init_tree(tree);
+                int i;
+                for (i = 0; i < depth; ++i) {
+                    if (!find_split(tree, i)) break;
+                }
+                //annotate leaf nodes in last level
+                {
+                    Tree::TreeNode *last_level_nodes_data = tree.nodes.device_data() + int(pow(2, depth) - 1);
+                    int n_nodes_last_level = static_cast<int>(pow(2, depth));
 
-                device_loop(n_nodes_last_level, [=]__device__(int i) {
-                    last_level_nodes_data[i].is_leaf = true;
-                });
+                    device_loop(n_nodes_last_level, [=]__device__(int i) {
+                        last_level_nodes_data[i].is_leaf = true;
+                    });
+                }
+                LOG(INFO) << string_format("\nbooster[%d]", round) << tree.to_string(depth);
+                //compute weights of leaf nodes and predict
+                {
+                    float_type *y_predict_data = stats.y_predict.device_data();
+                    const int *nid_data = stats.nid.device_data();
+                    const Tree::TreeNode *nodes_data = tree.nodes.device_data();
+                    device_loop(n_instances, [=]__device__(int i) {
+                        y_predict_data[i] += nodes_data[nid_data[i]].base_weight;
+                    });
+                }
+                round++;
             }
-            PERFORMANCE_CHECKPOINT_WITH_ID(timerObj, "tree");
-            LOG(INFO)<<string_format("\nbooster[%d]", round) << tree.to_string(depth);
-            //compute weights of leaf nodes and predict
-            {
-                float_type *y_predict_data = stats.y_predict.device_data();
-                const int *nid_data = stats.nid.device_data();
-                const Tree::TreeNode *nodes_data = tree.nodes.device_data();
-                device_loop(n_instances, [=]__device__(int i){
-                   y_predict_data[i] += nodes_data[nid_data[i]].base_weight;
-                });
-            }
-            PERFORMANCE_CHECKPOINT_WITH_ID(timerObj, "predict");
-            round++;
         }
     }
 
