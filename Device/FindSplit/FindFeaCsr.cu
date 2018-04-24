@@ -412,7 +412,6 @@ checkCudaErrors(cudaMalloc((void**)&pHess_d, sizeof(real) * csrManager.curNumCsr
 
 //	cout << "compute gain" << endl;
 	printf("compute gain\n");
-	uint test = thrust::reduce(thrust::device, csrManager.pEachCsrFeaLen, csrManager.pEachCsrFeaLen + numSeg);
 	clock_t start_comp_gain = clock();
 	int blockSizeComGain;
 	dim3 dimNumofBlockToComGain;
@@ -723,12 +722,12 @@ if(firstTime == true){//free mem only once, due to memory reuse
 	clock_t start_comp_gain = clock();
 	int blockSizeComGain;
 	dim3 dimNumofBlockToComGain;
-	conf.ConfKernel(totalNumCsrFvalue_merge, blockSizeComGain, dimNumofBlockToComGain);
+	conf.ConfKernel(csrManager.curNumCsr, blockSizeComGain, dimNumofBlockToComGain);
 	ComputeGainDense<<<dimNumofBlockToComGain, blockSizeComGain, 0, (*(cudaStream_t*)pStream)>>>(
 											bagManager.m_pSNodeStatEachBag + bagId * bagManager.m_maxNumSplittable,
 											bagManager.m_pPartitionId2SNPosEachBag + bagId * bagManager.m_maxNumSplittable,
-											DeviceSplitter::m_lambda, pGD_d, pHess_d, csrManager.pCsrFvalue,
-											totalNumCsrFvalue_merge, csrManager.pEachCsrFeaStartPos, csrManager.pEachCsrFeaLen, csrManager.getCsrKey(), bagManager.m_numFea,
+											DeviceSplitter::m_lambda, pGD_d, pHess_d, csrManager.getCsrFvalue(),
+											csrManager.curNumCsr, csrManager.pEachCsrFeaStartPos, csrManager.pEachCsrFeaLen, csrManager.getCsrKey(), bagManager.m_numFea,
 											pGain_d, default2Right);
 	cudaStreamSynchronize((*(cudaStream_t*)pStream));
 	GETERROR("after ComputeGainDense");
@@ -738,7 +737,7 @@ if(firstTime == true){//free mem only once, due to memory reuse
 	dim3 dimNumofBlockFirstGain;
 	conf.ConfKernel(numSeg, blockSizeFirstGain, dimNumofBlockFirstGain);
 	FirstFeaGain<<<dimNumofBlockFirstGain, blockSizeFirstGain, 0, (*(cudaStream_t*)pStream)>>>(
-											csrManager.pEachCsrFeaStartPos, numSeg, pGain_d, totalNumCsrFvalue_merge);
+											csrManager.pEachCsrFeaStartPos, numSeg, pGain_d, csrManager.curNumCsr);
 
 	//	cout << "searching" << endl;
 	clock_t start_search = clock();
@@ -759,7 +758,7 @@ if(firstTime == true){//free mem only once, due to memory reuse
 	FindSplitInfo<<<1, numofSNode, 0>>>(
 										 csrManager.pEachCsrFeaStartPos,
 										 csrManager.pEachCsrFeaLen,
-										 csrManager.pCsrFvalue,
+										 csrManager.getCsrFvalue(),
 										 pMaxGain_d, pMaxGainKey_d,
 										 bagManager.m_pPartitionId2SNPosEachBag + bagId * bagManager.m_maxNumSplittable, nNumofFeature,
 					  	  	  	  	  	 bagManager.m_pSNodeStatEachBag + bagId * bagManager.m_maxNumSplittable,
