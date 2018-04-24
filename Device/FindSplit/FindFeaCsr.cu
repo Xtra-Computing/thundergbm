@@ -487,7 +487,11 @@ void DeviceSplitter::FeaFinderAllNode3(void *pStream, int bagId)
 {
 	GBDTGPUMemManager manager;
 	BagManager bagManager;
+	int numofSNode = bagManager.m_curNumofSplitableEachBag_h[bagId];
 	BagCsrManager csrManager(bagManager.m_numFea, bagManager.m_maxNumSplittable, bagManager.m_numFeaValue);
+
+	IndexComputer indexComp;
+	indexComp.AllocMem(bagManager.m_numFea, numofSNode, bagManager.m_maxNumSplittable);
 cudaDeviceSynchronize();
 if(firstTime == true){//free mem only once, due to memory reuse
 	checkCudaErrors(cudaFree(csrManager.pEachCsrNodeStartPos));
@@ -496,7 +500,6 @@ if(firstTime == true){//free mem only once, due to memory reuse
 	firstTime = false;
 }
 
-	int numofSNode = bagManager.m_curNumofSplitableEachBag_h[bagId];
 	int maxNumofSplittable = bagManager.m_maxNumSplittable;
 //	cout << bagManager.m_maxNumSplittable << endl;
 	int nNumofFeature = manager.m_numofFea;
@@ -595,8 +598,6 @@ if(firstTime == true){//free mem only once, due to memory reuse
 		thrust::exclusive_scan(thrust::host, eachNewCompressedFeaLen_merge, eachNewCompressedFeaLen_merge + numofSNode * bagManager.m_numFea, eachNewCompressedFeaStart_merge);
 		delete[] pInsId2Nid;
 		//###############################
-		IndexComputer indexComp;
-		indexComp.AllocMem(bagManager.m_numFea, numofSNode, bagManager.m_maxNumSplittable);
 		PROCESS_ERROR(nNumofFeature == bagManager.m_numFea);
 		clock_t comIdx_start = clock();
 		//compute gather index via GPUs
@@ -623,7 +624,6 @@ if(firstTime == true){//free mem only once, due to memory reuse
 		total_fill_gd_t += (end_gd - start_gd);
 		uint *pMaxNumFvalueOneNode = thrust::max_element(thrust::device, pTempNumFvalueEachNode, pTempNumFvalueEachNode + numofSNode);
 		checkCudaErrors(cudaMemcpy(&maxNumFeaValueOneNode, pMaxNumFvalueOneNode, sizeof(int), cudaMemcpyDeviceToHost));
-		indexComp.FreeMem();
 		//###########
 		LoadFvalueInsId<<<dimNumofBlockToLoadGD, blockSizeLoadGD, 0, (*(cudaStream_t*)pStream)>>>(
 						manager.m_pDInsId, preFvalueInsId, bagManager.m_pIndicesEachBag_d, bagManager.m_numFeaValue);
@@ -678,10 +678,15 @@ if(firstTime == true){//free mem only once, due to memory reuse
 	checkCudaErrors(cudaMalloc((void**)&pCsrHess_d, sizeof(real) * totalNumCsrFvalue_merge));
 	checkCudaErrors(cudaMalloc((void**)&pEachCsrNodeSize_d, sizeof(uint) * numofSNode));
 	checkCudaErrors(cudaMalloc((void**)&pEachCsrNodeStart_d, sizeof(uint) * numofSNode));
-csrManager.curNumCsr = totalNumCsrFvalue_merge;
+
+	csrManager.curNumCsr = totalNumCsrFvalue_merge;
 	checkCudaErrors(cudaMemcpy(csrManager.pEachCsrFeaStartPos, eachCompressedFeaStartPos_merge, sizeof(uint) * numSeg, cudaMemcpyHostToDevice));
 	checkCudaErrors(cudaMemcpy(csrManager.pEachCsrFeaLen, eachCompressedFeaLen_merge, sizeof(uint) * numSeg, cudaMemcpyHostToDevice));
 	checkCudaErrors(cudaMemcpy(csrManager.pCsrFvalue, csrFvalue_merge, sizeof(real) * totalNumCsrFvalue_merge, cudaMemcpyHostToDevice));
+	if(indexComp.partitionMarker.reservedSize < csrManager.curNumCsr){//make sure enough memory for reuse
+		indexComp.partitionMarker.reserveSpace(csrManager.curNumCsr, sizeof(bool));
+	}
+
 	checkCudaErrors(cudaMemcpy(pCsrHess_d, csrHess_h_merge, sizeof(real) * totalNumCsrFvalue_merge, cudaMemcpyHostToDevice));
 	checkCudaErrors(cudaMemcpy(pCsrGD_d, csrGD_h_merge, sizeof(double) * totalNumCsrFvalue_merge, cudaMemcpyHostToDevice));
 	checkCudaErrors(cudaMemcpy(pEachCsrNodeSize_d, eachNodeSizeInCsr_merge, sizeof(uint) * numofSNode, cudaMemcpyHostToDevice));
@@ -715,9 +720,10 @@ csrManager.curNumCsr = totalNumCsrFvalue_merge;
 	total_scan_t += (end_scan - start_scan);
 	//compute gain
 	//default to left or right
-	bool *pCsrDefault2Right_d;
+	bool *default2Right = (bool*)indexComp.partitionMarker.addr;
+	checkCudaErrors(cudaMemset(default2Right, 0, sizeof(bool) * csrManager.curNumCsr));//this is important (i.e. initialisation)
+
 	real *pGainEachCsrFvalue_d;
-	checkCudaErrors(cudaMalloc((void**)&pCsrDefault2Right_d, sizeof(bool) * totalNumCsrFvalue_merge));
 	checkCudaErrors(cudaMalloc((void**)&pGainEachCsrFvalue_d, sizeof(real) * totalNumCsrFvalue_merge));
 
 	//cout << "compute gain" << endl;
@@ -730,7 +736,7 @@ csrManager.curNumCsr = totalNumCsrFvalue_merge;
 											bagManager.m_pPartitionId2SNPosEachBag + bagId * bagManager.m_maxNumSplittable,
 											DeviceSplitter::m_lambda, pCsrGD_d, pCsrHess_d, csrManager.pCsrFvalue,
 											totalNumCsrFvalue_merge, csrManager.pEachCsrFeaStartPos, csrManager.pEachCsrFeaLen, csrManager.getCsrKey(), bagManager.m_numFea,
-											pGainEachCsrFvalue_d, pCsrDefault2Right_d);
+											pGainEachCsrFvalue_d, default2Right);
 	cudaStreamSynchronize((*(cudaStream_t*)pStream));
 	GETERROR("after ComputeGainDense");
 
@@ -754,10 +760,10 @@ csrManager.curNumCsr = totalNumCsrFvalue_merge;
 	SegmentedMax(maxNumFeaValueOneNode, numofSNode, pEachCsrNodeSize_d, pEachCsrNodeStart_d,
 					  pGainEachCsrFvalue_d, pStream, pMaxGain_d, pMaxGainKey_d);
 
-	cudaStreamSynchronize((*(cudaStream_t*)pStream));
+	cudaDeviceSynchronize();
 
 	//find the split value and feature
-	FindSplitInfo<<<1, numofSNode, 0, (*(cudaStream_t*)pStream)>>>(
+	FindSplitInfo<<<1, numofSNode, 0>>>(
 										 csrManager.pEachCsrFeaStartPos,
 										 csrManager.pEachCsrFeaLen,
 										 csrManager.pCsrFvalue,
@@ -765,11 +771,11 @@ csrManager.curNumCsr = totalNumCsrFvalue_merge;
 										 bagManager.m_pPartitionId2SNPosEachBag + bagId * bagManager.m_maxNumSplittable, nNumofFeature,
 					  	  	  	  	  	 bagManager.m_pSNodeStatEachBag + bagId * bagManager.m_maxNumSplittable,
 					  	  	  	  	  	 pCsrGD_d, pCsrHess_d,
-					  	  	  	  	  	 pCsrDefault2Right_d, csrManager.getCsrKey(),
+					  	  	  	  	  	 default2Right, csrManager.getCsrKey(),
 					  	  	  	  	  	 bagManager.m_pBestSplitPointEachBag + bagId * bagManager.m_maxNumSplittable,
 					  	  	  	  	  	 bagManager.m_pRChildStatEachBag + bagId * bagManager.m_maxNumSplittable,
 					  	  	  	  	  	 bagManager.m_pLChildStatEachBag + bagId * bagManager.m_maxNumSplittable);
-	cudaStreamSynchronize((*(cudaStream_t*)pStream));
+	cudaDeviceSynchronize();
 
 	checkCudaErrors(cudaFree(pEachCsrNodeSize_d));
 	checkCudaErrors(cudaFree(pEachCsrNodeStart_d));
@@ -778,7 +784,6 @@ csrManager.curNumCsr = totalNumCsrFvalue_merge;
 	checkCudaErrors(cudaFree(pMaxGainKey_d));
 	checkCudaErrors(cudaFree(pCsrGD_d));
 	checkCudaErrors(cudaFree(pCsrHess_d));
-	checkCudaErrors(cudaFree(pCsrDefault2Right_d));
 }
 
 
