@@ -22,7 +22,7 @@
 #include "../../SharedUtility/segmentedMax.h"
 #include "../../SharedUtility/setSegmentKey.h"
 
-bool optimiseSetKey = true;
+bool optimiseSetKey = false;
 /**
  * @brief: efficient best feature finder
  */

@@ -21,6 +21,6 @@ __global__ void map2One(const uint *eachCsrFeaLen, uint numCsr, uint *csrMarker)
 __global__ void loadDenseCsr(const real *eachCsrFvalueSparse, const uint *eachCsrFeaLen, uint numCsr, uint numCsrThisRound,
 							 const uint *csrIdx, real *eachCsrFvalueDense, uint *eachCsrFeaLenDense);
 __global__ void ComputeGDHess(const uint *pCsrLen, const uint *pCsrStartPos, const real *pInsGD, const real *pInsHess,
-						  const int *pInsId, double *csrGD, double *csrHess);
+						  const int *pInsId, double *csrGD, real *csrHess);
 
 #endif /* CSRSPLIT_H_ */

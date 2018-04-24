@@ -150,7 +150,7 @@ __global__ void loadDenseCsr(const real *eachCsrFvalueSparse, const uint *eachCs
 }
 
 __global__ void ComputeGDHess(const uint *pCsrLen, const uint *pCsrStartPos, const real *pInsGD, const real *pInsHess,
-						  const int *pInsId, double *csrGD, double *csrHess){
+						  const int *pInsId, double *csrGD, real *csrHess){
 	uint csrId = blockIdx.x;
 	uint tid = threadIdx.x;
 	extern __shared__ double pGD[];
