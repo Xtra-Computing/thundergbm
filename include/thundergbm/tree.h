@@ -7,6 +7,7 @@
 
 #include "thundergbm/thundergbm.h"
 #include "syncarray.h"
+#include "sstream"
 
 class GHPair {
 public:
@@ -83,34 +84,40 @@ public:
         int split_index;
         bool default_right;
         bool is_leaf;
+        bool is_valid;
 
 //        unsigned int n_instances;
 
         GHPair sum_gh_pair;
 
         friend std::ostream &operator<<(std::ostream &os,
-                                        const TreeNode &node) {
-            os << string_format("\nnid:%d,l:%d,fid:%d,f/i:%f/%d,gain:%.2f,r:%d,w:%f,", node.nid, node.is_leaf,
-                                node.fid, node.split_value, node.split_index, node.gain, node.default_right, node.base_weight);
-            os << "g/h:" << node.sum_gh_pair;
-            return os;
+                                        const TreeNode &node);
+
+        HOST_DEVICE void calc_weight(float_type lambda) {
+            this->base_weight = -sum_gh_pair.g / (sum_gh_pair.h + lambda);
         }
-        HOST_DEVICE void calc_weight(float_type lambda){
-            this->base_weight = - sum_gh_pair.g / (sum_gh_pair.h + lambda);
+
+        HOST_DEVICE bool splittable() const{
+            return !is_leaf && is_valid;
         }
     };
 
     explicit Tree(int depth);
 
     Tree() = default;
-    Tree(const Tree &tree){
+
+    Tree(const Tree &tree) {
         nodes.resize(tree.nodes.size());
         nodes.copy_from(tree.nodes);
     }
 
     void init(int depth);
 
+    string to_string(int depth);
+
     SyncArray<Tree::TreeNode> nodes;
+private:
+    void preorder_traversal(TreeNode &node, int max_depth, int depth, string &s);
 };
 
 #endif //THUNDERGBM_TREE_H
