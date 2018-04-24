@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.9)
+cmake_minimum_required(VERSION 3.1)
 project(thundergbm)
 
 set(CMAKE_CXX_STANDARD 11)
@@ -7,7 +7,7 @@ set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -std=c++11 -gencode arch=compute_60,code
 if (NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release)
 endif ()
-# find pacages
+
 find_package(CUDA REQUIRED QUIET)
 
 find_package(OpenMP REQUIRED QUIET)
@@ -17,6 +17,7 @@ if (OPENMP_FOUND)
 endif ()
 
 add_definitions("-DELPP_FEATURE_PERFORMANCE_TRACKING")
+add_compile_options("-std=c++11")
 set(COMMON_INCLUDES ${PROJECT_SOURCE_DIR}/include ${CMAKE_CURRENT_BINARY_DIR})
 include_directories(${COMMON_INCLUDES})
 

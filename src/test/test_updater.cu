@@ -21,13 +21,13 @@ public:
     SparseColumns columns;
     unsigned int n_instances;
 
-    int depth = 6;
-    int n_trees = 40;
+    int depth = 3;
+    int n_trees = 1;
     float_type min_child_weight = 1;
     float_type lambda = 1;
     float_type gamma = 1;
     float_type rt_eps = 1e-6;
-    string path = DATASET_DIR "SUSY";
+    string path = DATASET_DIR "abalone";
 
     void SetUp() override {
 #ifdef NDEBUG
@@ -40,7 +40,7 @@ public:
         trees.resize(n_trees);
         stats.init(n_instances);
         for (Tree &tree:trees) {
-            TIMED_SCOPE(timerObj, "consturct tree");
+            TIMED_SCOPE(timerObj, "construct tree");
             init_stats(dataSet);
             init_tree(tree);
             int i;
@@ -48,7 +48,7 @@ public:
                 if (!find_split(tree, i)) break;
             }
             PERFORMANCE_CHECKPOINT_WITH_ID(timerObj, "tree");
-//            LOG(INFO)<<tree.nodes;
+            LOG(INFO)<<tree.nodes;
             //compute weights of leaf nodes and predict
             {
                 float_type *y_predict_data = stats.y_predict.device_data();
@@ -102,6 +102,7 @@ public:
             using namespace thrust;
             int start = columns.csc_col_ptr.host_data()[col_id];
             int nnz = columns.csc_col_ptr.host_data()[col_id + 1] - start;//number of non-zeros
+            LOG(DEBUG)<<"nid[3720] = " <<stats.nid.host_data()[3720];
 
             LOG(DEBUG) << "nnz = " << nnz;
             //get node id for each feature value
@@ -199,7 +200,7 @@ public:
                         gain_data[fid] = compute_gain(father_gh, father_gh - missing_gh, missing_gh, mcw, l);
                         return;
                     }
-                    if (fabsf(f_val_data[fid_new2old_data[fid] - 1] - f_val_data[fid_new2old_data[fid]]) >
+                    if (fabsf(f_val_data[fid_new2old_data[fid - 1]] - f_val_data[fid_new2old_data[fid]]) >
                         2 * rt_eps) {
                         GHPair rch_gh = gh_prefix_sum_data[fid - 1];
                         float_type max_gain = compute_gain(father_gh, father_gh - rch_gh, rch_gh, mcw, l);
@@ -273,7 +274,7 @@ public:
                             rch.sum_gh_pair = gh_prefix_sum_data[end];
                         } else {
                             node.split_value = (f_val_data[fid_new2old_data[split_index]] +
-                                                f_val_data[fid_new2old_data[split_index] - 1]) * 0.5f;
+                                                f_val_data[fid_new2old_data[split_index - 1]]) * 0.5f;
                             rch.sum_gh_pair = gh_prefix_sum_data[split_index - 1];
                             if (default_right_data[split_index]) {
                                 rch.sum_gh_pair = rch.sum_gh_pair + missing_gh;

@@ -9,4 +9,5 @@ TEST(TestSparseColums, dataset_loading) {
     dataSet.load_from_file(DATASET_DIR "abalone");
 //    dataSet.load_from_file(DATASET_DIR "mnist.scale");
     SparseColumns sparseColumns(dataSet);
+//    LOG(DEBUG)<<sparseColumns.csc_val;
 }
