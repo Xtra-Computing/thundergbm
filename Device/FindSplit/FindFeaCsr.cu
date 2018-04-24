@@ -686,6 +686,9 @@ if(firstTime == true){//free mem only once, due to memory reuse
 	if(indexComp.partitionMarker.reservedSize < csrManager.curNumCsr){//make sure enough memory for reuse
 		indexComp.partitionMarker.reserveSpace(csrManager.curNumCsr, sizeof(bool));
 	}
+	if(indexComp.histogram_d.reservedSize < csrManager.curNumCsr * 4){//make sure enough memory for reuse
+		indexComp.histogram_d.reserveSpace(csrManager.curNumCsr * 4, sizeof(uint));
+	}
 
 	checkCudaErrors(cudaMemcpy(pCsrHess_d, csrHess_h_merge, sizeof(real) * totalNumCsrFvalue_merge, cudaMemcpyHostToDevice));
 	checkCudaErrors(cudaMemcpy(pCsrGD_d, csrGD_h_merge, sizeof(double) * totalNumCsrFvalue_merge, cudaMemcpyHostToDevice));
@@ -723,8 +726,7 @@ if(firstTime == true){//free mem only once, due to memory reuse
 	bool *default2Right = (bool*)indexComp.partitionMarker.addr;
 	checkCudaErrors(cudaMemset(default2Right, 0, sizeof(bool) * csrManager.curNumCsr));//this is important (i.e. initialisation)
 
-	real *pGainEachCsrFvalue_d;
-	checkCudaErrors(cudaMalloc((void**)&pGainEachCsrFvalue_d, sizeof(real) * totalNumCsrFvalue_merge));
+	real *pGain_d = (real*)(((uint*)indexComp.histogram_d.addr) + csrManager.curNumCsr * 3);
 
 	//cout << "compute gain" << endl;
 	clock_t start_comp_gain = clock();
@@ -736,7 +738,7 @@ if(firstTime == true){//free mem only once, due to memory reuse
 											bagManager.m_pPartitionId2SNPosEachBag + bagId * bagManager.m_maxNumSplittable,
 											DeviceSplitter::m_lambda, pCsrGD_d, pCsrHess_d, csrManager.pCsrFvalue,
 											totalNumCsrFvalue_merge, csrManager.pEachCsrFeaStartPos, csrManager.pEachCsrFeaLen, csrManager.getCsrKey(), bagManager.m_numFea,
-											pGainEachCsrFvalue_d, default2Right);
+											pGain_d, default2Right);
 	cudaStreamSynchronize((*(cudaStream_t*)pStream));
 	GETERROR("after ComputeGainDense");
 
@@ -745,7 +747,7 @@ if(firstTime == true){//free mem only once, due to memory reuse
 	dim3 dimNumofBlockFirstGain;
 	conf.ConfKernel(numSeg, blockSizeFirstGain, dimNumofBlockFirstGain);
 	FirstFeaGain<<<dimNumofBlockFirstGain, blockSizeFirstGain, 0, (*(cudaStream_t*)pStream)>>>(
-											csrManager.pEachCsrFeaStartPos, numSeg, pGainEachCsrFvalue_d, totalNumCsrFvalue_merge);
+											csrManager.pEachCsrFeaStartPos, numSeg, pGain_d, totalNumCsrFvalue_merge);
 
 	//	cout << "searching" << endl;
 	clock_t start_search = clock();
@@ -758,7 +760,7 @@ if(firstTime == true){//free mem only once, due to memory reuse
 	checkCudaErrors(cudaMemcpy(&maxNumFeaValueOneNode, pMaxNumFvalueOneNode, sizeof(int), cudaMemcpyDeviceToHost));
 
 	SegmentedMax(maxNumFeaValueOneNode, numofSNode, pEachCsrNodeSize_d, pEachCsrNodeStart_d,
-					  pGainEachCsrFvalue_d, pStream, pMaxGain_d, pMaxGainKey_d);
+					pGain_d, pStream, pMaxGain_d, pMaxGainKey_d);
 
 	cudaDeviceSynchronize();
 
@@ -779,7 +781,6 @@ if(firstTime == true){//free mem only once, due to memory reuse
 
 	checkCudaErrors(cudaFree(pEachCsrNodeSize_d));
 	checkCudaErrors(cudaFree(pEachCsrNodeStart_d));
-	checkCudaErrors(cudaFree(pGainEachCsrFvalue_d));
 	checkCudaErrors(cudaFree(pMaxGain_d));
 	checkCudaErrors(cudaFree(pMaxGainKey_d));
 	checkCudaErrors(cudaFree(pCsrGD_d));
