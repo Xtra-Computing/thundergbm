@@ -134,8 +134,122 @@ __global__ void LoadFvalueInsId(const int *pOrgFvalueInsId, int *pNewFvalueInsId
 
 uint numofDenseValue_previous;
 bool firstTime = true;
-uint *pCSRKey, *pCSRMultableKey;
-uint num_key = 29053924;
+
+void AfterCompression(GBDTGPUMemManager &manager, BagCsrManager &csrManager, BagManager &bagManager, IndexComputer &indexComp, KernelConf &conf, void *pStream, double &total_scan_t,
+					  int &maxNumFeaValueOneNode){
+	//cout << "prefix sum" << endl;
+	printf("prefix sum\n");
+	clock_t start_scan = clock();
+	int nNumofFeature = manager.m_numofFea;
+	double *pGD_d = (double*)indexComp.histogram_d.addr;//reuse memory; must be here, as curNumCsr may change in different level.
+	real *pHess_d = (real*)(((uint*)indexComp.histogram_d.addr) + csrManager.curNumCsr * 2);//reuse memory
+	real *pGain_d = (real*)(((uint*)indexComp.histogram_d.addr) + csrManager.curNumCsr * 3);
+
+	int numofSNode = bagManager.m_curNumofSplitableEachBag_h[0];
+	int numSeg = bagManager.m_numFea * numofSNode;
+	//construct keys for exclusive scan
+	checkCudaErrors(cudaMemset(csrManager.getMutableCsrKey(), -1, sizeof(uint) * csrManager.curNumCsr));
+//	checkCudaErrors(cudaMemset(pCSRMultableKey, -1, sizeof(uint) * csrManager.curNumCsr));
+	printf("done constructing key... number of segments is %d\n", numSeg);
+
+	//set keys by GPU
+	uint maxSegLen = 0;
+	uint *pMaxLen = thrust::max_element(thrust::device, csrManager.pEachCsrFeaLen, csrManager.pEachCsrFeaLen + numSeg);
+	cudaDeviceSynchronize();
+	checkCudaErrors(cudaMemcpy(&maxSegLen, pMaxLen, sizeof(uint), cudaMemcpyDeviceToHost));
+	cudaDeviceSynchronize();
+
+	dim3 dimNumofBlockToSetKey;
+	dimNumofBlockToSetKey.x = numSeg;
+	uint blockSize = 128;
+	dimNumofBlockToSetKey.y = (maxSegLen + blockSize - 1) / blockSize;
+	if(optimiseSetKey == false)
+		SetKey<<<numSeg, blockSize, sizeof(uint) * 2, (*(cudaStream_t*)pStream)>>>
+			(csrManager.pEachCsrFeaStartPos, csrManager.pEachCsrFeaLen, csrManager.getMutableCsrKey());
+//		(csrManager.pEachCsrFeaStartPos, csrManager.pEachCsrFeaLen, pCSRMultableKey);
+	else{
+		if(numSeg < 1000000)
+			SetKey<<<numSeg, blockSize, sizeof(uint) * 2, (*(cudaStream_t*)pStream)>>>
+				(csrManager.pEachCsrFeaStartPos, csrManager.pEachCsrFeaLen, csrManager.getMutableCsrKey());
+//			(csrManager.pEachCsrFeaStartPos, csrManager.pEachCsrFeaLen, pCSRMultableKey);
+		else{
+			int numSegEachBlk = numSeg/10000;
+			int numofBlkSetKey = (numSeg + numSegEachBlk - 1) / numSegEachBlk;
+			SetKey<<<numofBlkSetKey, blockSize, 0, (*(cudaStream_t*)pStream)>>>(csrManager.pEachCsrFeaStartPos, csrManager.pEachCsrFeaLen,
+					numSegEachBlk, numSeg, csrManager.getMutableCsrKey());
+//					numSegEachBlk, numSeg, pCSRMultableKey);
+		}
+	}
+	cudaStreamSynchronize((*(cudaStream_t*)pStream));
+	cudaDeviceSynchronize();
+
+
+	//compute prefix sum for gd and hess (more than one arrays)
+	thrust::inclusive_scan_by_key(thrust::device, csrManager.getCsrKey(), csrManager.getCsrKey() + csrManager.curNumCsr, pGD_d, pGD_d);//in place prefix sum
+	thrust::inclusive_scan_by_key(thrust::device, csrManager.getCsrKey(), csrManager.getCsrKey() + csrManager.curNumCsr, pHess_d, pHess_d);
+
+	clock_t end_scan = clock();
+	total_scan_t += (end_scan - start_scan);
+
+	//compute gain; default to left or right
+	bool *default2Right = (bool*)indexComp.partitionMarker.addr;
+	checkCudaErrors(cudaMemset(default2Right, 0, sizeof(bool) * csrManager.curNumCsr));//this is important (i.e. initialisation)
+	checkCudaErrors(cudaMemset(pGain_d, 0, sizeof(real) * csrManager.curNumCsr));
+
+//	cout << "compute gain" << endl;
+	printf("compute gain\n");
+	clock_t start_comp_gain = clock();
+	int blockSizeComGain;
+	dim3 dimNumofBlockToComGain;
+	conf.ConfKernel(csrManager.curNumCsr, blockSizeComGain, dimNumofBlockToComGain);
+	cudaDeviceSynchronize();
+	GETERROR("before ComputeGainDense");
+
+	ComputeGainDense<<<dimNumofBlockToComGain, blockSizeComGain, 0, (*(cudaStream_t*)pStream)>>>(
+											bagManager.m_pSNodeStatEachBag,
+											bagManager.m_pPartitionId2SNPosEachBag,
+											DeviceSplitter::m_lambda, pGD_d, pHess_d, csrManager.getCsrFvalue(),
+											csrManager.curNumCsr, csrManager.pEachCsrFeaStartPos, csrManager.pEachCsrFeaLen, csrManager.getCsrKey(), bagManager.m_numFea,
+//											csrManager.curNumCsr, csrManager.pEachCsrFeaStartPos, csrManager.pEachCsrFeaLen, pCSRKey, bagManager.m_numFea,
+											pGain_d, default2Right);
+	cudaStreamSynchronize((*(cudaStream_t*)pStream));
+	GETERROR("after ComputeGainDense");
+
+	//	cout << "searching" << endl;
+	cudaDeviceSynchronize();
+	clock_t start_search = clock();
+	real *pMaxGain_d;
+	uint *pMaxGainKey_d;
+	checkCudaErrors(cudaMalloc((void**)&pMaxGain_d, sizeof(real) * numofSNode));
+	checkCudaErrors(cudaMalloc((void**)&pMaxGainKey_d, sizeof(uint) * numofSNode));
+	checkCudaErrors(cudaMemset(pMaxGainKey_d, -1, sizeof(uint) * numofSNode));
+	//compute # of blocks for each node
+	uint *pMaxNumFvalueOneNode = thrust::max_element(thrust::device, csrManager.pEachNodeSizeInCsr, csrManager.pEachNodeSizeInCsr + numofSNode);
+	checkCudaErrors(cudaMemcpy(&maxNumFeaValueOneNode, pMaxNumFvalueOneNode, sizeof(int), cudaMemcpyDeviceToHost));
+	printf("max fvalue one node=%d\n", maxNumFeaValueOneNode);
+	SegmentedMax(maxNumFeaValueOneNode, numofSNode, csrManager.pEachNodeSizeInCsr, csrManager.pEachCsrNodeStartPos,
+				 pGain_d, pStream, pMaxGain_d, pMaxGainKey_d);
+
+	printf("finding split info\n");
+	//find the split value and feature
+	FindSplitInfo<<<1, numofSNode, 0>>>(
+										 csrManager.pEachCsrFeaStartPos,
+										 csrManager.pEachCsrFeaLen,
+										 csrManager.getCsrFvalue(),
+										 pMaxGain_d, pMaxGainKey_d,
+										 bagManager.m_pPartitionId2SNPosEachBag, nNumofFeature,
+					  	  	  	  	  	 bagManager.m_pSNodeStatEachBag,
+					  	  	  	  	  	 pGD_d, pHess_d,
+					  	  	  	  	  	 default2Right, csrManager.getCsrKey(),
+//					  	  	  	  	  	 default2Right, pCSRKey,
+					  	  	  	  	  	 bagManager.m_pBestSplitPointEachBag,
+					  	  	  	  	  	 bagManager.m_pRChildStatEachBag,
+					  	  	  	  	  	 bagManager.m_pLChildStatEachBag);
+	cudaDeviceSynchronize();
+	checkCudaErrors(cudaFree(pMaxGain_d));
+	checkCudaErrors(cudaFree(pMaxGainKey_d));
+}
+
 void DeviceSplitter::FeaFinderAllNode2(void *pStream, int bagId)
 {
 	cudaDeviceSynchronize();
@@ -143,12 +257,6 @@ void DeviceSplitter::FeaFinderAllNode2(void *pStream, int bagId)
 	BagManager bagManager;
 	BagCsrManager csrManager(bagManager.m_numFea, bagManager.m_maxNumSplittable, bagManager.m_numFeaValue);
 	int numofSNode = bagManager.m_curNumofSplitableEachBag_h[bagId];
-
-//	if(firstTime == true){
-//		checkCudaErrors(cudaMalloc((void**)&pCSRKey, sizeof(uint) * num_key));
-//		checkCudaErrors(cudaMalloc((void**)&pCSRMultableKey, sizeof(uint) * num_key));
-//		firstTime = false;
-//	}
 
 	IndexComputer indexComp;
 	indexComp.AllocMem(bagManager.m_numFea, numofSNode, bagManager.m_maxNumSplittable);
@@ -329,10 +437,7 @@ checkCudaErrors(cudaFree(pCsrMarker));
 	}
 	cudaDeviceSynchronize();
 	double *pGD_d = (double*)indexComp.histogram_d.addr;//reuse memory; must be here, as curNumCsr may change in different level.
-//real *pHess_d = (real*)(((uint*)indexComp.histogram_d.addr) + csrManager.curNumCsr * 2);//reuse memory
-real *pHess_d;
-checkCudaErrors(cudaMalloc((void**)&pHess_d, sizeof(real) * csrManager.curNumCsr));
-	real *pGain_d = (real*)(((uint*)indexComp.histogram_d.addr) + csrManager.curNumCsr * 3);
+	real *pHess_d = (real*)(((uint*)indexComp.histogram_d.addr) + csrManager.curNumCsr * 2);//reuse memory
 	checkCudaErrors(cudaMemset(pGD_d, 0, sizeof(double) * csrManager.curNumCsr));
 	checkCudaErrors(cudaMemset(pHess_d, 0, sizeof(real) * csrManager.curNumCsr));
 	dim3 dimNumofBlockForGD;
@@ -356,114 +461,8 @@ checkCudaErrors(cudaMalloc((void**)&pHess_d, sizeof(real) * csrManager.curNumCsr
 	clock_t csr_len_end = clock();
 	total_csr_len_t += (csr_len_end - csr_len_t);
 
-	//cout << "prefix sum" << endl;
-	printf("prefix sum\n");
-	int numSeg = bagManager.m_numFea * numofSNode;
-	clock_t start_scan = clock();
 
-	//construct keys for exclusive scan
-	checkCudaErrors(cudaMemset(csrManager.getMutableCsrKey(), -1, sizeof(uint) * csrManager.curNumCsr));
-//	checkCudaErrors(cudaMemset(pCSRMultableKey, -1, sizeof(uint) * csrManager.curNumCsr));
-	printf("done constructing key... number of segments is %d\n", numSeg);
-
-	//set keys by GPU
-	uint maxSegLen = 0;
-	uint *pMaxLen = thrust::max_element(thrust::device, csrManager.pEachCsrFeaLen, csrManager.pEachCsrFeaLen + numSeg);
-	cudaDeviceSynchronize();
-	checkCudaErrors(cudaMemcpy(&maxSegLen, pMaxLen, sizeof(uint), cudaMemcpyDeviceToHost));
-	cudaDeviceSynchronize();
-
-	dim3 dimNumofBlockToSetKey;
-	dimNumofBlockToSetKey.x = numSeg;
-	uint blockSize = 128;
-	dimNumofBlockToSetKey.y = (maxSegLen + blockSize - 1) / blockSize;
-	if(optimiseSetKey == false)
-		SetKey<<<numSeg, blockSize, sizeof(uint) * 2, (*(cudaStream_t*)pStream)>>>
-			(csrManager.pEachCsrFeaStartPos, csrManager.pEachCsrFeaLen, csrManager.getMutableCsrKey());
-//		(csrManager.pEachCsrFeaStartPos, csrManager.pEachCsrFeaLen, pCSRMultableKey);
-	else{
-		if(numSeg < 1000000)
-			SetKey<<<numSeg, blockSize, sizeof(uint) * 2, (*(cudaStream_t*)pStream)>>>
-				(csrManager.pEachCsrFeaStartPos, csrManager.pEachCsrFeaLen, csrManager.getMutableCsrKey());
-//			(csrManager.pEachCsrFeaStartPos, csrManager.pEachCsrFeaLen, pCSRMultableKey);
-		else{
-			int numSegEachBlk = numSeg/10000;
-			int numofBlkSetKey = (numSeg + numSegEachBlk - 1) / numSegEachBlk;
-			SetKey<<<numofBlkSetKey, blockSize, 0, (*(cudaStream_t*)pStream)>>>(csrManager.pEachCsrFeaStartPos, csrManager.pEachCsrFeaLen,
-					numSegEachBlk, numSeg, csrManager.getMutableCsrKey());
-//					numSegEachBlk, numSeg, pCSRMultableKey);
-		}
-	}
-	cudaStreamSynchronize((*(cudaStream_t*)pStream));
-	cudaDeviceSynchronize();
-
-
-	//compute prefix sum for gd and hess (more than one arrays)
-	thrust::inclusive_scan_by_key(thrust::device, csrManager.getCsrKey(), csrManager.getCsrKey() + csrManager.curNumCsr, pGD_d, pGD_d);//in place prefix sum
-	thrust::inclusive_scan_by_key(thrust::device, csrManager.getCsrKey(), csrManager.getCsrKey() + csrManager.curNumCsr, pHess_d, pHess_d);
-
-	clock_t end_scan = clock();
-	total_scan_t += (end_scan - start_scan);
-
-	//compute gain; default to left or right
-	bool *default2Right = (bool*)indexComp.partitionMarker.addr;
-	checkCudaErrors(cudaMemset(default2Right, 0, sizeof(bool) * csrManager.curNumCsr));//this is important (i.e. initialisation)
-	checkCudaErrors(cudaMemset(pGain_d, 0, sizeof(real) * csrManager.curNumCsr));
-
-//	cout << "compute gain" << endl;
-	printf("compute gain\n");
-	clock_t start_comp_gain = clock();
-	int blockSizeComGain;
-	dim3 dimNumofBlockToComGain;
-	conf.ConfKernel(csrManager.curNumCsr, blockSizeComGain, dimNumofBlockToComGain);
-	cudaDeviceSynchronize();
-	GETERROR("before ComputeGainDense");
-
-	ComputeGainDense<<<dimNumofBlockToComGain, blockSizeComGain, 0, (*(cudaStream_t*)pStream)>>>(
-											bagManager.m_pSNodeStatEachBag + bagId * bagManager.m_maxNumSplittable,
-											bagManager.m_pPartitionId2SNPosEachBag + bagId * bagManager.m_maxNumSplittable,
-											DeviceSplitter::m_lambda, pGD_d, pHess_d, csrManager.getCsrFvalue(),
-											csrManager.curNumCsr, csrManager.pEachCsrFeaStartPos, csrManager.pEachCsrFeaLen, csrManager.getCsrKey(), bagManager.m_numFea,
-//											csrManager.curNumCsr, csrManager.pEachCsrFeaStartPos, csrManager.pEachCsrFeaLen, pCSRKey, bagManager.m_numFea,
-											pGain_d, default2Right);
-	cudaStreamSynchronize((*(cudaStream_t*)pStream));
-	GETERROR("after ComputeGainDense");
-
-	//	cout << "searching" << endl;
-	cudaDeviceSynchronize();
-	clock_t start_search = clock();
-	real *pMaxGain_d;
-	uint *pMaxGainKey_d;
-	checkCudaErrors(cudaMalloc((void**)&pMaxGain_d, sizeof(real) * numofSNode));
-	checkCudaErrors(cudaMalloc((void**)&pMaxGainKey_d, sizeof(uint) * numofSNode));
-	checkCudaErrors(cudaMemset(pMaxGainKey_d, -1, sizeof(uint) * numofSNode));
-	//compute # of blocks for each node
-	uint *pMaxNumFvalueOneNode = thrust::max_element(thrust::device, csrManager.pEachNodeSizeInCsr, csrManager.pEachNodeSizeInCsr + numofSNode);
-	checkCudaErrors(cudaMemcpy(&maxNumFeaValueOneNode, pMaxNumFvalueOneNode, sizeof(int), cudaMemcpyDeviceToHost));
-	printf("max fvalue one node=%d\n", maxNumFeaValueOneNode);
-	SegmentedMax(maxNumFeaValueOneNode, numofSNode, csrManager.pEachNodeSizeInCsr, csrManager.pEachCsrNodeStartPos,
-				 pGain_d, pStream, pMaxGain_d, pMaxGainKey_d);
-
-	printf("finding split info\n");
-	//find the split value and feature
-	FindSplitInfo<<<1, numofSNode, 0, (*(cudaStream_t*)pStream)>>>(
-										 csrManager.pEachCsrFeaStartPos,
-										 csrManager.pEachCsrFeaLen,
-										 csrManager.getCsrFvalue(),
-										 pMaxGain_d, pMaxGainKey_d,
-										 bagManager.m_pPartitionId2SNPosEachBag + bagId * bagManager.m_maxNumSplittable, nNumofFeature,
-					  	  	  	  	  	 bagManager.m_pSNodeStatEachBag + bagId * bagManager.m_maxNumSplittable,
-					  	  	  	  	  	 pGD_d, pHess_d,
-					  	  	  	  	  	 default2Right, csrManager.getCsrKey(),
-//					  	  	  	  	  	 default2Right, pCSRKey,
-					  	  	  	  	  	 bagManager.m_pBestSplitPointEachBag + bagId * bagManager.m_maxNumSplittable,
-					  	  	  	  	  	 bagManager.m_pRChildStatEachBag + bagId * bagManager.m_maxNumSplittable,
-					  	  	  	  	  	 bagManager.m_pLChildStatEachBag + bagId * bagManager.m_maxNumSplittable);
-
-	cudaStreamSynchronize((*(cudaStream_t*)pStream));
-	checkCudaErrors(cudaFree(pMaxGain_d));
-	checkCudaErrors(cudaFree(pMaxGainKey_d));
-checkCudaErrors(cudaFree(pHess_d));
+	AfterCompression(manager, csrManager, bagManager, indexComp, conf, pStream, total_scan_t, maxNumFeaValueOneNode);
 }
 
 
