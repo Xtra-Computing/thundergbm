@@ -81,7 +81,7 @@ public:
         int *nid_data = stats.nid.device_data();
         float_type *stats_y_data = stats.y.device_data();
         float_type *stats_yp_data = stats.y_predict.device_data();
-        LOG(DEBUG)<<stats.y_predict;
+        LOG(DEBUG) << stats.y_predict;
         LOG(INFO) << "initializing instance statistics";
         device_loop(n_instances, [=] __device__(int i) {
             nid_data[i] = 0;
@@ -108,38 +108,41 @@ public:
     bool find_split(Tree &tree, int level) {
         int n_max_nodes_in_level = static_cast<int>(pow(2, level));
         int nid_offset = static_cast<int>(pow(2, level) - 1);
+        int n_column = columns.n_column;
+        int n_partition = n_column * n_max_nodes_in_level;
+        int nnz = columns.nnz;
 
-        //for each feature, get the best split index for each node
-        for (int col_id = 0; col_id < columns.n_column; ++col_id) {
+//        for (int col_id = 0; col_id < columns.n_column; ++col_id) {
+        {
             using namespace thrust;
-            int start = columns.csc_col_ptr.host_data()[col_id];
-            int nnz = columns.csc_col_ptr.host_data()[col_id + 1] - start;//number of non-zeros
-
-            LOG(DEBUG) << "nnz = " << nnz;
-            //get node id for each feature value
-            SyncArray<int> f_nid(nnz);
+//            LOG(DEBUG) << "nnz = " << nnz;
+            //get pid = (nid, col_id) for each feature value
+            SyncArray<int> fid2pid(nnz);
             {
-                int *f_nid_data = f_nid.device_data();
+                int *fid2pid_data = fid2pid.device_data();
                 int *nid_data = stats.nid.device_data();
-                int *iid_data = columns.csc_row_ind.device_data() + start;
+                int *iid_data = columns.csc_row_ind.device_data();
 
-                device_loop(nnz, [=]__device__(int fid) {
-                    //feature id -> instance id -> node id
-                    int nid = nid_data[iid_data[fid]];
-                    //if this node is leaf node, move it to the end
-                    if (nid < nid_offset) nid = INT_MAX;
-                    f_nid_data[fid] = nid;
-                });
-                LOG(DEBUG) << "f_nid " << f_nid;
+                device_lambda_2d_sparse(n_column, columns.csc_col_ptr.device_data(),
+                                        [=]__device__(int col_id, int fid) {
+                                            //feature id -> instance id -> node id
+                                            int nid = nid_data[iid_data[fid]];
+                                            int pid;
+                                            //if this node is leaf node, move it to the end
+                                            if (nid < nid_offset) pid = INT_MAX;//todo negative
+                                            else pid = (nid - nid_offset) * n_column + col_id;
+                                            fid2pid_data[fid] = pid;
+                                        });
+                LOG(DEBUG) << "fid2pid " << fid2pid;
             }
 
             //get feature id mapping for partition, new -> old
             SyncArray<int> fid_new2old(nnz);
             {
                 sequence(cuda::par, fid_new2old.device_data(), fid_new2old.device_end(), 0);
-                stable_sort_by_key(cuda::par, f_nid.device_data(), f_nid.device_end(), fid_new2old.device_data(),
+                stable_sort_by_key(cuda::par, fid2pid.device_data(), fid2pid.device_end(), fid_new2old.device_data(),
                                    thrust::less<int>());
-                LOG(DEBUG) << "sorted f_nid " << f_nid;
+                LOG(DEBUG) << "sorted fid2pid " << fid2pid;
                 LOG(DEBUG) << "fid_new2old " << fid_new2old;
             }
 
@@ -149,7 +152,7 @@ public:
                 GHPair *original_gh_data = stats.gh_pair.device_data();
                 GHPair *gh_prefix_sum_data = gh_prefix_sum.device_data();
                 int *fid_new2old_data = fid_new2old.device_data();
-                int *iid_data = columns.csc_row_ind.device_data() + start;
+                int *iid_data = columns.csc_row_ind.device_data();
 
                 device_loop(nnz, [=]__device__(int new_fid) {
                     //new local feature id -> old global feature id -> instance id
@@ -158,20 +161,20 @@ public:
                 });
                 LOG(DEBUG) << "gathered g/h " << gh_prefix_sum;
 
-                inclusive_scan_by_key(cuda::par, f_nid.device_data(), f_nid.device_end(),
+                inclusive_scan_by_key(cuda::par, fid2pid.device_data(), fid2pid.device_end(),
                                       gh_prefix_sum.device_data(),
                                       gh_prefix_sum.device_data());
                 LOG(DEBUG) << "prefix sum " << gh_prefix_sum;
             }
 
             //find node start position
-            SyncArray<int> node_ptr(n_max_nodes_in_level + 1);
+            SyncArray<int> pid_ptr(n_max_nodes_in_level * n_column + 1);
             {
-                counting_iterator<int> search_begin(nid_offset);
+                counting_iterator<int> search_begin(0);
 
-                upper_bound(cuda::par, f_nid.device_data(), f_nid.device_end(), search_begin,
-                            search_begin + n_max_nodes_in_level, node_ptr.device_data() + 1);
-                LOG(DEBUG) << node_ptr;
+                upper_bound(cuda::par, fid2pid.device_data(), fid2pid.device_end(), search_begin,
+                            search_begin + n_partition, pid_ptr.device_data() + 1);
+                LOG(DEBUG) << pid_ptr;
             }
 
             //calculate gain of each split
@@ -187,10 +190,10 @@ public:
                         return 0;
                 };
 
-                int *node_ptr_data = node_ptr.device_data();
-                int *f_nid_data = f_nid.device_data();
+                int *pid_ptr_data = pid_ptr.device_data();
+                int *fid2pid_data = fid2pid.device_data();
                 Tree::TreeNode *nodes_data = tree.nodes.device_data();
-                float_type *f_val_data = columns.csc_val.device_data() + start;
+                float_type *f_val_data = columns.csc_val.device_data();
                 int *fid_new2old_data = fid_new2old.device_data();
                 GHPair *gh_prefix_sum_data = gh_prefix_sum.device_data();
                 float_type *gain_data = gain.device_data();
@@ -201,10 +204,11 @@ public:
                 float_type rt_eps = this->rt_eps;
 
                 device_loop(nnz, [=]__device__(int fid) {
-                    int nid = f_nid_data[fid];//node id
-                    if (nid == INT_MAX) return;
-                    int begin = node_ptr_data[nid - nid_offset];//feature begin position for this node
-                    int end = node_ptr_data[nid - nid_offset + 1] - 1;//feature end position for this node
+                    int pid = fid2pid_data[fid];//partition id
+                    int nid = pid / n_column + nid_offset;
+                    if (pid == INT_MAX) return;
+                    int begin = pid_ptr_data[pid];//partition begin position
+                    int end = pid_ptr_data[pid + 1] - 1;//partition end position
                     GHPair father_gh = nodes_data[nid].sum_gh_pair;
                     GHPair missing_gh = father_gh - gh_prefix_sum_data[end];
                     if (fid == begin) {
@@ -224,80 +228,85 @@ public:
                             }
                         }
                         gain_data[fid] = max_gain;
+//                        printf("fid = %d, gain = %f\n", fid, gain_data[fid]);
                     };
                 });
                 LOG(DEBUG) << "gain = " << gain;
             }
 
-            //get best gain and the index of best gain for each node
+            //get best gain and the index of best gain for each feature and each node
             {
                 typedef tuple<int, float_type> arg_max_t;
                 auto arg_max = []__device__(const arg_max_t &a, const arg_max_t &b) {
-                    return get<1>(a) > get<1>(b) ? a : b;
+                    if (fabsf(get<1>(a) - get<1>(b)) < 1e-5)
+                        return get<0>(a) < get<0>(b) ? a : b;
+                    else
+                        return get<1>(a) > get<1>(b) ? a : b;
                 };
-                device_vector<int> reduced_nid(n_max_nodes_in_level);
+                auto in_same_node = [=]__device__(const int a, const int b) {
+                    return (a / n_column) == (b / n_column);
+                };
+                device_vector<int> reduced_pid(n_max_nodes_in_level);
                 device_vector<arg_max_t> best_split(n_max_nodes_in_level);
                 device_ptr<float_type> gain_data = device_pointer_cast(gain.device_data());
-                device_ptr<int> f_nid_data = device_pointer_cast(f_nid.device_data());
+                device_ptr<int> fid2pid_data = device_pointer_cast(fid2pid.device_data());
 
                 //reduce to get best split of each node for this feature
-                reduce_by_key(f_nid_data, f_nid_data + nnz,
-                              make_zip_iterator(
-                                      make_tuple(counting_iterator<int>(0), gain_data)),
-                              reduced_nid.begin(), best_split.begin(), equal_to<int>(),
-                              arg_max);
+                reduce_by_key(fid2pid_data, fid2pid_data + nnz,
+                              make_zip_iterator(make_tuple(counting_iterator<int>(0), gain_data)),
+                              reduced_pid.begin(), best_split.begin(),
+                              in_same_node, arg_max);
 
                 //update global best split for each node
                 device_ptr<arg_max_t> best_split_data = best_split.data();
-                device_ptr<int> reduced_nid_data = reduced_nid.data();
-                const int *node_ptr_data = node_ptr.device_data();
+                device_ptr<int> reduced_pid_data = reduced_pid.data();
+                const int *pid_ptr_data = pid_ptr.device_data();
                 Tree::TreeNode *nodes_data = tree.nodes.device_data();
                 GHPair *gh_prefix_sum_data = gh_prefix_sum.device_data();
                 int *fid_new2old_data = fid_new2old.device_data();
-                float_type *f_val_data = columns.csc_val.device_data() + start;//offset to this feature
+                float_type *f_val_data = columns.csc_val.device_data();
                 bool *default_right_data = default_right.device_data();
                 float_type rt_eps = this->rt_eps;
                 float_type lambda = this->lambda;
 
-                device_loop(reduced_nid.size(), [=]__device__(int i) {
-                    int nid = reduced_nid_data[i];
-                    if (nid == INT_MAX) return;
-                    arg_max_t bst = best_split_data[nid - nid_offset];
+                device_loop(best_split.size(), [=]__device__(int i) {
+                    arg_max_t bst = best_split_data[i];
                     float_type split_gain = get<1>(bst);
                     int split_index = get<0>(bst);
+                    int pid = fid2pid_data[split_index];
+                    if (pid == INT_MAX) return;
+                    int nid0 = pid / n_column;
+                    int nid = nid0 + nid_offset;
                     Tree::TreeNode &node = nodes_data[nid];
-                    if (split_gain > node.gain) {
-                        //save best
-                        node.gain = split_gain;
-                        node.split_index = fid_new2old_data[split_index];
+                    node.gain = split_gain;
 
-                        //update best split info
-                        Tree::TreeNode &lch = nodes_data[nid * 2 + 1];//left child
-                        Tree::TreeNode &rch = nodes_data[nid * 2 + 2];//right child
-                        lch.is_valid = true;
-                        rch.is_valid = true;
-                        node.fid = col_id;
-                        int begin = node_ptr_data[nid - nid_offset];
-                        int end = node_ptr_data[nid - nid_offset + 1] - 1;
-                        GHPair missing_gh = node.sum_gh_pair - gh_prefix_sum_data[end];
-                        if (split_index == begin) {
-                            node.split_value = f_val_data[fid_new2old_data[end]] -
-                                               fabsf(f_val_data[fid_new2old_data[split_index]]) - rt_eps;
-                            lch.sum_gh_pair = missing_gh;
-                            rch.sum_gh_pair = gh_prefix_sum_data[end];
-                        } else {
-                            node.split_value = (f_val_data[fid_new2old_data[split_index]] +
-                                                f_val_data[fid_new2old_data[split_index - 1]]) * 0.5f;
-                            rch.sum_gh_pair = gh_prefix_sum_data[split_index - 1];
-                            if (default_right_data[split_index]) {
-                                rch.sum_gh_pair = rch.sum_gh_pair + missing_gh;
-                                node.default_right = true;
-                            }
-                            lch.sum_gh_pair = node.sum_gh_pair - rch.sum_gh_pair;
+                    //do split
+                    Tree::TreeNode &lch = nodes_data[nid * 2 + 1];//left child
+                    Tree::TreeNode &rch = nodes_data[nid * 2 + 2];//right child
+                    lch.is_valid = true;
+                    rch.is_valid = true;
+                    node.col_id = pid % n_column;
+                    int begin = pid_ptr_data[pid ];
+                    int end = pid_ptr_data[pid + 1] - 1;
+                    GHPair missing_gh = node.sum_gh_pair - gh_prefix_sum_data[end];
+                    if (split_index == begin) {
+                        node.split_value = f_val_data[fid_new2old_data[end]] -
+                                           fabsf(f_val_data[fid_new2old_data[split_index]]) - rt_eps;
+                        lch.sum_gh_pair = missing_gh;
+                        rch.sum_gh_pair = gh_prefix_sum_data[end];
+                    } else {
+                        node.split_value = (f_val_data[fid_new2old_data[split_index]] +
+                                            f_val_data[fid_new2old_data[split_index - 1]]) * 0.5f;
+                        rch.sum_gh_pair = gh_prefix_sum_data[split_index - 1];
+                        if (default_right_data[split_index]) {
+                            rch.sum_gh_pair = rch.sum_gh_pair + missing_gh;
+                            node.default_right = true;
                         }
-                        lch.calc_weight(lambda);
-                        rch.calc_weight(lambda);
+                        lch.sum_gh_pair = node.sum_gh_pair - rch.sum_gh_pair;
                     }
+                    lch.calc_weight(lambda);
+                    rch.calc_weight(lambda);
+//                    printf("pid = %d, pid %% ncol = %d, ncol = %d, nid0 = %d, split_gain = %f, col_id = %d, split_value = %f\n",pid, pid % n_column, n_column, nid0, split_gain, node.col_id, node.split_value);
                 });
             }
         }
@@ -325,10 +334,11 @@ public:
             const int *iid_data = columns.csc_row_ind.device_data();
             const Tree::TreeNode *nodes_data = tree.nodes.device_data();
             const int *col_ptr_data = columns.csc_col_ptr.device_data();
+            const float_type *f_val_data = columns.csc_val.device_data();
             has_splittable.host_data()[0] = false;
             bool *h_s_data = has_splittable.device_data();
 
-            device_lambda_2d_sparse(columns.n_column, col_ptr_data,
+            device_lambda_2d_sparse(n_column, col_ptr_data,
                                     [=]__device__(int col_id, int fid) {
                                         //feature id -> instance id
                                         int iid = iid_data[fid];
@@ -337,16 +347,16 @@ public:
                                         //node id -> node
                                         const Tree::TreeNode &node = nodes_data[nid];
                                         //if the node splits on this feature
-                                        if (node.splittable() && node.fid == col_id) {
+                                        if (node.splittable() && node.col_id == col_id) {
                                             h_s_data[0] = true;
                                             //node goes to next level
                                             nid *= 2;
-                                            if (fid - col_ptr_data[col_id] < node.split_index)
-                                                //goes to right child
-                                                nid += 2;
-                                            else
-                                                //left child
+                                            if (f_val_data[fid] < node.split_value)
+                                                //goes to left child
                                                 nid += 1;
+                                            else
+                                                //right child
+                                                nid += 2;
                                             nid_data[iid] = nid;
                                         }
                                     });

@@ -19,23 +19,40 @@ public:
      * initialize class that can store given count of elements
      * @param count the given count
      */
-    explicit SyncArray(size_t count);
+    explicit SyncArray(size_t count) : mem(new SyncMem(sizeof(T) * count)), size_(count) {
+    }
 
     SyncArray() : mem(nullptr), size_(0) {}
 
-    ~SyncArray();
+    ~SyncArray() { delete mem; };
 
-    const T *host_data() const;
+    const T *host_data() const {
+        to_host();
+        return static_cast<T *>(mem->host_data());
+    };
 
-    const T *device_data() const;
+    const T *device_data() const {
+        to_device();
+        return static_cast<T *>(mem->device_data());
+    };
 
-    T *host_data();
+    T *host_data() {
+        to_host();
+        return static_cast<T *>(mem->host_data());
+    };
 
-    T *device_data();
+    T *device_data() {
+        to_device();
+        return static_cast<T *>(mem->device_data());
+    };
 
-    T *device_end();
+    T *device_end() {
+        return device_data() + size();
+    };
 
-    const T *device_end() const;
+    const T *device_end() const {
+        return device_data() + size();
+    };
 
     void set_host_data(T *host_ptr) {
         mem->set_host_data(host_ptr);
@@ -53,40 +70,52 @@ public:
         mem->to_device();
     }
 
-    //deprecated because of performance issue
-//    /**
-//     * random access operator
-//     * @param index the index of the elements
-//     * @return **host** element at the index
-//     */
-//    const T &operator[](int index) const{
-//        return host_data()[index];
-//    }
-//
-//    T &operator[](int index){
-//        return host_data()[index];
-//    }
-
     /**
      * copy device data. This will call to_device() implicitly.
      * @param source source device data pointer
      * @param count the count of elements
      */
-    void copy_from(const T *source, size_t count);
+    void copy_from(const T *source, size_t count) {
 
-    void copy_from(const SyncArray<T> &source);
+#ifdef USE_CUDA
+        thunder::device_mem_copy(mem->device_data(), source, sizeof(T) * count);
+#else
+        memcpy(mem->host_data(), source, sizeof(T) * count);
+#endif
+    };
+
+    void copy_from(const SyncArray<T> &source) {
+
+        CHECK_EQ(size(), source.size()) << "destination and source count doesn't match";
+#ifdef USE_CUDA
+        copy_from(source.device_data(), source.size());
+#else
+        copy_from(source.host_data(), source.size());
+#endif
+    };
 
     /**
      * set all elements to the given value. This method will set device data.
      * @param value
      */
-    void mem_set(const T &value);
+    void mem_set(const T &value) {
+#ifdef USE_CUDA
+        CUDA_CHECK(cudaMemset(device_data(), value, mem_size()));
+#else
+        memset(host_data(), value, mem_size());
+#endif
+    };
 
     /**
      * resize to a new size. This will also clear all data.
      * @param count
      */
-    void resize(size_t count);
+    void resize(size_t count) {
+
+        delete mem;
+        mem = new SyncMem(sizeof(T) * count);
+        this->size_ = count;
+    };
 
     size_t mem_size() const {//number of bytes
         return mem->size();
@@ -100,7 +129,16 @@ public:
         return mem->head();
     }
 
-    void log(el::base::type::ostream_t &ostream) const override;
+    void log(el::base::type::ostream_t &ostream) const override {
+        int i;
+        ostream << "[";
+        for (i = 0; i < size() - 1 && i < el::base::consts::kMaxLogPerContainer - 1; ++i) {
+//    for (i = 0; i < size() - 1; ++i) {
+            ostream << host_data()[i] << ",";
+        }
+        ostream << host_data()[i];
+        ostream << "]";
+    };
 
 private:
 

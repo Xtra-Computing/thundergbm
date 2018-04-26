@@ -75,13 +75,13 @@ class Tree {
 public:
     struct TreeNode {
         ///feature id
-        int fid;
+        int col_id;
         ///node id
         int nid;
         float_type gain;
         float_type base_weight;
         float_type split_value;
-        int split_index;
+//        int split_index;
         bool default_right;
         bool is_leaf;
         bool is_valid;
