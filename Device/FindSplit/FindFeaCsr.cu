@@ -289,7 +289,6 @@ void AllNode2CompGD(GBDTGPUMemManager &manager, BagCsrManager &csrManager, BagMa
 		uint *pMaxNumFvalueOneNode = thrust::max_element(thrust::device, pTempNumFvalueEachNode, pTempNumFvalueEachNode + numofSNode);
 		cudaDeviceSynchronize();
 		checkCudaErrors(cudaMemcpy(&maxNumFeaValueOneNode, pMaxNumFvalueOneNode, sizeof(int), cudaMemcpyDeviceToHost));
-		indexComp.FreeMem();
 		PROCESS_ERROR(bagManager.m_numFeaValue >= csrManager.curNumCsr);
 		//split nodes
 		csr_len_t = clock();
@@ -548,7 +547,7 @@ void AllNode3CompGD(GBDTGPUMemManager &manager, BagCsrManager &csrManager, BagMa
 					uint segStart = eachCompressedFeaStartPos_merge[segId];
 					uint feaLen = eachCompressedFeaLen_merge[segId];
 					if(csrId >= segStart && csrId < segStart + feaLen){
-						fid = segId % bagManager.m_numFea;
+						fid = segId % bagManager.m_numFea;//may have problem here??
 						break;
 					}
 				}
@@ -563,7 +562,8 @@ void AllNode3CompGD(GBDTGPUMemManager &manager, BagCsrManager &csrManager, BagMa
 					if(pid < 0)
 						continue;//############## this way okay?
 					PROCESS_ERROR(pid >= 0 && pid < numofSNode);
-					if(i == 0 || newCsrFvalue[pid * bagManager.m_numFea + fid].empty() || fabs(csrFvalue_merge[csrId] - newCsrFvalue[pid * bagManager.m_numFea + fid].back()) > DeviceSplitter::rt_eps){
+					if(i == 0 || newCsrFvalue[pid * bagManager.m_numFea + fid].empty() ||
+					   fabs(newCsrFvalue[pid * bagManager.m_numFea + fid].back() - csrFvalue_merge[csrId]) > DeviceSplitter::rt_eps){
 						newCsrFvalue[pid * bagManager.m_numFea + fid].push_back(csrFvalue_merge[csrId]);
 						eachNewCsrLen[pid * bagManager.m_numFea + fid].push_back(1);
 						eachNewCompressedFeaLen_merge[pid * bagManager.m_numFea + fid]++;
@@ -577,7 +577,7 @@ void AllNode3CompGD(GBDTGPUMemManager &manager, BagCsrManager &csrManager, BagMa
 
 			uint totalNewCsr = 0;
 			for(int i = 0; i < numofSNode * bagManager.m_numFea; i++)
-				totalNewCsr += newCsrFvalue[i].size();
+				totalNewCsr += eachNewCsrLen[i].size();
 			printf("hello world org=%u v.s. csr=%u\n", bagManager.m_numFeaValue, totalNewCsr);
 			thrust::exclusive_scan(thrust::host, eachNewCompressedFeaLen_merge, eachNewCompressedFeaLen_merge + numofSNode * bagManager.m_numFea, eachNewCompressedFeaStart_merge);
 			delete[] pInsId2Nid;
@@ -618,8 +618,7 @@ void AllNode3CompGD(GBDTGPUMemManager &manager, BagCsrManager &csrManager, BagMa
 			LoadGDHessFvalueRoot<<<dimNumofBlockToLoadGD, blockSizeLoadGD, 0, (*(cudaStream_t*)pStream)>>>(bagManager.m_pInsGradEachBag,
 																   	   	bagManager.m_pInsHessEachBag, bagManager.m_numIns,
 																   	   	manager.m_pDInsId, bagManager.m_numFeaValue,
-																   		fgd_d,
-																   	   	fhess_d);
+																   		fgd_d, fhess_d);
 			checkCudaErrors(cudaMemcpy(fvalue_d, fvalue_org_d, sizeof(real) * bagManager.m_numFeaValue, cudaMemcpyDefault));
 			cudaStreamSynchronize((*(cudaStream_t*)pStream));
 			clock_t end_gd = clock();
@@ -648,6 +647,28 @@ void AllNode3CompGD(GBDTGPUMemManager &manager, BagCsrManager &csrManager, BagMa
 					   eachNodeSizeInCsr_merge, eachCsrNodeStartPos_merge, csrFvalue_merge, csrGD_h_merge, csrHess_h_merge, eachCsrLen_merge);
 		printf("total csr fvalue=%u\n", totalNumCsrFvalue_merge);
 
+//test two ways of computing csr
+		int segIdCnt = 0, innerCsrIdCnt = 0;
+		if(numofSNode > 1)
+		for(int csrId = 0; csrId < totalNumCsrFvalue_merge; csrId++){
+			if(eachCsrLen_merge[csrId] != eachNewCsrLen[segIdCnt][innerCsrIdCnt]){
+				printf("csrId=%d, segIdCnt=%d, innerCsrIdCnt=%d, segSize=%d\n", csrId, segIdCnt, innerCsrIdCnt, eachNewCsrLen[segIdCnt].size());
+				printf("right csr len=%d v.s. wrong len=%d\n", eachCsrLen_merge[csrId], eachNewCsrLen[segIdCnt][innerCsrIdCnt]);
+				printf("right fvalue=%f v.s. wrong fvalue=%f\n", csrFvalue_merge[csrId], newCsrFvalue[segIdCnt][innerCsrIdCnt]);
+				printf("previous right fvalue=%f v.s. wrong fvalue=%f; right csr len=%d v.s. wrong len=%d\n", csrFvalue_merge[csrId - 1],
+						newCsrFvalue[segIdCnt][innerCsrIdCnt - 1], eachCsrLen_merge[csrId - 1], eachNewCsrLen[segIdCnt][innerCsrIdCnt - 1]);
+				printf("next right fvalue=%f v.s. wrong fvalue=%f; right csr len=%d v.s. wrong len=%d\n", csrFvalue_merge[csrId + 1],
+						newCsrFvalue[segIdCnt][innerCsrIdCnt + 1], eachCsrLen_merge[csrId + 1], eachNewCsrLen[segIdCnt][innerCsrIdCnt + 1]);
+				//exit(0);
+			}
+			innerCsrIdCnt++;
+			if(eachNewCsrLen[segIdCnt].size() == innerCsrIdCnt){
+				segIdCnt++;
+				innerCsrIdCnt = 0;
+			}
+		}
+//end test
+
 		//	cout << "prefix sum" << endl;
 		int numSeg = bagManager.m_numFea * numofSNode;
 
@@ -655,6 +676,7 @@ void AllNode3CompGD(GBDTGPUMemManager &manager, BagCsrManager &csrManager, BagMa
 		checkCudaErrors(cudaMemcpy(csrManager.pEachCsrFeaStartPos, eachCompressedFeaStartPos_merge, sizeof(uint) * numSeg, cudaMemcpyHostToDevice));
 		checkCudaErrors(cudaMemcpy(csrManager.pEachCsrFeaLen, eachCompressedFeaLen_merge, sizeof(uint) * numSeg, cudaMemcpyHostToDevice));
 		checkCudaErrors(cudaMemcpy(csrManager.pCsrFvalue, csrFvalue_merge, sizeof(real) * totalNumCsrFvalue_merge, cudaMemcpyHostToDevice));
+		checkCudaErrors(cudaMemcpy(csrManager.getMutableCsrLen(), eachCsrLen_merge, sizeof(uint) * totalNumCsrFvalue_merge, cudaMemcpyHostToDevice));
 		if(indexComp.partitionMarker.reservedSize < csrManager.curNumCsr){//make sure enough memory for reuse
 			indexComp.partitionMarker.reserveSpace(csrManager.curNumCsr, sizeof(bool));
 		}
@@ -671,6 +693,7 @@ void AllNode3CompGD(GBDTGPUMemManager &manager, BagCsrManager &csrManager, BagMa
 		//compute the feature with the maximum number of values
 		cudaDeviceSynchronize();//wait until the pinned memory (m_pEachFeaLenEachNodeEachBag_dh) is filled
 }
+
 void DeviceSplitter::FeaFinderAllNode3(void *pStream, int bagId)
 {
 	GBDTGPUMemManager manager;
@@ -687,8 +710,11 @@ void DeviceSplitter::FeaFinderAllNode3(void *pStream, int bagId)
 	int curNumofNode;
 	manager.MemcpyDeviceToHostAsync(bagManager.m_pCurNumofNodeTreeOnTrainingEachBag_d + bagId, &curNumofNode, sizeof(int), pStream);
 	int maxNumFeaValueOneNode = -1;
-	AllNode3CompGD(manager, csrManager, bagManager, indexComp, conf, pStream, curNumofNode, total_com_idx_t, total_fill_gd_t, maxNumFeaValueOneNode);
 
+	AllNode2CompGD(manager, csrManager, bagManager, indexComp, conf, pStream, curNumofNode, total_com_idx_t, total_fill_gd_t, maxNumFeaValueOneNode, total_csr_len_t);
+	printf("done with fast csr\n");
+	AllNode3CompGD(manager, csrManager, bagManager, indexComp, conf, pStream, curNumofNode, total_com_idx_t, total_fill_gd_t, maxNumFeaValueOneNode);
+	printf("done with naive csr\n");
 
 	AfterCompression(manager, csrManager, bagManager, indexComp, conf, pStream, total_scan_t, maxNumFeaValueOneNode);
 }

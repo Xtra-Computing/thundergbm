@@ -246,8 +246,8 @@ void IndexComputer::ComputeIdxGPU(int numSNode, int maxNumSN, int bagId){
 		EachFeaLenEachNodeOrg<<<dimNumofBlockForFvalue, blockSizeForFvalue>>>((unsigned char*)partitionMarker.addr, m_totalFeaValue, pTmpEachFeaLenEachNode,
 																			  BagOrgManager::m_pnTid2Fid, m_numFea, numSNode, manager.m_pFeaStartPos);
 
-	int *pEachFeaLenEachNode_h = new int[bagManager.m_maxNumSplittable * m_numFea];
-	checkCudaErrors(cudaMemcpy(pEachFeaLenEachNode_h, pTmpEachFeaLenEachNode, sizeof(int) * bagManager.m_maxNumSplittable * m_numFea, cudaMemcpyDeviceToHost));
+//	int *pEachFeaLenEachNode_h = new int[bagManager.m_maxNumSplittable * m_numFea];
+//	checkCudaErrors(cudaMemcpy(pEachFeaLenEachNode_h, pTmpEachFeaLenEachNode, sizeof(int) * bagManager.m_maxNumSplittable * m_numFea, cudaMemcpyDeviceToHost));
 //	for(int f = 0; f < bagManager.m_maxNumSplittable * m_numFea; f++){
 //		printf("f=%d, len=%d\n", f, pEachFeaLenEachNode_h[f]);
 //	}

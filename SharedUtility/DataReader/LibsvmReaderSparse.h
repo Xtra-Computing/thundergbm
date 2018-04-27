@@ -18,6 +18,7 @@
 #include "BaseLibsvmReader.h"
 #include "../DataType.h"
 #include "../KeyValue.h"
+#include "../../DeviceHost/BaseClasses/BaseSplitter.h"
 
 using std::string;
 using std::vector;
@@ -151,6 +152,11 @@ void LibSVMDataReader::ReaderHelper(vector<vector<KeyValue> > &v_vInstance, vect
 			if(bUseDense == true)
 				assert(i == nFeature - 1);
 
+			double dx = x + 5 * BaseSplitter::rt_eps;
+			int fraction = 100000;
+			dx = dx *100000 ;
+			long lx = (long)dx;
+			x = lx / 100000.0;
 			Push(nFeature - 1, x, vSample);
 			i++;
 		}
