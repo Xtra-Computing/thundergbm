@@ -94,9 +94,9 @@ __global__ void newCsrLenFvalue(const int *preFvalueInsId, int numFeaValue, cons
 	__shared__ uint firstCsrId;
 	uint tid = threadIdx.x;
 	csrCounter[tid] = 0;
-	__shared__ bool b_temp;
-	if(tid == 0)
-		b_temp = false;
+//	__shared__ bool b_temp;
+//	if(tid == 0)
+//		b_temp = false;
 	__syncthreads();
 	if(gTid < numFeaValue){//thread has value to load
 		uint csrId;
@@ -123,17 +123,17 @@ __global__ void newCsrLenFvalue(const int *preFvalueInsId, int numFeaValue, cons
 			if(csrId == 2809992 && csrFvalue[csrId] == 0.369250){
 				printf("gpu pid=%d, insId=%d, csrfvalue=%f, firstCsrId=%d, cntOffset=%d, orgValue=%d, cnt=%d\n",
 						pid, insId, csrFvalue[csrId], firstCsrId, counterOffset, orgValue, csrCounter[counterOffset]);
-				b_temp = true;
+//				b_temp = true;
 			}
 		}
-		__syncthreads();
+//		__syncthreads();
 	} else {
-		__syncthreads();
+//		__syncthreads();
 		__syncthreads();
 	}
 	__syncthreads();
 	if(blockIdx.y * gridDim.x + blockIdx.x == 2216293 && tid == 95){
-		printf("###################################################################### cnt=%d, bool=%d\n", csrCounter[tid], b_temp);
+		printf("###################################################################### cnt=%d\n", csrCounter[tid]);
 	}
 	//compute len of each csr
 	if(csrCounter[tid] > 0){
@@ -145,9 +145,9 @@ __global__ void newCsrLenFvalue(const int *preFvalueInsId, int numFeaValue, cons
 					  numCsrPrePartsAhead, posInPart, numCsrCurPart, feaId);
 
 		atomicAdd(csrNewLen + numCsrPrePartsAhead * 2 + posInPart, csrCounter[tid]);
-		if(blockIdx.y * gridDim.x + blockIdx.x == 2216293 && tid == 95){
-			printf("csrNewLen=%d, numcsrPrePartAhead=%d, posInPart=%d, cnt=%d\n", csrNewLen[numCsrPrePartsAhead * 2 + posInPart], numCsrPrePartsAhead, posInPart, csrCounter[tid]);
-		}
+//		if(blockIdx.y * gridDim.x + blockIdx.x == 2216293 && tid == 95){
+//			printf("csrNewLen=%d, numcsrPrePartAhead=%d, posInPart=%d, cnt=%d\n", csrNewLen[numCsrPrePartsAhead * 2 + posInPart], numCsrPrePartsAhead, posInPart, csrCounter[tid]);
+//		}
 	}
 }
 

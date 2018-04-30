@@ -34,7 +34,7 @@ real *fvalue_org_d;
 real *fhess_d;
 double *fgd_d;
 real *fgain_d;
-bool alwaysRle = true;
+bool alwaysRle = false;
 bool testNaiveCsr = alwaysRle;
 double total_extra_time = 0.0;
 int main(int argc, char *argv[])

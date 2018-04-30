@@ -323,6 +323,7 @@ cudaDeviceSynchronize();
 				csrManager.pEachCsrFeaStartPos, bagManager.m_pPreNumSN_h[0],
 				bagManager.m_numFea, csrManager.getCsrKey(), pCsrNewLen_d, pCsrId2Pid);
 //				bagManager.m_numFea, pCSRKey, pCsrNewLen_d, pCsrId2Pid);
+		cudaDeviceSynchronize();
 
 		GETERROR("after newCsrLenFvalue");
 		LoadFvalueInsId<<<dimNumofBlockToLoadGD, blockSizeLoadGD>>>(

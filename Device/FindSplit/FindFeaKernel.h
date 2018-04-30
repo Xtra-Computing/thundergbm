@@ -374,9 +374,9 @@ __global__ void FindSplitInfo(const uint *pEachFeaStartPosEachNode, const T *pEa
 		ECHECKER(pRChildStat[snPos].sum_hess);
 	}
 
-	printf("split: f=%d, value=%f, gain=%f, gd=%f v.s. %f, hess=%f v.s. %f, buffId=%d, key=%d, pid=%d, df2Left=%d, 1st=%d, 2nd=%d, parentHess=%f\n", bestFeaId, pBestSplitPoint[snPos].m_fSplitValue,
-			pBestSplitPoint[snPos].m_fGain, pLChildStat[snPos].sum_gd, pRChildStat[snPos].sum_gd, pLChildStat[snPos].sum_hess,
-			pRChildStat[snPos].sum_hess, snPos, key, pid, pDefault2Right[key], pPartitionId2SNPos[0], pPartitionId2SNPos[1], snNodeStat[snPos].sum_hess);
+//	printf("split: f=%d, value=%f, gain=%f, gd=%f v.s. %f, hess=%f v.s. %f, buffId=%d, key=%d, pid=%d, df2Left=%d, 1st=%d, 2nd=%d, parentHess=%f\n", bestFeaId, pBestSplitPoint[snPos].m_fSplitValue,
+//			pBestSplitPoint[snPos].m_fGain, pLChildStat[snPos].sum_gd, pRChildStat[snPos].sum_gd, pLChildStat[snPos].sum_hess,
+//			pRChildStat[snPos].sum_hess, snPos, key, pid, pDefault2Right[key], pPartitionId2SNPos[0], pPartitionId2SNPos[1], snNodeStat[snPos].sum_hess);
 }
 
 
