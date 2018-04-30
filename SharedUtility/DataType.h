@@ -9,7 +9,7 @@
 #ifndef DEFINE_H_
 #define DEFINE_H_
 
-typedef float real;
+typedef double real;
 #define LARGE_REAL_NUM 0xffffffff
 #define LARGE_4B_UINT 0xffffffff
 #define LARGE_1B_UCHAR 0xff

@@ -158,7 +158,7 @@ __global__ void ComputeGainDense(const nodeStat *pSNodeStat, const int *pid2SNPo
 }
 
 
-
+/*
 template<class T>
 __global__ void ComputeGainDense(const nodeStat *pSNodeStat, const int *pid2SNPos, real lambda,
 							const double *pGDPrefixSumOnEachFeaValue, const double *pHessPrefixSumOnEachFeaValue,
@@ -279,6 +279,7 @@ __global__ void ComputeGainDense(const nodeStat *pSNodeStat, const int *pid2SNPo
 		printf("############ my gain3 is %f, gTid=%d\n", pGainOnEachFeaValue[gTid], gTid);
 	}
 }
+*/
 
 /**
  * @brief: find split points
@@ -383,6 +384,7 @@ __global__ void FindSplitInfo(const uint *pEachFeaStartPosEachNode, const T *pEa
 /**
  * @brief: find split points
  */
+/*
 template<class T>
 __global__ void FindSplitInfo(const uint *pEachFeaStartPosEachNode, const T *pEachFeaLenEachNode,
 							  const real *pDenseFeaValue, const real *pfGlobalBestGain, const T *pnGlobalBestGainKey,
@@ -477,5 +479,6 @@ __global__ void FindSplitInfo(const uint *pEachFeaStartPosEachNode, const T *pEa
 			pBestSplitPoint[snPos].m_fGain, pLChildStat[snPos].sum_gd, pRChildStat[snPos].sum_gd, pLChildStat[snPos].sum_hess,
 			pRChildStat[snPos].sum_hess, snPos, key, pid, pDefault2Right[key], pPartitionId2SNPos[0], pPartitionId2SNPos[1], snNodeStat[snPos].sum_hess);
 }
+*/
 
 #endif /* DEVICESPLITTERKERNEL_H_ */

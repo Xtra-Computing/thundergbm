@@ -34,7 +34,7 @@ real *fvalue_org_d;
 real *fhess_d;
 double *fgd_d;
 real *fgain_d;
-bool alwaysRle = false;
+bool alwaysRle = true;
 bool testNaiveCsr = alwaysRle;
 double total_extra_time = 0.0;
 int main(int argc, char *argv[])
@@ -94,7 +94,8 @@ int main(int argc, char *argv[])
 	clock_t start_init, end_init;
 	//read the file the first time
 	if(bBufferFileExist == false){
-		dataReader.GetDataInfo(strFileName, numFea, numIns, numFeaValue);
+//dataReader.GetDataInfo(strFileName, numFea, numIns, numFeaValue);
+numFea = 28; numIns = 11000000; numFeaValue = 283685620;
 		dataReader.ReadLibSVMAsSparse(v_vInsSparse, v_fLabel, strFileName, numFea, numIns);
 		trainer.m_vvInsSparse = v_vInsSparse;//later used in sorting values for each feature
 		trainer.m_vTrueValue = v_fLabel;
@@ -186,11 +187,11 @@ if(alwaysRle == true)
 	printf("\n");
 
 if(testNaiveCsr == true){
-checkCudaErrors(cudaMalloc((void**)&fvalue_d, sizeof(real) * numFeaValue));
-checkCudaErrors(cudaMalloc((void**)&fvalue_org_d, sizeof(real) * numFeaValue));
-checkCudaErrors(cudaMalloc((void**)&fhess_d, sizeof(real) * numFeaValue));
-checkCudaErrors(cudaMalloc((void**)&fgd_d, sizeof(double) * numFeaValue));
-checkCudaErrors(cudaMalloc((void**)&fgain_d, sizeof(real) * numFeaValue));
+checkCudaErrors(cudaMallocHost((void**)&fvalue_d, sizeof(real) * numFeaValue));
+checkCudaErrors(cudaMallocHost((void**)&fvalue_org_d, sizeof(real) * numFeaValue));
+checkCudaErrors(cudaMallocHost((void**)&fhess_d, sizeof(real) * numFeaValue));
+checkCudaErrors(cudaMallocHost((void**)&fgd_d, sizeof(double) * numFeaValue));
+checkCudaErrors(cudaMallocHost((void**)&fgain_d, sizeof(real) * numFeaValue));
 checkCudaErrors(cudaMemcpy(fvalue_d, pdValue, sizeof(real) * numFeaValue, cudaMemcpyHostToDevice));
 checkCudaErrors(cudaMemcpy(fvalue_org_d, pdValue, sizeof(real) * numFeaValue, cudaMemcpyHostToDevice));
 checkCudaErrors(cudaMemcpy(fgain_d, pdValue, sizeof(real) * numFeaValue, cudaMemcpyHostToDevice));

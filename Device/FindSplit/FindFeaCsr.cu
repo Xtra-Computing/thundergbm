@@ -26,6 +26,7 @@
 
 #include "../CSR/CsrSplit.h"
 #include "../CSR/CsrCompressor.h"
+#include "../../syncarray.h"
 using std::set;
 
 
@@ -143,7 +144,7 @@ void AfterCompression(GBDTGPUMemManager &manager, BagCsrManager &csrManager, Bag
 	int nNumofFeature = manager.m_numofFea;
 	double *pGD_d = (double*)indexComp.histogram_d.addr;//reuse memory; must be here, as curNumCsr may change in different level.
 	real *pHess_d = (real*)(((uint*)indexComp.histogram_d.addr) + csrManager.curNumCsr * 2);//reuse memory
-	real *pGain_d = (real*)(((uint*)indexComp.histogram_d.addr) + csrManager.curNumCsr * 3);
+	real *pGain_d = (real*)(((uint*)indexComp.histogram_d.addr) + csrManager.curNumCsr * (sizeof(real)/sizeof(uint) + 2));
 
 	int numofSNode = bagManager.m_curNumofSplitableEachBag_h[0];
 	int numSeg = bagManager.m_numFea * numofSNode;
@@ -424,9 +425,10 @@ checkCudaErrors(cudaFree(pCsrMarker));
 	}
 	//need to compute for every new tree
 	printf("reserve memory\n");
-	if(indexComp.histogram_d.reservedSize < csrManager.curNumCsr * 4){//make sure enough memory for reuse
-		printf("reallocate memory for histogram (sn=%u): %u v.s. %u.......\n", numofSNode, indexComp.histogram_d.reservedSize, csrManager.curNumCsr * 4);
-		indexComp.histogram_d.reserveSpace(csrManager.curNumCsr * 4, sizeof(uint));
+	if(indexComp.histogram_d.reservedSize < csrManager.curNumCsr * (2 + 2 * sizeof(real)/sizeof(uint))){//make sure enough memory for reuse
+		printf("reallocate memory for histogram (sn=%u): %u v.s. %u.......\n", numofSNode, indexComp.histogram_d.reservedSize,
+				csrManager.curNumCsr * (2 + 2 * sizeof(real)/sizeof(uint)));
+		indexComp.histogram_d.reserveSpace(csrManager.curNumCsr * (2 + 2 * sizeof(real)/sizeof(uint)), sizeof(uint));
 	}
 	cudaDeviceSynchronize();
 	double *pGD_d = (double*)indexComp.histogram_d.addr;//reuse memory; must be here, as curNumCsr may change in different level.
@@ -559,6 +561,9 @@ void AllNode3CompGD(GBDTGPUMemManager &manager, BagCsrManager &csrManager, BagMa
 					globalFvalueId++;
 					PROCESS_ERROR(insId >= 0);
 					int pid = pInsId2Nid[insId] - bagManager.m_pPreMaxNid_h[0] - 1;//mapping to new node
+					if(csrFvalue_merge[csrId] == 0.369250 && i == 0){
+						printf("pid=%d, insId=%d, old csrLen=%d\n", pid, insId, csrLen);
+					}
 					if(pid < 0)
 						continue;//############## this way okay?
 					PROCESS_ERROR(pid >= 0 && pid < numofSNode);
@@ -712,9 +717,55 @@ void DeviceSplitter::FeaFinderAllNode3(void *pStream, int bagId)
 	int maxNumFeaValueOneNode = -1;
 
 	AllNode2CompGD(manager, csrManager, bagManager, indexComp, conf, pStream, curNumofNode, total_com_idx_t, total_fill_gd_t, maxNumFeaValueOneNode, total_csr_len_t);
+SyncArray<real> csrFvalue(csrManager.curNumCsr);
+csrFvalue.set_device_data(csrManager.getMutableCsrFvalue());
+real *csrFvalue_h = csrFvalue.host_data();
+SyncArray<uint> csrLen(csrManager.curNumCsr);
+csrLen.set_device_data(csrManager.getMutableCsrLen());
+uint *csrLen_h = csrLen.host_data();
+
 	printf("done with fast csr\n");
 	AllNode3CompGD(manager, csrManager, bagManager, indexComp, conf, pStream, curNumofNode, total_com_idx_t, total_fill_gd_t, maxNumFeaValueOneNode);
+
+SyncArray<real> csrFvalue3(csrManager.curNumCsr);
+csrFvalue3.set_device_data(csrManager.getMutableCsrFvalue());
+real *csrFvalue_h3 = csrFvalue3.host_data();
+SyncArray<uint> csrLen3(csrManager.curNumCsr);
+csrLen3.set_device_data(csrManager.getMutableCsrLen());
+uint *csrLen_h3 = csrLen3.host_data();
 	printf("done with naive csr\n");
+
+//compare two compression methods
+	for(int i = 0; i < csrManager.curNumCsr; i++){
+		if(csrFvalue_h[i] == 0.369250){
+			printf("%f v.s. %f, id=%d; len: %d v.s. %d\n", csrFvalue_h[i], csrFvalue_h3[i], i, csrLen_h[i], csrLen_h3[i]);
+		}
+	}
+	for(int i = 0; i < csrManager.curNumCsr; i++){
+		if(csrFvalue_h3[i] == 0.369250){
+			printf("%f v.s. %f, id=%d; len: %d v.s. %d\n", csrFvalue_h[i], csrFvalue_h3[i], i, csrLen_h[i], csrLen_h3[i]);
+		}
+	}
+
+	int cnt = 0;
+	for(int i = 0; i < csrManager.curNumCsr; i++){
+		if(csrFvalue_h[i] != csrFvalue_h3[i]){
+			printf("%f v.s. %f, id=%d; len: %d v.s. %d\n", csrFvalue_h[i], csrFvalue_h3[i], i, csrLen_h[i], csrLen_h3[i]);
+			if(cnt == 0)
+				printf("previous %f v.s. %f, id=%d; len: %d v.s. %d\n", csrFvalue_h[i-1], csrFvalue_h3[i-1], i-1, csrLen_h[i-1], csrLen_h3[i-1]);
+			cnt++;
+		}
+		if(csrLen_h[i] != csrLen_h3[i]){
+			printf("%f v.s. %f, id=%d; len: %d v.s. %d\n", csrFvalue_h[i], csrFvalue_h3[i], i, csrLen_h[i], csrLen_h3[i]);
+			if(cnt == 0)
+				printf("previous %f v.s. %f, id=%d; len: %d v.s. %d\n", csrFvalue_h[i-1], csrFvalue_h3[i-1], i-1, csrLen_h[i-1], csrLen_h3[i-1]);
+			cnt++;
+		}
+
+		if(cnt == 10)
+			exit(0);
+	}
+//end comparison
 
 	AfterCompression(manager, csrManager, bagManager, indexComp, conf, pStream, total_scan_t, maxNumFeaValueOneNode);
 }
