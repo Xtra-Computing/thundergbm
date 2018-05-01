@@ -22,12 +22,12 @@ public:
     unsigned int n_instances;
 
     int depth = 6;
-    int n_trees = 20;
+    int n_trees = 30;
     float_type min_child_weight = 1;
     float_type lambda = 1;
     float_type gamma = 1;
     float_type rt_eps = 1e-6;
-    string path = DATASET_DIR "YearPredictionMSD";
+    string path = DATASET_DIR "abalone";
 
     void SetUp() override {
 #ifdef NDEBUG
@@ -45,6 +45,12 @@ public:
             for (Tree &tree:trees) {
                 init_stats(dataSet);
                 init_tree(tree);
+                float_type rmse = 0;
+                const GHPair *gh_data = stats.gh_pair.host_data();
+                for (int i = 0; i < stats.n_instances; ++i) {
+                    rmse += gh_data[i].g * gh_data[i].g;
+                }
+                LOG(INFO) << "rmse = " << sqrt(rmse / n_instances);
                 int i;
                 for (i = 0; i < depth; ++i) {
                     if (!find_split(tree, i)) break;
@@ -183,7 +189,7 @@ public:
             {
                 auto compute_gain = []__device__(GHPair father, GHPair lch, GHPair rch, float_type min_child_weight,
                                                  float_type lambda) -> float_type {
-                    if (lch.h > min_child_weight && rch.h > min_child_weight)
+                    if (lch.h >= min_child_weight && rch.h >= min_child_weight)
                         return (lch.g * lch.g) / (lch.h + lambda) + (rch.g * rch.g) / (rch.h + lambda) -
                                (father.g * father.g) / (father.h + lambda);
                     else
@@ -192,7 +198,7 @@ public:
 
                 int *pid_ptr_data = pid_ptr.device_data();
                 int *fid2pid_data = fid2pid.device_data();
-                Tree::TreeNode *nodes_data = tree.nodes.device_data();
+                const Tree::TreeNode *nodes_data = tree.nodes.device_data();
                 float_type *f_val_data = columns.csc_val.device_data();
                 int *fid_new2old_data = fid_new2old.device_data();
                 GHPair *gh_prefix_sum_data = gh_prefix_sum.device_data();
@@ -213,10 +219,8 @@ public:
                     GHPair missing_gh = father_gh - gh_prefix_sum_data[end];
                     if (fid == begin) {
                         gain_data[fid] = compute_gain(father_gh, father_gh - missing_gh, missing_gh, mcw, l);
-                        return;
-                    }
-                    if (fabsf(f_val_data[fid_new2old_data[fid - 1]] - f_val_data[fid_new2old_data[fid]]) >
-                        2 * rt_eps) {
+                    } else if (fabsf(f_val_data[fid_new2old_data[fid - 1]] - f_val_data[fid_new2old_data[fid]]) >
+                               2 * rt_eps) {
                         GHPair rch_gh = gh_prefix_sum_data[fid - 1];
                         float_type max_gain = compute_gain(father_gh, father_gh - rch_gh, rch_gh, mcw, l);
                         if (missing_gh.h > 1) {
@@ -228,8 +232,10 @@ public:
                             }
                         }
                         gain_data[fid] = max_gain;
-//                        printf("fid = %d, gain = %f\n", fid, gain_data[fid]);
                     };
+//                    if (nid == 32 && pid % n_column == 1)
+//                        printf("fid = %d, gain = %f, fval = %f\n", fid, gain_data[fid],
+//                               f_val_data[fid_new2old_data[fid]]);
                 });
                 LOG(DEBUG) << "gain = " << gain;
             }
@@ -238,7 +244,7 @@ public:
             {
                 typedef tuple<int, float_type> arg_max_t;
                 auto arg_max = []__device__(const arg_max_t &a, const arg_max_t &b) {
-                    if (fabsf(get<1>(a) - get<1>(b)) < 1e-5)
+                    if (fabsf(get<1>(a) - get<1>(b)) < 1e-6)
                         return get<0>(a) < get<0>(b) ? a : b;
                     else
                         return get<1>(a) > get<1>(b) ? a : b;
@@ -252,10 +258,11 @@ public:
                 device_ptr<int> fid2pid_data = device_pointer_cast(fid2pid.device_data());
 
                 //reduce to get best split of each node for this feature
-                reduce_by_key(fid2pid_data, fid2pid_data + nnz,
-                              make_zip_iterator(make_tuple(counting_iterator<int>(0), gain_data)),
-                              reduced_pid.begin(), best_split.begin(),
-                              in_same_node, arg_max);
+                int n_nodes_in_level = reduce_by_key(fid2pid_data, fid2pid_data + nnz,
+                                                     make_zip_iterator(
+                                                             make_tuple(counting_iterator<int>(0), gain_data)),
+                                                     reduced_pid.begin(), best_split.begin(),
+                                                     in_same_node, arg_max).first - reduced_pid.begin();
 
                 //update global best split for each node
                 device_ptr<arg_max_t> best_split_data = best_split.data();
@@ -268,63 +275,62 @@ public:
                 bool *default_right_data = default_right.device_data();
                 float_type rt_eps = this->rt_eps;
                 float_type lambda = this->lambda;
+                float_type gamma = this->gamma;
 
-                device_loop(best_split.size(), [=]__device__(int i) {
+                device_loop(n_nodes_in_level, [=]__device__(int i) {
                     arg_max_t bst = best_split_data[i];
                     float_type split_gain = get<1>(bst);
-                    int split_index = get<0>(bst);
-                    int pid = fid2pid_data[split_index];
-                    if (pid == INT_MAX) return;
-                    int nid0 = pid / n_column;
-                    int nid = nid0 + nid_offset;
-                    Tree::TreeNode &node = nodes_data[nid];
-                    node.gain = split_gain;
+                    if (split_gain >= gamma) {
+                        //do split
+                        int split_index = get<0>(bst);
+                        int pid = fid2pid_data[split_index];
+                        if (pid == INT_MAX) return;
+                        int nid0 = pid / n_column;
+                        int nid = nid0 + nid_offset;
+                        Tree::TreeNode &node = nodes_data[nid];
+                        node.gain = split_gain;
 
-                    //do split
-                    Tree::TreeNode &lch = nodes_data[nid * 2 + 1];//left child
-                    Tree::TreeNode &rch = nodes_data[nid * 2 + 2];//right child
-                    lch.is_valid = true;
-                    rch.is_valid = true;
-                    node.col_id = pid % n_column;
-                    int begin = pid_ptr_data[pid ];
-                    int end = pid_ptr_data[pid + 1] - 1;
-                    GHPair missing_gh = node.sum_gh_pair - gh_prefix_sum_data[end];
-                    if (split_index == begin) {
-                        node.split_value = f_val_data[fid_new2old_data[end]] -
-                                           fabsf(f_val_data[fid_new2old_data[split_index]]) - rt_eps;
-                        lch.sum_gh_pair = missing_gh;
-                        rch.sum_gh_pair = gh_prefix_sum_data[end];
-                    } else {
-                        node.split_value = (f_val_data[fid_new2old_data[split_index]] +
-                                            f_val_data[fid_new2old_data[split_index - 1]]) * 0.5f;
-                        rch.sum_gh_pair = gh_prefix_sum_data[split_index - 1];
-                        if (default_right_data[split_index]) {
-                            rch.sum_gh_pair = rch.sum_gh_pair + missing_gh;
-                            node.default_right = true;
+                        Tree::TreeNode &lch = nodes_data[nid * 2 + 1];//left child
+                        Tree::TreeNode &rch = nodes_data[nid * 2 + 2];//right child
+                        lch.is_valid = true;
+                        rch.is_valid = true;
+                        node.col_id = pid % n_column;
+                        int begin = pid_ptr_data[pid];
+                        int end = pid_ptr_data[pid + 1] - 1;
+                        GHPair missing_gh = node.sum_gh_pair - gh_prefix_sum_data[end];
+                        if (split_index == begin) {
+                            node.split_value = f_val_data[fid_new2old_data[end]] -
+                                               fabsf(f_val_data[fid_new2old_data[split_index]]) - rt_eps;
+                            lch.sum_gh_pair = missing_gh;
+                            rch.sum_gh_pair = gh_prefix_sum_data[end];
+                        } else {
+                            node.split_value = (f_val_data[fid_new2old_data[split_index]] +
+                                                f_val_data[fid_new2old_data[split_index - 1]]) * 0.5f;
+                            rch.sum_gh_pair = gh_prefix_sum_data[split_index - 1];
+                            if (default_right_data[split_index]) {
+                                rch.sum_gh_pair = rch.sum_gh_pair + missing_gh;
+                                node.default_right = true;
+                            }
+                            lch.sum_gh_pair = node.sum_gh_pair - rch.sum_gh_pair;
                         }
-                        lch.sum_gh_pair = node.sum_gh_pair - rch.sum_gh_pair;
+                        lch.calc_weight(lambda);
+                        rch.calc_weight(lambda);
+//                        printf("pid = %d, pid %% ncol = %d, ncol = %d, nid = %d, split_gain = %f, col_id = %d, split_value = %f, split_index = %d\n",
+//                               pid, pid % n_column, n_column, nid, split_gain, node.col_id, node.split_value,
+//                               split_index);
+                    } else {
+                        //set leaf
+                        int pid2 = reduced_pid_data[i];
+                        if (pid2 == INT_MAX) return;
+                        int nid = pid2 / n_column + nid_offset;
+//                        printf("nid = %d, pid2 = %d\n", nid, pid2);
+                        Tree::TreeNode &node = nodes_data[nid];
+                        node.is_leaf = true;
+                        nodes_data[nid * 2 + 1].is_valid = false;
+                        nodes_data[nid * 2 + 2].is_valid = false;
                     }
-                    lch.calc_weight(lambda);
-                    rch.calc_weight(lambda);
-//                    printf("pid = %d, pid %% ncol = %d, ncol = %d, nid0 = %d, split_gain = %f, col_id = %d, split_value = %f\n",pid, pid % n_column, n_column, nid0, split_gain, node.col_id, node.split_value);
                 });
             }
-        }
-
-        //annotate valid nodes
-        {
-            Tree::TreeNode *nodes_data = tree.nodes.device_data();
-            float_type gamma = this->gamma;
-
-            device_loop(n_max_nodes_in_level, [=]__device__(int i) {
-                int nid = i + nid_offset;
-                Tree::TreeNode &node = nodes_data[nid];
-                if (node.gain < gamma) {
-                    node.is_leaf = true;
-                    nodes_data[nid * 2 + 1].is_valid = false;
-                    nodes_data[nid * 2 + 2].is_valid = false;
-                }
-            });
         }
 
         SyncArray<bool> has_splittable(1);

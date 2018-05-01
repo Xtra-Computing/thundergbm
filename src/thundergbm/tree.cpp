@@ -28,8 +28,8 @@ void Tree::preorder_traversal(TreeNode &node, int max_depth, int depth, string &
     if (node.is_valid)
         s = s + string(static_cast<unsigned long>(depth), '\t') +
             (node.is_leaf ?
-             string_format("%d:leaf=%f\n", node.nid, node.base_weight) :
-             string_format("%d:[f%d<%f], weight=%f, gain=%f, dr=%d\n", node.nid, node.col_id + 1, node.split_value,
+             string_format("%d:leaf=%.6g\n", node.nid, node.base_weight) :
+             string_format("%d:[f%d<%.6g], weight=%f, gain=%f, dr=%d\n", node.nid, node.col_id + 1, node.split_value,
                            node.base_weight, node.gain, node.default_right));
     if (depth < max_depth) {
         preorder_traversal(nodes.host_data()[node.nid * 2 + 1], max_depth, depth + 1, s);
