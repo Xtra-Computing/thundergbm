@@ -79,9 +79,9 @@ __global__ void fillFvalue(const real *csrFvalue, uint numCsr, const uint *preRo
 		atomicAdd(newCsrFeaLen + (firstPartId + 1) * numFea + feaId, 1);
 		newCsrLen[basePos + numCsrCurPart] = csrLen;
 	}
-	if(0.369250 == temp){
-		printf("csr len of 0.369250 is %d and %d; old len=%d, csrId=%d\n", newCsrLen[basePos], newCsrLen[basePos + numCsrCurPart], oldCsrLen[csrId], csrId);
-	}
+//	if(0.369250 == temp){
+//		printf("csr len of 0.369250 is %d and %d; old len=%d, csrId=%d\n", newCsrLen[basePos], newCsrLen[basePos + numCsrCurPart], oldCsrLen[csrId], csrId);
+//	}
 }
 
 __global__ void newCsrLenFvalue(const int *preFvalueInsId, int numFeaValue, const int *pInsId2Nid, int maxNid,
@@ -94,47 +94,45 @@ __global__ void newCsrLenFvalue(const int *preFvalueInsId, int numFeaValue, cons
 	__shared__ uint firstCsrId;
 	uint tid = threadIdx.x;
 	csrCounter[tid] = 0;
-//	__shared__ bool b_temp;
-//	if(tid == 0)
-//		b_temp = false;
 	__syncthreads();
-	if(gTid < numFeaValue){//thread has value to load
-		uint csrId;
-		RangeBinarySearch(gTid, eachCsrStart, numCsr, csrId);
-		CONCHECKER(csrId < numCsr);
-		//first csrId
-		if(tid == 0)
-			firstCsrId = csrId;
-		__syncthreads();
+
+	uint csrId;
+	RangeBinarySearch(gTid, eachCsrStart, numCsr, csrId);
+	CONCHECKER(csrId < numCsr);
+	//first csrId
+	if(tid == 0)
+		firstCsrId = csrId;
+	__syncthreads();
+	if(gTid >= numFeaValue){//thread has no value to load
+		//__syncthreads();
+	}
+	else{
+
 		CONCHECKER(csrId >= firstCsrId);
 
 		int insId = preFvalueInsId[gTid];//insId is not -1, as preFvalueInsId is dense.
 		int pid = pInsId2Nid[insId] - maxNid - 1;//mapping to new node
 
-		if(csrId == 2809992 && csrFvalue[csrId] == 0.369250){
-			printf("gpu pid=%d, insId=%d, csrfvalue=%f, left_fv=%f, right_fv=%f, gTid=%d, blkid=%d\n",
-					pid, insId, csrFvalue[csrId], csrFvalue[csrId - 1], csrFvalue[csrId + 1], gTid, blockIdx.y * gridDim.x + blockIdx.x);
-		}
+//		if(csrId == 2809992 && csrFvalue[csrId] == 0.369250){
+//			printf("gpu pid=%d, insId=%d, csrfvalue=%f, left_fv=%f, right_fv=%f, gTid=%d, blkid=%d\n",
+//					pid, insId, csrFvalue[csrId], csrFvalue[csrId - 1], csrFvalue[csrId + 1], gTid, blockIdx.y * gridDim.x + blockIdx.x);
+//		}
 
 		csrId2Pid[csrId] = pid < 0 ? LARGE_1B_UCHAR : pid;
 		if(pid >= 0 && pid % 2 == 0){//not leaf node and it's first part.
 			uint counterOffset = csrId - firstCsrId;
 			uint orgValue = atomicAdd(csrCounter + counterOffset, 1);
-			if(csrId == 2809992 && csrFvalue[csrId] == 0.369250){
-				printf("gpu pid=%d, insId=%d, csrfvalue=%f, firstCsrId=%d, cntOffset=%d, orgValue=%d, cnt=%d\n",
-						pid, insId, csrFvalue[csrId], firstCsrId, counterOffset, orgValue, csrCounter[counterOffset]);
-//				b_temp = true;
-			}
+//			if(csrId == 2809992 && csrFvalue[csrId] == 0.369250){
+//				printf("gpu pid=%d, insId=%d, csrfvalue=%f, firstCsrId=%d, cntOffset=%d, orgValue=%d, cnt=%d\n",
+//						pid, insId, csrFvalue[csrId], firstCsrId, counterOffset, orgValue, csrCounter[counterOffset]);
+//			}
 		}
-//		__syncthreads();
-	} else {
-//		__syncthreads();
-		__syncthreads();
 	}
+
 	__syncthreads();
-	if(blockIdx.y * gridDim.x + blockIdx.x == 2216293 && tid == 95){
-		printf("###################################################################### cnt=%d\n", csrCounter[tid]);
-	}
+//	if(blockIdx.y * gridDim.x + blockIdx.x == 2216293 && tid == 95){
+//		printf("###################################################################### cnt=%d\n", csrCounter[tid]);
+//	}
 	//compute len of each csr
 	if(csrCounter[tid] > 0){
 		uint numCsrCurPart;

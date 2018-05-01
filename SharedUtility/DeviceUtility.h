@@ -51,14 +51,16 @@ __device__ void LoadToSharedMem(int nArraySize, int gainStartPos,
 								const real *pfBlockMinValue, const T *pnBlockMinKey,
 		  	  	  	  	  	    real *pfSharedMinValue, T *pnSharedMinKey)
 {
-	int localTId = threadIdx.x;
-	int firstElementPos = gainStartPos + localTId;
-	pfSharedMinValue[localTId] = pfBlockMinValue[firstElementPos];
-	pnSharedMinKey[localTId] = pnBlockMinKey[firstElementPos];
+	int tid = threadIdx.x;
+	if(tid < nArraySize){
+		int firstElementPos = gainStartPos + tid;
+		pfSharedMinValue[tid] = pfBlockMinValue[firstElementPos];
+		pnSharedMinKey[tid] = pnBlockMinKey[firstElementPos];
 
-	//if the size of block is larger than the BLOCK_SIZE, we make the size to be not larger than BLOCK_SIZE
-	//the thread loads more elements
-	GetGlobalMinPreprocessing(nArraySize, pfBlockMinValue + gainStartPos, pnBlockMinKey + gainStartPos, pfSharedMinValue, pnSharedMinKey);
+		//if the size of block is larger than the BLOCK_SIZE, we make the size to be not larger than BLOCK_SIZE
+		//the thread loads more elements
+		GetGlobalMinPreprocessing(nArraySize, pfBlockMinValue + gainStartPos, pnBlockMinKey + gainStartPos, pfSharedMinValue, pnSharedMinKey);
+	}
 }
 
 

@@ -19,17 +19,14 @@ __device__ void GetMinValueOriginal(real *pfValues, T *pnKey)
 	//Reduce by a factor of 2, and minimize step size
 	for (int i = blockDim.x / 2; i > 0 ; i >>= 1) {
 		int tid = threadIdx.x;
-		if (tid < i)
+		if (tid < i){
 			if (pfValues[tid + i] < pfValues[tid]) {
                 pfValues[tid] = pfValues[tid + i];
                 pnKey[tid] = pnKey[tid +i];
             }
+		}
         __syncthreads();
 	}
 }
-
-__device__ void GetMinValueOriginal(real*);
-
-__device__  int getBlockMin(const float *values, int *index);
 
 #endif /* GETMIN_H_ */

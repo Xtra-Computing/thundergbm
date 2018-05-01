@@ -19,7 +19,7 @@ __device__ void RangeBinarySearch(uint pos, const uint* pSegStartPos, uint numSe
 		if(pos >= pSegStartPos[midSegId] && (midSegId == endSegId || pos < pSegStartPos[midSegId + 1]))
 		{
 			segId = midSegId;
-			return;
+			break;
 		}
 		else if(pos >= pSegStartPos[midSegId + 1])
 			startSegId = midSegId + 1;//find left part

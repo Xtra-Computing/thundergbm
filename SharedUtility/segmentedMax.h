@@ -32,19 +32,14 @@ __global__ void LocalReductionEachSeg(const uint *pEachSegSize, const uint *pEac
 	if(tid0 >= numValueThisNode){
 		pLocalMax[blockId] = 0;
 		pLocalMaxKey[blockId] = LARGE_4B_UINT;
-		__syncthreads();
-		for (int i = blockDim.x / 2; i > 0 ; i >>= 1) {
-	        __syncthreads();
-		}
-		__syncthreads();
 	}
 	else{
 		__shared__ real pfGain[BLOCK_SIZE];
 		__shared__ int pnBetterGainKey[BLOCK_SIZE];
-		int localTid = threadIdx.x;
-		pfGain[localTid] = FLT_MAX;//initialise to a large positive number
-		pnBetterGainKey[localTid] = -1;
-		if(localTid == 0){//initialise local best value
+		int tid = threadIdx.x;
+		pfGain[tid] = FLT_MAX;//initialise to a large positive number
+		pnBetterGainKey[tid] = -1;
+		if(tid == 0){//initialise local best value
 			pLocalMax[blockId] = FLT_MAX;
 			pLocalMaxKey[blockId] = LARGE_4B_UINT;
 		}
@@ -52,28 +47,26 @@ __global__ void LocalReductionEachSeg(const uint *pEachSegSize, const uint *pEac
 		uint tidForEachNode = tid0 + threadIdx.x;
 		uint nPos = pEachSegStartPos[snId] + tidForEachNode;//feature value gain position
 
-
 		if(tidForEachNode >= numValueThisNode){//no gain to load
-			pfGain[localTid] = 0;
-			pnBetterGainKey[localTid] = INT_MAX;
+			pfGain[tid] = 0;
+			pnBetterGainKey[tid] = INT_MAX;
 		}
 		else{
-			pfGain[localTid] = -pValueAllSeg[nPos];//change to find min of -gain
-			pnBetterGainKey[localTid] = nPos;
+			pfGain[tid] = -pValueAllSeg[nPos];//change to find min of -gain
+			pnBetterGainKey[tid] = nPos;
 		}
 		__syncthreads();
 
 		//find the local best split point
 		GetMinValueOriginal(pfGain, pnBetterGainKey);
 		__syncthreads();
-		if(localTid == 0)//copy the best gain to global memory
+		if(tid == 0)//copy the best gain to global memory
 		{
 			pLocalMax[blockId] = pfGain[0];
 			pLocalMaxKey[blockId] = pnBetterGainKey[0];
 			ECHECKER(pnBetterGainKey[0]);
 		}
 	}
-	__syncthreads();
 }
 template<class T>
 __global__ void GlobalReductionEachSeg(const real *pLocalMax, const T *pLocalMaxKey,
@@ -87,33 +80,25 @@ __global__ void GlobalReductionEachSeg(const real *pLocalMax, const T *pLocalMax
 
 	__shared__ real pfGain[BLOCK_SIZE];
 	__shared__ T pnBetterGainKey[BLOCK_SIZE];
-	int localTid = threadIdx.x;
-	pfGain[localTid] = FLT_MAX;//initialise to a large positive number
-	pnBetterGainKey[localTid] = (T)-1;
+	int tid = threadIdx.x;
+	pfGain[tid] = FLT_MAX;//initialise to a large positive number
+	pnBetterGainKey[tid] = (T)-1;
 	__syncthreads();
 
-	if(localTid >= numBlockPerSeg){//number of threads is larger than the number of blocks
-		__syncthreads();
-		for (int i = blockDim.x / 2; i > 0 ; i >>= 1) {
-	        __syncthreads();
-		}
-		__syncthreads();
-	}
-	else{
-		int curFeaLocalBestStartPos = snId * numBlockPerSeg;
-		LoadToSharedMem(numBlockPerSeg, curFeaLocalBestStartPos, pLocalMax, pLocalMaxKey, pfGain, pnBetterGainKey);
-		 __syncthreads();	//wait until the thread within the block
+	//if(tid < numBlockPerSeg){//number of threads is smaller than the number of blocks
+	int curFeaLocalBestStartPos = snId * numBlockPerSeg;
+	LoadToSharedMem(numBlockPerSeg, curFeaLocalBestStartPos, pLocalMax, pLocalMaxKey, pfGain, pnBetterGainKey);
 
-		//find the local best split point
-		GetMinValueOriginal(pfGain, pnBetterGainKey);
-		__syncthreads();
-		if(localTid == 0)//copy the best gain to global memory
-		{
-			pGlobalMax[snId] = -pfGain[0];//make the gain back to its original sign
-			pGlobalMaxKey[snId] = pnBetterGainKey[0];
-		}
-	}
+	 __syncthreads();	//wait until the thread within the block
+
+	//find the local best split point
+	GetMinValueOriginal(pfGain, pnBetterGainKey);
 	__syncthreads();
+	if(tid == 0)//copy the best gain to global memory
+	{
+		pGlobalMax[snId] = -pfGain[0];//make the gain back to its original sign
+		pGlobalMaxKey[snId] = pnBetterGainKey[0];
+	}
 }
 
 template<class T>
