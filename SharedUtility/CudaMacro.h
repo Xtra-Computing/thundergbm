@@ -4,7 +4,7 @@
 #include <assert.h>
 #include <stdio.h>
 
-#define _DEBUG
+//#define _DEBUG
 
 #define BLOCK_SIZE 64
 
@@ -26,13 +26,6 @@
 	} while (0)
 #endif//_DEBUG
 
-#ifndef _DEBUG
-#define MEMSET(addr, flag, numByte) ((void)0)
-#else
-#define MEMSET(addr, flag, numByte) do{												\
-	checkCudaErrors(cudaMemset(addr, flag, numByte));								\
-}while(0)
-#endif//_DEBUG
 
 #ifndef _DEBUG
 #define ECHECKER(value) ((void)0)

@@ -1,8 +1,8 @@
 CCFLAGS	  := -Wall -std=c++11
 NVCCFLAGS := -arch=sm_60 -lrt -Wno-deprecated-gpu-targets -dc -std=c++11
 LASTFLAG  := -Wno-deprecated-gpu-targets
-LDFLAGS   := -I/usr/local/cuda/include -I/usr/local/cuda/samples/common/inc -lcuda -lcudadevrt -lcudart -lcublas -lpthread -lcusparse
-NVCC	  := /usr/local/cuda/bin/nvcc
+LDFLAGS   := -I/usr/local/cuda-8.0/include -I/usr/local/cuda-8.0/samples/common/inc -lcuda -lcudadevrt -lcudart -lcublas -lpthread -lcusparse
+NVCC	  := /usr/local/cuda-8.0/bin/nvcc
 DISABLEW  := -Xnvlink -w
 CXX = g++
 

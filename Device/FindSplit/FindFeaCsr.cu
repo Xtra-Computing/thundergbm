@@ -234,7 +234,7 @@ void AfterCompression(GBDTGPUMemManager &manager, BagCsrManager &csrManager, Bag
 	//compute # of blocks for each node
 	uint *pMaxNumFvalueOneNode = thrust::max_element(thrust::device, csrManager.pEachNodeSizeInCsr, csrManager.pEachNodeSizeInCsr + numofSNode);
 	checkCudaErrors(cudaMemcpy(&maxNumFeaValueOneNode, pMaxNumFvalueOneNode, sizeof(int), cudaMemcpyDeviceToHost));
-	printf("max fvalue one node=%d\n", maxNumFeaValueOneNode);
+//	printf("max fvalue one node=%d\n", maxNumFeaValueOneNode);
 	SegmentedMax(maxNumFeaValueOneNode, numofSNode, csrManager.pEachNodeSizeInCsr, csrManager.pEachCsrNodeStartPos,
 				 pGain_d, pStream, pMaxGain_d, pMaxGainKey_d);
 
@@ -303,8 +303,9 @@ void AllNode2CompGD(GBDTGPUMemManager &manager, BagCsrManager &csrManager, BagMa
 		checkCudaErrors(cudaMemcpy(pOldCsrLen_d, csrManager.getCsrLen(), sizeof(uint) * csrManager.curNumCsr, cudaMemcpyDeviceToDevice));
 		checkCudaErrors(cudaMemset(pCsrId2Pid, (int)-1, sizeof(char) * csrManager.curNumCsr));
 
+		cudaDeviceSynchronize();
 		thrust::exclusive_scan(thrust::device, csrManager.getCsrLen(), csrManager.getCsrLen() + csrManager.curNumCsr, csrManager.getMutableCsrStart());
-
+		cudaDeviceSynchronize();
 uint *pCsrNewLen_d;// = (uint*)(indexComp.histogram_d.addr);
 //uint *pCsrNewLen_d = (uint*)(indexComp.histogram_d.addr);
 checkCudaErrors(cudaMallocHost((void**)&pCsrNewLen_d, sizeof(uint) * csrManager.curNumCsr * 2));
@@ -456,6 +457,7 @@ checkCudaErrors(cudaFree(pCsrMarker));
 	GETERROR("after ComputeGD");
 	clock_t csr_len_end = clock();
 	total_csr_len_t += (csr_len_end - csr_len_t);
+	printf("done comp gd and hess\n");
 }
 
 void DeviceSplitter::FeaFinderAllNode2(void *pStream, int bagId)

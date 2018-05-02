@@ -237,7 +237,7 @@ void IndexComputer::ComputeIdxGPU(int numSNode, int maxNumSN, int bagId){
 											  bagId * bagManager.m_maxNumSplittable * bagManager.m_numFea;
 
 	checkCudaErrors(cudaMemset(pTmpEachFeaLenEachNode, 0, sizeof(int) * bagManager.m_maxNumSplittable * m_numFea));
-	printf("############## using rle in indexComp: %d\n", CsrCompressor::bUseRle);
+//	printf("############## using rle in indexComp: %d\n", CsrCompressor::bUseRle);
 
 	if(CsrCompressor::bUseRle == true)
 		EachFeaLenEachNodeCSR<<<dimNumofBlockForFvalue, blockSizeForFvalue>>>((unsigned char*)partitionMarker.addr, m_totalFeaValue, pTmpEachFeaLenEachNode,

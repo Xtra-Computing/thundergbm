@@ -97,16 +97,18 @@ __global__ void newCsrLenFvalue(const int *preFvalueInsId, int numFeaValue, cons
 	__syncthreads();
 
 	uint csrId;
-	RangeBinarySearch(gTid, eachCsrStart, numCsr, csrId);
+	if(gTid < numFeaValue)
+		RangeBinarySearch(gTid, eachCsrStart, numCsr, csrId);
 	CONCHECKER(csrId < numCsr);
+	__syncthreads();
 	//first csrId
+//	if(gTid >= numFeaValue && tid == 0){
+//		printf("oh shitt####################################################\n");
+//	}
 	if(tid == 0)
 		firstCsrId = csrId;
 	__syncthreads();
-	if(gTid >= numFeaValue){//thread has no value to load
-		//__syncthreads();
-	}
-	else{
+	if(gTid < numFeaValue){
 
 		CONCHECKER(csrId >= firstCsrId);
 
@@ -121,8 +123,12 @@ __global__ void newCsrLenFvalue(const int *preFvalueInsId, int numFeaValue, cons
 		csrId2Pid[csrId] = pid < 0 ? LARGE_1B_UCHAR : pid;
 		if(pid >= 0 && pid % 2 == 0){//not leaf node and it's first part.
 			uint counterOffset = csrId - firstCsrId;
+//			if(305030 == csrId || 478798 == csrId){
+//				printf("first csr id=%d, csrId=%d\n", firstCsrId, csrId);
+//			}
+			__threadfence();
 			uint orgValue = atomicAdd(csrCounter + counterOffset, 1);
-//			if(csrId == 2809992 && csrFvalue[csrId] == 0.369250){
+//			if(csrFvalue[csrId] == 0.369250){
 //				printf("gpu pid=%d, insId=%d, csrfvalue=%f, firstCsrId=%d, cntOffset=%d, orgValue=%d, cnt=%d\n",
 //						pid, insId, csrFvalue[csrId], firstCsrId, counterOffset, orgValue, csrCounter[counterOffset]);
 //			}

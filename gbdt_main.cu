@@ -94,8 +94,8 @@ int main(int argc, char *argv[])
 	clock_t start_init, end_init;
 	//read the file the first time
 	if(bBufferFileExist == false){
-//dataReader.GetDataInfo(strFileName, numFea, numIns, numFeaValue);
-numFea = 28; numIns = 11000000; numFeaValue = 283685620;
+dataReader.GetDataInfo(strFileName, numFea, numIns, numFeaValue);
+//numFea = 28; numIns = 11000000; numFeaValue = 283685620;//for higgs
 		dataReader.ReadLibSVMAsSparse(v_vInsSparse, v_fLabel, strFileName, numFea, numIns);
 		trainer.m_vvInsSparse = v_vInsSparse;//later used in sorting values for each feature
 		trainer.m_vTrueValue = v_fLabel;

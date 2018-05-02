@@ -87,17 +87,17 @@ __global__ void ComputeGainDense(const nodeStat *pSNodeStat, const int *pid2SNPo
     	}
     	else
     		pGainOnEachFeaValue[gTid] = all2Left;
-    	if(gTid == 14504524){
-    		printf("############ my gain1 is the starting pos.... %f, gTid=%d\n", pGainOnEachFeaValue[gTid], gTid);
-    	}
+//    	if(gTid == 14504524){
+//    		printf("############ my gain1 is the starting pos.... %f, gTid=%d\n", pGainOnEachFeaValue[gTid], gTid);
+//    	}
 	}
 	else{
 		//if the previous fea value is the same as the current fea value, gain is 0 for the current fea value.
 		real preFvalue = pDenseFeaValue[gTid - 1], curFvalue = pDenseFeaValue[gTid];
-		if(gTid == 14504524)
-		{
-			printf("############ my gain1 is %f, gTid=%d\n", pGainOnEachFeaValue[gTid], gTid);
-		}
+//		if(gTid == 14504524)
+//		{
+//			printf("############ my gain1 is %f, gTid=%d\n", pGainOnEachFeaValue[gTid], gTid);
+//		}
 		if(preFvalue - curFvalue <= rt_2eps && preFvalue - curFvalue >= -rt_2eps)//############## backwards is not considered!
 		{//avoid same feature value different gain issue
 			pGainOnEachFeaValue[gTid] = 0;
@@ -126,11 +126,11 @@ __global__ void ComputeGainDense(const nodeStat *pSNodeStat, const int *pid2SNPo
 		}
 
 		//backward consideration
-		if(gTid == 14504524)
-		{
-			printf("############ my gain2 is %f, gTid=%d, parentHess=%f, rChildHess=%f, lChildHess=%f, pGD=%f, rGD=%f, lGD=%f\n",
-					pGainOnEachFeaValue[gTid], gTid, parentHess, rChildHess, tempHess, parentGD, rChildGD, tempGD);
-		}
+//		if(gTid == 14504524)
+//		{
+//			printf("############ my gain2 is %f, gTid=%d, parentHess=%f, rChildHess=%f, lChildHess=%f, pGD=%f, rGD=%f, lGD=%f\n",
+//					pGainOnEachFeaValue[gTid], gTid, parentHess, rChildHess, tempHess, parentGD, rChildGD, tempGD);
+//		}
 		if(totalMissingHess < 1)//there is no instance with missing values
 			return;
 		//missing values to the right child
@@ -151,12 +151,11 @@ __global__ void ComputeGainDense(const nodeStat *pSNodeStat, const int *pid2SNPo
 			}
 		}
 	}//end of forward and backward consideration
-	if(gTid == 14504524)
-	{
-		printf("############ my gain3 is %f, gTid=%d\n", pGainOnEachFeaValue[gTid], gTid);
-	}
+//	if(gTid == 14504524)
+//	{
+//		printf("############ my gain3 is %f, gTid=%d\n", pGainOnEachFeaValue[gTid], gTid);
+//	}
 }
-
 
 /*
 template<class T>
@@ -480,5 +479,4 @@ __global__ void FindSplitInfo(const uint *pEachFeaStartPosEachNode, const T *pEa
 			pRChildStat[snPos].sum_hess, snPos, key, pid, pDefault2Right[key], pPartitionId2SNPos[0], pPartitionId2SNPos[1], snNodeStat[snPos].sum_hess);
 }
 */
-
 #endif /* DEVICESPLITTERKERNEL_H_ */

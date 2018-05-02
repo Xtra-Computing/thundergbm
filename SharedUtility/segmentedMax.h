@@ -130,7 +130,7 @@ void SegmentedMax(int sizeofLargestSeg, int numNode, const uint *pEachSegSize, c
 	real test;
 	checkCudaErrors(cudaMemcpy(&test, test_d, sizeof(real), cudaMemcpyDeviceToHost));
 	cudaDeviceSynchronize();
-	printf("max in segmented max=%f; blkPerSeg=%d, numSeg=%d, largestSeg=%d, blksize=%d\n", test, numBlockPerSeg, numNode, sizeofLargestSeg, blockSizeLocalReduction);
+//	printf("max in segmented max=%f; blkPerSeg=%d, numSeg=%d, largestSeg=%d, blksize=%d\n", test, numBlockPerSeg, numNode, sizeofLargestSeg, blockSizeLocalReduction);
 
 	//find the global best gain for each node
 	if(numBlockPerSeg > 1){
@@ -163,7 +163,7 @@ void SegmentedMax(int sizeofLargestSeg, int numNode, const uint *pEachSegSize, c
 			finalKey = g_keys[i];
 		}
 	}
-	printf("finalMax=%f, finalKey=%d\n", finalMax, finalKey);
+//	printf("finalMax=%f, finalKey=%d\n", finalMax, finalKey);
 
 	checkCudaErrors(cudaFree(pLocalMax));
 	checkCudaErrors(cudaFree(pLocalMaxKey));

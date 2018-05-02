@@ -131,7 +131,7 @@ void DeviceSplitter::FeaFinderAllNode(void *pStream, int bagId)
 	cudaStreamSynchronize((*(cudaStream_t*)pStream));//wait until the pinned memory (m_pEachFeaLenEachNodeEachBag_dh) is filled
 
 	//construct keys for exclusive scan
-	MEMSET(orgManager.m_pnKey_d, -1, sizeof(uint) * bagManager.m_numFeaValue);
+	checkCudaErrors(cudaMemset(orgManager.m_pnKey_d, -1, sizeof(uint) * bagManager.m_numFeaValue));
 	uint *pTempEachFeaStartEachNode = bagManager.m_pEachFeaStartPosEachNodeEachBag_d + bagId * bagManager.m_maxNumSplittable * bagManager.m_numFea;
 
 	//set keys by GPU
