@@ -28,8 +28,6 @@ __global__ void ComputeGDKernel(int numofIns, const real *pfPredValue, const rea
 
 
 	pGrad[gTid] = pfPredValue[gTid] - pfTrueValue[gTid];
-	if(pGrad[gTid] > 100 || pGrad[gTid] < -100)
-		printf("gpu shitting............................. pfPredV=%f, true=%f, tid=%d\n", pfPredValue[gTid], pfTrueValue[gTid], gTid);
 	pHess[gTid] = 1;
 }
 

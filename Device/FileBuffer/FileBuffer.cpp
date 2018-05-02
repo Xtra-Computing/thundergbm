@@ -145,6 +145,7 @@ void FileBuffer::WriteBufferFile(string strFolder)
 	writeFile.close();
 	writeFile.clear();
 	delete[] lDataInfo;
+	printf("Done writing sorted data to files.\n");
 }
 
 /**

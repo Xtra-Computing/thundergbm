@@ -94,8 +94,7 @@ int main(int argc, char *argv[])
 	clock_t start_init, end_init;
 	//read the file the first time
 	if(bBufferFileExist == false){
-dataReader.GetDataInfo(strFileName, numFea, numIns, numFeaValue);
-//numFea = 28; numIns = 11000000; numFeaValue = 283685620;//for higgs
+		dataReader.GetDataInfo(strFileName, numFea, numIns, numFeaValue);
 		dataReader.ReadLibSVMAsSparse(v_vInsSparse, v_fLabel, strFileName, numFea, numIns);
 		trainer.m_vvInsSparse = v_vInsSparse;//later used in sorting values for each feature
 		trainer.m_vTrueValue = v_fLabel;
@@ -175,16 +174,6 @@ if(alwaysRle == true)
 								   numFea, numIns, numFeaValue);
 	}
 	bagManager.m_pTrueLabel_h = pTrueLabel;
-
-//print instance information
-	int insId = 10444952;
-	long start = plInsStartPos[insId];
-	long end = plInsStartPos[insId + 1] - 1;
-	printf("%f ", pTrueLabel[insId]);
-	for(int i = start; i <= end; i++){
-		printf("%d:%f\t", pFeaId[i], pfFeaValue[i]);
-	}
-	printf("\n");
 
 if(testNaiveCsr == true){
 checkCudaErrors(cudaMallocHost((void**)&fvalue_d, sizeof(real) * numFeaValue));
