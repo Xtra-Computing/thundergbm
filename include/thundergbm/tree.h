@@ -85,6 +85,7 @@ public:
         bool default_right;
         bool is_leaf;
         bool is_valid;
+        bool is_pruned;
 
 //        unsigned int n_instances;
 
@@ -97,9 +98,10 @@ public:
             this->base_weight = -sum_gh_pair.g / (sum_gh_pair.h + lambda);
         }
 
-        HOST_DEVICE bool splittable() const{
+        HOST_DEVICE bool splittable() const {
             return !is_leaf && is_valid;
         }
+
     };
 
     explicit Tree(int depth);
@@ -113,11 +115,13 @@ public:
 
     void init(int depth);
 
-    string to_string(int depth);
+    string to_string(int depth) const;
+
+    void reorder_nid();
 
     SyncArray<Tree::TreeNode> nodes;
 private:
-    void preorder_traversal(TreeNode &node, int max_depth, int depth, string &s);
+    void preorder_traversal(int nid, int max_depth, int depth, string &s) const;
 };
 
 #endif //THUNDERGBM_TREE_H

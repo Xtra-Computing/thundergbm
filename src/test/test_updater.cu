@@ -30,9 +30,9 @@ public:
     string path = DATASET_DIR "abalone";
 
     void SetUp() override {
-#ifdef NDEBUG
+//#ifdef NDEBUG
         el::Loggers::reconfigureAllLoggers(el::Level::Debug, el::ConfigurationType::Enabled, "false");
-#endif
+//#endif
         DataSet dataSet;
         dataSet.load_from_file(path);
         n_instances = dataSet.n_instances();
@@ -64,14 +64,18 @@ public:
                         last_level_nodes_data[i].is_leaf = true;
                     });
                 }
-                LOG(INFO) << string_format("\nbooster[%d]", round) << tree.to_string(depth);
+                prune(tree);
+                tree.reorder_nid();
+//                LOG(INFO) << string_format("\nbooster[%d]", round) << tree.to_string(depth);
                 //compute weights of leaf nodes and predict
                 {
                     float_type *y_predict_data = stats.y_predict.device_data();
                     const int *nid_data = stats.nid.device_data();
                     const Tree::TreeNode *nodes_data = tree.nodes.device_data();
                     device_loop(n_instances, [=]__device__(int i) {
-                        y_predict_data[i] += nodes_data[nid_data[i]].base_weight;
+                        int nid = nid_data[i];
+                        while (nid != 0 && (nodes_data[nid].is_pruned)) nid = (nid - 1) / 2;
+                        y_predict_data[i] += nodes_data[nid].base_weight;
                     });
                 }
                 round++;
@@ -110,6 +114,39 @@ public:
         LOG(DEBUG) << root_node.sum_gh_pair;
     }
 
+
+    vector<int> leaf_child_count;
+
+    int try_prune_leaf(Tree::TreeNode *nodes_data, int nid, int np) {
+        if (nid == 0) return np;// is root
+        int p_nid = (nid - 1) / 2;
+        leaf_child_count[p_nid]++;
+        if (leaf_child_count[p_nid] >= 2 && nodes_data[p_nid].gain < gamma) {
+            //do pruning
+            //delete two children
+            CHECK(nodes_data[p_nid * 2 + 1].is_leaf);
+            CHECK(nodes_data[p_nid * 2 + 2].is_leaf);
+            nodes_data[p_nid * 2 + 1].is_pruned = true;
+            nodes_data[p_nid * 2 + 2].is_pruned = true;
+            //make parent to leaf
+            nodes_data[p_nid].is_leaf = true;
+            return try_prune_leaf(nodes_data, p_nid, np + 2);
+        } else return np;
+    }
+
+    void prune(Tree &tree) {
+        leaf_child_count.clear();
+        leaf_child_count.resize(tree.nodes.size(), 0);
+        Tree::TreeNode *nodes_data = tree.nodes.host_data();
+        int n_pruned = 0;
+        for (int i = 0; i < tree.nodes.size(); ++i) {
+            if (nodes_data[i].is_leaf && nodes_data[i].is_valid) {
+                n_pruned = try_prune_leaf(nodes_data, i, n_pruned);
+            }
+        }
+        LOG(INFO) << string_format("%d nodes are pruned", n_pruned);
+    }
+
     //return true if there are splittable nodes
     bool find_split(Tree &tree, int level) {
         int n_max_nodes_in_level = static_cast<int>(pow(2, level));
@@ -118,11 +155,8 @@ public:
         int n_partition = n_column * n_max_nodes_in_level;
         int nnz = columns.nnz;
 
-//        for (int col_id = 0; col_id < columns.n_column; ++col_id) {
         {
             using namespace thrust;
-//            LOG(DEBUG) << "nnz = " << nnz;
-            //get pid = (nid, col_id) for each feature value
             SyncArray<int> fid2pid(nnz);
             {
                 int *fid2pid_data = fid2pid.device_data();
@@ -233,7 +267,7 @@ public:
                         }
                         gain_data[fid] = max_gain;
                     };
-//                    if (nid == 32 && pid % n_column == 1)
+//                    if (nid == 57 && pid % n_column == 1)
 //                        printf("fid = %d, gain = %f, fval = %f\n", fid, gain_data[fid],
 //                               f_val_data[fid_new2old_data[fid]]);
                 });
@@ -252,6 +286,7 @@ public:
                 auto in_same_node = [=]__device__(const int a, const int b) {
                     return (a / n_column) == (b / n_column);
                 };
+                //todo not to use device_vector
                 device_vector<int> reduced_pid(n_max_nodes_in_level);
                 device_vector<arg_max_t> best_split(n_max_nodes_in_level);
                 device_ptr<float_type> gain_data = device_pointer_cast(gain.device_data());
@@ -275,12 +310,11 @@ public:
                 bool *default_right_data = default_right.device_data();
                 float_type rt_eps = this->rt_eps;
                 float_type lambda = this->lambda;
-                float_type gamma = this->gamma;
 
                 device_loop(n_nodes_in_level, [=]__device__(int i) {
                     arg_max_t bst = best_split_data[i];
                     float_type split_gain = get<1>(bst);
-                    if (split_gain >= gamma) {
+                    if (split_gain > rt_eps) {
                         //do split
                         int split_index = get<0>(bst);
                         int pid = fid2pid_data[split_index];
@@ -323,7 +357,6 @@ public:
                         int pid2 = reduced_pid_data[i];
                         if (pid2 == INT_MAX) return;
                         int nid = pid2 / n_column + nid_offset;
-//                        printf("nid = %d, pid2 = %d\n", nid, pid2);
                         Tree::TreeNode &node = nodes_data[nid];
                         node.is_leaf = true;
                         nodes_data[nid * 2 + 1].is_valid = false;
