@@ -165,18 +165,15 @@ void AfterCompression(GBDTGPUMemManager &manager, BagCsrManager &csrManager, Bag
 	if(optimiseSetKey == false)
 		SetKey<<<numSeg, blockSize, sizeof(uint) * 2, (*(cudaStream_t*)pStream)>>>
 			(csrManager.pEachCsrFeaStartPos, csrManager.pEachCsrFeaLen, csrManager.getMutableCsrKey());
-//		(csrManager.pEachCsrFeaStartPos, csrManager.pEachCsrFeaLen, pCSRMultableKey);
 	else{
 		if(numSeg < 1000000)
 			SetKey<<<numSeg, blockSize, sizeof(uint) * 2, (*(cudaStream_t*)pStream)>>>
 				(csrManager.pEachCsrFeaStartPos, csrManager.pEachCsrFeaLen, csrManager.getMutableCsrKey());
-//			(csrManager.pEachCsrFeaStartPos, csrManager.pEachCsrFeaLen, pCSRMultableKey);
 		else{
 			int numSegEachBlk = numSeg/10000;
 			int numofBlkSetKey = (numSeg + numSegEachBlk - 1) / numSegEachBlk;
 			SetKey<<<numofBlkSetKey, blockSize, 0, (*(cudaStream_t*)pStream)>>>(csrManager.pEachCsrFeaStartPos, csrManager.pEachCsrFeaLen,
 					numSegEachBlk, numSeg, csrManager.getMutableCsrKey());
-//					numSegEachBlk, numSeg, pCSRMultableKey);
 		}
 	}
 	cudaStreamSynchronize((*(cudaStream_t*)pStream));
@@ -304,15 +301,13 @@ void AllNode2CompGD(GBDTGPUMemManager &manager, BagCsrManager &csrManager, BagMa
 		cudaDeviceSynchronize();
 		thrust::exclusive_scan(thrust::device, csrManager.getCsrLen(), csrManager.getCsrLen() + csrManager.curNumCsr, csrManager.getMutableCsrStart());
 		cudaDeviceSynchronize();
-uint *pCsrNewLen_d;// = (uint*)(indexComp.histogram_d.addr);
-//uint *pCsrNewLen_d = (uint*)(indexComp.histogram_d.addr);
-checkCudaErrors(cudaMallocHost((void**)&pCsrNewLen_d, sizeof(uint) * csrManager.curNumCsr * 2));
+		uint *pCsrNewLen_d = (uint*)(indexComp.histogram_d.addr);
 		checkCudaErrors(cudaMemset(pCsrNewLen_d, 0, sizeof(uint) * csrManager.curNumCsr * 2));
 		checkCudaErrors(cudaMemset(csrManager.pEachCsrFeaLen, 0, sizeof(uint) * bagManager.m_numFea * numofSNode));
 		dim3 dimNumofBlockToCsrLen;
 		uint blockSizeCsrLen = 128;
 
-cudaDeviceSynchronize();
+		cudaDeviceSynchronize();
 		dimNumofBlockToCsrLen.x = (numofDenseValue_previous + blockSizeCsrLen - 1) / blockSizeCsrLen;
 		newCsrLenFvalue<<<dimNumofBlockToCsrLen, blockSizeCsrLen, blockSizeCsrLen * sizeof(uint)>>>(
 				csrManager.preFvalueInsId, numofDenseValue_previous,
@@ -321,7 +316,6 @@ cudaDeviceSynchronize();
 				csrManager.getCsrFvalue(), csrManager.curNumCsr,
 				csrManager.pEachCsrFeaStartPos, bagManager.m_pPreNumSN_h[0],
 				bagManager.m_numFea, csrManager.getCsrKey(), pCsrNewLen_d, pCsrId2Pid);
-//				bagManager.m_numFea, pCSRKey, pCsrNewLen_d, pCsrId2Pid);
 		cudaDeviceSynchronize();
 
 		GETERROR("after newCsrLenFvalue");
@@ -356,9 +350,7 @@ cudaDeviceSynchronize();
 		int blockSizeLoadCsrLen;
 		dim3 dimNumofBlockToLoadCsrLen;
 		conf.ConfKernel(csrManager.curNumCsr * 2, blockSizeLoadCsrLen, dimNumofBlockToLoadCsrLen);
-		//uint *pCsrMarker = (uint*)indexComp.partitionMarker.addr;
-uint *pCsrMarker;
-checkCudaErrors(cudaMalloc((void**)&pCsrMarker, sizeof(uint) * csrManager.curNumCsr * 2));
+		uint *pCsrMarker = (uint*)indexComp.partitionMarker.addr;
 		checkCudaErrors(cudaMemset(pCsrMarker, 0, sizeof(uint) * csrManager.curNumCsr * 2));
 		map2One<<<dimNumofBlockToLoadCsrLen, blockSizeLoadCsrLen>>>(pCsrNewLen_d, csrManager.curNumCsr * 2, pCsrMarker);
 		GETERROR("after map2One");
@@ -369,14 +361,14 @@ checkCudaErrors(cudaMalloc((void**)&pCsrMarker, sizeof(uint) * csrManager.curNum
 		checkCudaErrors(cudaMemcpy(&csrManager.curNumCsr, pCsrMarker + csrManager.curNumCsr * 2 - 1, sizeof(uint), cudaMemcpyDefault));
 
 		checkCudaErrors(cudaMemset(csrManager.getMutableCsrLen(), 0, sizeof(uint) * csrManager.curNumCsr));
-cudaDeviceSynchronize();
+		cudaDeviceSynchronize();
 		loadDenseCsr<<<dimNumofBlockToLoadCsrLen, blockSizeLoadCsrLen>>>(pCsrFvalueSpare, pCsrNewLen_d,
 				previousNumCsr * 2, csrManager.curNumCsr, pCsrMarker,
 				csrManager.getMutableCsrFvalue(), csrManager.getMutableCsrLen());
 		GETERROR("after loadDenseCsr");
 		printf("done load dense csr: number of csr is %d\n", csrManager.curNumCsr);
 		thrust::exclusive_scan(thrust::device, csrManager.pEachCsrFeaLen, csrManager.pEachCsrFeaLen + numofSNode * bagManager.m_numFea, csrManager.pEachCsrFeaStartPos);
-cudaDeviceSynchronize();
+		cudaDeviceSynchronize();
 
 
 		thrust::exclusive_scan(thrust::device, csrManager.pEachNodeSizeInCsr, csrManager.pEachNodeSizeInCsr + numofSNode, csrManager.pEachCsrNodeStartPos);
@@ -385,8 +377,6 @@ cudaDeviceSynchronize();
 		thrust::exclusive_scan(thrust::device, csrManager.getCsrLen(), csrManager.getCsrLen() + csrManager.curNumCsr, pCsrStartCurRound);
 		PROCESS_ERROR(csrManager.curNumCsr <= bagManager.m_numFeaValue);
 		cudaDeviceSynchronize();
-checkCudaErrors(cudaFree(pCsrMarker));
-		printf("exit if\n");
 	}
 	else
 	{
