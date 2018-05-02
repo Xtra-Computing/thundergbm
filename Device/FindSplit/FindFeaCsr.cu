@@ -150,8 +150,6 @@ void AfterCompression(GBDTGPUMemManager &manager, BagCsrManager &csrManager, Bag
 	int numSeg = bagManager.m_numFea * numofSNode;
 	//construct keys for exclusive scan
 	checkCudaErrors(cudaMemset(csrManager.getMutableCsrKey(), -1, sizeof(uint) * csrManager.curNumCsr));
-//	checkCudaErrors(cudaMemset(pCSRMultableKey, -1, sizeof(uint) * csrManager.curNumCsr));
-	printf("done constructing key... number of segments is %d\n", numSeg);
 
 	//set keys by GPU
 	uint maxSegLen = 0;
@@ -339,10 +337,6 @@ cudaDeviceSynchronize();
 		int blockSizeFillFvalue;
 		dim3 dimNumBlockToFillFvalue;
 		conf.ConfKernel(csrManager.curNumCsr, blockSizeFillFvalue, dimNumBlockToFillFvalue);
-//fid hess sum
-uint *hess_cnt_d;
-checkCudaErrors(cudaMalloc((void**)&hess_cnt_d, sizeof(uint) * bagManager.m_numFea));
-checkCudaErrors(cudaMemset(hess_cnt_d, 0, sizeof(uint) * bagManager.m_numFea));
 		fillFvalue<<<dimNumBlockToFillFvalue, blockSizeFillFvalue>>>(csrManager.getCsrFvalue(), csrManager.curNumCsr, csrManager.pEachCsrFeaStartPos,
 				   bagManager.m_pPreNumSN_h[0], bagManager.m_numFea, csrManager.getCsrKey(), pOldCsrLen_d, pCsrId2Pid,
 //				   bagManager.m_pPreNumSN_h[bagId], bagManager.m_numFea, pCSRKey, pOldCsrLen_d, pCsrId2Pid,
@@ -426,7 +420,6 @@ checkCudaErrors(cudaFree(pCsrMarker));
 								  csrManager.pEachNodeSizeInCsr, csrManager.pEachCsrNodeStartPos, csrManager.getMutableCsrFvalue(), csrManager.getMutableCsrLen());
 	}
 	//need to compute for every new tree
-	printf("reserve memory\n");
 	if(indexComp.histogram_d.reservedSize < csrManager.curNumCsr * (2 + 2 * sizeof(real)/sizeof(uint))){//make sure enough memory for reuse
 		printf("reallocate memory for histogram (sn=%u): %u v.s. %u.......\n", numofSNode, indexComp.histogram_d.reservedSize,
 				csrManager.curNumCsr * (2 + 2 * sizeof(real)/sizeof(uint)));
@@ -448,7 +441,6 @@ checkCudaErrors(cudaFree(pCsrMarker));
 		pCsrStartPos_d = (uint*)indexComp.partitionMarker.addr;
 	printf("comp gd and hess\n");
 
-
 	ComputeGDHess<<<dimNumofBlockForGD, blockSizeForGD, sharedMemSizeForGD>>>(csrManager.getCsrLen(), pCsrStartPos_d,
 			bagManager.m_pInsGradEachBag,
 			bagManager.m_pInsHessEachBag,
@@ -457,7 +449,6 @@ checkCudaErrors(cudaFree(pCsrMarker));
 	GETERROR("after ComputeGD");
 	clock_t csr_len_end = clock();
 	total_csr_len_t += (csr_len_end - csr_len_t);
-	printf("done comp gd and hess\n");
 }
 
 void DeviceSplitter::FeaFinderAllNode2(void *pStream, int bagId)

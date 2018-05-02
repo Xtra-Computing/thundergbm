@@ -79,9 +79,6 @@ __global__ void fillFvalue(const real *csrFvalue, uint numCsr, const uint *preRo
 		atomicAdd(newCsrFeaLen + (firstPartId + 1) * numFea + feaId, 1);
 		newCsrLen[basePos + numCsrCurPart] = csrLen;
 	}
-//	if(0.369250 == temp){
-//		printf("csr len of 0.369250 is %d and %d; old len=%d, csrId=%d\n", newCsrLen[basePos], newCsrLen[basePos + numCsrCurPart], oldCsrLen[csrId], csrId);
-//	}
 }
 
 __global__ void newCsrLenFvalue(const int *preFvalueInsId, int numFeaValue, const int *pInsId2Nid, int maxNid,
@@ -101,10 +98,7 @@ __global__ void newCsrLenFvalue(const int *preFvalueInsId, int numFeaValue, cons
 		RangeBinarySearch(gTid, eachCsrStart, numCsr, csrId);
 	CONCHECKER(csrId < numCsr);
 	__syncthreads();
-	//first csrId
-//	if(gTid >= numFeaValue && tid == 0){
-//		printf("oh shitt####################################################\n");
-//	}
+
 	if(tid == 0)
 		firstCsrId = csrId;
 	__syncthreads();
@@ -115,30 +109,16 @@ __global__ void newCsrLenFvalue(const int *preFvalueInsId, int numFeaValue, cons
 		int insId = preFvalueInsId[gTid];//insId is not -1, as preFvalueInsId is dense.
 		int pid = pInsId2Nid[insId] - maxNid - 1;//mapping to new node
 
-//		if(csrId == 2809992 && csrFvalue[csrId] == 0.369250){
-//			printf("gpu pid=%d, insId=%d, csrfvalue=%f, left_fv=%f, right_fv=%f, gTid=%d, blkid=%d\n",
-//					pid, insId, csrFvalue[csrId], csrFvalue[csrId - 1], csrFvalue[csrId + 1], gTid, blockIdx.y * gridDim.x + blockIdx.x);
-//		}
-
 		csrId2Pid[csrId] = pid < 0 ? LARGE_1B_UCHAR : pid;
 		if(pid >= 0 && pid % 2 == 0){//not leaf node and it's first part.
 			uint counterOffset = csrId - firstCsrId;
-//			if(305030 == csrId || 478798 == csrId){
-//				printf("first csr id=%d, csrId=%d\n", firstCsrId, csrId);
-//			}
+
 			__threadfence();
 			uint orgValue = atomicAdd(csrCounter + counterOffset, 1);
-//			if(csrFvalue[csrId] == 0.369250){
-//				printf("gpu pid=%d, insId=%d, csrfvalue=%f, firstCsrId=%d, cntOffset=%d, orgValue=%d, cnt=%d\n",
-//						pid, insId, csrFvalue[csrId], firstCsrId, counterOffset, orgValue, csrCounter[counterOffset]);
-//			}
 		}
 	}
 
 	__syncthreads();
-//	if(blockIdx.y * gridDim.x + blockIdx.x == 2216293 && tid == 95){
-//		printf("###################################################################### cnt=%d\n", csrCounter[tid]);
-//	}
 	//compute len of each csr
 	if(csrCounter[tid] > 0){
 		uint numCsrCurPart;
@@ -149,9 +129,6 @@ __global__ void newCsrLenFvalue(const int *preFvalueInsId, int numFeaValue, cons
 					  numCsrPrePartsAhead, posInPart, numCsrCurPart, feaId);
 
 		atomicAdd(csrNewLen + numCsrPrePartsAhead * 2 + posInPart, csrCounter[tid]);
-//		if(blockIdx.y * gridDim.x + blockIdx.x == 2216293 && tid == 95){
-//			printf("csrNewLen=%d, numcsrPrePartAhead=%d, posInPart=%d, cnt=%d\n", csrNewLen[numCsrPrePartsAhead * 2 + posInPart], numCsrPrePartsAhead, posInPart, csrCounter[tid]);
-//		}
 	}
 }
 
