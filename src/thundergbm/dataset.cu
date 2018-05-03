@@ -132,8 +132,8 @@ void SparseColumns::init(const DataSet &dataset) {
 
     nnz = csr_val.size();//number of nonzer
     LOG(INFO)
-            << string_format("dataset density = %.2f%% (%d feature values)", (float) nnz / n_instances / n_column * 100,
-                             nnz);
+            << string_format("dataset density = %.2f%% (%d feature values, ave=%d/instance, %d/feature)", (float) nnz / n_instances / n_column * 100,
+                             nnz, nnz / n_instances, nnz / n_column);
 
     LOG(INFO) << "copy csr matrix to GPU";
     //three arrays (on GPU/CPU) for csr representation

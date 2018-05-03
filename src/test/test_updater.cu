@@ -22,12 +22,12 @@ public:
     unsigned int n_instances;
 
     int depth = 6;
-    int n_trees = 30;
+    int n_trees = 40;
     float_type min_child_weight = 1;
     float_type lambda = 1;
     float_type gamma = 1;
     float_type rt_eps = 1e-6;
-    string path = DATASET_DIR "abalone";
+    string path = DATASET_DIR "E2006.train";
 
     void SetUp() override {
 //#ifdef NDEBUG
@@ -57,6 +57,7 @@ public:
                 }
                 //annotate leaf nodes in last level
                 {
+                    TIMED_SCOPE(timerObj, "leaf nodes last level");
                     Tree::TreeNode *last_level_nodes_data = tree.nodes.device_data() + int(pow(2, depth) - 1);
                     int n_nodes_last_level = static_cast<int>(pow(2, depth));
 
@@ -69,6 +70,7 @@ public:
 //                LOG(INFO) << string_format("\nbooster[%d]", round) << tree.to_string(depth);
                 //compute weights of leaf nodes and predict
                 {
+                    TIMED_SCOPE(timerObj, "predict");
                     float_type *y_predict_data = stats.y_predict.device_data();
                     const int *nid_data = stats.nid.device_data();
                     const Tree::TreeNode *nodes_data = tree.nodes.device_data();
@@ -154,11 +156,14 @@ public:
         int n_column = columns.n_column;
         int n_partition = n_column * n_max_nodes_in_level;
         int nnz = columns.nnz;
+        int n_block = std::min(( nnz / n_column  - 1 ) / 256 + 1, 32 * 56);
+        LOG(INFO)<<"#block = "<<n_block;
 
         {
             using namespace thrust;
             SyncArray<int> fid2pid(nnz);
             {
+                TIMED_SCOPE(timerObj, "fid2pid");
                 int *fid2pid_data = fid2pid.device_data();
                 int *nid_data = stats.nid.device_data();
                 int *iid_data = columns.csc_row_ind.device_data();
@@ -169,21 +174,25 @@ public:
                                             int nid = nid_data[iid_data[fid]];
                                             int pid;
                                             //if this node is leaf node, move it to the end
-                                            if (nid < nid_offset) pid = INT_MAX;//todo negative
-                                            else pid = (nid - nid_offset) * n_column + col_id;
+//                                            if (nid < nid_offset) pid = INT_MAX;//todo negative
+//                                            else pid = (nid - nid_offset) * n_column + col_id;
+                                            pid = (nid - nid_offset) * n_column + col_id;
                                             fid2pid_data[fid] = pid;
-                                        });
+                                        }, n_block);
                 LOG(DEBUG) << "fid2pid " << fid2pid;
+                cudaDeviceSynchronize();
             }
 
             //get feature id mapping for partition, new -> old
             SyncArray<int> fid_new2old(nnz);
             {
+                TIMED_SCOPE(timerObj, "fid_new2old");
                 sequence(cuda::par, fid_new2old.device_data(), fid_new2old.device_end(), 0);
                 stable_sort_by_key(cuda::par, fid2pid.device_data(), fid2pid.device_end(), fid_new2old.device_data(),
                                    thrust::less<int>());
                 LOG(DEBUG) << "sorted fid2pid " << fid2pid;
                 LOG(DEBUG) << "fid_new2old " << fid_new2old;
+                cudaDeviceSynchronize();
             }
 
             //gather g/h pairs and do prefix sum
@@ -194,33 +203,44 @@ public:
                 int *fid_new2old_data = fid_new2old.device_data();
                 int *iid_data = columns.csc_row_ind.device_data();
 
-                device_loop(nnz, [=]__device__(int new_fid) {
-                    //new local feature id -> old global feature id -> instance id
-                    int iid = iid_data[fid_new2old_data[new_fid]];
-                    gh_prefix_sum_data[new_fid] = original_gh_data[iid]; //gathering
-                });
-                LOG(DEBUG) << "gathered g/h " << gh_prefix_sum;
+                {
+                    TIMED_SCOPE(timerObj, "gathering");
+                    device_loop(nnz, [=]__device__(int new_fid) {
+                        //new local feature id -> old global feature id -> instance id
+                        int iid = iid_data[fid_new2old_data[new_fid]];
+                        gh_prefix_sum_data[new_fid] = original_gh_data[iid]; //gathering
+                    });
+                    LOG(DEBUG) << "gathered g/h " << gh_prefix_sum;
+                    cudaDeviceSynchronize();
+                }
 
-                inclusive_scan_by_key(cuda::par, fid2pid.device_data(), fid2pid.device_end(),
-                                      gh_prefix_sum.device_data(),
-                                      gh_prefix_sum.device_data());
-                LOG(DEBUG) << "prefix sum " << gh_prefix_sum;
+                {
+                    TIMED_SCOPE(timerObj, "prefix sum");
+                    inclusive_scan_by_key(cuda::par, fid2pid.device_data(), fid2pid.device_end(),
+                                          gh_prefix_sum.device_data(),
+                                          gh_prefix_sum.device_data());
+                    LOG(DEBUG) << "prefix sum " << gh_prefix_sum;
+                    cudaDeviceSynchronize();
+                }
             }
 
             //find node start position
             SyncArray<int> pid_ptr(n_max_nodes_in_level * n_column + 1);
             {
+                TIMED_SCOPE(timerObj, "node start position");
                 counting_iterator<int> search_begin(0);
 
                 upper_bound(cuda::par, fid2pid.device_data(), fid2pid.device_end(), search_begin,
                             search_begin + n_partition, pid_ptr.device_data() + 1);
                 LOG(DEBUG) << pid_ptr;
+                cudaDeviceSynchronize();
             }
 
             //calculate gain of each split
             SyncArray<float_type> gain(nnz);
             SyncArray<bool> default_right(nnz);
             {
+                TIMED_SCOPE(timerObj, "calculate gain");
                 auto compute_gain = []__device__(GHPair father, GHPair lch, GHPair rch, float_type min_child_weight,
                                                  float_type lambda) -> float_type {
                     if (lch.h >= min_child_weight && rch.h >= min_child_weight)
@@ -246,7 +266,8 @@ public:
                 device_loop(nnz, [=]__device__(int fid) {
                     int pid = fid2pid_data[fid];//partition id
                     int nid = pid / n_column + nid_offset;
-                    if (pid == INT_MAX) return;
+//                    if (pid == INT_MAX) return;
+                    if (pid < 0) return;
                     int begin = pid_ptr_data[pid];//partition begin position
                     int end = pid_ptr_data[pid + 1] - 1;//partition end position
                     GHPair father_gh = nodes_data[nid].sum_gh_pair;
@@ -272,10 +293,12 @@ public:
 //                               f_val_data[fid_new2old_data[fid]]);
                 });
                 LOG(DEBUG) << "gain = " << gain;
+                cudaDeviceSynchronize();
             }
 
             //get best gain and the index of best gain for each feature and each node
             {
+                TIMED_SCOPE(timerObj, "get best gain");
                 typedef tuple<int, float_type> arg_max_t;
                 auto arg_max = []__device__(const arg_max_t &a, const arg_max_t &b) {
                     if (fabsf(get<1>(a) - get<1>(b)) < 1e-6)
@@ -313,16 +336,17 @@ public:
 
                 device_loop(n_nodes_in_level, [=]__device__(int i) {
                     arg_max_t bst = best_split_data[i];
-                    float_type split_gain = get<1>(bst);
-                    if (split_gain > rt_eps) {
+                    float_type best_split_gain = get<1>(bst);
+                    if (best_split_gain > rt_eps) {
                         //do split
                         int split_index = get<0>(bst);
                         int pid = fid2pid_data[split_index];
-                        if (pid == INT_MAX) return;
+//                        if (pid == INT_MAX) return;
+                        if (pid < 0) return;
                         int nid0 = pid / n_column;
                         int nid = nid0 + nid_offset;
                         Tree::TreeNode &node = nodes_data[nid];
-                        node.gain = split_gain;
+                        node.gain = best_split_gain;
 
                         Tree::TreeNode &lch = nodes_data[nid * 2 + 1];//left child
                         Tree::TreeNode &rch = nodes_data[nid * 2 + 2];//right child
@@ -349,13 +373,14 @@ public:
                         }
                         lch.calc_weight(lambda);
                         rch.calc_weight(lambda);
-//                        printf("pid = %d, pid %% ncol = %d, ncol = %d, nid = %d, split_gain = %f, col_id = %d, split_value = %f, split_index = %d\n",
-//                               pid, pid % n_column, n_column, nid, split_gain, node.col_id, node.split_value,
+//                        printf("pid = %d, pid %% ncol = %d, ncol = %d, nid = %d, best_split_gain = %f, col_id = %d, split_value = %f, split_index = %d\n",
+//                               pid, pid % n_column, n_column, nid, best_split_gain, node.col_id, node.split_value,
 //                               split_index);
                     } else {
                         //set leaf
                         int pid2 = reduced_pid_data[i];
-                        if (pid2 == INT_MAX) return;
+//                        if (pid2 == INT_MAX) return;
+                        if (pid2 < 0) return;
                         int nid = pid2 / n_column + nid_offset;
                         Tree::TreeNode &node = nodes_data[nid];
                         node.is_leaf = true;
@@ -363,12 +388,14 @@ public:
                         nodes_data[nid * 2 + 2].is_valid = false;
                     }
                 });
+                cudaDeviceSynchronize();
             }
         }
 
         SyncArray<bool> has_splittable(1);
         //set new node id for each instance
         {
+            TIMED_SCOPE(timerObj, "get new node id");
             int *nid_data = stats.nid.device_data();
             const int *iid_data = columns.csc_row_ind.device_data();
             const Tree::TreeNode *nodes_data = tree.nodes.device_data();
@@ -398,7 +425,7 @@ public:
                                                 nid += 2;
                                             nid_data[iid] = nid;
                                         }
-                                    });
+                                    }, n_block);
 
             //processing missing value
             device_loop(n_instances, [=]__device__(int iid) {
@@ -413,6 +440,7 @@ public:
                         nid_data[iid] += 1;
                 }
             });
+            cudaDeviceSynchronize();
         }
         LOG(DEBUG) << "new nid = " << stats.nid;
         return has_splittable.host_data()[0];

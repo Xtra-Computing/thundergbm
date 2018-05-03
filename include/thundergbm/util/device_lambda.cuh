@@ -35,8 +35,8 @@ void device_loop(int len, L lambda) {
 }
 
 
-template<unsigned int NUM_BLOCK = 32 * 56, unsigned int BLOCK_SIZE = 512, typename L>
-void device_lambda_2d_sparse(int len1, const int *len2, L lambda) {
+template<typename L>
+void device_lambda_2d_sparse(int len1, const int *len2, L lambda, unsigned int NUM_BLOCK = 32 * 56, unsigned int BLOCK_SIZE = 256) {
     if (len1 > 0) {
         lambda_2d_sparse_kernel << < dim3(len1, NUM_BLOCK), BLOCK_SIZE >> > (len2, lambda);
         CUDA_CHECK(cudaPeekAtLastError());
