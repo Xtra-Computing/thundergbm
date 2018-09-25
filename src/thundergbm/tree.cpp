@@ -1,0 +1,104 @@
+//
+// Created by jiashuai on 18-1-18.
+//
+#include "thundergbm/tree.h"
+
+Tree::Tree(int depth) {
+    init(depth);
+}
+
+void Tree::init(int depth) {
+    int n_max_nodes = static_cast<int>(pow(2, depth + 1) - 1);
+    nodes.resize(n_max_nodes);
+    TreeNode *node_data = nodes.host_data();
+    for (int i = 0; i < n_max_nodes; ++i) {
+        node_data[i].final_id = i;
+        node_data[i].split_feature_id = -1;
+        node_data[i].is_valid = false;
+        node_data[i].parent_index = (i - 1) / 2;
+        if (i < n_max_nodes / 2) {
+            node_data[i].is_leaf = false;
+            node_data[i].lch_index = i * 2 + 1;
+            node_data[i].rch_index = i * 2 + 2;
+        } else {
+            //leaf nodes
+            node_data[i].is_leaf = true;
+            node_data[i].lch_index = -1;
+            node_data[i].rch_index = -1;
+        }
+    }
+    node_data[0].parent_index = -1;//root node has no parent node
+}
+
+string Tree::dump(int depth) const {
+    string s("\n");
+    preorder_traversal(0, depth, 0, s);
+    return s;
+}
+
+void Tree::preorder_traversal(int nid, int max_depth, int depth, string &s) const {
+    const TreeNode &node = nodes.host_data()[nid];
+    if (node.is_valid && !node.is_pruned)
+        s = s + string(static_cast<unsigned long>(depth), '\t') +
+            (node.is_leaf ?
+             string_format("%d:leaf=%.6g\n", node.final_id, node.base_weight) :
+             string_format("%d:[f%d<%.6g], weight=%f, gain=%f, dr=%d\n", node.final_id, node.split_feature_id + 1,
+                           node.split_value,
+                           node.base_weight, node.gain, node.default_right));
+    if (depth < max_depth) {
+        preorder_traversal(node.lch_index, max_depth, depth + 1, s);
+        preorder_traversal(node.rch_index, max_depth, depth + 1, s);
+    }
+}
+
+std::ostream &operator<<(std::ostream &os, const Tree::TreeNode &node) {
+    os << string_format("\nnid:%d,l:%d,split_feature_id:%d,f:%f,gain:%f,r:%d,w:%f,", node.final_id, node.is_leaf,
+                        node.split_feature_id, node.split_value, node.gain, node.default_right, node.base_weight);
+    os << "g/h:" << node.sum_gh_pair;
+    return os;
+}
+
+void Tree::reorder_nid() {
+    int nid = 0;
+    Tree::TreeNode *nodes_data = nodes.host_data();
+    for (int i = 0; i < nodes.size(); ++i) {
+        if (nodes_data[i].is_valid && !nodes_data[i].is_pruned) {
+            nodes_data[i].final_id = nid;
+            nid++;
+        }
+    }
+}
+
+int Tree::try_prune_leaf(int nid, int np, float_type gamma, vector<int> &leaf_child_count) {
+    Tree::TreeNode *nodes_data = nodes.host_data();
+    int p_nid = nodes_data[nid].parent_index;
+    if (p_nid == -1) return np;// is root
+    Tree::TreeNode &p_node = nodes_data[p_nid];
+    Tree::TreeNode &lch = nodes_data[p_node.lch_index];
+    Tree::TreeNode &rch = nodes_data[p_node.rch_index];
+    leaf_child_count[p_nid]++;
+    if (leaf_child_count[p_nid] >= 2 && p_node.gain < gamma) {
+        //do pruning
+        //delete two children
+        CHECK(lch.is_leaf);
+        CHECK(rch.is_leaf);
+        lch.is_pruned = true;
+        rch.is_pruned = true;
+        //make parent to leaf
+        p_node.is_leaf = true;
+        return try_prune_leaf(p_nid, np + 2, gamma, leaf_child_count);
+    } else return np;
+}
+
+void Tree::prune_self(float_type gamma) {
+    vector<int> leaf_child_count(nodes.size(), 0);
+    Tree::TreeNode *nodes_data = nodes.host_data();
+    int n_pruned = 0;
+    for (int i = 0; i < nodes.size(); ++i) {
+        if (nodes_data[i].is_leaf && nodes_data[i].is_valid) {
+            n_pruned = try_prune_leaf(i, n_pruned, gamma, leaf_child_count);
+        }
+    }
+    LOG(DEBUG) << string_format("%d nodes are pruned", n_pruned);
+    reorder_nid();
+}

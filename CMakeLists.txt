@@ -1,0 +1,40 @@
+cmake_minimum_required(VERSION 3.1)
+project(thundergbm)
+
+find_package(CUDA REQUIRED QUIET)
+find_package(OpenMP REQUIRED QUIET)
+find_package(MPI REQUIRED)
+
+if (NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Release)
+endif ()
+
+set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -std=c++11 -gencode arch=compute_60,code=sm_60 --expt-extended-lambda --default-stream per-thread")
+
+if (CMAKE_VERSION VERSION_LESS "3.1")
+    add_compile_options("-std=c++11")
+else ()
+    set(CMAKE_CXX_STANDARD 11)
+endif ()
+
+if (OPENMP_FOUND)
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
+endif ()
+
+add_definitions("-DELPP_FEATURE_PERFORMANCE_TRACKING")
+add_definitions("-DELPP_THREAD_SAFE")
+set(COMMON_INCLUDES ${PROJECT_SOURCE_DIR}/include ${CMAKE_CURRENT_BINARY_DIR} ${PROJECT_SOURCE_DIR}/cub ${MPI_C_INCLUDE_PATH})
+include_directories(${COMMON_INCLUDES})
+
+add_subdirectory(src/thundergbm)
+add_subdirectory(src/test)
+
+# configuration file
+set(DATASET_DIR ${PROJECT_SOURCE_DIR}/dataset/)
+configure_file(include/thundergbm/config.h.in config.h)
+
+add_custom_target(runtest ${PROJECT_NAME}-test --gtest_filter='UpdaterTest*')
+add_custom_target(runtest-performance ${PROJECT_NAME}-test --gtest_filter='PerformanceTest*')
+add_custom_target(runtest-mpi mpiexec -n 2 src/test/${PROJECT_NAME}-test --gtest_filter=PerformanceTest.abalone:PerformanceTest/*.abalone)
+
