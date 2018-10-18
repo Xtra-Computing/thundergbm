@@ -16,3 +16,4 @@ core
 *.o
 *.swp
 2myrun.sh
+*build*
