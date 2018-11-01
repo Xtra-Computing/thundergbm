@@ -2,7 +2,7 @@
 // Created by shijiashuai on 5/7/18.
 //
 #include "thundergbm/updater/exact_updater.h"
-#include "mpi.h"
+//#include "mpi.h"
 
 
 void ExactUpdater::grow(Tree &tree, const vector<std::shared_ptr<SparseColumns>> &v_columns, InsStat &stats) {
@@ -10,16 +10,18 @@ void ExactUpdater::grow(Tree &tree, const vector<std::shared_ptr<SparseColumns>>
 
     int n_instances = stats.n_instances;
     int cur_device = 0;
-    int rank;
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    int n_executor;
-    MPI_Comm_size(MPI_COMM_WORLD, &n_executor);
+//    int rank;
+//    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+//    int n_executor;
+//    MPI_Comm_size(MPI_COMM_WORLD, &n_executor);
 
     LOG(TRACE) << "broadcast tree and stats";
     v_stats.resize(n_devices);
-    v_trees_gpu.resize(n_devices);
+    v_trees.resize(n_devices);
     init_tree(tree, stats);
     DO_ON_MULTI_DEVICES(n_devices, [&](int device_id) {
+        //copy stats and tree from host (stats, tree) to multi-device (v_stats, v_trees)
+
         //stats
         int n_instances = stats.n_instances;
         v_stats[device_id].reset(new InsStat());
@@ -27,12 +29,12 @@ void ExactUpdater::grow(Tree &tree, const vector<std::shared_ptr<SparseColumns>>
         gpu_stats.resize(n_instances);
         gpu_stats.gh_pair.copy_from(stats.gh_pair.host_data(), n_instances);
         gpu_stats.nid.copy_from(stats.nid.host_data(), n_instances);
-        gpu_stats.y.copy_from(stats.y.host_data(), n_instances);
-        gpu_stats.y_predict.copy_from(stats.y_predict.host_data(), n_instances);
+//        gpu_stats.y.copy_from(stats.y.host_data(), n_instances);
+//        gpu_stats.y_predict.copy_from(stats.y_predict.host_data(), n_instances);
 
         //tree
-        v_trees_gpu[device_id].reset(new Tree());
-        Tree &gpu_tree = *v_trees_gpu[device_id];
+        v_trees[device_id].reset(new Tree());
+        Tree &gpu_tree = *v_trees[device_id];
         gpu_tree.nodes.resize(tree.nodes.size());
         gpu_tree.nodes.copy_from(tree.nodes.host_data(), tree.nodes.size());
     });
@@ -44,7 +46,7 @@ void ExactUpdater::grow(Tree &tree, const vector<std::shared_ptr<SparseColumns>>
             TIMED_SCOPE(timerObj, "find split");
             DO_ON_MULTI_DEVICES(n_devices, [&](int device_id) {
                 LOG(TRACE) << string_format("finding split on device %d", device_id);
-                find_split(i, *v_columns[device_id], *v_trees_gpu[device_id], *v_stats[device_id], local_sp[device_id]);
+                find_split(i, *v_columns[device_id], *v_trees[device_id], *v_stats[device_id], local_sp[device_id]);
             });
         }
 
@@ -53,65 +55,73 @@ void ExactUpdater::grow(Tree &tree, const vector<std::shared_ptr<SparseColumns>>
         SyncArray<SplitPoint> global_sp(n_max_nodes_in_level);
         {
             TIMED_SCOPE(timerObj, "split point all reduce");
-            split_point_all_reduce(local_sp, global_sp, i);
-            if (n_executor > 1) {
-                if (rank == 0) {
-                    SyncArray<SplitPoint> global_sp2(n_max_nodes_in_level);
-                    MPI_Recv(global_sp2.host_data(), global_sp2.mem_size(), MPI_CHAR, 1, 0, MPI_COMM_WORLD,
-                             MPI_STATUS_IGNORE);
-                    auto global_sp_data = global_sp.host_data();
-                    auto global_sp2_data = global_sp2.host_data();
-                    for (int j = 0; j < global_sp.size(); ++j) {
-                        if (global_sp2_data[j].gain > global_sp_data[j].gain)
-                            global_sp_data[j] = global_sp2_data[j];
-                    }
-                } else if (rank == 1) {
-                    MPI_Send(global_sp.host_data(), global_sp.mem_size(), MPI_CHAR, 0, 0, MPI_COMM_WORLD);
-                }
-                if (rank == 0) {
-                    MPI_Send(global_sp.host_data(), global_sp.mem_size(), MPI_CHAR, 1, 0, MPI_COMM_WORLD);
-                } else {
-                    MPI_Recv(global_sp.host_data(), global_sp.mem_size(), MPI_CHAR, 0, 0, MPI_COMM_WORLD,
-                             MPI_STATUS_IGNORE);
-                }
-            }
+            if (n_devices > 1)
+                split_point_all_reduce(local_sp, global_sp, i);
+            else
+                global_sp.copy_from(local_sp[0].device_data(), local_sp[0].size());
+//            if (n_executor > 1) {
+//                if (rank == 0) {
+//                    SyncArray<SplitPoint> global_sp2(n_max_nodes_in_level);
+//                    MPI_Recv(global_sp2.host_data(), global_sp2.mem_size(), MPI_CHAR, 1, 0, MPI_COMM_WORLD,
+//                             MPI_STATUS_IGNORE);
+//                    auto global_sp_data = global_sp.host_data();
+//                    auto global_sp2_data = global_sp2.host_data();
+//                    for (int j = 0; j < global_sp.size(); ++j) {
+//                        if (global_sp2_data[j].gain > global_sp_data[j].gain)
+//                            global_sp_data[j] = global_sp2_data[j];
+//                    }
+//                } else if (rank == 1) {
+//                    MPI_Send(global_sp.host_data(), global_sp.mem_size(), MPI_CHAR, 0, 0, MPI_COMM_WORLD);
+//                }
+//                if (rank == 0) {
+//                    MPI_Send(global_sp.host_data(), global_sp.mem_size(), MPI_CHAR, 1, 0, MPI_COMM_WORLD);
+//                } else {
+//                    MPI_Recv(global_sp.host_data(), global_sp.mem_size(), MPI_CHAR, 0, 0, MPI_COMM_WORLD,
+//                             MPI_STATUS_IGNORE);
+//                }
+//            }
         }
-        LOG(DEBUG) << "rank " << rank << " sp" << global_sp;
+//        LOG(DEBUG) << "rank " << rank << " sp" << global_sp;
 
         //do split
         {
             TIMED_SCOPE(timerObj, "update tree");
-            update_tree(tree, global_sp);
+            update_tree(*v_trees[0], global_sp);
         }
+
         //broadcast tree
-        LOG(TRACE) << "broadcasting updated tree";
-        DO_ON_MULTI_DEVICES(n_devices, [&](int device_id) {
-            v_trees_gpu[device_id]->nodes.copy_from(tree.nodes.host_data(), tree.nodes.size());
-        });
+        if (n_devices > 1) {
+            LOG(TRACE) << "broadcasting updated tree";
+            //copy tree on gpu 0 to host, prepare to broadcast
+            v_trees[0]->nodes.to_host();
+            DO_ON_MULTI_DEVICES(n_devices, [&](int device_id) {
+                v_trees[device_id]->nodes.copy_from(v_trees[0]->nodes.host_data(), v_trees[0]->nodes.size());
+            });
+        }
 
         {
             vector<bool> v_has_split(n_devices);
             TIMED_SCOPE(timerObj, "reset ins2node id");
             LOG(TRACE) << "reset ins2node id";
             DO_ON_MULTI_DEVICES(n_devices, [&](int device_id) {
-                v_has_split[device_id] = reset_ins2node_id(*v_stats[device_id], *v_trees_gpu[device_id],
+                v_has_split[device_id] = reset_ins2node_id(*v_stats[device_id], *v_trees[device_id],
                                                            *v_columns[device_id]);
             });
 
             LOG(TRACE) << "gathering ins2node id";
             //get final result of the reset instance id to node id
-            if (n_executor == 1) {
-                bool has_split = false;
-                for (int d = 0; d < n_devices; d++) {
-                    has_split |= v_has_split[d];
-                }
-                if (!has_split) {
-                    LOG(INFO) << "no splittable nodes, stop";
-                    break;
-                }
-            } else {
-                //todo early stop
+//            if (n_executor == 1) {
+            bool has_split = false;
+            for (int d = 0; d < n_devices; d++) {
+                has_split |= v_has_split[d];
             }
+            if (!has_split) {
+                LOG(INFO) << "no splittable nodes, stop";
+                break;
+            }
+//            } else {
+//                todo early stop
+//            }
         }
 
         //get global ins2node id
@@ -119,8 +129,8 @@ void ExactUpdater::grow(Tree &tree, const vector<std::shared_ptr<SparseColumns>>
             TIMED_SCOPE(timerObj, "global ins2node id");
             SyncArray<int> local_ins2node_id(n_instances);
             auto local_ins2node_id_data = local_ins2node_id.device_data();
-            auto global_ins2node_id_data = stats.nid.device_data();
-            for (int d = 0; d < n_devices; d++) {
+            auto global_ins2node_id_data = v_stats[0]->nid.device_data();
+            for (int d = 1; d < n_devices; d++) {
                 CUDA_CHECK(cudaMemcpyPeerAsync(local_ins2node_id_data, cur_device,
                                                v_stats[d]->nid.device_data(), d,
                                                sizeof(int) * n_instances));
@@ -130,33 +140,33 @@ void ExactUpdater::grow(Tree &tree, const vector<std::shared_ptr<SparseColumns>>
                                                  global_ins2node_id_data[i] : local_ins2node_id_data[i];
                 });
             }
-            if (n_executor > 1) {
-                if (rank == 0) {
-                    MPI_Recv(local_ins2node_id.host_data(), local_ins2node_id.mem_size(), MPI_CHAR, 1, 0,
-                             MPI_COMM_WORLD,
-                             MPI_STATUS_IGNORE);
-                    auto local_ins2node_id_data = local_ins2node_id.device_data();
-                    auto global_ins2node_id_data = stats.nid.device_data();
-                    device_loop(n_instances, [=]__device__(int i) {
-                        global_ins2node_id_data[i] = (global_ins2node_id_data[i] > local_ins2node_id_data[i]) ?
-                                                     global_ins2node_id_data[i] : local_ins2node_id_data[i];
-                    });
-                } else {
-                    MPI_Send(stats.nid.host_data(), stats.nid.mem_size(), MPI_CHAR, 0, 0, MPI_COMM_WORLD);
-                }
-                if (rank == 0) {
-                    MPI_Send(stats.nid.host_data(), stats.nid.mem_size(), MPI_CHAR, 1, 0, MPI_COMM_WORLD);
-                } else {
-                    MPI_Recv(stats.nid.host_data(), stats.nid.mem_size(), MPI_CHAR, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-                }
-            }
+//            if (n_executor > 1) {
+//                if (rank == 0) {
+//                    MPI_Recv(local_ins2node_id.host_data(), local_ins2node_id.mem_size(), MPI_CHAR, 1, 0,
+//                             MPI_COMM_WORLD,
+//                             MPI_STATUS_IGNORE);
+//                    auto local_ins2node_id_data = local_ins2node_id.device_data();
+//                    auto global_ins2node_id_data = stats.nid.device_data();
+//                    device_loop(n_instances, [=]__device__(int i) {
+//                        global_ins2node_id_data[i] = (global_ins2node_id_data[i] > local_ins2node_id_data[i]) ?
+//                                                     global_ins2node_id_data[i] : local_ins2node_id_data[i];
+//                    });
+//                } else {
+//                    MPI_Send(stats.nid.host_data(), stats.nid.mem_size(), MPI_CHAR, 0, 0, MPI_COMM_WORLD);
+//                }
+//                if (rank == 0) {
+//                    MPI_Send(stats.nid.host_data(), stats.nid.mem_size(), MPI_CHAR, 1, 0, MPI_COMM_WORLD);
+//                } else {
+//                    MPI_Recv(stats.nid.host_data(), stats.nid.mem_size(), MPI_CHAR, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+//                }
+//            }
         }
         //processing missing value
         {
             TIMED_SCOPE(timerObj, "process missing value");
             LOG(TRACE) << "update ins2node id for each missing fval";
-            auto global_ins2node_id_data = stats.nid.device_data();//essential
-            auto nodes_data = v_trees_gpu[0]->nodes.device_data();//already broadcast above
+            auto global_ins2node_id_data = v_stats[0]->nid.device_data();//essential
+            auto nodes_data = v_trees[0]->nodes.device_data();//already broadcast above
             device_loop(n_instances, [=]__device__(int iid) {
                 int nid = global_ins2node_id_data[iid];
                 //if the instance is not on leaf node and not goes down
@@ -171,12 +181,15 @@ void ExactUpdater::grow(Tree &tree, const vector<std::shared_ptr<SparseColumns>>
             });
             LOG(DEBUG) << "new nid = " << stats.nid;
             //broadcast ins2node id
+            v_stats[0]->nid.to_host();
             DO_ON_MULTI_DEVICES(n_devices, [&](int device_id) {
-                v_stats[device_id]->nid.copy_from(stats.nid.host_data(), stats.nid.size());
+//                v_stats[device_id]->nid.copy_from(stats.nid.host_data(), stats.nid.size());
+                v_stats[device_id]->nid.copy_from(v_stats[0]->nid.host_data(), stats.nid.size());
             });
         }
     }
-    tree.nodes.copy_from(v_trees_gpu[0]->nodes);
+    tree.nodes.copy_from(v_trees[0]->nodes);
+    stats.nid.copy_from(v_stats[0]->nid);
 }
 
 void ExactUpdater::split_point_all_reduce(const vector<SyncArray<SplitPoint>> &local_sp,
@@ -568,7 +581,7 @@ bool ExactUpdater::reset_ins2node_id(InsStat &stats, const Tree &tree, const Spa
 
     }
     LOG(DEBUG) << "new tree_id = " << stats.nid;
-//        LOG(DEBUG) << v_trees_gpu[cur_device_id].nodes;
+//        LOG(DEBUG) << v_trees[cur_device_id].nodes;
     return has_splittable.host_data()[0];
 }
 

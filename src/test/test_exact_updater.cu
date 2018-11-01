@@ -6,7 +6,7 @@
 #include <thundergbm/updater/exact_updater.h>
 #include <thundergbm/updater/hist_updater.h>
 #include "gtest/gtest.h"
-#include "mpi.h"
+//#include "mpi.h"
 
 class UpdaterTest : public ::testing::Test {
 public:
@@ -15,7 +15,7 @@ public:
     bool verbose = false;
 
     void SetUp() override {
-        MPI_Init(NULL, NULL);
+//        MPI_Init(NULL, NULL);
         //common param
         param.depth = 6;
         param.n_trees = 40;
@@ -25,18 +25,19 @@ public:
         param.rt_eps = 1e-6;
         param.do_exact = true;
         param.n_device = 1;
-        MPI_Comm_size(MPI_COMM_WORLD, &param.n_executor);
+//        verbose = true;
+//        MPI_Comm_size(MPI_COMM_WORLD, &param.n_executor);
 
 
         if (!verbose) {
             el::Loggers::reconfigureAllLoggers(el::Level::Debug, el::ConfigurationType::Enabled, "false");
             el::Loggers::reconfigureAllLoggers(el::Level::Trace, el::ConfigurationType::Enabled, "false");
         }
-        el::Loggers::reconfigureAllLoggers(el::ConfigurationType::PerformanceTracking, "false");
+//        el::Loggers::reconfigureAllLoggers(el::ConfigurationType::PerformanceTracking, "false");
     }
 
     void TearDown() {
-        MPI_Finalize();
+//        MPI_Finalize();
     }
 
     float_type train_exact(GBMParam &param) {
@@ -52,17 +53,18 @@ public:
         stats.y.copy_from(dataSet.y().data(), n_instances);
 
         int n_devices = param.n_device;
-        int rank;
-        MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-        LOG(INFO) << "rank = " << rank;
-        MPI_Barrier(MPI_COMM_WORLD);
+//        int rank;
+//        MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+//        LOG(INFO) << "rank = " << rank;
+//        MPI_Barrier(MPI_COMM_WORLD);
         vector<std::shared_ptr<SparseColumns>> v_columns;
         v_columns.resize(n_devices);
         for (int i = 0; i < n_devices; i++)
             v_columns[i].reset(new SparseColumns());
-        SparseColumns local_columns;
-        columns.get_shards(rank, param.n_executor, local_columns);
-        local_columns.to_multi_devices(v_columns);
+//        SparseColumns local_columns;
+//        columns.get_shards(rank, param.n_executor, local_columns);
+//        local_columns.to_multi_devices(v_columns);
+        columns.to_multi_devices(v_columns);
         ExactUpdater updater(param);
         int round = 0;
         float_type rmse = 0;

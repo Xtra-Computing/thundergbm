@@ -62,7 +62,7 @@ public:
 
     int n_devices;
     vector<std::shared_ptr<InsStat>> v_stats;
-    vector<std::shared_ptr<Tree>> v_trees_gpu;
+    vector<std::shared_ptr<Tree>> v_trees;
 
     void init_tree(Tree &tree, const InsStat &stats);
 
