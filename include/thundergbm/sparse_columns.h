@@ -12,7 +12,7 @@
 class SparseColumns {//one feature corresponding to one column
 public:
     SyncArray<float_type> csc_val;
-    SyncArray<int> csc_row_ind;
+    SyncArray<int> csc_row_idx;
     SyncArray<int> csc_col_ptr;
     int n_column;
     int column_offset;

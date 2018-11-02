@@ -258,7 +258,7 @@ void ExactUpdater::find_split(int level, const SparseColumns &columns, const Tre
             TIMED_SCOPE(timerObj, "fvid2pid");
             //input
             const int *nid_data = stats.nid.device_data();
-            const int *iid_data = columns.csc_row_ind.device_data();
+            const int *iid_data = columns.csc_row_idx.device_data();
 
             LOG(TRACE) << "after using v_stats and columns";
             //output
@@ -318,7 +318,7 @@ void ExactUpdater::find_split(int level, const SparseColumns &columns, const Tre
                         make_permutation_iterator(                   //ins id -> gh pair
                                 stats.gh_pair.device_data(),
                                 make_permutation_iterator(                 //old fvid -> ins id
-                                        columns.csc_row_ind.device_data(),
+                                        columns.csc_row_idx.device_data(),
                                         fvid_new2old.device_data())),             //new fvid -> old fvid
                         rle_key.device_data(),
                         rle_gh.device_data()
@@ -546,7 +546,7 @@ bool ExactUpdater::reset_ins2node_id(InsStat &stats, const Tree &tree, const Spa
     {
         TIMED_SCOPE(timerObj, "get new node id");
         int *nid_data = stats.nid.device_data();
-        const int *iid_data = columns.csc_row_ind.device_data();
+        const int *iid_data = columns.csc_row_idx.device_data();
         const Tree::TreeNode *nodes_data = tree.nodes.device_data();
         const int *col_ptr_data = columns.csc_col_ptr.device_data();
         const float_type *f_val_data = columns.csc_val.device_data();

@@ -62,7 +62,7 @@ void HistUpdater::find_split(int level, const SparseColumns &columns, const Tree
             TIMED_SCOPE(timerObj, "fvid2pid");
             //input
             const int *nid_data = v_stats[cur_device]->nid.device_data();//######### change to vector
-            const int *iid_data = columns.csc_row_ind.device_data();
+            const int *iid_data = columns.csc_row_idx.device_data();
 
             LOG(TRACE) << "after using v_stats and columns";
             //output
@@ -129,7 +129,7 @@ void HistUpdater::find_split(int level, const SparseColumns &columns, const Tree
 
                 LOG(TRACE)<<"fvid new2old:"<<fvid_new2old;
                 auto iid_iter = make_permutation_iterator(
-                        columns.csc_row_ind.device_data(), fvid_new2old.device_data());
+                        columns.csc_row_idx.device_data(), fvid_new2old.device_data());
                 auto p_size_prefix_sum_ptr = p_size_prefix_sum.device_data();
 
                 auto cut_points_ptr = v_cut[cur_device].cut_points_val.device_data();

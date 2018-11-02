@@ -4,27 +4,77 @@
 #include <thundergbm/util/cub_wrapper.h>
 #include "thundergbm/sparse_columns.h"
 #include "thundergbm/util/device_lambda.cuh"
+#include "cusparse.h"
 
 void SparseColumns::from_dataset(const DataSet &dataset) {
-    LOG(TRACE) << "constructing sparse columns";
+    LOG(TRACE) << "constructing sparse columns, converting csr to csc";
+    //cpu transpose
     n_column = dataset.n_features();
-    vector<float_type> csc_val_vec;
-    vector<int> csc_row_ind_vec;
-    vector<int> csc_col_ptr_vec;
-    csc_col_ptr_vec.push_back(0);
-    for (int i = 0; i < n_column; i++) {
-        csc_val_vec.insert(csc_val_vec.end(), dataset.features[i].begin(), dataset.features[i].end());
-        csc_row_ind_vec.insert(csc_row_ind_vec.end(), dataset.line_num[i].begin(), dataset.line_num[i].end());
-        csc_col_ptr_vec.push_back(csc_col_ptr_vec.back() + dataset.features[i].size());
+    nnz = dataset.csr_val.size();
+    csc_val.resize(nnz);
+    csc_row_idx.resize(nnz);
+    csc_col_ptr.resize(n_column + 1);
+    auto csc_val_data = csc_val.host_data();
+    auto csc_row_idx_data = csc_row_idx.host_data();
+    auto csc_col_ptr_data = csc_col_ptr.host_data();
+    for (int i = 0; i < nnz; ++i) {
+        csc_col_ptr_data[dataset.csr_col_idx[i] + 1] += 1;
     }
-    nnz = csc_val_vec.size();
-    csc_val.resize(csc_val_vec.size());
-    memcpy(csc_val.host_data(), csc_val_vec.data(), sizeof(float_type) * csc_val_vec.size());
-    csc_row_ind.resize(csc_row_ind_vec.size());
-    memcpy(csc_row_ind.host_data(), csc_row_ind_vec.data(), sizeof(int) * csc_row_ind_vec.size());
-    csc_col_ptr.resize(csc_col_ptr_vec.size());
-    memcpy(csc_col_ptr.host_data(), csc_col_ptr_vec.data(), sizeof(int) * csc_col_ptr_vec.size());
-    cudaDeviceSynchronize();// ?
+    for (int i = 1; i < n_column + 1; ++i) {
+        csc_col_ptr_data[i] += csc_col_ptr_data[i - 1];
+    }
+    for (int row = 0; row < dataset.n_instances(); ++row) {
+        for (int j = dataset.csr_row_ptr[row]; j < dataset.csr_row_ptr[row + 1]; ++j) {
+            int col = dataset.csr_col_idx[j]; // csr col
+            int dest = csc_col_ptr_data[col]; // destination index in csc array
+            csc_val_data[dest] = dataset.csr_val[j];
+            csc_row_idx_data[dest] = row;
+            csc_col_ptr_data[col]++; //increment column start position
+        }
+    }
+    //recover column start position
+    for (int i = 0, last = 0; i < n_column; ++i) {
+        int next_last = csc_col_ptr_data[i];
+        csc_col_ptr_data[i] = last;
+        last = next_last;
+    }
+
+//    LOG(INFO) << "copy csr matrix to GPU";
+//    //three arrays (on GPU/CPU) for csr representation
+//    SyncArray<float_type> val;
+//    SyncArray<int> col_idx;
+//    SyncArray<int> row_ptr;
+//    val.resize(dataset.csr_val.size());
+//    col_idx.resize(dataset.csr_col_idx.size());
+//    row_ptr.resize(dataset.csr_row_ptr.size());
+//
+//    //copy data to the three arrays
+//    val.copy_from(dataset.csr_val.data(), val.size());
+//    col_idx.copy_from(dataset.csr_col_idx.data(), col_idx.size());
+//    row_ptr.copy_from(dataset.csr_row_ptr.data(), row_ptr.size());
+//    LOG(INFO) << "converting csr matrix to csc matrix";
+//    cusparseHandle_t handle;
+//    cusparseMatDescr_t descr;
+//    cusparseCreate(&handle);
+//    cusparseCreateMatDescr(&descr);
+//    cusparseSetMatIndexBase(descr, CUSPARSE_INDEX_BASE_ZERO);
+//    cusparseSetMatType(descr, CUSPARSE_MATRIX_TYPE_GENERAL);
+//
+//    n_column = dataset.n_features_;
+//    nnz = dataset.csr_val.size();
+//    csc_val.resize(nnz);
+//    csc_row_idx.resize(nnz);
+//    csc_col_ptr.resize(n_column + 1);
+//
+//    cusparseScsr2csc(handle, dataset.n_instances(), n_column, nnz, val.device_data(), row_ptr.device_data(),
+//                     col_idx.device_data(), csc_val.device_data(), csc_row_idx.device_data(), csc_col_ptr.device_data(),
+//                     CUSPARSE_ACTION_NUMERIC, CUSPARSE_INDEX_BASE_ZERO);
+//    cudaDeviceSynchronize();
+//    cusparseDestroy(handle);
+//    cusparseDestroyMatDescr(descr);
+//    LOG(INFO)<<csc_val;
+//    LOG(INFO)<<csc_row_idx;
+//    LOG(INFO)<<csc_col_ptr;
 }
 
 
@@ -45,11 +95,11 @@ void SparseColumns::to_multi_devices(vector<std::shared_ptr<SparseColumns>> &v_c
         columns.nnz = nnz_sub;
         columns.n_column = n_column_sub;
         columns.csc_val.resize(nnz_sub);
-        columns.csc_row_ind.resize(nnz_sub);
+        columns.csc_row_idx.resize(nnz_sub);
         columns.csc_col_ptr.resize(n_column_sub + 1);
 
         columns.csc_val.copy_from(csc_val.host_data() + first_col_start, nnz_sub);
-        columns.csc_row_ind.copy_from(csc_row_ind.host_data() + first_col_start, nnz_sub);
+        columns.csc_row_idx.copy_from(csc_row_idx.host_data() + first_col_start, nnz_sub);
         columns.csc_col_ptr.copy_from(csc_col_ptr.host_data() + first_col_id, n_column_sub + 1);
 
         int *csc_col_ptr_2d_data = columns.csc_col_ptr.device_data();
@@ -59,7 +109,7 @@ void SparseColumns::to_multi_devices(vector<std::shared_ptr<SparseColumns>> &v_c
             csc_col_ptr_2d_data[col_id] = csc_col_ptr_2d_data[col_id] - first_col_start;
         });
         LOG(TRACE) << "sorting feature values (multi-device)";
-        cub_seg_sort_by_key(columns.csc_val, columns.csc_row_ind, columns.csc_col_ptr, false);
+        cub_seg_sort_by_key(columns.csc_val, columns.csc_row_idx, columns.csc_col_ptr, false);
     });
     LOG(TRACE) << "sorting finished";
 }
@@ -79,11 +129,11 @@ void SparseColumns::get_shards(int rank, int n, SparseColumns &result) const {
     columns.nnz = nnz_sub;
     columns.n_column = n_column_sub;
     columns.csc_val.resize(nnz_sub);
-    columns.csc_row_ind.resize(nnz_sub);
+    columns.csc_row_idx.resize(nnz_sub);
     columns.csc_col_ptr.resize(n_column_sub + 1);
 
     columns.csc_val.copy_from(csc_val.host_data() + first_col_start, nnz_sub);
-    columns.csc_row_ind.copy_from(csc_row_ind.host_data() + first_col_start, nnz_sub);
+    columns.csc_row_idx.copy_from(csc_row_idx.host_data() + first_col_start, nnz_sub);
     columns.csc_col_ptr.copy_from(csc_col_ptr.host_data() + first_col_id, n_column_sub + 1);
 
     int *csc_col_ptr_2d_data = columns.csc_col_ptr.device_data();
@@ -93,5 +143,5 @@ void SparseColumns::get_shards(int rank, int n, SparseColumns &result) const {
         csc_col_ptr_2d_data[col_id] = csc_col_ptr_2d_data[col_id] - first_col_start;
     });
     LOG(TRACE) << "sorting feature values (multi-device)";
-    cub_seg_sort_by_key(columns.csc_val, columns.csc_row_ind, columns.csc_col_ptr, false);
+    cub_seg_sort_by_key(columns.csc_val, columns.csc_row_idx, columns.csc_col_ptr, false);
 }

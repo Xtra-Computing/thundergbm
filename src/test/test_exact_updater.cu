@@ -50,7 +50,7 @@ public:
         columns.from_dataset(dataSet);
         trees.resize(param.n_trees);
         stats.resize(n_instances);
-        stats.y.copy_from(dataSet.y().data(), n_instances);
+        stats.y.copy_from(dataSet.y.data(), n_instances);
 
         int n_devices = param.n_device;
 //        int rank;
@@ -95,7 +95,7 @@ public:
         columns.from_dataset(dataSet);
         trees.resize(param.n_trees);
         stats.resize(n_instances);
-        stats.y.copy_from(dataSet.y().data(), n_instances);
+        stats.y.copy_from(dataSet.y.data(), n_instances);
 
         int n_devices = 2;
         vector<std::shared_ptr<SparseColumns>> v_columns;
@@ -176,6 +176,11 @@ TEST_F(PerformanceTest, e2006_40_trees) {
     train_exact(param);
 }
 
+TEST_F(PerformanceTest, log1p_40_trees) {
+    param.path = DATASET_DIR "log1p.E2006.train";
+    train_exact(param);
+}
+
 TEST_F(PerformanceTest, higgs_40_trees) {
     param.path = DATASET_DIR "HIGGS";
     train_exact(param);
@@ -204,6 +209,11 @@ TEST_F(PerformanceTest, susy_40_trees) {
 
 TEST_F(PerformanceTest, ins_40_trees) {
     param.path = DATASET_DIR "ins.libsvm";
+    train_exact(param);
+}
+
+TEST_F(PerformanceTest, iris) {
+    param.path = DATASET_DIR "iris.scale";
     train_exact(param);
 }
 //TEST_F(UpdaterTest, test_abalone_hist) {

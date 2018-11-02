@@ -16,7 +16,7 @@ void HistCut::get_cut_points(SparseColumns& columns, InsStat& stats, int max_num
         sketchs[i].Init(n_instances, 1.0 / (max_num_bins * kFactor));
     }
     float_type* val_ptr = columns.csc_val.host_data();
-    int* row_ptr = columns.csc_row_ind.host_data();
+    int* row_ptr = columns.csc_row_idx.host_data();
     int* col_ptr = columns.csc_col_ptr.host_data();
 	auto stat_gh_ptr = stats.gh_pair.host_data();
 #pragma omp parallel for
@@ -124,7 +124,7 @@ void BinStat::Init(HistCut& cut, InsStat& stats, int pid, float_type* f_val, int
 //    this->fid = fid;
 //    this->gh_pair.resize(cut_points.size());
 //    float_type* val_ptr = columns.csc_val.host_data();
-//    int* row_ptr = columns.csc_row_ind.host_data();
+//    int* row_ptr = columns.csc_row_idx.host_data();
 //    int* col_ptr = columns.csc_col_ptr.host_data();
 //    for(int i = col_ptr[fid + 1] - 1; i >= col_ptr[fid]; i--){
 //        float_type val = val_ptr[i];
