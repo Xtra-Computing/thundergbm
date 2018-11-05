@@ -14,6 +14,8 @@ void SparseColumns::from_dataset(const DataSet &dataset) {
     csc_val.resize(nnz);
     csc_row_idx.resize(nnz);
     csc_col_ptr.resize(n_column + 1);
+    LOG(INFO) << string_format("#non-zeros = %ld, density = %.2f%%", nnz,
+                               (float) nnz / n_column / dataset.n_instances() * 100);
     auto csc_val_data = csc_val.host_data();
     auto csc_row_idx_data = csc_row_idx.host_data();
     auto csc_col_ptr_data = csc_col_ptr.host_data();

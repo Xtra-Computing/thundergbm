@@ -14,6 +14,7 @@
 #include <thrust/sort.h>
 #include <thrust/binary_search.h>
 #include <thrust/device_vector.h>
+#include "thrust/iterator/discard_iterator.h"
 #include <thundergbm/param.h>
 #include "thundergbm/util/device_lambda.cuh"
 

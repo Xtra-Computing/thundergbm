@@ -31,7 +31,7 @@ public:
 
         if (!verbose) {
             el::Loggers::reconfigureAllLoggers(el::Level::Debug, el::ConfigurationType::Enabled, "false");
-            el::Loggers::reconfigureAllLoggers(el::Level::Trace, el::ConfigurationType::Enabled, "false");
+//            el::Loggers::reconfigureAllLoggers(el::Level::Trace, el::ConfigurationType::Enabled, "false");
         }
 //        el::Loggers::reconfigureAllLoggers(el::ConfigurationType::PerformanceTracking, "false");
     }
@@ -72,6 +72,7 @@ public:
             TIMED_SCOPE(timerObj, "construct tree");
             for (Tree &tree:trees) {
                 stats.updateGH();
+                SyncMem::clear_cache();
                 updater.grow(tree, v_columns, stats);
                 tree.prune_self(param.gamma);
                 LOG(DEBUG) << string_format("\nbooster[%d]", round) << tree.dump(param.depth);
@@ -192,7 +193,6 @@ TEST_F(PerformanceTest, news20_40_trees) {
 }
 
 TEST_F(PerformanceTest, abalone) {
-    param.n_trees = 3;
     param.path = DATASET_DIR "abalone";
     train_exact(param);
 }
@@ -214,6 +214,12 @@ TEST_F(PerformanceTest, ins_40_trees) {
 
 TEST_F(PerformanceTest, iris) {
     param.path = DATASET_DIR "iris.scale";
+    train_exact(param);
+}
+
+TEST_F(PerformanceTest, year) {
+    param.n_trees = 5;
+    param.path = DATASET_DIR "YearPredictionMSD.scale";
     train_exact(param);
 }
 //TEST_F(UpdaterTest, test_abalone_hist) {

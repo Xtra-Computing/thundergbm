@@ -6,7 +6,9 @@
 #define THUNDERGBM_SYNCMEM_H
 
 #include "thundergbm.h"
+#include "cub/util_allocator.cuh"
 
+using namespace cub;
 namespace thunder {
     inline void malloc_host(void **ptr, size_t size) {
 #ifdef USE_CUDA
@@ -32,6 +34,15 @@ namespace thunder {
 #endif
     }
 
+    class Allocator: public CachingDeviceAllocator {
+    public:
+        Allocator(unsigned int bin_growth, unsigned int min_bin, unsigned int max_bin, size_t max_cached_bytes,
+                  bool skip_cleanup, bool debug);
+
+        cudaError_t DeviceAllocate(int device, void **d_ptr, size_t bytes, cudaStream_t active_stream = 0) ;
+
+        cudaError_t DeviceAllocate(void **d_ptr, size_t bytes, cudaStream_t active_stream = 0) ;
+    };
     /**
      * @brief Auto-synced memory for CPU and GPU
      */
@@ -85,6 +96,7 @@ namespace thunder {
         int get_owner_id() {
             return device_id;
         }
+        static void clear_cache(){cub_allocator.FreeAllCached();};
 
     private:
         void *device_ptr;
@@ -94,6 +106,7 @@ namespace thunder {
         size_t size_;
         HEAD head_;
         int device_id;
+        static Allocator cub_allocator;
     };
 }
 using thunder::SyncMem;

@@ -252,135 +252,137 @@ void ExactUpdater::find_split(int level, const SparseColumns &columns, const Tre
     //find the best split locally
     {
         using namespace thrust;
-        SyncArray<int> fvid2pid(nnz);
 
-        {
-            TIMED_SCOPE(timerObj, "fvid2pid");
-            //input
-            const int *nid_data = stats.nid.device_data();
-            const int *iid_data = columns.csc_row_idx.device_data();
-
-            LOG(TRACE) << "after using v_stats and columns";
-            //output
-            int *fvid2pid_data = fvid2pid.device_data();
-            device_loop_2d(
-                    n_column, columns.csc_col_ptr.device_data(),
-                    [=]__device__(int col_id, int fvid) {
-                        //feature value id -> instance id -> node id
-                        int nid = nid_data[iid_data[fvid]];
-                        int pid;
-                        //if this node is leaf node, move it to the end
-                        if (nid < nid_offset) pid = INT_MAX;//todo negative
-                        else pid = (nid - nid_offset) * n_column + col_id;
-                        fvid2pid_data[fvid] = pid;
-                    },
-                    n_block);
-            LOG(DEBUG) << "fvid2pid " << fvid2pid;
-        }
-
-
-        //gather g/h pairs and do prefix sum
+        //calculate split information for each split
         int n_split;
         SyncArray<GHPair> gh_prefix_sum;
         SyncArray<GHPair> missing_gh(n_partition);
         SyncArray<int> rle_pid;
         SyncArray<float_type> rle_fval;
         {
-            //get feature value id mapping for partition, new -> old
-            SyncArray<int> fvid_new2old(nnz);
+            SyncArray<int> fvid2pid(nnz);
             {
-                TIMED_SCOPE(timerObj, "fvid_new2old");
-                sequence(cuda::par, fvid_new2old.device_data(), fvid_new2old.device_end(), 0);
-                stable_sort_by_key(
-                        cuda::par, fvid2pid.device_data(), fvid2pid.device_end(),
-                        fvid_new2old.device_data(),
-                        thrust::less<int>());
-                LOG(DEBUG) << "sorted fvid2pid " << fvid2pid;
-                LOG(DEBUG) << "fvid_new2old " << fvid_new2old;
+                TIMED_SCOPE(timerObj, "fvid2pid");
+                //input
+                const int *nid_data = stats.nid.device_data();
+                const int *iid_data = columns.csc_row_idx.device_data();
+
+                LOG(TRACE) << "after using v_stats and columns";
+                //output
+                int *fvid2pid_data = fvid2pid.device_data();
+                device_loop_2d(
+                        n_column, columns.csc_col_ptr.device_data(),
+                        [=]__device__(int col_id, int fvid) {
+                            //feature value id -> instance id -> node id
+                            int nid = nid_data[iid_data[fvid]];
+                            int pid;
+                            //if this node is leaf node, move it to the end
+                            if (nid < nid_offset) pid = INT_MAX;//todo negative
+                            else pid = (nid - nid_offset) * n_column + col_id;
+                            fvid2pid_data[fvid] = pid;
+                        },
+                        n_block);
+                LOG(DEBUG) << "fvid2pid " << fvid2pid;
             }
 
-            //do prefix sum
+            //gather g/h pairs and do prefix sum
             {
-                TIMED_SCOPE(timerObj, "do prefix sum");
-                SyncArray<GHPair> rle_gh(nnz);
-                SyncArray<int_float> rle_key(nnz);
-                //same feature value in the same part has the same key.
-                auto key_iter = make_zip_iterator(
-                        make_tuple(
-                                fvid2pid.device_data(),
-                                make_permutation_iterator(
-                                        columns.csc_val.device_data(),
-                                        fvid_new2old.device_data())));//use fvid_new2old to access csc_val
-                //apply RLE compression
-                n_split = reduce_by_key(
-                        cuda::par,
-                        key_iter, key_iter + nnz,
-                        make_permutation_iterator(                   //ins id -> gh pair
-                                stats.gh_pair.device_data(),
-                                make_permutation_iterator(                 //old fvid -> ins id
-                                        columns.csc_row_idx.device_data(),
-                                        fvid_new2old.device_data())),             //new fvid -> old fvid
-                        rle_key.device_data(),
-                        rle_gh.device_data()
-                ).first - rle_key.device_data();
-                gh_prefix_sum.resize(n_split);
-                rle_pid.resize(n_split);
-                rle_fval.resize(n_split);
-                const auto rle_gh_data = rle_gh.device_data();
-                const auto rle_key_data = rle_key.device_data();
-                auto gh_prefix_sum_data = gh_prefix_sum.device_data();
-                auto rle_pid_data = rle_pid.device_data();
-                auto rle_fval_data = rle_fval.device_data();
-                device_loop(n_split, [=]__device__(int i) {
-                    gh_prefix_sum_data[i] = rle_gh_data[i];
-                    rle_pid_data[i] = get<0>(rle_key_data[i]);
-                    rle_fval_data[i] = get<1>(rle_key_data[i]);
-                });
+                //get feature value id mapping for partition, new -> old
+                SyncArray<int> fvid_new2old(nnz);
+                {
+                    TIMED_SCOPE(timerObj, "fvid_new2old");
+                    sequence(cuda::par, fvid_new2old.device_data(), fvid_new2old.device_end(), 0);
+                    stable_sort_by_key(
+                            cuda::par, fvid2pid.device_data(), fvid2pid.device_end(),
+                            fvid_new2old.device_data(),
+                            thrust::less<int>());
+                    LOG(DEBUG) << "sorted fvid2pid " << fvid2pid;
+                    LOG(DEBUG) << "fvid_new2old " << fvid_new2old;
+                }
 
-                inclusive_scan_by_key(
-                        cuda::par,
-                        rle_pid.device_data(), rle_pid.device_end(),
-                        gh_prefix_sum.device_data(),
-                        gh_prefix_sum.device_data());
+                //do prefix sum
+                {
+                    TIMED_SCOPE(timerObj, "do prefix sum");
+                    SyncArray<GHPair> rle_gh(nnz);
+                    SyncArray<int_float> rle_key(nnz);
+                    //same feature value in the same part has the same key.
+                    auto key_iter = make_zip_iterator(
+                            make_tuple(
+                                    fvid2pid.device_data(),
+                                    make_permutation_iterator(
+                                            columns.csc_val.device_data(),
+                                            fvid_new2old.device_data())));//use fvid_new2old to access csc_val
+                    //apply RLE compression
+                    n_split = reduce_by_key(
+                            cuda::par,
+                            key_iter, key_iter + nnz,
+                            make_permutation_iterator(                   //ins id -> gh pair
+                                    stats.gh_pair.device_data(),
+                                    make_permutation_iterator(                 //old fvid -> ins id
+                                            columns.csc_row_idx.device_data(),
+                                            fvid_new2old.device_data())),             //new fvid -> old fvid
+                            rle_key.device_data(),
+                            rle_gh.device_data()
+                    ).first - rle_key.device_data();
+                    gh_prefix_sum.resize(n_split);
+                    rle_pid.resize(n_split);
+                    rle_fval.resize(n_split);
+                    const auto rle_gh_data = rle_gh.device_data();
+                    const auto rle_key_data = rle_key.device_data();
+                    auto gh_prefix_sum_data = gh_prefix_sum.device_data();
+                    auto rle_pid_data = rle_pid.device_data();
+                    auto rle_fval_data = rle_fval.device_data();
+                    device_loop(n_split, [=]__device__(int i) {
+                        gh_prefix_sum_data[i] = rle_gh_data[i];
+                        rle_pid_data[i] = get<0>(rle_key_data[i]);
+                        rle_fval_data[i] = get<1>(rle_key_data[i]);
+                    });
+
+                    inclusive_scan_by_key(
+                            cuda::par,
+                            rle_pid.device_data(), rle_pid.device_end(),
+                            gh_prefix_sum.device_data(),
+                            gh_prefix_sum.device_data());
 //                        LOG(DEBUG) << "gh prefix sum = " << gh_prefix_sum;
-                LOG(DEBUG) << "reduced pid = " << rle_pid;
-                LOG(DEBUG) << "reduced fval = " << rle_fval;
-            }
+                    LOG(DEBUG) << "reduced pid = " << rle_pid;
+                    LOG(DEBUG) << "reduced fval = " << rle_fval;
+                }
 
-            //calculate missing value for each partition
-            {
-                TIMED_SCOPE(timerObj, "calculate missing value");
-                SyncArray<int> pid_ptr(n_partition + 1);
-                counting_iterator<int> search_begin(0);
-                upper_bound(cuda::par, rle_pid.device_data(), rle_pid.device_end(), search_begin,
-                            search_begin + n_partition, pid_ptr.device_data() + 1);
-                LOG(DEBUG) << "pid_ptr = " << pid_ptr;
+                //calculate missing value for each partition
+                {
+                    TIMED_SCOPE(timerObj, "calculate missing value");
+                    SyncArray<int> pid_ptr(n_partition + 1);
+                    counting_iterator<int> search_begin(0);
+                    upper_bound(cuda::par, rle_pid.device_data(), rle_pid.device_end(), search_begin,
+                                search_begin + n_partition, pid_ptr.device_data() + 1);
+                    LOG(DEBUG) << "pid_ptr = " << pid_ptr;
 
-                auto pid_ptr_data = pid_ptr.device_data();
-                auto rle_pid_data = rle_pid.device_data();
-                auto rle_fval_data = rle_fval.device_data();
-                float_type rt_eps = this->rt_eps;
-                device_loop(n_split, [=]__device__(int i) {
-                    int pid = rle_pid_data[i];
-                    if (pid == INT_MAX) return;
-                    float_type f = rle_fval_data[i];
-                    if ((pid_ptr_data[pid + 1] - 1) == i)//the last RLE
-                        rle_fval_data[i] = (f - fabsf(rle_fval_data[pid_ptr_data[pid]]) - rt_eps);
-                    else
-                        //FIXME read/write collision
-                        rle_fval_data[i] = (f + rle_fval_data[i + 1]) * 0.5f;
-                });
+                    auto pid_ptr_data = pid_ptr.device_data();
+                    auto rle_pid_data = rle_pid.device_data();
+                    auto rle_fval_data = rle_fval.device_data();
+                    float_type rt_eps = this->rt_eps;
+                    device_loop(n_split, [=]__device__(int i) {
+                        int pid = rle_pid_data[i];
+                        if (pid == INT_MAX) return;
+                        float_type f = rle_fval_data[i];
+                        if ((pid_ptr_data[pid + 1] - 1) == i)//the last RLE
+                            rle_fval_data[i] = (f - fabsf(rle_fval_data[pid_ptr_data[pid]]) - rt_eps);
+                        else
+                            //FIXME read/write collision
+                            rle_fval_data[i] = (f + rle_fval_data[i + 1]) * 0.5f;
+                    });
 
-                const auto gh_prefix_sum_data = gh_prefix_sum.device_data();
-                const auto node_data = tree.nodes.device_data();
-                auto missing_gh_data = missing_gh.device_data();
-                device_loop(n_partition, [=]__device__(int pid) {
-                    int nid = pid / n_column + nid_offset;
-                    if (pid_ptr_data[pid + 1] != pid_ptr_data[pid])
-                        missing_gh_data[pid] =
-                                node_data[nid].sum_gh_pair - gh_prefix_sum_data[pid_ptr_data[pid + 1] - 1];
-                });
+                    const auto gh_prefix_sum_data = gh_prefix_sum.device_data();
+                    const auto node_data = tree.nodes.device_data();
+                    auto missing_gh_data = missing_gh.device_data();
+                    device_loop(n_partition, [=]__device__(int pid) {
+                        int nid = pid / n_column + nid_offset;
+                        if (pid_ptr_data[pid + 1] != pid_ptr_data[pid])
+                            missing_gh_data[pid] =
+                                    node_data[nid].sum_gh_pair - gh_prefix_sum_data[pid_ptr_data[pid + 1] - 1];
+                    });
 //                        LOG(DEBUG) << "missing gh = " << missing_gh;
+                }
             }
         }
 
@@ -398,14 +400,12 @@ void ExactUpdater::find_split(int level, const SparseColumns &columns, const Tre
                     return 0;
             };
 
-            int *fvid2pid_data = fvid2pid.device_data();
             const Tree::TreeNode *nodes_data = tree.nodes.device_data();
             GHPair *gh_prefix_sum_data = gh_prefix_sum.device_data();
             float_type *gain_data = gain.device_data();
             bool *default_right_data = default_right.device_data();
             const auto rle_pid_data = rle_pid.device_data();
             const auto missing_gh_data = missing_gh.device_data();
-            auto rle_fval_data = rle_fval.device_data();
             //for lambda expression
             float_type mcw = min_child_weight;
             float_type l = lambda;
@@ -447,18 +447,16 @@ void ExactUpdater::find_split(int level, const SparseColumns &columns, const Tre
             };
 
             //reduce to get best split of each node for this feature
-            SyncArray<int> key_test(n_max_nodes_in_level);
             n_nodes_in_level = reduce_by_key(
                     cuda::par,
                     rle_pid.device_data(), rle_pid.device_end(),
                     make_zip_iterator(make_tuple(counting_iterator<int>(0), gain.device_data())),
-                    key_test.device_data(),//make_discard_iterator(),
+                    make_discard_iterator(),
                     best_idx_gain.device_data(),
                     in_same_node,
                     arg_max).second - best_idx_gain.device_data();
 
             LOG(DEBUG) << "#nodes in level = " << n_nodes_in_level;
-            LOG(DEBUG) << "best pid = " << key_test;
             LOG(DEBUG) << "best idx & gain = " << best_idx_gain;
         }
 
