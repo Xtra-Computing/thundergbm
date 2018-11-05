@@ -2,6 +2,7 @@
 // Created by shijiashuai on 5/7/18.
 //
 #include "thundergbm/updater/exact_updater.h"
+#include "thundergbm/util/cub_wrapper.h"
 //#include "mpi.h"
 
 
@@ -278,7 +279,8 @@ void ExactUpdater::find_split(int level, const SparseColumns &columns, const Tre
                             int pid;
                             //if this node is leaf node, move it to the end
                             if (nid < nid_offset) pid = INT_MAX;//todo negative
-                            else pid = (nid - nid_offset) * n_column + col_id;
+//                            else pid = (nid - nid_offset) * n_column + col_id;
+                            else pid = col_id * n_max_nodes_in_level + nid - nid_offset;
                             fvid2pid_data[fvid] = pid;
                         },
                         n_block);
@@ -292,10 +294,11 @@ void ExactUpdater::find_split(int level, const SparseColumns &columns, const Tre
                 {
                     TIMED_SCOPE(timerObj, "fvid_new2old");
                     sequence(cuda::par, fvid_new2old.device_data(), fvid_new2old.device_end(), 0);
-                    stable_sort_by_key(
-                            cuda::par, fvid2pid.device_data(), fvid2pid.device_end(),
-                            fvid_new2old.device_data(),
-                            thrust::less<int>());
+//                    stable_sort_by_key(
+//                            cuda::par, fvid2pid.device_data(), fvid2pid.device_end(),
+//                            fvid_new2old.device_data(),
+//                            thrust::less<int>());
+                    cub_sort_by_key(fvid2pid, fvid_new2old);
                     LOG(DEBUG) << "sorted fvid2pid " << fvid2pid;
                     LOG(DEBUG) << "fvid_new2old " << fvid_new2old;
                 }
@@ -376,7 +379,8 @@ void ExactUpdater::find_split(int level, const SparseColumns &columns, const Tre
                     const auto node_data = tree.nodes.device_data();
                     auto missing_gh_data = missing_gh.device_data();
                     device_loop(n_partition, [=]__device__(int pid) {
-                        int nid = pid / n_column + nid_offset;
+//                        int nid = pid / n_column + nid_offset;
+                        int nid = pid % n_max_nodes_in_level + nid_offset;
                         if (pid_ptr_data[pid + 1] != pid_ptr_data[pid])
                             missing_gh_data[pid] =
                                     node_data[nid].sum_gh_pair - gh_prefix_sum_data[pid_ptr_data[pid + 1] - 1];
@@ -411,7 +415,8 @@ void ExactUpdater::find_split(int level, const SparseColumns &columns, const Tre
             float_type l = lambda;
             device_loop(n_split, [=]__device__(int i) {
                 int pid = rle_pid_data[i];
-                int nid0 = pid / n_column;
+//                int nid0 = pid / n_column;
+                int nid0 = pid % n_max_nodes_in_level;
                 int nid = nid0 + nid_offset;
                 if (pid == INT_MAX) return;
                 GHPair father_gh = nodes_data[nid].sum_gh_pair;
@@ -432,7 +437,7 @@ void ExactUpdater::find_split(int level, const SparseColumns &columns, const Tre
         }
 
         //get best gain and the index of best gain for each feature and each node
-        SyncArray<int_float> best_idx_gain(n_max_nodes_in_level);
+        SyncArray<int_float> best_idx_gain(n_partition);
         int n_nodes_in_level;
         {
             TIMED_SCOPE(timerObj, "get best gain");
@@ -442,20 +447,51 @@ void ExactUpdater::find_split(int level, const SparseColumns &columns, const Tre
                 else
                     return get<1>(a) > get<1>(b) ? a : b;
             };
-            auto in_same_node = [=]__device__(const int a, const int b) {
-                return (a / n_column) == (b / n_column);
-            };
+//            auto in_same_node = [=]__device__(const int a, const int b) {
+//                return (a % n_max_nodes_in_level) == (b % n_max_nodes_in_level);
+//                return (a / n_column) == (b / n_column);
+//            };
 
             //reduce to get best split of each node for this feature
-            n_nodes_in_level = reduce_by_key(
+//            n_nodes_in_level = reduce_by_key(
+            LOG(DEBUG) << "rle pid" << rle_pid;
+            SyncArray<int> feature_nodes_pid(n_partition);
+            int n_feature_with_nodes = reduce_by_key(
                     cuda::par,
                     rle_pid.device_data(), rle_pid.device_end(),
                     make_zip_iterator(make_tuple(counting_iterator<int>(0), gain.device_data())),
-                    make_discard_iterator(),
+//                    make_discard_iterator(),
+                    feature_nodes_pid.device_data(),
                     best_idx_gain.device_data(),
-                    in_same_node,
+//                    in_same_node,
+                    thrust::equal_to<int>(),
                     arg_max).second - best_idx_gain.device_data();
 
+//            LOG(DEBUG) << "#nodes in level = " << n_nodes_in_level;
+            LOG(DEBUG) << "aaa = " << n_feature_with_nodes;
+            LOG(DEBUG) << "f n pid" << feature_nodes_pid;
+            LOG(DEBUG) << "best idx & gain = " << best_idx_gain;
+
+//            n_nodes_in_level = 1;
+            auto feature_nodes_pid_data = feature_nodes_pid.device_data();
+            device_loop(n_feature_with_nodes, [=]__device__(int i) {
+                feature_nodes_pid_data[i] = feature_nodes_pid_data[i] % n_max_nodes_in_level;
+            });
+            LOG(DEBUG) << "f n pid" << feature_nodes_pid;
+            sort_by_key(cuda::par, feature_nodes_pid.device_data(),
+                        feature_nodes_pid.device_data() + n_feature_with_nodes,
+                        best_idx_gain.device_data());
+            LOG(DEBUG) << "f n pid" << feature_nodes_pid;
+            LOG(DEBUG) << "best idx & gain = " << best_idx_gain;
+            n_nodes_in_level = reduce_by_key(
+                    cuda::par,
+                    feature_nodes_pid.device_data(), feature_nodes_pid.device_data() + n_feature_with_nodes,
+                    best_idx_gain.device_data(),
+                    make_discard_iterator(),
+                    best_idx_gain.device_data(),
+                    thrust::equal_to<int>(),
+                    arg_max
+            ).second - best_idx_gain.device_data();
             LOG(DEBUG) << "#nodes in level = " << n_nodes_in_level;
             LOG(DEBUG) << "best idx & gain = " << best_idx_gain;
         }
@@ -477,8 +513,10 @@ void ExactUpdater::find_split(int level, const SparseColumns &columns, const Tre
             float_type best_split_gain = get<1>(bst);
             int split_index = get<0>(bst);
             int pid = rle_pid_data[split_index];
-            sp_data[i].split_fea_id = (pid == INT_MAX) ? -1 : (pid % n_column) + column_offset;
-            sp_data[i].nid = (pid == INT_MAX) ? -1 : (pid / n_column + nid_offset);
+            sp_data[i].split_fea_id = (pid == INT_MAX) ? -1 : (pid / n_max_nodes_in_level) + column_offset;
+            sp_data[i].nid = (pid == INT_MAX) ? -1 : (pid % n_max_nodes_in_level + nid_offset);
+//            sp_data[i].split_fea_id = (pid == INT_MAX) ? -1 : (pid % n_column) + column_offset;
+//            sp_data[i].nid = (pid == INT_MAX) ? -1 : (pid / n_column + nid_offset);
             sp_data[i].gain = best_split_gain;
             if (pid != INT_MAX) {//avoid split_index out of bound
                 sp_data[i].fval = rle_fval_data[split_index];
