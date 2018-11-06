@@ -44,10 +44,10 @@ void cub_sort_by_key(SyncArray<T1> &keys, SyncArray<T2> &values, int size = -1, 
                                              num_items);
 
     CUDA_CHECK(
-            cudaMemcpy(keys.device_data(), reinterpret_cast<const void *>(d_keys.Current()), sizeof(float) * num_items,
+            cudaMemcpy(keys.device_data(), reinterpret_cast<const void *>(d_keys.Current()), sizeof(T1) * num_items,
                        cudaMemcpyDeviceToDevice));
     CUDA_CHECK(cudaMemcpy(values.device_data(), reinterpret_cast<const void *>(d_values.Current()),
-                          sizeof(int) * num_items,
+                          sizeof(T2) * num_items,
                           cudaMemcpyDeviceToDevice));
 }
 
@@ -87,10 +87,10 @@ void cub_seg_sort_by_key(SyncArray<T1> &keys, SyncArray<T2> &values, SyncArray<i
                                                       ptr.device_data() + 1);
 
     CUDA_CHECK(
-            cudaMemcpy(keys.device_data(), reinterpret_cast<const void *>(d_keys.Current()), sizeof(float) * num_items,
+            cudaMemcpy(keys.device_data(), reinterpret_cast<const void *>(d_keys.Current()), sizeof(T1) * num_items,
                        cudaMemcpyDeviceToDevice));
     CUDA_CHECK(cudaMemcpy(values.device_data(), reinterpret_cast<const void *>(d_values.Current()),
-                          sizeof(int) * num_items,
+                          sizeof(T2) * num_items,
                           cudaMemcpyDeviceToDevice));
 };
 
