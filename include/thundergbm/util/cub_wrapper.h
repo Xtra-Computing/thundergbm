@@ -12,10 +12,14 @@
 #include <thundergbm/syncarray.h>
 
 template<typename T1, typename T2>
-void cub_sort_by_key(SyncArray<T1> &keys, SyncArray<T2> &values, bool ascending = true) {
+void cub_sort_by_key(SyncArray<T1> &keys, SyncArray<T2> &values, int size = -1, bool ascending = true) {
     CHECK_EQ(values.size(), values.size()) << "keys and values must have equal size";
     using namespace cub;
-    size_t num_items = keys.size();
+    size_t num_items;
+    if (-1==size)
+        num_items = keys.size();
+    else
+        num_items = size;
     SyncArray<T1> keys2(num_items);
     SyncArray<T2> values2(num_items);
     SyncArray<char> temp_storage;

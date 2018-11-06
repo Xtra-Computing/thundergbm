@@ -478,9 +478,10 @@ void ExactUpdater::find_split(int level, const SparseColumns &columns, const Tre
                 feature_nodes_pid_data[i] = feature_nodes_pid_data[i] % n_max_nodes_in_level;
             });
             LOG(DEBUG) << "f n pid" << feature_nodes_pid;
-            sort_by_key(cuda::par, feature_nodes_pid.device_data(),
-                        feature_nodes_pid.device_data() + n_feature_with_nodes,
-                        best_idx_gain.device_data());
+//            sort_by_key(cuda::par, feature_nodes_pid.device_data(),
+//                        feature_nodes_pid.device_data() + n_feature_with_nodes,
+//                        best_idx_gain.device_data());
+            cub_sort_by_key(feature_nodes_pid, best_idx_gain, n_feature_with_nodes);
             LOG(DEBUG) << "f n pid" << feature_nodes_pid;
             LOG(DEBUG) << "best idx & gain = " << best_idx_gain;
             n_nodes_in_level = reduce_by_key(
