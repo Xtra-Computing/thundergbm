@@ -31,7 +31,7 @@ public:
 
         if (!verbose) {
             el::Loggers::reconfigureAllLoggers(el::Level::Debug, el::ConfigurationType::Enabled, "false");
-//            el::Loggers::reconfigureAllLoggers(el::Level::Trace, el::ConfigurationType::Enabled, "false");
+            el::Loggers::reconfigureAllLoggers(el::Level::Trace, el::ConfigurationType::Enabled, "false");
         }
 //        el::Loggers::reconfigureAllLoggers(el::ConfigurationType::PerformanceTracking, "false");
     }
@@ -68,11 +68,11 @@ public:
         ExactUpdater updater(param);
         int round = 0;
         float_type rmse = 0;
+        SyncMem::clear_cache();
         {
             TIMED_SCOPE(timerObj, "construct tree");
             for (Tree &tree:trees) {
                 stats.updateGH();
-                SyncMem::clear_cache();
                 updater.grow(tree, v_columns, stats);
                 tree.prune_self(param.gamma);
                 LOG(DEBUG) << string_format("\nbooster[%d]", round) << tree.dump(param.depth);

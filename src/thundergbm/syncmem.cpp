@@ -5,7 +5,7 @@
 #include <thundergbm/syncmem.h>
 
 namespace thunder {
-    Allocator SyncMem::cub_allocator(8, 3, 10, CachingDeviceAllocator::INVALID_SIZE, true,false);
+    Allocator SyncMem::cub_allocator(2, 3, 11, CachingDeviceAllocator::INVALID_SIZE, true, false);
 
     SyncMem::SyncMem() : SyncMem(0) {}
 
@@ -25,7 +25,6 @@ namespace thunder {
 #ifdef USE_CUDA
         DO_ON_DEVICE(device_id, {
             if (device_ptr && own_device_data) {
-//                CUDA_CHECK(cudaFree(device_ptr));
                 cub_allocator.DeviceFree(device_ptr);
                 device_ptr = nullptr;
             }
@@ -88,7 +87,6 @@ namespace thunder {
 //        DO_ON_DEVICE(device_id, {
         switch (head_) {
             case UNINITIALIZED:
-//                    CUDA_CHECK(cudaMalloc(&device_ptr, size_));
                 CUDA_CHECK(cub_allocator.DeviceAllocate(&device_ptr, size_));
                 CUDA_CHECK(cudaMemset(device_ptr, 0, size_));
                 head_ = DEVICE;
@@ -96,7 +94,6 @@ namespace thunder {
                 break;
             case HOST:
                 if (nullptr == device_ptr) {
-//                        CUDA_CHECK(cudaMalloc(&device_ptr, size_));
                     CUDA_CHECK(cub_allocator.DeviceAllocate(&device_ptr, size_));
                     CUDA_CHECK(cudaMemset(device_ptr, 0, size_));
                     own_device_data = true;
@@ -189,8 +186,10 @@ namespace thunder {
                 live_blocks.insert(search_key);
 
                 // Remove from free blocks
-                cached_bytes[device].free -= search_key.bytes;
-                cached_bytes[device].live += search_key.bytes;
+//                cached_bytes[device].free -= search_key.bytes;
+//                cached_bytes[device].live += search_key.bytes;
+                cached_bytes[device].free -= block_itr->bytes;
+                cached_bytes[device].live += block_itr->bytes;
 
                 if (debug)
                     _CubLog("\tDevice %d reused cached block at %p (%lld bytes) for stream %lld (previously associated with stream %lld).\n",

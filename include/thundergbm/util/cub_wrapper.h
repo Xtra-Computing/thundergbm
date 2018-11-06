@@ -12,20 +12,28 @@
 #include <thundergbm/syncarray.h>
 
 template<typename T1, typename T2>
-void cub_sort_by_key(SyncArray<T1> &keys, SyncArray<T2> &values, int size = -1, bool ascending = true) {
+void cub_sort_by_key(SyncArray<T1> &keys, SyncArray<T2> &values, int size = -1, bool ascending = true,
+                     void *temp = nullptr) {
     CHECK_EQ(values.size(), values.size()) << "keys and values must have equal size";
     using namespace cub;
     size_t num_items;
-    if (-1==size)
+    if (-1 == size)
         num_items = keys.size();
     else
         num_items = size;
-    SyncArray<T1> keys2(num_items);
-    SyncArray<T2> values2(num_items);
     SyncArray<char> temp_storage;
+    DoubleBuffer<T1> d_keys;
+    DoubleBuffer<T2> d_values;
+    if (!temp) {
+        SyncArray<T1> keys2(num_items);
+        SyncArray<T2> values2(num_items);
 
-    DoubleBuffer<T1> d_keys(keys.device_data(), keys2.device_data());
-    DoubleBuffer<T2> d_values(values.device_data(), values2.device_data());
+        d_keys = DoubleBuffer<T1>(keys.device_data(), keys2.device_data());
+        d_values = DoubleBuffer<T2>(values.device_data(), values2.device_data());
+    } else {
+        d_keys = DoubleBuffer<T1>(keys.device_data(), (T1 *) temp);
+        d_values = DoubleBuffer<T2>(values.device_data(), (T2 *) ((T1 *) temp + num_items));
+    }
 
     size_t temp_storage_bytes = 0;
 
@@ -52,7 +60,7 @@ void cub_sort_by_key(SyncArray<T1> &keys, SyncArray<T2> &values, int size = -1, 
 }
 
 template<typename T1, typename T2>
-void cub_seg_sort_by_key(SyncArray<T1> &keys, SyncArray<T2> &values, SyncArray<int> &ptr, bool ascending = true) {
+void cub_seg_sort_by_key(SyncArray<T1> &keys, SyncArray<T2> &values, const SyncArray<int> &ptr, bool ascending = true) {
     CHECK_EQ(values.size(), values.size()) << "keys and values must have equal size";
     using namespace cub;
     size_t num_items = keys.size();
