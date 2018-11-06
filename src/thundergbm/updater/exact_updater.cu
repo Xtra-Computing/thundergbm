@@ -256,10 +256,13 @@ void ExactUpdater::find_split(int level, const SparseColumns &columns, const Tre
 
         //calculate split information for each split
         int n_split;
-        SyncArray<GHPair> gh_prefix_sum;
+        SyncArray<GHPair> gh_prefix_sum(nnz);
         SyncArray<GHPair> missing_gh(n_partition);
-        SyncArray<int> rle_pid;
-        SyncArray<float_type> rle_fval;
+        SyncArray<int_float> rle_key(nnz);
+        auto rle_pid_data = make_transform_iterator(rle_key.device_data(),
+                                                    [=]__device__(int_float key) { return get<0>(key); });
+        auto rle_fval_data = make_transform_iterator(rle_key.device_data(),
+                                                     [=]__device__(int_float key) { return get<1>(key); });
         {
             SyncArray<int> fvid2pid(nnz);
             {
@@ -279,7 +282,6 @@ void ExactUpdater::find_split(int level, const SparseColumns &columns, const Tre
                             int pid;
                             //if this node is leaf node, move it to the end
                             if (nid < nid_offset) pid = INT_MAX;//todo negative
-//                            else pid = (nid - nid_offset) * n_column + col_id;
                             else pid = col_id * n_max_nodes_in_level + nid - nid_offset;
                             fvid2pid_data[fvid] = pid;
                         },
@@ -294,10 +296,6 @@ void ExactUpdater::find_split(int level, const SparseColumns &columns, const Tre
                 {
                     TIMED_SCOPE(timerObj, "fvid_new2old");
                     sequence(cuda::par, fvid_new2old.device_data(), fvid_new2old.device_end(), 0);
-//                    stable_sort_by_key(
-//                            cuda::par, fvid2pid.device_data(), fvid2pid.device_end(),
-//                            fvid_new2old.device_data(),
-//                            thrust::less<int>());
                     cub_sort_by_key(fvid2pid, fvid_new2old);
                     LOG(DEBUG) << "sorted fvid2pid " << fvid2pid;
                     LOG(DEBUG) << "fvid_new2old " << fvid_new2old;
@@ -306,8 +304,6 @@ void ExactUpdater::find_split(int level, const SparseColumns &columns, const Tre
                 //do prefix sum
                 {
                     TIMED_SCOPE(timerObj, "do prefix sum");
-                    SyncArray<GHPair> rle_gh(nnz);
-                    SyncArray<int_float> rle_key(nnz);
                     //same feature value in the same part has the same key.
                     auto key_iter = make_zip_iterator(
                             make_tuple(
@@ -325,30 +321,16 @@ void ExactUpdater::find_split(int level, const SparseColumns &columns, const Tre
                                             columns.csc_row_idx.device_data(),
                                             fvid_new2old.device_data())),             //new fvid -> old fvid
                             rle_key.device_data(),
-                            rle_gh.device_data()
+                            gh_prefix_sum.device_data()
                     ).first - rle_key.device_data();
-                    gh_prefix_sum.resize(n_split);
-                    rle_pid.resize(n_split);
-                    rle_fval.resize(n_split);
-                    const auto rle_gh_data = rle_gh.device_data();
-                    const auto rle_key_data = rle_key.device_data();
-                    auto gh_prefix_sum_data = gh_prefix_sum.device_data();
-                    auto rle_pid_data = rle_pid.device_data();
-                    auto rle_fval_data = rle_fval.device_data();
-                    device_loop(n_split, [=]__device__(int i) {
-                        gh_prefix_sum_data[i] = rle_gh_data[i];
-                        rle_pid_data[i] = get<0>(rle_key_data[i]);
-                        rle_fval_data[i] = get<1>(rle_key_data[i]);
-                    });
 
+                    //prefix sum
                     inclusive_scan_by_key(
                             cuda::par,
-                            rle_pid.device_data(), rle_pid.device_end(),
+                            rle_pid_data, rle_pid_data + n_split,
                             gh_prefix_sum.device_data(),
                             gh_prefix_sum.device_data());
-//                        LOG(DEBUG) << "gh prefix sum = " << gh_prefix_sum;
-                    LOG(DEBUG) << "reduced pid = " << rle_pid;
-                    LOG(DEBUG) << "reduced fval = " << rle_fval;
+                    LOG(DEBUG) << "gh prefix sum = " << gh_prefix_sum;
                 }
 
                 //calculate missing value for each partition
@@ -356,30 +338,29 @@ void ExactUpdater::find_split(int level, const SparseColumns &columns, const Tre
                     TIMED_SCOPE(timerObj, "calculate missing value");
                     SyncArray<int> pid_ptr(n_partition + 1);
                     counting_iterator<int> search_begin(0);
-                    upper_bound(cuda::par, rle_pid.device_data(), rle_pid.device_end(), search_begin,
+                    upper_bound(cuda::par, rle_pid_data, rle_pid_data + n_split, search_begin,
                                 search_begin + n_partition, pid_ptr.device_data() + 1);
                     LOG(DEBUG) << "pid_ptr = " << pid_ptr;
 
                     auto pid_ptr_data = pid_ptr.device_data();
-                    auto rle_pid_data = rle_pid.device_data();
-                    auto rle_fval_data = rle_fval.device_data();
+                    auto rle_key_data = rle_key.device_data();
                     float_type rt_eps = this->rt_eps;
                     device_loop(n_split, [=]__device__(int i) {
                         int pid = rle_pid_data[i];
                         if (pid == INT_MAX) return;
                         float_type f = rle_fval_data[i];
                         if ((pid_ptr_data[pid + 1] - 1) == i)//the last RLE
-                            rle_fval_data[i] = (f - fabsf(rle_fval_data[pid_ptr_data[pid]]) - rt_eps);
+                            //using "get" to get a modifiable lvalue
+                            get<1>(rle_key_data[i]) = (f - fabsf(rle_fval_data[pid_ptr_data[pid]]) - rt_eps);
                         else
                             //FIXME read/write collision
-                            rle_fval_data[i] = (f + rle_fval_data[i + 1]) * 0.5f;
+                            get<1>(rle_key_data[i]) = (f + rle_fval_data[i + 1]) * 0.5f;
                     });
 
                     const auto gh_prefix_sum_data = gh_prefix_sum.device_data();
                     const auto node_data = tree.nodes.device_data();
                     auto missing_gh_data = missing_gh.device_data();
                     device_loop(n_partition, [=]__device__(int pid) {
-//                        int nid = pid / n_column + nid_offset;
                         int nid = pid % n_max_nodes_in_level + nid_offset;
                         if (pid_ptr_data[pid + 1] != pid_ptr_data[pid])
                             missing_gh_data[pid] =
@@ -391,8 +372,8 @@ void ExactUpdater::find_split(int level, const SparseColumns &columns, const Tre
         }
 
         //calculate gain of each split
-        SyncArray<float_type> gain(n_split);
-        SyncArray<bool> default_right(n_split);
+        SyncArray<float_type> gain(nnz);
+        SyncArray<int> default_right(nnz);// use int for better memory reusing
         {
             TIMED_SCOPE(timerObj, "calculate gain");
             auto compute_gain = []__device__(GHPair father, GHPair lch, GHPair rch, float_type min_child_weight,
@@ -407,15 +388,13 @@ void ExactUpdater::find_split(int level, const SparseColumns &columns, const Tre
             const Tree::TreeNode *nodes_data = tree.nodes.device_data();
             GHPair *gh_prefix_sum_data = gh_prefix_sum.device_data();
             float_type *gain_data = gain.device_data();
-            bool *default_right_data = default_right.device_data();
-            const auto rle_pid_data = rle_pid.device_data();
+            auto *default_right_data = default_right.device_data();
             const auto missing_gh_data = missing_gh.device_data();
             //for lambda expression
             float_type mcw = min_child_weight;
             float_type l = lambda;
             device_loop(n_split, [=]__device__(int i) {
                 int pid = rle_pid_data[i];
-//                int nid0 = pid / n_column;
                 int nid0 = pid % n_max_nodes_in_level;
                 int nid = nid0 + nid_offset;
                 if (pid == INT_MAX) return;
@@ -447,40 +426,27 @@ void ExactUpdater::find_split(int level, const SparseColumns &columns, const Tre
                 else
                     return get<1>(a) > get<1>(b) ? a : b;
             };
-//            auto in_same_node = [=]__device__(const int a, const int b) {
-//                return (a % n_max_nodes_in_level) == (b % n_max_nodes_in_level);
-//                return (a / n_column) == (b / n_column);
-//            };
 
             //reduce to get best split of each node for this feature
-//            n_nodes_in_level = reduce_by_key(
-            LOG(DEBUG) << "rle pid" << rle_pid;
             SyncArray<int> feature_nodes_pid(n_partition);
             int n_feature_with_nodes = reduce_by_key(
                     cuda::par,
-                    rle_pid.device_data(), rle_pid.device_end(),
+                    rle_pid_data, rle_pid_data + n_split,
                     make_zip_iterator(make_tuple(counting_iterator<int>(0), gain.device_data())),
-//                    make_discard_iterator(),
                     feature_nodes_pid.device_data(),
                     best_idx_gain.device_data(),
-//                    in_same_node,
                     thrust::equal_to<int>(),
                     arg_max).second - best_idx_gain.device_data();
 
-//            LOG(DEBUG) << "#nodes in level = " << n_nodes_in_level;
             LOG(DEBUG) << "aaa = " << n_feature_with_nodes;
             LOG(DEBUG) << "f n pid" << feature_nodes_pid;
             LOG(DEBUG) << "best idx & gain = " << best_idx_gain;
 
-//            n_nodes_in_level = 1;
             auto feature_nodes_pid_data = feature_nodes_pid.device_data();
             device_loop(n_feature_with_nodes, [=]__device__(int i) {
                 feature_nodes_pid_data[i] = feature_nodes_pid_data[i] % n_max_nodes_in_level;
             });
             LOG(DEBUG) << "f n pid" << feature_nodes_pid;
-//            sort_by_key(cuda::par, feature_nodes_pid.device_data(),
-//                        feature_nodes_pid.device_data() + n_feature_with_nodes,
-//                        best_idx_gain.device_data());
             cub_sort_by_key(feature_nodes_pid, best_idx_gain, n_feature_with_nodes);
             LOG(DEBUG) << "f n pid" << feature_nodes_pid;
             LOG(DEBUG) << "best idx & gain = " << best_idx_gain;
@@ -499,11 +465,9 @@ void ExactUpdater::find_split(int level, const SparseColumns &columns, const Tre
 
         //get split points
         const int_float *best_idx_gain_data = best_idx_gain.device_data();
-        const auto rle_pid_data = rle_pid.device_data();
         GHPair *gh_prefix_sum_data = gh_prefix_sum.device_data();
-        const auto rle_fval_data = rle_fval.device_data();
         const auto missing_gh_data = missing_gh.device_data();
-        bool *default_right_data = default_right.device_data();
+        auto *default_right_data = default_right.device_data();
 
         sp.resize(n_nodes_in_level);
         auto sp_data = sp.device_data();
@@ -516,8 +480,6 @@ void ExactUpdater::find_split(int level, const SparseColumns &columns, const Tre
             int pid = rle_pid_data[split_index];
             sp_data[i].split_fea_id = (pid == INT_MAX) ? -1 : (pid / n_max_nodes_in_level) + column_offset;
             sp_data[i].nid = (pid == INT_MAX) ? -1 : (pid % n_max_nodes_in_level + nid_offset);
-//            sp_data[i].split_fea_id = (pid == INT_MAX) ? -1 : (pid % n_column) + column_offset;
-//            sp_data[i].nid = (pid == INT_MAX) ? -1 : (pid / n_column + nid_offset);
             sp_data[i].gain = best_split_gain;
             if (pid != INT_MAX) {//avoid split_index out of bound
                 sp_data[i].fval = rle_fval_data[split_index];

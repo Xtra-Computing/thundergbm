@@ -5,7 +5,7 @@
 #include <thundergbm/syncmem.h>
 
 namespace thunder {
-    Allocator SyncMem::cub_allocator(8, 3, 8, CachingDeviceAllocator::INVALID_SIZE, true,false);
+    Allocator SyncMem::cub_allocator(8, 3, 10, CachingDeviceAllocator::INVALID_SIZE, true,false);
 
     SyncMem::SyncMem() : SyncMem(0) {}
 
