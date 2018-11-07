@@ -213,6 +213,7 @@ TEST_F(PerformanceTest, ins_40_trees) {
 }
 
 TEST_F(PerformanceTest, iris) {
+    param.n_trees = 1;
     param.path = DATASET_DIR "iris.scale";
     train_exact(param);
 }

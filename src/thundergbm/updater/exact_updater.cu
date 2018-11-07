@@ -259,6 +259,7 @@ void ExactUpdater::find_split(int level, const SparseColumns &columns, const Tre
         SyncArray<GHPair> gh_prefix_sum(nnz);
         SyncArray<GHPair> missing_gh(n_partition);
         SyncArray<int_float> rle_key(nnz);
+        if (nnz * 4 > 1.5 * (1 << 30)) rle_key.resize(int(nnz * 0.1));
         auto rle_pid_data = make_transform_iterator(rle_key.device_data(),
                                                     [=]__device__(int_float key) { return get<0>(key); });
         auto rle_fval_data = make_transform_iterator(rle_key.device_data(),
@@ -313,7 +314,6 @@ void ExactUpdater::find_split(int level, const SparseColumns &columns, const Tre
                                     make_permutation_iterator(
                                             columns.csc_val.device_data(),
                                             fvid_new2old.device_data())));//use fvid_new2old to access csc_val
-                    //apply RLE compression
                     n_split = reduce_by_key(
                             cuda::par,
                             key_iter, key_iter + nnz,
@@ -325,6 +325,8 @@ void ExactUpdater::find_split(int level, const SparseColumns &columns, const Tre
                             rle_key.device_data(),
                             gh_prefix_sum.device_data()
                     ).first - rle_key.device_data();
+                    CHECK_LE(n_split, rle_key.size());
+                    LOG(INFO) << "RLE ratio = " << (float) n_split / nnz;
 
                     //prefix sum
                     inclusive_scan_by_key(
@@ -335,42 +337,42 @@ void ExactUpdater::find_split(int level, const SparseColumns &columns, const Tre
                     LOG(DEBUG) << "gh prefix sum = " << gh_prefix_sum;
                 }
             }
+        }
 
-            //calculate missing value for each partition
-            {
-                TIMED_SCOPE(timerObj, "calculate missing value");
-                SyncArray<int> pid_ptr(n_partition + 1);
-                counting_iterator<int> search_begin(0);
-                upper_bound(cuda::par, rle_pid_data, rle_pid_data + n_split, search_begin,
-                            search_begin + n_partition, pid_ptr.device_data() + 1);
-                LOG(DEBUG) << "pid_ptr = " << pid_ptr;
+        //calculate missing value for each partition
+        {
+            TIMED_SCOPE(timerObj, "calculate missing value");
+            SyncArray<int> pid_ptr(n_partition + 1);
+            counting_iterator<int> search_begin(0);
+            upper_bound(cuda::par, rle_pid_data, rle_pid_data + n_split, search_begin,
+                        search_begin + n_partition, pid_ptr.device_data() + 1);
+            LOG(DEBUG) << "pid_ptr = " << pid_ptr;
 
-                auto pid_ptr_data = pid_ptr.device_data();
-                auto rle_key_data = rle_key.device_data();
-                float_type rt_eps = this->rt_eps;
-                device_loop(n_split, [=]__device__(int i) {
-                    int pid = rle_pid_data[i];
-                    if (pid == INT_MAX) return;
-                    float_type f = rle_fval_data[i];
-                    if ((pid_ptr_data[pid + 1] - 1) == i)//the last RLE
-                        //using "get" to get a modifiable lvalue
-                        get<1>(rle_key_data[i]) = (f - fabsf(rle_fval_data[pid_ptr_data[pid]]) - rt_eps);
-                    else
-                        //FIXME read/write collision
-                        get<1>(rle_key_data[i]) = (f + rle_fval_data[i + 1]) * 0.5f;
-                });
+            auto pid_ptr_data = pid_ptr.device_data();
+            auto rle_key_data = rle_key.device_data();
+            float_type rt_eps = this->rt_eps;
+            device_loop(n_split, [=]__device__(int i) {
+                int pid = rle_pid_data[i];
+                if (pid == INT_MAX) return;
+                float_type f = rle_fval_data[i];
+                if ((pid_ptr_data[pid + 1] - 1) == i)//the last RLE
+                    //using "get" to get a modifiable lvalue
+                    get<1>(rle_key_data[i]) = (f - fabsf(rle_fval_data[pid_ptr_data[pid]]) - rt_eps);
+                else
+                    //FIXME read/write collision
+                    get<1>(rle_key_data[i]) = (f + rle_fval_data[i + 1]) * 0.5f;
+            });
 
-                const auto gh_prefix_sum_data = gh_prefix_sum.device_data();
-                const auto node_data = tree.nodes.device_data();
-                auto missing_gh_data = missing_gh.device_data();
-                device_loop(n_partition, [=]__device__(int pid) {
-                    int nid = pid % n_max_nodes_in_level + nid_offset;
-                    if (pid_ptr_data[pid + 1] != pid_ptr_data[pid])
-                        missing_gh_data[pid] =
-                                node_data[nid].sum_gh_pair - gh_prefix_sum_data[pid_ptr_data[pid + 1] - 1];
-                });
+            const auto gh_prefix_sum_data = gh_prefix_sum.device_data();
+            const auto node_data = tree.nodes.device_data();
+            auto missing_gh_data = missing_gh.device_data();
+            device_loop(n_partition, [=]__device__(int pid) {
+                int nid = pid % n_max_nodes_in_level + nid_offset;
+                if (pid_ptr_data[pid + 1] != pid_ptr_data[pid])
+                    missing_gh_data[pid] =
+                            node_data[nid].sum_gh_pair - gh_prefix_sum_data[pid_ptr_data[pid + 1] - 1];
+            });
 //                        LOG(DEBUG) << "missing gh = " << missing_gh;
-            }
         }
 
         //calculate gain of each split
