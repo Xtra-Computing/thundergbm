@@ -30,7 +30,7 @@ void ExactUpdater::grow(Tree &tree, const vector<std::shared_ptr<SparseColumns>>
         gpu_stats.resize(n_instances);
         gpu_stats.gh_pair.copy_from(stats.gh_pair.host_data(), n_instances);
         gpu_stats.nid.copy_from(stats.nid.host_data(), n_instances);
-//        gpu_stats.y.copy_from(stats.y.host_data(), n_instances);
+        //        gpu_stats.y.copy_from(stats.y.host_data(), n_instances);
 //        gpu_stats.y_predict.copy_from(stats.y_predict.host_data(), n_instances);
 
         //tree
@@ -298,7 +298,7 @@ void ExactUpdater::find_split(int level, const SparseColumns &columns, const Tre
                     sequence(cuda::par, fvid_new2old.device_data(), fvid_new2old.device_end(), 0);
 
                     //using prefix sum memory for temporary storage
-                    cub_sort_by_key(fvid2pid, fvid_new2old, -1, true, (void *) rle_key.device_data());
+                    cub_sort_by_key(fvid2pid, fvid_new2old, -1, true, (void *) gh_prefix_sum.device_data());
                     LOG(DEBUG) << "sorted fvid2pid " << fvid2pid;
                     LOG(DEBUG) << "fvid_new2old " << fvid_new2old;
                 }
@@ -375,7 +375,6 @@ void ExactUpdater::find_split(int level, const SparseColumns &columns, const Tre
 
         //calculate gain of each split
         SyncArray<float_type> gain(nnz);
-        SyncArray<bool> default_right(nnz);
         {
             TIMED_SCOPE(timerObj, "calculate gain");
             auto compute_gain = []__device__(GHPair father, GHPair lch, GHPair rch, float_type min_child_weight,
@@ -390,7 +389,6 @@ void ExactUpdater::find_split(int level, const SparseColumns &columns, const Tre
             const Tree::TreeNode *nodes_data = tree.nodes.device_data();
             GHPair *gh_prefix_sum_data = gh_prefix_sum.device_data();
             float_type *gain_data = gain.device_data();
-            auto *default_right_data = default_right.device_data();
             const auto missing_gh_data = missing_gh.device_data();
             //for lambda expression
             float_type mcw = min_child_weight;
@@ -403,13 +401,12 @@ void ExactUpdater::find_split(int level, const SparseColumns &columns, const Tre
                 GHPair father_gh = nodes_data[nid].sum_gh_pair;
                 GHPair p_missing_gh = missing_gh_data[pid];
                 GHPair rch_gh = gh_prefix_sum_data[i];
-                float_type max_gain = compute_gain(father_gh, father_gh - rch_gh, rch_gh, mcw, l);
+                float_type max_gain = max(0., compute_gain(father_gh, father_gh - rch_gh, rch_gh, mcw, l));
                 if (p_missing_gh.h > 1) {
                     rch_gh = rch_gh + p_missing_gh;
                     float_type temp_gain = compute_gain(father_gh, father_gh - rch_gh, rch_gh, mcw, l);
-                    if (temp_gain > 0 && temp_gain - max_gain > 0.1) {
-                        max_gain = temp_gain;
-                        default_right_data[i] = true;
+                    if (temp_gain > 0 && temp_gain - max_gain > 0.1) {//FIXME 0.1?
+                        max_gain = -temp_gain;//negative means default split to right
                     }
                 }
                 gain_data[i] = max_gain;
@@ -422,11 +419,11 @@ void ExactUpdater::find_split(int level, const SparseColumns &columns, const Tre
         int n_nodes_in_level;
         {
             TIMED_SCOPE(timerObj, "get best gain");
-            auto arg_max = []__device__(const int_float &a, const int_float &b) {
-                if (get<1>(a) == get<1>(b))
+            auto arg_abs_max = []__device__(const int_float &a, const int_float &b) {
+                if (fabs(get<1>(a)) == fabs(get<1>(b)))
                     return get<0>(a) < get<0>(b) ? a : b;
                 else
-                    return get<1>(a) > get<1>(b) ? a : b;
+                    return fabs(get<1>(a)) > fabs(get<1>(b)) ? a : b;
             };
 
             //reduce to get best split of each node for this feature
@@ -438,7 +435,7 @@ void ExactUpdater::find_split(int level, const SparseColumns &columns, const Tre
                     feature_nodes_pid.device_data(),
                     best_idx_gain.device_data(),
                     thrust::equal_to<int>(),
-                    arg_max).second - best_idx_gain.device_data();
+                    arg_abs_max).second - best_idx_gain.device_data();
 
             LOG(DEBUG) << "aaa = " << n_feature_with_nodes;
             LOG(DEBUG) << "f n pid" << feature_nodes_pid;
@@ -459,7 +456,7 @@ void ExactUpdater::find_split(int level, const SparseColumns &columns, const Tre
                     make_discard_iterator(),
                     best_idx_gain.device_data(),
                     thrust::equal_to<int>(),
-                    arg_max
+                    arg_abs_max
             ).second - best_idx_gain.device_data();
             LOG(DEBUG) << "#nodes in level = " << n_nodes_in_level;
             LOG(DEBUG) << "best idx & gain = " << best_idx_gain;
@@ -469,7 +466,6 @@ void ExactUpdater::find_split(int level, const SparseColumns &columns, const Tre
         const int_float *best_idx_gain_data = best_idx_gain.device_data();
         GHPair *gh_prefix_sum_data = gh_prefix_sum.device_data();
         const auto missing_gh_data = missing_gh.device_data();
-        auto *default_right_data = default_right.device_data();
 
         sp.resize(n_nodes_in_level);
         auto sp_data = sp.device_data();
@@ -482,11 +478,11 @@ void ExactUpdater::find_split(int level, const SparseColumns &columns, const Tre
             int pid = rle_pid_data[split_index];
             sp_data[i].split_fea_id = (pid == INT_MAX) ? -1 : (pid / n_max_nodes_in_level) + column_offset;
             sp_data[i].nid = (pid == INT_MAX) ? -1 : (pid % n_max_nodes_in_level + nid_offset);
-            sp_data[i].gain = best_split_gain;
+            sp_data[i].gain = fabs(best_split_gain);
             if (pid != INT_MAX) {//avoid split_index out of bound
                 sp_data[i].fval = rle_fval_data[split_index];
                 sp_data[i].fea_missing_gh = missing_gh_data[pid];
-                sp_data[i].default_right = default_right_data[split_index];
+                sp_data[i].default_right = best_split_gain < 0;
                 sp_data[i].rch_sum_gh = gh_prefix_sum_data[split_index];
             }
         });
