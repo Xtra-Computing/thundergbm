@@ -98,15 +98,23 @@ public:
         stats.resize(n_instances);
         stats.y.copy_from(dataSet.y.data(), n_instances);
 
-        int n_devices = 2;
+        int n_devices = param.n_device;
+//        int rank;
+//        MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+//        LOG(INFO) << "rank = " << rank;
+//        MPI_Barrier(MPI_COMM_WORLD);
         vector<std::shared_ptr<SparseColumns>> v_columns;
         v_columns.resize(n_devices);
         for (int i = 0; i < n_devices; i++)
             v_columns[i].reset(new SparseColumns());
+//        SparseColumns local_columns;
+//        columns.get_shards(rank, param.n_executor, local_columns);
+//        local_columns.to_multi_devices(v_columns);
         columns.to_multi_devices(v_columns);
         HistUpdater updater(param);
         int round = 0;
         float_type rmse = 0;
+        SyncMem::clear_cache();
         {
             TIMED_SCOPE(timerObj, "construct tree");
             for (Tree &tree:trees) {
@@ -123,6 +131,42 @@ public:
         rmse = compute_rmse(stats);
         LOG(INFO) << "rmse = " << rmse;
         return rmse;
+//        DataSet dataSet;
+//        dataSet.load_from_file(param.path);
+//        int n_instances = dataSet.n_instances();
+//        InsStat stats;
+//        vector<Tree> trees;
+//        SparseColumns columns;
+//        columns.from_dataset(dataSet);
+//        trees.resize(param.n_trees);
+//        stats.resize(n_instances);
+//        stats.y.copy_from(dataSet.y.data(), n_instances);
+//
+//        int n_devices = 2;
+//        vector<std::shared_ptr<SparseColumns>> v_columns;
+//        v_columns.resize(n_devices);
+//        for (int i = 0; i < n_devices; i++)
+//            v_columns[i].reset(new SparseColumns());
+//        columns.to_multi_devices(v_columns);
+//        HistUpdater updater(param);
+//        int round = 0;
+//        float_type rmse = 0;
+//        {
+//            TIMED_SCOPE(timerObj, "construct tree");
+//            for (Tree &tree:trees) {
+//                stats.updateGH();
+//                updater.init_cut(v_columns, stats, n_instances);
+//                updater.grow(tree, v_columns, stats);
+//                tree.prune_self(param.gamma);
+//                LOG(DEBUG) << string_format("\nbooster[%d]", round) << tree.dump(param.depth);
+//                predict_in_training(stats, tree);
+//                //next round
+//                round++;
+//            }
+//        }
+//        rmse = compute_rmse(stats);
+//        LOG(INFO) << "rmse = " << rmse;
+//        return rmse;
     }
 
     float_type compute_rmse(const InsStat &stats) {
@@ -164,6 +208,11 @@ TEST_F(UpdaterTest, abalone_40_trees_same_as_xgboost) {
     param.path = DATASET_DIR "abalone";
     float_type rmse = train_exact(param);//1674 ms
     EXPECT_NEAR(rmse, 0.803684, 1e-5);
+}
+
+TEST_F(UpdaterTest, abalone_hist) {
+    param.path = DATASET_DIR "iris.scale";
+    float_type rmse = train_hist(param);//1674 ms
 }
 
 
@@ -219,8 +268,13 @@ TEST_F(PerformanceTest, iris) {
 }
 
 TEST_F(PerformanceTest, year) {
-    param.n_trees = 5;
+    param.n_trees = 500;
     param.path = DATASET_DIR "YearPredictionMSD.scale";
+    train_exact(param);
+}
+
+TEST_F(PerformanceTest, airline) {
+    param.path = DATASET_DIR "airline_14col.data";
     train_exact(param);
 }
 //TEST_F(UpdaterTest, test_abalone_hist) {

@@ -287,6 +287,7 @@ void ExactUpdater::find_split(int level, const SparseColumns &columns, const Tre
                             fvid2pid_data[fvid] = pid;
                         },
                         n_block);
+                cudaDeviceSynchronize();
                 LOG(DEBUG) << "fvid2pid " << fvid2pid;
             }
 
@@ -302,6 +303,7 @@ void ExactUpdater::find_split(int level, const SparseColumns &columns, const Tre
                     cub_sort_by_key(fvid2pid, fvid_new2old, -1, true, (void *) gh_prefix_sum.device_data());
                     LOG(DEBUG) << "sorted fvid2pid " << fvid2pid;
                     LOG(DEBUG) << "fvid_new2old " << fvid_new2old;
+                    cudaDeviceSynchronize();
                 }
 
                 //do prefix sum
@@ -335,6 +337,7 @@ void ExactUpdater::find_split(int level, const SparseColumns &columns, const Tre
                             gh_prefix_sum.device_data(),
                             gh_prefix_sum.device_data());
                     LOG(DEBUG) << "gh prefix sum = " << gh_prefix_sum;
+                    cudaDeviceSynchronize();
                 }
             }
         }
@@ -373,6 +376,7 @@ void ExactUpdater::find_split(int level, const SparseColumns &columns, const Tre
                             node_data[nid].sum_gh_pair - gh_prefix_sum_data[pid_ptr_data[pid + 1] - 1];
             });
 //                        LOG(DEBUG) << "missing gh = " << missing_gh;
+            cudaDeviceSynchronize();
         }
 
         //calculate gain of each split
@@ -414,6 +418,7 @@ void ExactUpdater::find_split(int level, const SparseColumns &columns, const Tre
                 gain_data[i] = max_gain;
             });
             LOG(DEBUG) << "gain = " << gain;
+            cudaDeviceSynchronize();
         }
 
         //get best gain and the index of best gain for each feature and each node
@@ -422,10 +427,10 @@ void ExactUpdater::find_split(int level, const SparseColumns &columns, const Tre
         {
             TIMED_SCOPE(timerObj, "get best gain");
             auto arg_abs_max = []__device__(const int_float &a, const int_float &b) {
-                if (fabs(get<1>(a)) == fabs(get<1>(b)))
+                if (fabsf(get<1>(a)) == fabsf(get<1>(b)))
                     return get<0>(a) < get<0>(b) ? a : b;
                 else
-                    return fabs(get<1>(a)) > fabs(get<1>(b)) ? a : b;
+                    return fabsf(get<1>(a)) > fabsf(get<1>(b)) ? a : b;
             };
 
             //reduce to get best split of each node for this feature
@@ -462,6 +467,7 @@ void ExactUpdater::find_split(int level, const SparseColumns &columns, const Tre
             ).second - best_idx_gain.device_data();
             LOG(DEBUG) << "#nodes in level = " << n_nodes_in_level;
             LOG(DEBUG) << "best idx & gain = " << best_idx_gain;
+            cudaDeviceSynchronize();
         }
 
         //get split points
@@ -480,7 +486,7 @@ void ExactUpdater::find_split(int level, const SparseColumns &columns, const Tre
             int pid = rle_pid_data[split_index];
             sp_data[i].split_fea_id = (pid == INT_MAX) ? -1 : (pid / n_max_nodes_in_level) + column_offset;
             sp_data[i].nid = (pid == INT_MAX) ? -1 : (pid % n_max_nodes_in_level + nid_offset);
-            sp_data[i].gain = fabs(best_split_gain);
+            sp_data[i].gain = fabsf(best_split_gain);
             if (pid != INT_MAX) {//avoid split_index out of bound
                 sp_data[i].fval = rle_fval_data[split_index];
                 sp_data[i].fea_missing_gh = missing_gh_data[pid];
