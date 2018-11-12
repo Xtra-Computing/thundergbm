@@ -64,9 +64,9 @@ void HistUpdater::find_split(int level, const SparseColumns &columns, const Tree
 
         //calculate split information for each split
         int n_split;
-        SyncArray<GHPair> gh_prefix_sum(n_bins);
+        SyncArray<GHPair> gh_prefix_sum(nnz);
         SyncArray<GHPair> missing_gh(n_partition);
-        SyncArray<int_float> rle_key(n_bins);
+        SyncArray<int_float> rle_key(nnz);
         auto rle_pid_data = make_transform_iterator(rle_key.device_data(),
                                                     [=]__device__(int_float key) { return get<0>(key); });
         auto rle_fval_data = make_transform_iterator(rle_key.device_data(),
@@ -106,7 +106,7 @@ void HistUpdater::find_split(int level, const SparseColumns &columns, const Tree
                     sequence(cuda::par, fvid_new2old.device_data(), fvid_new2old.device_end(), 0);
 
                     //using prefix sum memory for temporary storage
-                    cub_sort_by_key(fvid2pid, fvid_new2old, -1, true, (void *) gh_prefix_sum.device_data());
+                    cub_sort_by_key(fvid2pid, fvid_new2old);
                     LOG(DEBUG) << "sorted fvid2pid " << fvid2pid;
                     LOG(DEBUG) << "fvid_new2old " << fvid_new2old;
                 }
@@ -158,17 +158,21 @@ void HistUpdater::find_split(int level, const SparseColumns &columns, const Tree
 
             auto pid_ptr_data = pid_ptr.device_data();
             auto rle_key_data = rle_key.device_data();
+            auto bin_val_data = cut.cut_points_val.device_data();
+            auto bin_ptr_data = cut.cut_row_ptr.device_data();
             float_type rt_eps = this->rt_eps;
             device_loop(n_split, [=]__device__(int i) {
                 int pid = rle_pid_data[i];
                 if (pid == INT_MAX) return;
-                float_type f = rle_fval_data[i];
-                if ((pid_ptr_data[pid + 1] - 1) == i)//the last RLE
+                int fid = pid / n_max_nodes_in_level;
+                int bin_id = rle_fval_data[i];
+//                float_type f = rle_fval_data[i];
+//                if ((pid_ptr_data[pid + 1] - 1) == i)//the last RLE
                     //using "get" to get a modifiable lvalue
-                    get<1>(rle_key_data[i]) = (f - fabsf(rle_fval_data[pid_ptr_data[pid]]) - rt_eps);
-                else
-                    //FIXME read/write collision
-                    get<1>(rle_key_data[i]) = (f + rle_fval_data[i + 1]) * 0.5f;
+//                    get<1>(rle_key_data[i]) = (f - fabsf(rle_fval_data[pid_ptr_data[pid]]) - rt_eps);
+//                else
+//                    get<1>(rle_key_data[i]) = (f + rle_fval_data[i + 1]) * 0.5f;
+                get<1>(rle_key_data[i]) = bin_val_data[bin_ptr_data[fid] + bin_id];
             });
 
             const auto gh_prefix_sum_data = gh_prefix_sum.device_data();
