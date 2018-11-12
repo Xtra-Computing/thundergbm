@@ -115,11 +115,13 @@ public:
         int round = 0;
         float_type rmse = 0;
         SyncMem::clear_cache();
+        stats.updateGH();
+        updater.init_cut(v_columns, stats, n_instances);
         {
             TIMED_SCOPE(timerObj, "construct tree");
             for (Tree &tree:trees) {
                 stats.updateGH();
-                updater.init_cut(v_columns, stats, n_instances);
+//                updater.init_cut(v_columns, stats, n_instances);
                 updater.grow(tree, v_columns, stats);
                 tree.prune_self(param.gamma);
                 LOG(DEBUG) << string_format("\nbooster[%d]", round) << tree.dump(param.depth);
@@ -211,14 +213,14 @@ TEST_F(UpdaterTest, abalone_40_trees_same_as_xgboost) {
 }
 
 TEST_F(UpdaterTest, abalone_hist) {
-    param.path = DATASET_DIR "iris.scale";
+    param.path = DATASET_DIR "abalone";
     float_type rmse = train_hist(param);//1674 ms
 }
 
 
 TEST_F(PerformanceTest, covtype_40_trees) {
     param.path = DATASET_DIR "covtype";
-    train_exact(param);
+    train_hist(param);
 }
 
 TEST_F(PerformanceTest, e2006_40_trees) {
@@ -253,7 +255,7 @@ TEST_F(PerformanceTest, real_sim_40_trees) {
 
 TEST_F(PerformanceTest, susy_40_trees) {
     param.path = DATASET_DIR "SUSY";
-    train_exact(param);
+    train_hist(param);
 }
 
 TEST_F(PerformanceTest, ins_40_trees) {
@@ -268,9 +270,9 @@ TEST_F(PerformanceTest, iris) {
 }
 
 TEST_F(PerformanceTest, year) {
-    param.n_trees = 500;
+    param.n_trees = 10;
     param.path = DATASET_DIR "YearPredictionMSD.scale";
-    train_exact(param);
+    train_hist(param);
 }
 
 TEST_F(PerformanceTest, airline) {
