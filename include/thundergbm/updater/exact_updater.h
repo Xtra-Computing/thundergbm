@@ -53,7 +53,7 @@ public:
     }
 
 
-    void grow(Tree &tree, const vector<std::shared_ptr<SparseColumns>> &v_columns, InsStat &stats);
+    virtual void grow(Tree &tree, const vector<std::shared_ptr<SparseColumns>> &v_columns, InsStat &stats);
 
     int depth;
     float_type min_child_weight;

@@ -14,12 +14,15 @@ public:
     int do_cut = 0;
     vector<HistCut> v_cut;
     vector<std::shared_ptr<SyncArray<int>>> bin_id;
+
+    virtual void grow(Tree &tree, const vector<std::shared_ptr<SparseColumns>> &v_columns, InsStat &stats);
+
     void init_cut(const vector<std::shared_ptr<SparseColumns>> &v_columns, InsStat &stats, int n_instance);
 
     void get_bin_ids(const SparseColumns &columns);
 
-    void find_split(int level, const SparseColumns &columns, const Tree &tree, const InsStat &stats,
-                    SyncArray<SplitPoint> &sp) override;
+    void find_split(int level, const SparseColumns &columns, const Tree &tree, const InsStat &stats, const HistCut &cut,
+                    SyncArray<SplitPoint> &sp);
 
     explicit HistUpdater(GBMParam &param): ExactUpdater(param) {};
 };
