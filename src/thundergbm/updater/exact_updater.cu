@@ -58,8 +58,10 @@ void ExactUpdater::grow(Tree &tree, const vector<std::shared_ptr<SparseColumns>>
             TIMED_SCOPE(timerObj, "split point all reduce");
             if (n_devices > 1)
                 split_point_all_reduce(local_sp, global_sp, i);
-            else
+            else{
+                global_sp.resize(local_sp[0].size());
                 global_sp.copy_from(local_sp[0].device_data(), local_sp[0].size());
+            }
 //            if (n_executor > 1) {
 //                if (rank == 0) {
 //                    SyncArray<SplitPoint> global_sp2(n_max_nodes_in_level);
@@ -201,7 +203,7 @@ void ExactUpdater::split_point_all_reduce(const vector<SyncArray<SplitPoint>> &l
     auto global_sp_data = global_sp.host_data();
     vector<bool> active_sp(n_max_nodes_in_level);
     for (int n = 0; n < n_max_nodes_in_level; n++) {
-        global_sp_data[n].nid = n + nid_offset;
+        global_sp_data[n].nid = -1;
         global_sp_data[n].gain = -1.0f;
         active_sp[n] = false;
     }
@@ -375,7 +377,7 @@ void ExactUpdater::find_split(int level, const SparseColumns &columns, const Tre
                     missing_gh_data[pid] =
                             node_data[nid].sum_gh_pair - gh_prefix_sum_data[pid_ptr_data[pid + 1] - 1];
             });
-//                        LOG(DEBUG) << "missing gh = " << missing_gh;
+                        LOG(DEBUG) << "missing gh = " << missing_gh;
             cudaDeviceSynchronize();
         }
 
@@ -501,12 +503,14 @@ void ExactUpdater::find_split(int level, const SparseColumns &columns, const Tre
 
 void ExactUpdater::update_tree(Tree &tree, const SyncArray<SplitPoint> &sp) {
     auto sp_data = sp.device_data();
+    LOG(DEBUG)<<sp;
     int n_nodes_in_level = sp.size();
 
     Tree::TreeNode *nodes_data = tree.nodes.device_data();
     float_type rt_eps = this->rt_eps;
     float_type lambda = this->lambda;
 
+    LOG(DEBUG)<<n_nodes_in_level;
     device_loop(n_nodes_in_level, [=]__device__(int i) {
         float_type best_split_gain = sp_data[i].gain;
         if (best_split_gain > rt_eps) {
@@ -543,6 +547,7 @@ void ExactUpdater::update_tree(Tree &tree, const SyncArray<SplitPoint> &sp) {
         }
 //    }
     });
+    LOG(DEBUG)<<tree.nodes;
 }
 
 bool ExactUpdater::reset_ins2node_id(InsStat &stats, const Tree &tree, const SparseColumns &columns) {

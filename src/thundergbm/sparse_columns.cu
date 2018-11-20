@@ -7,6 +7,7 @@
 #include "cusparse.h"
 
 void SparseColumns::from_dataset(const DataSet &dataset) {
+    this->column_offset = 0;
     LOG(TRACE) << "constructing sparse columns, converting csr to csc";
     //cpu transpose
     n_column = dataset.n_features();
