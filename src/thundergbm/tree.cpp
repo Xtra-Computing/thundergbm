@@ -52,7 +52,7 @@ void Tree::preorder_traversal(int nid, int max_depth, int depth, string &s) cons
 }
 
 std::ostream &operator<<(std::ostream &os, const Tree::TreeNode &node) {
-    os << string_format("\nnid:%d,l:%d,split_feature_id:%d,f:%f,gain:%f,r:%d,w:%f,", node.final_id, node.is_leaf,
+    os << string_format("\nnid:%d,l:%d,v:%d,split_feature_id:%d,f:%f,gain:%f,r:%d,w:%f,", node.final_id, node.is_leaf, node.is_valid,
                         node.split_feature_id, node.split_value, node.gain, node.default_right, node.base_weight);
     os << "g/h:" << node.sum_gh_pair;
     return os;

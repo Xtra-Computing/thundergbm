@@ -19,6 +19,7 @@ public:
     //for gpu
     SyncArray<float_type> cut_points_val;
     SyncArray<int> cut_row_ptr;
+    SyncArray<int> cut_fid;
 
     HistCut() = default;
 

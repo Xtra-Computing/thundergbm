@@ -10,6 +10,7 @@
 
 template<typename L>
 __global__ void lambda_kernel(size_t len, L lambda) {
+#pragma unroll
     for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < len; i += blockDim.x * gridDim.x) {
         lambda(i);
     }
@@ -20,35 +21,39 @@ __global__ void lambda_2d_sparse_kernel(const int *len2, L lambda) {
     int i = blockIdx.x;
     int begin = len2[i];
     int end = len2[i + 1];
+#pragma unroll
     for (int j = begin + blockIdx.y * blockDim.x + threadIdx.x; j < end; j += blockDim.x * gridDim.y) {
         lambda(i, j);
     }
 }
 
 ///p100 has 56 MPs, using 32*56 thread blocks
-template<typename L>
-void device_loop(int len, L lambda, unsigned int NUM_BLOCK = 32 *56, unsigned int BLOCK_SIZE=512) {
+template<typename L, int NUM_BLOCK = 4 * 56, int BLOCK_SIZE = 256>
+void device_loop(int len, L lambda) {
     if (len > 0) {
-        lambda_kernel << < NUM_BLOCK, BLOCK_SIZE >> > (len, lambda);
+        lambda_kernel << < NUM_BLOCK, BLOCK_SIZE>> > (len, lambda);
         CUDA_CHECK(cudaPeekAtLastError());
     }
+    cudaDeviceSynchronize();
 }
 
 
 template<typename L>
-void device_loop_2d(int len1, const int *len2, L lambda, unsigned int NUM_BLOCK = 32 * 56,
+void device_loop_2d(int len1, const int *len2, L lambda, unsigned int NUM_BLOCK = 4 * 56,
                     unsigned int BLOCK_SIZE = 256) {
+    NUM_BLOCK = std::min((len1 - 1) / 256 + 1, 4 * 56);
     if (len1 > 0) {
         lambda_2d_sparse_kernel << < dim3(len1, NUM_BLOCK), BLOCK_SIZE >> > (len2, lambda);
         CUDA_CHECK(cudaPeekAtLastError());
     }
+    cudaDeviceSynchronize();
 }
 
 template<typename L>
 __global__ void lambda_2d_sparse_kernel_mod(const int mod_val, const int *len2, L lambda) {
     int i = blockIdx.x;
-    int begin = len2[i%mod_val];
-    int end = len2[i%mod_val + 1];
+    int begin = len2[i % mod_val];
+    int end = len2[i % mod_val + 1];
     for (int j = begin + blockIdx.y * blockDim.x + threadIdx.x; j < end; j += blockDim.x * gridDim.y) {
         lambda(i, j);
     }
@@ -56,7 +61,7 @@ __global__ void lambda_2d_sparse_kernel_mod(const int mod_val, const int *len2, 
 
 template<typename L>
 void device_loop_2d_mod(int len1, int mod_val, const int *len2, L lambda, unsigned int NUM_BLOCK = 32 * 56,
-                    unsigned int BLOCK_SIZE = 256) {
+                        unsigned int BLOCK_SIZE = 256) {
     if (len1 > 0) {
         lambda_2d_sparse_kernel_mod << < dim3(len1, NUM_BLOCK), BLOCK_SIZE >> > (mod_val, len2, lambda);
         CUDA_CHECK(cudaPeekAtLastError());
