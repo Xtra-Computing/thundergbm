@@ -1,3 +1,6 @@
+
+#include <thundergbm/updater/hist_updater.h>
+
 #include "thundergbm/updater/hist_updater.h"
 #include "thundergbm/util/cub_wrapper.h"
 
@@ -10,7 +13,6 @@ void HistUpdater::init_cut(const vector<std::shared_ptr<SparseColumns>> &v_colum
         bin_id.resize(n_devices);
         cub_seg_sort_by_key(v_columns[0]->csc_row_idx, v_columns[0]->csc_val, v_columns[0]->csc_col_ptr, true);
         DO_ON_MULTI_DEVICES(n_devices, [&](int device_id) {
-            LOG(TRACE) << string_format("finding split on device %d", device_id);
             get_bin_ids(*v_columns[device_id]);
         });
     }
@@ -117,20 +119,52 @@ void HistUpdater::find_split(int level, const SparseColumns &columns, const Tree
                 auto bin_id_data = bin_id[0]->device_data();
 
                 {
-                    TIMED_SCOPE(timerOBj, "hist");
-                    device_loop_2d(n_column, columns.csc_col_ptr.device_data(), [=]__device__(int fid, int i) {
-                        int iid = iid_data[i];
-                        int nid0 = nid_data[iid] - nid_offset;
-                        if (nid0 < 0) return;
-                        int hist_offset = nid0 * n_bins;
-                        int feature_offset = cut_row_ptr_data[fid];
-                        int bin_id = bin_id_data[i];
-                        GHPair &dest = hist_data[hist_offset + feature_offset + bin_id];
-                        const GHPair &src = gh_data[iid];
-                        //TODO use shared memory
-                        atomicAdd(&dest.g, src.g);
-                        atomicAdd(&dest.h, src.h);
-                    }, n_block);
+//                    TIMED_SCOPE(timerOBj, "hist");
+//                    device_loop_2d(n_column, columns.csc_col_ptr.device_data(), [=]__device__(int fid, int i) {
+//                        int iid = iid_data[i];
+//                        int nid0 = nid_data[iid] - nid_offset;
+//                        if (nid0 < 0) return;
+//                        int hist_offset = nid0 * n_bins;
+//                        int feature_offset = cut_row_ptr_data[fid];
+//                        int bin_id = bin_id_data[i];
+//                        GHPair &dest = hist_data[hist_offset + feature_offset + bin_id];
+//                        const GHPair &src = gh_data[iid];
+//                        //TODO use shared memory
+//                        atomicAdd(&dest.g, src.g);
+//                        atomicAdd(&dest.h, src.h);
+//                    }, n_block);
+                }
+                {
+//                    SyncArray<GHPair> hist2(n_max_splits);
+                    TIMED_SCOPE(timerOBj, "hist2");
+                    auto nid_data = stats.nid.device_data();
+                    auto hist_data = hist.device_data();
+                    auto cut_row_ptr_data = cut.cut_row_ptr.device_data();
+                    auto gh_data = stats.gh_pair.device_data();
+                    auto dense_bin_id_data = dense_bin_id.device_data();
+                    auto max_num_bin = this->max_num_bin;
+                    device_loop(stats.n_instances * n_column, [=]__device__(int i) {
+                        unsigned char bid = dense_bin_id_data[i];
+                        if (bid != max_num_bin) {
+                            int iid = i / n_column;
+                            int fid = i % n_column;
+                            int nid0 = nid_data[iid] - nid_offset;
+                            if (nid0 < 0) return;
+                            int hist_offset = nid0 * n_bins;
+                            int feature_offset = cut_row_ptr_data[fid];
+                            GHPair &dest = hist_data[hist_offset + feature_offset + bid];
+                            const GHPair &src = gh_data[iid];
+                            //TODO use shared memory
+                            atomicAdd(&dest.g, src.g);
+                            atomicAdd(&dest.h, src.h);
+                        }
+                    });
+//                    for (int i = 0; i < n_max_splits; ++i) {
+//                        GHPair gh1 = hist.host_data()[i];
+//                        GHPair gh2 = hist2.host_data()[i];
+//                        CHECK_EQ(gh1.g, gh2.g);
+//                        CHECK_EQ(gh1.h, gh2.h);
+//                    }
                 }
                 LOG(DEBUG) << "feature offset = " << cut.cut_row_ptr;
                 LOG(DEBUG) << "hist old = " << hist;
@@ -467,4 +501,24 @@ void HistUpdater::grow(Tree &tree, const vector<std::shared_ptr<SparseColumns>> 
     }
     tree.nodes.copy_from(v_trees[0]->nodes);
     stats.nid.copy_from(v_stats[0]->nid);
+}
+
+void HistUpdater::init_dense_data(const SparseColumns &columns, int n_instances) {
+    LOG(TRACE) << "init dense data";
+    int n_column = columns.n_column;
+    int nnz = columns.nnz;
+    int n_block = std::min((nnz / n_column - 1) / 256 + 1, 32 * 56);
+    dense_bin_id.resize(n_instances * n_column);
+    auto bin_id_data = bin_id[0]->device_data();
+    auto csc_row_idx_data = columns.csc_row_idx.device_data();
+    auto dense_bin_id_data = dense_bin_id.device_data();
+    auto max_num_bin = this->max_num_bin;
+    device_loop(n_instances * n_column, [=]__device__(int i) {
+        dense_bin_id_data[i] = max_num_bin;
+    });
+    device_loop_2d(n_column, columns.csc_col_ptr.device_data(), [=]__device__(int fid, int i) {
+        int row = csc_row_idx_data[i];
+        unsigned char bid = bin_id_data[i];
+        dense_bin_id_data[row * n_column + fid] = bid;
+    }, n_block);
 }

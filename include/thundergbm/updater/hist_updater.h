@@ -10,10 +10,11 @@
 
 class HistUpdater : public ExactUpdater{
 public:
-    int max_num_bin = 256;
+    unsigned char max_num_bin = 255;
     int do_cut = 0;
     vector<HistCut> v_cut;
     vector<std::shared_ptr<SyncArray<int>>> bin_id;
+    SyncArray<unsigned char> dense_bin_id;
 
     virtual void grow(Tree &tree, const vector<std::shared_ptr<SparseColumns>> &v_columns, InsStat &stats);
 
@@ -21,9 +22,10 @@ public:
 
     void get_bin_ids(const SparseColumns &columns);
 
+    void init_dense_data(const SparseColumns &columns, int n_instances);
+
     void find_split(int level, const SparseColumns &columns, const Tree &tree, const InsStat &stats, const HistCut &cut,
                     SyncArray<SplitPoint> &sp);
-
     explicit HistUpdater(GBMParam &param): ExactUpdater(param) {};
 };
 #endif //GBM_MIRROR2_HIST_UPDATER_H

@@ -31,7 +31,7 @@ public:
 
         if (!verbose) {
             el::Loggers::reconfigureAllLoggers(el::Level::Debug, el::ConfigurationType::Enabled, "false");
-            el::Loggers::reconfigureAllLoggers(el::Level::Trace, el::ConfigurationType::Enabled, "false");
+//            el::Loggers::reconfigureAllLoggers(el::Level::Trace, el::ConfigurationType::Enabled, "false");
         }
 //        el::Loggers::reconfigureAllLoggers(el::ConfigurationType::PerformanceTracking, "false");
     }
@@ -117,6 +117,7 @@ public:
         SyncMem::clear_cache();
         stats.updateGH();
         updater.init_cut(v_columns, stats, n_instances);
+        updater.init_dense_data(*v_columns[0], n_instances);
         {
             TIMED_SCOPE(timerObj, "construct tree");
             for (Tree &tree:trees) {
