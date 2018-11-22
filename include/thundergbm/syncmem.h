@@ -11,19 +11,20 @@
 using namespace cub;
 namespace thunder {
     inline void malloc_host(void **ptr, size_t size) {
-#ifdef USE_CUDA
+//#ifdef USE_CUDA
         CUDA_CHECK(cudaHostAlloc(ptr, size, cudaHostAllocPortable));
-#else
-        *ptr = malloc(size);
-#endif
+//#else
+//        *ptr = new char[size];
+//#endif
     }
 
     inline void free_host(void *ptr) {
-#ifdef USE_CUDA
+//#ifdef USE_CUDA
         CUDA_CHECK(cudaFreeHost(ptr));
-#else
-        free(ptr);
-#endif
+//#else
+//delete (char*) ptr;
+//        free(ptr);
+//#endif
     }
 
     inline void device_mem_copy(void *dst, const void *src, size_t size) {
