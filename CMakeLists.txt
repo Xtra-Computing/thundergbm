@@ -9,7 +9,7 @@ if (NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release)
 endif ()
 
-set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -std=c++11 -gencode arch=compute_60,code=sm_60 --expt-extended-lambda --default-stream per-thread")
+set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -std=c++11 -lineinfo -gencode arch=compute_60,code=sm_60 --expt-extended-lambda --default-stream per-thread")
 
 if (CMAKE_VERSION VERSION_LESS "3.1")
     add_compile_options("-std=c++11")
