@@ -25,7 +25,7 @@ public:
         param.rt_eps = 1e-6;
         param.do_exact = true;
         param.n_device = 1;
-        verbose = true;
+//        verbose = true;
 //        MPI_Comm_size(MPI_COMM_WORLD, &param.n_executor);
 
 
@@ -79,10 +79,10 @@ public:
                 predict_in_training(stats, tree);
                 //next round
                 round++;
-                rmse = compute_rmse(stats);
-                LOG(INFO) << "rmse = " << rmse;
             }
         }
+        rmse = compute_rmse(stats);
+        LOG(INFO) << "rmse = " << rmse;
         return rmse;
     }
 
@@ -188,7 +188,7 @@ TEST_F(PerformanceTest, covtype_40_trees) {
 
 TEST_F(PerformanceTest, e2006_40_trees) {
     param.path = DATASET_DIR "E2006.train";
-    train_exact(param);
+    train_hist(param);
 }
 
 TEST_F(PerformanceTest, log1p_40_trees) {
@@ -213,18 +213,17 @@ TEST_F(PerformanceTest, abalone) {
 
 TEST_F(PerformanceTest, real_sim_40_trees) {
     param.path = DATASET_DIR "real-sim";
-    train_exact(param);
+    train_hist(param);
 }
 
 TEST_F(PerformanceTest, susy_40_trees) {
-    param.n_trees = 1;
     param.path = DATASET_DIR "SUSY";
     train_hist(param);
 }
 
 TEST_F(PerformanceTest, ins_40_trees) {
     param.path = DATASET_DIR "ins.libsvm";
-    train_exact(param);
+    train_hist(param);
 }
 
 TEST_F(PerformanceTest, iris) {

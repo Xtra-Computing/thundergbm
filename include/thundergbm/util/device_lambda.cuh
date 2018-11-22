@@ -10,7 +10,7 @@
 
 template<typename L>
 __global__ void lambda_kernel(size_t len, L lambda) {
-#pragma unroll
+//#pragma unroll
     for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < len; i += blockDim.x * gridDim.x) {
         lambda(i);
     }
@@ -21,7 +21,7 @@ __global__ void lambda_2d_sparse_kernel(const int *len2, L lambda) {
     int i = blockIdx.x;
     int begin = len2[i];
     int end = len2[i + 1];
-#pragma unroll
+//#pragma unroll
     for (int j = begin + blockIdx.y * blockDim.x + threadIdx.x; j < end; j += blockDim.x * gridDim.y) {
         lambda(i, j);
     }
@@ -41,7 +41,7 @@ void device_loop(int len, L lambda) {
 template<typename L>
 void device_loop_2d(int len1, const int *len2, L lambda, unsigned int NUM_BLOCK = 4 * 56,
                     unsigned int BLOCK_SIZE = 256) {
-    NUM_BLOCK = std::min((len1 - 1) / 256 + 1, 4 * 56);
+//    NUM_BLOCK = std::min((len1 - 1) / 256 + 1, 4 * 56);
     if (len1 > 0) {
         lambda_2d_sparse_kernel << < dim3(len1, NUM_BLOCK), BLOCK_SIZE >> > (len2, lambda);
         CUDA_CHECK(cudaPeekAtLastError());

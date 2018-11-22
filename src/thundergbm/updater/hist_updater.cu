@@ -8,6 +8,7 @@ void HistUpdater::init_cut(const vector<std::shared_ptr<SparseColumns>> &v_colum
         for (int i = 0; i < n_devices; i++)
             v_cut[i].get_cut_points(*v_columns[i], stats, max_num_bin, n_instances, i);
         bin_id.resize(n_devices);
+        cub_seg_sort_by_key(v_columns[0]->csc_row_idx, v_columns[0]->csc_val, v_columns[0]->csc_col_ptr, true);
         DO_ON_MULTI_DEVICES(n_devices, [&](int device_id) {
             LOG(TRACE) << string_format("finding split on device %d", device_id);
             get_bin_ids(*v_columns[device_id]);
@@ -85,7 +86,7 @@ void HistUpdater::find_split(int level, const SparseColumns &columns, const Tree
     int n_partition = n_column * n_nodes_in_level;
     int nnz = columns.nnz;
     int n_bins = cut.cut_points.size();
-    int n_block = std::min((n_column - 1) / 256 + 1, 32 * 56);
+    int n_block = std::min((nnz / n_column - 1) / 256 + 1, 32 * 56);
     int n_max_nodes = 2 << this->depth;
     int n_max_splits = n_max_nodes * n_bins;
     int n_split = n_nodes_in_level * n_bins;
@@ -115,52 +116,53 @@ void HistUpdater::find_split(int level, const SparseColumns &columns, const Tree
                 auto gh_data = stats.gh_pair.device_data();
                 auto bin_id_data = bin_id[0]->device_data();
 
-//                device_loop_2d(n_column, columns.csc_col_ptr.device_data(), [=]__device__(int fid, int i) {
-//                    int iid = iid_data[i];
-//                    int nid0 = nid_data[iid] - nid_offset;
-//                    if (nid0 < 0) return;
-//                    int hist_offset = nid0 * n_bins;
-//                    int feature_offset = cut_row_ptr_data[fid];
-//                    int bin_id = bin_id_data[i];
-//                    GHPair &dest = hist_data[hist_offset + feature_offset + bin_id];
-////                    if(threadIdx.x == 149 and blockIdx.x == 3) printf("%d+%d+%d=%d\n",hist_offset, feature_offset, bin_id, hist_offset + feature_offset + bin_id);
-//                    const GHPair &src = gh_data[iid];
-//                    //TODO use shared memory
-//                    atomicAdd(&dest.g, src.g);
-//                    atomicAdd(&dest.h, src.h);
-//                }, n_block);
-                LOG(DEBUG)<<"feature offset = " << cut.cut_row_ptr;
-                LOG(DEBUG) <<"hist old = " << hist;
-                SyncArray<GHPair> hist2(hist.size());
                 {
-                    //for each feature
-                    //construct hist[node][bin]
-                    //multi block, each block has a local histogram
-                    //shared memory size = (4+4)Bytes * #node * #bin
-                    //syncthreads
-                    //sum local histogram in thread0 to global memory
-                    for (int fid = 0; fid < n_column; ++fid) {
-                        auto feature_start = columns.csc_col_ptr.host_data()[fid];
-                        auto feature_len = columns.csc_col_ptr.host_data()[fid + 1] - feature_start;
-                        const int *iid_data = columns.csc_row_idx.device_data() + feature_start;
-                        const int *bin_id_data = bin_id[0]->device_data() + feature_start;
-                        int fea_offset = cut.cut_row_ptr.host_data()[fid];
-                        int n_fea_bin = cut.cut_row_ptr.host_data()[fid + 1] - cut.cut_row_ptr.host_data()[fid];
-                        int shared_mem_size = sizeof(GHPair) * n_nodes_in_level * n_fea_bin;
-                        LOG(DEBUG)<<"smem size = " << shared_mem_size / 1024.0 << "KB";
-                        auto hist_data = hist2.device_data();
-                        hist_kernel << < 2 * 56, 256, shared_mem_size >> >
-                                                      (hist_data, fea_offset, bin_id_data, feature_len, n_fea_bin, n_bins, iid_data,
-                                                              stats.gh_pair.device_data(), stats.nid.device_data(), nid_offset, n_nodes_in_level);
-                        CUDA_CHECK(cudaGetLastError());
-                        cudaDeviceSynchronize();
-                    }
+                    TIMED_SCOPE(timerOBj, "hist");
+                    device_loop_2d(n_column, columns.csc_col_ptr.device_data(), [=]__device__(int fid, int i) {
+                        int iid = iid_data[i];
+                        int nid0 = nid_data[iid] - nid_offset;
+                        if (nid0 < 0) return;
+                        int hist_offset = nid0 * n_bins;
+                        int feature_offset = cut_row_ptr_data[fid];
+                        int bin_id = bin_id_data[i];
+                        GHPair &dest = hist_data[hist_offset + feature_offset + bin_id];
+                        const GHPair &src = gh_data[iid];
+                        //TODO use shared memory
+                        atomicAdd(&dest.g, src.g);
+                        atomicAdd(&dest.h, src.h);
+                    }, n_block);
                 }
+                LOG(DEBUG) << "feature offset = " << cut.cut_row_ptr;
+                LOG(DEBUG) << "hist old = " << hist;
+//                {
+//                    TIMED_SCOPE(timerOBj, "hist");
+//                    //for each feature
+//                    //construct hist[node][bin]
+//                    //multi block, each block has a local histogram
+//                    //shared memory size = (4+4)Bytes * #node * #bin
+//                    //syncthreads
+//                    //sum local histogram in thread0 to global memory
+//                    for (int fid = 0; fid < n_column; ++fid) {
+//                        auto feature_start = columns.csc_col_ptr.host_data()[fid];
+//                        auto feature_len = columns.csc_col_ptr.host_data()[fid + 1] - feature_start;
+//                        const int *iid_data = columns.csc_row_idx.device_data() + feature_start;
+//                        const int *bin_id_data = bin_id[0]->device_data() + feature_start;
+//                        int fea_offset = cut.cut_row_ptr.host_data()[fid];
+//                        int n_fea_bin = cut.cut_row_ptr.host_data()[fid + 1] - cut.cut_row_ptr.host_data()[fid];
+//                        int shared_mem_size = sizeof(GHPair) * n_nodes_in_level * n_fea_bin;
+//                        LOG(DEBUG)<<"smem size = " << shared_mem_size / 1024.0 << "KB";
+//                        auto hist_data = hist.device_data();
+//                        hist_kernel << < 2 * 56, 256, shared_mem_size >> >
+//                                                      (hist_data, fea_offset, bin_id_data, feature_len, n_fea_bin, n_bins, iid_data,
+//                                                              stats.gh_pair.device_data(), stats.nid.device_data(), nid_offset, n_nodes_in_level);
+//                        CUDA_CHECK(cudaGetLastError());
+//                    }
+//                }
 //                for (int i = 0; i < hist.size(); ++i) {
 //                    CHECK_EQ(hist.host_data()[i].g, hist2.host_data()[i].g);
 //                    CHECK_EQ(hist.host_data()[i].h, hist2.host_data()[i].h);
 //                }
-                LOG(INFO) << "hist new = " << hist;
+                LOG(DEBUG) << "hist new = " << hist;
                 //calculate missing value for each partition
                 int temp = reduce_by_key(cuda::par, hist_fid, hist_fid + n_split, hist.device_data(),
                                          make_discard_iterator(), missing_gh.device_data()).second -

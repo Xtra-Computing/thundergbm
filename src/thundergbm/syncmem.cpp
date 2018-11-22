@@ -58,7 +58,8 @@ namespace thunder {
         switch (head_) {
             case UNINITIALIZED:
                 malloc_host(&host_ptr, size_);
-                memset(host_ptr, 0, size_);
+//                memset(host_ptr, 0, size_);
+                CUDA_CHECK(cudaMemset(host_ptr, 0, size_));
                 head_ = HOST;
                 own_host_data = true;
                 break;
@@ -66,8 +67,9 @@ namespace thunder {
 #ifdef USE_CUDA
                 DO_ON_DEVICE(device_id, {
                     if (nullptr == host_ptr) {
-                        CUDA_CHECK(cudaHostAlloc(&host_ptr, size_, cudaHostAllocPortable));
-//                        malloc_host(&host_ptr, size_, cudaHostAllocPortable);
+//                        CUDA_CHECK(cudaHostAlloc(&host_ptr, size_, cudaHostAllocPortable));
+                        malloc_host(&host_ptr, size_);
+//                        memset(host_ptr, 0, size_);
                         CUDA_CHECK(cudaMemset(host_ptr, 0, size_));
                         own_host_data = true;
                     }
