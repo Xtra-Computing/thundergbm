@@ -111,7 +111,7 @@ void HistUpdater::find_split(int level, const SparseColumns &columns, const Tree
             {
                 TIMED_SCOPE(timerObj, "histogram");
                 //input
-                const int *nid_data = stats.nid.device_data();
+                auto *nid_data = stats.nid.device_data();
                 auto hist_data = hist.device_data();
                 auto cut_row_ptr_data = cut.cut_row_ptr.device_data();
                 auto iid_data = columns.csc_row_idx.device_data();
@@ -134,31 +134,78 @@ void HistUpdater::find_split(int level, const SparseColumns &columns, const Tree
 //                        atomicAdd(&dest.h, src.h);
 //                    }, n_block);
                 }
+                SyncArray<int> node_idx(stats.n_instances);
+                SyncArray<int> node_ptr(n_nodes_in_level + 1);
                 {
-//                    SyncArray<GHPair> hist2(n_max_splits);
-                    TIMED_SCOPE(timerOBj, "hist2");
-                    auto nid_data = stats.nid.device_data();
-                    auto hist_data = hist.device_data();
-                    auto cut_row_ptr_data = cut.cut_row_ptr.device_data();
-                    auto gh_data = stats.gh_pair.device_data();
-                    auto dense_bin_id_data = dense_bin_id.device_data();
-                    auto max_num_bin = this->max_num_bin;
-                    device_loop(stats.n_instances * n_column, [=]__device__(int i) {
-                        unsigned char bid = dense_bin_id_data[i];
-                        if (bid != max_num_bin) {
-                            int iid = i / n_column;
+                    TIMED_SCOPE(timerObj, "gather node idx");
+                    SyncArray<unsigned char> nid4sort(stats.n_instances);
+                    nid4sort.copy_from(stats.nid);
+                    sequence(cuda::par, node_idx.device_data(), node_idx.device_end(), 0);
+                    cub_sort_by_key(nid4sort, node_idx);
+                    auto counting_iter = make_counting_iterator < int > (nid_offset);
+                    node_ptr.host_data()[0] = lower_bound(cuda::par, nid4sort.device_data(), nid4sort.device_end(), nid_offset) - nid4sort.device_data();
+                    upper_bound(cuda::par, nid4sort.device_data(), nid4sort.device_end(), counting_iter,
+                                counting_iter + n_nodes_in_level, node_ptr.device_data() + 1);
+//                    LOG(INFO)<<nid4sort;
+                }
+//                LOG(INFO)<<node_idx;
+//                LOG(INFO)<<node_ptr;
+                {
+                    TIMED_SCOPE(timerObj, "hist3");
+                    for (int nid0 = 0; nid0 < n_nodes_in_level; ++nid0) {
+                        auto idx_begin = node_ptr.host_data()[nid0];
+                        auto idx_end = node_ptr.host_data()[nid0 + 1];
+                        auto node_idx_data = node_idx.device_data();
+
+                        auto hist_data = hist.device_data() + nid0 * n_bins;
+                        auto cut_row_ptr_data = cut.cut_row_ptr.device_data();
+                        auto gh_data = stats.gh_pair.device_data();
+                        auto dense_bin_id_data = dense_bin_id.device_data();
+                        auto max_num_bin = this->max_num_bin;
+
+                        device_loop((idx_end - idx_begin) * n_column, [=]__device__(int i) {
+                            int iid = node_idx_data[i / n_column + idx_begin];
                             int fid = i % n_column;
-                            int nid0 = nid_data[iid] - nid_offset;
-                            if (nid0 < 0) return;
-                            int hist_offset = nid0 * n_bins;
-                            int feature_offset = cut_row_ptr_data[fid];
-                            GHPair &dest = hist_data[hist_offset + feature_offset + bid];
-                            const GHPair &src = gh_data[iid];
-                            //TODO use shared memory
-                            atomicAdd(&dest.g, src.g);
-                            atomicAdd(&dest.h, src.h);
-                        }
-                    });
+                            unsigned char bid = dense_bin_id_data[iid * n_column + fid];
+                            if (bid != max_num_bin) {
+                                int feature_offset = cut_row_ptr_data[fid];
+                                const GHPair src = gh_data[iid];
+                                GHPair &dest = hist_data[feature_offset + bid];
+                                //TODO use shared memory
+                                atomicAdd(&dest.g, src.g);
+                                atomicAdd(&dest.h, src.h);
+                            }
+                        });
+                        PERFORMANCE_CHECKPOINT(timerObj);
+                    }
+                }
+                {
+//                    SyncArray<GHPair> hist(n_max_splits);
+//                    TIMED_SCOPE(timerObj, "hist2");
+//                    auto nid_data = stats.nid.device_data();
+//                    auto hist_data = hist.device_data();
+//                    auto cut_row_ptr_data = cut.cut_row_ptr.device_data();
+//                    auto gh_data = stats.gh_pair.device_data();
+//                    auto dense_bin_id_data = dense_bin_id.device_data();
+//                    auto max_num_bin = this->max_num_bin;
+//                    device_loop(stats.n_instances * n_column, [=]__device__(int i) {
+//                        unsigned char bid = dense_bin_id_data[i];
+//                        if (bid != max_num_bin) {
+//                            int iid = i / n_column;
+//                            int fid = i % n_column;
+//                            int nid0 = nid_data[iid] - nid_offset;
+//                            if (nid0 < 0) return;
+//                            int hist_offset = nid0 * n_bins;
+//                            int feature_offset = cut_row_ptr_data[fid];
+//                            GHPair &dest = hist_data[hist_offset + feature_offset + bid];
+//                            const GHPair &src = gh_data[iid];
+//                            //TODO use shared memory
+//                            atomicAdd(&dest.g, src.g);
+//                            atomicAdd(&dest.h, src.h);
+//                        }
+//                    });
+//                    LOG(INFO)<<hist;
+//                    LOG(INFO)<<hist2;
 //                    for (int i = 0; i < n_max_splits; ++i) {
 //                        GHPair gh1 = hist.host_data()[i];
 //                        GHPair gh2 = hist2.host_data()[i];

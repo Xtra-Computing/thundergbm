@@ -271,7 +271,7 @@ void ExactUpdater::find_split(int level, const SparseColumns &columns, const Tre
             {
                 TIMED_SCOPE(timerObj, "fvid2pid");
                 //input
-                const int *nid_data = stats.nid.device_data();
+                auto *nid_data = stats.nid.device_data();
                 const int *iid_data = columns.csc_row_idx.device_data();
 
                 LOG(TRACE) << "after using v_stats and columns";
@@ -555,7 +555,7 @@ bool ExactUpdater::reset_ins2node_id(InsStat &stats, const Tree &tree, const Spa
     //set new node id for each instance
     {
         TIMED_SCOPE(timerObj, "get new node id");
-        int *nid_data = stats.nid.device_data();
+        auto nid_data = stats.nid.device_data();
         const int *iid_data = columns.csc_row_idx.device_data();
         const Tree::TreeNode *nodes_data = tree.nodes.device_data();
         const int *col_ptr_data = columns.csc_col_ptr.device_data();

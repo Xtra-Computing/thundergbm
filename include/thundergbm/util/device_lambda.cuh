@@ -28,8 +28,8 @@ __global__ void lambda_2d_sparse_kernel(const int *len2, L lambda) {
 }
 
 ///p100 has 56 MPs, using 32*56 thread blocks
-template<typename L, int NUM_BLOCK = 32 * 56, int BLOCK_SIZE = 256>
-void device_loop(int len, L lambda) {
+template<int NUM_BLOCK = 32 * 56, int BLOCK_SIZE = 256, typename L>
+inline void device_loop(int len, L lambda) {
     if (len > 0) {
         lambda_kernel << < NUM_BLOCK, BLOCK_SIZE>> > (len, lambda);
         CUDA_CHECK(cudaPeekAtLastError());

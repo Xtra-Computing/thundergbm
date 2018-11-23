@@ -14,7 +14,7 @@ void InsStat::resize(size_t n_instances) {
 void InsStat::updateGH() {
     sum_gh = GHPair(0, 0);
     GHPair *gh_pair_data = gh_pair.host_data();
-    int *nid_data = nid.host_data();
+    unsigned char *nid_data = nid.host_data();
     float_type *stats_y_data = y.host_data();
     float_type *stats_yp_data = y_predict.host_data();
     LOG(DEBUG) << y_predict;

@@ -45,7 +45,7 @@ public:
     ///gradient and hessian
     SyncArray<GHPair> gh_pair;
     ///node id
-    SyncArray<int> nid;
+    SyncArray<unsigned char> nid;
     ///target value
     SyncArray<float_type> y;
     ///predict value
