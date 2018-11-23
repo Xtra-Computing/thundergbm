@@ -151,7 +151,7 @@ public:
 
         TIMED_SCOPE(timerObj, "predict");
         float_type *y_predict_data = stats.y_predict.device_data();
-        const int *nid_data = stats.nid.device_data();
+        auto nid_data = stats.nid.device_data();
         const Tree::TreeNode *nodes_data = tree.nodes.device_data();
         device_loop(stats.n_instances, [=]__device__(int i) {
             int nid = nid_data[i];
