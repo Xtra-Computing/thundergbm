@@ -528,6 +528,7 @@ void ExactUpdater::update_tree(Tree &tree, const SyncArray<SplitPoint> &sp) {
             GHPair p_missing_gh = sp_data[i].fea_missing_gh;
             //todo process begin
             node.split_value = sp_data[i].fval;
+            node.split_bid = sp_data[i].split_bid;
             rch.sum_gh_pair = sp_data[i].rch_sum_gh;
             if (sp_data[i].default_right) {
                 rch.sum_gh_pair = rch.sum_gh_pair + p_missing_gh;

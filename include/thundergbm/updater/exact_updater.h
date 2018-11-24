@@ -28,6 +28,7 @@ public:
     GHPair rch_sum_gh;
     bool default_right;
     int nid;
+    unsigned char split_bid;
 
     SplitPoint() {
         nid = -1;
@@ -73,7 +74,7 @@ public:
 //update global best split for each node
     void update_tree(Tree &tree, const SyncArray<SplitPoint> &sp);
 
-    bool reset_ins2node_id(InsStat &stats, const Tree &tree, const SparseColumns &columns);
+    virtual bool reset_ins2node_id(InsStat &stats, const Tree &tree, const SparseColumns &columns);
 
     void split_point_all_reduce(const vector<SyncArray<SplitPoint>> &local_sp, SyncArray<SplitPoint> &global_sp,
                                 int depth);

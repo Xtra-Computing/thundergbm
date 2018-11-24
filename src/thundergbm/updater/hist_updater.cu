@@ -111,15 +111,14 @@ void HistUpdater::find_split(int level, const SparseColumns &columns, const Tree
             {
                 TIMED_SCOPE(timerObj, "histogram");
                 //input
-                auto *nid_data = stats.nid.device_data();
-                auto hist_data = hist.device_data();
-                auto cut_row_ptr_data = cut.cut_row_ptr.device_data();
-                auto iid_data = columns.csc_row_idx.device_data();
-                auto gh_data = stats.gh_pair.device_data();
-                auto bin_id_data = bin_id[0]->device_data();
-
                 {
 //                    TIMED_SCOPE(timerOBj, "hist");
+//                    auto *nid_data = stats.nid.device_data();
+//                    auto hist_data = hist.device_data();
+//                    auto cut_row_ptr_data = cut.cut_row_ptr.device_data();
+//                    auto iid_data = columns.csc_row_idx.device_data();
+//                    auto gh_data = stats.gh_pair.device_data();
+//                    auto bin_id_data = bin_id[0]->device_data();
 //                    device_loop_2d(n_column, columns.csc_col_ptr.device_data(), [=]__device__(int fid, int i) {
 //                        int iid = iid_data[i];
 //                        int nid0 = nid_data[iid] - nid_offset;
@@ -134,37 +133,19 @@ void HistUpdater::find_split(int level, const SparseColumns &columns, const Tree
 //                        atomicAdd(&dest.h, src.h);
 //                    }, n_block);
                 }
-                SyncArray<int> node_idx(stats.n_instances);
-                SyncArray<int> node_ptr(n_nodes_in_level + 1);
-                {
-                    TIMED_SCOPE(timerObj, "gather node idx");
-                    SyncArray<unsigned char> nid4sort(stats.n_instances);
-                    nid4sort.copy_from(stats.nid);
-                    sequence(cuda::par, node_idx.device_data(), node_idx.device_end(), 0);
-                    cub_sort_by_key(nid4sort, node_idx);
-                    auto counting_iter = make_counting_iterator < int > (nid_offset);
-                    node_ptr.host_data()[0] = lower_bound(cuda::par, nid4sort.device_data(), nid4sort.device_end(), nid_offset) - nid4sort.device_data();
-                    upper_bound(cuda::par, nid4sort.device_data(), nid4sort.device_end(), counting_iter,
-                                counting_iter + n_nodes_in_level, node_ptr.device_data() + 1);
-//                    LOG(INFO)<<nid4sort;
-                }
-//                LOG(INFO)<<node_idx;
-//                LOG(INFO)<<node_ptr;
                 {
                     TIMED_SCOPE(timerObj, "hist3");
-                    for (int nid0 = 0; nid0 < n_nodes_in_level; ++nid0) {
-                        auto idx_begin = node_ptr.host_data()[nid0];
-                        auto idx_end = node_ptr.host_data()[nid0 + 1];
-                        auto node_idx_data = node_idx.device_data();
-
-                        auto hist_data = hist.device_data() + nid0 * n_bins;
+                    if (n_nodes_in_level == 1) {
+                        //root
+                        int nid0 = 0;
+                        auto hist_data = hist.device_data();
                         auto cut_row_ptr_data = cut.cut_row_ptr.device_data();
                         auto gh_data = stats.gh_pair.device_data();
                         auto dense_bin_id_data = dense_bin_id.device_data();
                         auto max_num_bin = this->max_num_bin;
 
-                        device_loop((idx_end - idx_begin) * n_column, [=]__device__(int i) {
-                            int iid = node_idx_data[i / n_column + idx_begin];
+                        device_loop(stats.n_instances * n_column, [=]__device__(int i) {
+                            int iid = i / n_column;
                             int fid = i % n_column;
                             unsigned char bid = dense_bin_id_data[iid * n_column + fid];
                             if (bid != max_num_bin) {
@@ -176,8 +157,73 @@ void HistUpdater::find_split(int level, const SparseColumns &columns, const Tree
                                 atomicAdd(&dest.h, src.h);
                             }
                         });
-                        PERFORMANCE_CHECKPOINT(timerObj);
+                    } else {
+                        //otherwise
+                        SyncArray<int> node_idx(stats.n_instances);
+                        SyncArray<int> node_ptr(n_nodes_in_level + 1);
+                        {
+                            TIMED_SCOPE(timerObj, "gather node idx");
+                            SyncArray<unsigned char> nid4sort(stats.n_instances);
+                            nid4sort.copy_from(stats.nid);
+                            sequence(cuda::par, node_idx.device_data(), node_idx.device_end(), 0);
+                            cub_sort_by_key(nid4sort, node_idx);
+                            auto counting_iter = make_counting_iterator < int > (nid_offset);
+                            node_ptr.host_data()[0] =
+                                    lower_bound(cuda::par, nid4sort.device_data(), nid4sort.device_end(), nid_offset) -
+                                    nid4sort.device_data();
+                            upper_bound(cuda::par, nid4sort.device_data(), nid4sort.device_end(), counting_iter,
+                                        counting_iter + n_nodes_in_level, node_ptr.device_data() + 1);
+                        }
+                        for (int i = 0; i < n_nodes_in_level / 2; ++i) {
+                            int nid0_to_compute = i * 2;
+                            int nid0_to_substract = i * 2 + 1;
+                            auto node_ptr_data = node_ptr.host_data();
+                            int n_ins_left = node_ptr_data[nid0_to_compute + 1] - node_ptr_data[nid0_to_compute];
+                            int n_ins_right = node_ptr_data[nid0_to_substract + 1] - node_ptr_data[nid0_to_substract];
+                            if (max(n_ins_left, n_ins_right) == 0) continue;
+                            if (n_ins_left > n_ins_right)
+                                swap(nid0_to_compute, nid0_to_substract);
+
+                            //compute
+                            {
+                                int nid0 = nid0_to_compute;
+                                auto idx_begin = node_ptr.host_data()[nid0];
+                                auto idx_end = node_ptr.host_data()[nid0 + 1];
+                                auto node_idx_data = node_idx.device_data();
+                                auto hist_data = hist.device_data() + nid0 * n_bins;
+                                auto cut_row_ptr_data = cut.cut_row_ptr.device_data();
+                                auto gh_data = stats.gh_pair.device_data();
+                                auto dense_bin_id_data = dense_bin_id.device_data();
+                                auto max_num_bin = this->max_num_bin;
+
+                                device_loop((idx_end - idx_begin) * n_column, [=]__device__(int i) {
+                                    int iid = node_idx_data[i / n_column + idx_begin];
+                                    int fid = i % n_column;
+                                    unsigned char bid = dense_bin_id_data[iid * n_column + fid];
+                                    if (bid != max_num_bin) {
+                                        int feature_offset = cut_row_ptr_data[fid];
+                                        const GHPair src = gh_data[iid];
+                                        GHPair &dest = hist_data[feature_offset + bid];
+                                        //TODO use shared memory
+                                        atomicAdd(&dest.g, src.g);
+                                        atomicAdd(&dest.h, src.h);
+                                    }
+                                });
+                            }
+
+                            //substract
+                            {
+                                auto hist_data_computed = hist.device_data() + nid0_to_compute * n_bins;
+                                auto hist_data_to_compute = hist.device_data() + nid0_to_substract * n_bins;
+                                auto father_hist_data = last_hist.device_data() + (nid0_to_substract / 2) * n_bins;
+                                device_loop(n_bins, [=]__device__(int i) {
+                                    hist_data_to_compute[i] = father_hist_data[i] - hist_data_computed[i];
+                                });
+                            }
+//                            PERFORMANCE_CHECKPOINT(timerObj);
+                        }
                     }
+                    last_hist.copy_from(hist);
                 }
                 {
 //                    SyncArray<GHPair> hist(n_max_splits);
@@ -213,8 +259,6 @@ void HistUpdater::find_split(int level, const SparseColumns &columns, const Tree
 //                        CHECK_EQ(gh1.h, gh2.h);
 //                    }
                 }
-                LOG(DEBUG) << "feature offset = " << cut.cut_row_ptr;
-                LOG(DEBUG) << "hist old = " << hist;
 //                {
 //                    TIMED_SCOPE(timerOBj, "hist");
 //                    //for each feature
@@ -343,7 +387,8 @@ void HistUpdater::find_split(int level, const SparseColumns &columns, const Tree
             auto nodes_data = tree.nodes.device_data();
 
             int column_offset = columns.column_offset;
-            LOG(DEBUG) << cut.cut_points_val;
+
+            auto cut_row_ptr_data = cut.cut_row_ptr.device_data();
             device_loop(n_nodes_in_level, [=]__device__(int i) {
                 int_float bst = best_idx_gain_data[i];
                 float_type best_split_gain = get<1>(bst);
@@ -353,10 +398,12 @@ void HistUpdater::find_split(int level, const SparseColumns &columns, const Tree
                     sp_data[i].nid = -1;
                     return;
                 }
-                sp_data[i].split_fea_id = hist_fid[split_index] + column_offset;
+                int fid = hist_fid[split_index];
+                sp_data[i].split_fea_id = fid + column_offset;
                 sp_data[i].nid = i + nid_offset;
                 sp_data[i].gain = fabsf(best_split_gain);
                 sp_data[i].fval = cut_val_data[split_index % n_bins];
+                sp_data[i].split_bid = (unsigned char) (split_index % n_bins - cut_row_ptr_data[fid]);
                 sp_data[i].fea_missing_gh = missing_gh_data[i * n_column + hist_fid[split_index]];
                 sp_data[i].default_right = best_split_gain < 0;
                 sp_data[i].rch_sum_gh = hist_data[split_index];
@@ -397,6 +444,7 @@ void HistUpdater::grow(Tree &tree, const vector<std::shared_ptr<SparseColumns>> 
         gpu_tree.nodes.copy_from(tree.nodes.host_data(), tree.nodes.size());
     });
 
+    last_hist.resize((2 << depth) * v_cut[0].cut_points.size());
     for (int i = 0; i < depth; ++i) {
         LOG(TRACE) << "growing tree at depth " << i;
         vector<SyncArray<SplitPoint>> local_sp(n_devices);
@@ -521,23 +569,26 @@ void HistUpdater::grow(Tree &tree, const vector<std::shared_ptr<SparseColumns>> 
         }
         //processing missing value
         {
-            TIMED_SCOPE(timerObj, "process missing value");
-            LOG(TRACE) << "update ins2node id for each missing fval";
-            auto global_ins2node_id_data = v_stats[0]->nid.device_data();//essential
-            auto nodes_data = v_trees[0]->nodes.device_data();//already broadcast above
-            device_loop(n_instances, [=]__device__(int iid) {
-                int nid = global_ins2node_id_data[iid];
-                //if the instance is not on leaf node and not goes down
-                if (nodes_data[nid].splittable() && nid < nid_offset + n_max_nodes_in_level) {
-                    //let the instance goes down
-                    const Tree::TreeNode &node = nodes_data[nid];
-                    if (node.default_right)
-                        global_ins2node_id_data[iid] = node.rch_index;
-                    else
-                        global_ins2node_id_data[iid] = node.lch_index;
-                }
-            });
-            LOG(DEBUG) << "new nid = " << stats.nid;
+//            TIMED_SCOPE(timerObj, "process missing value");
+//            LOG(TRACE) << "update ins2node id for each missing fval";
+//            auto global_ins2node_id_data = v_stats[0]->nid.device_data();//essential
+//            auto nodes_data = v_trees[0]->nodes.device_data();//already broadcast above
+//            device_loop(n_instances, [=]__device__(int iid) {
+//                int nid = global_ins2node_id_data[iid];
+//                //if the instance is not on leaf node and not goes down
+//                if (nodes_data[nid].splittable() && nid < nid_offset + n_max_nodes_in_level) {
+//                    //let the instance goes down
+//                    const Tree::TreeNode &node = nodes_data[nid];
+//                    if (node.default_right)
+//                        global_ins2node_id_data[iid] = node.rch_index;
+//                    else
+//                        global_ins2node_id_data[iid] = node.lch_index;
+//                }
+//            });
+//            LOG(DEBUG) << "new nid = " << stats.nid;
+//            for (int i = 0; i < stats.n_instances; ++i) {
+//                printf("%d,",stats.nid.host_data()[i]);
+//            }
             //broadcast ins2node id
             v_stats[0]->nid.to_host();
             DO_ON_MULTI_DEVICES(n_devices, [&](int device_id) {
@@ -568,4 +619,74 @@ void HistUpdater::init_dense_data(const SparseColumns &columns, int n_instances)
         unsigned char bid = bin_id_data[i];
         dense_bin_id_data[row * n_column + fid] = bid;
     }, n_block);
+}
+
+bool HistUpdater::reset_ins2node_id(InsStat &stats, const Tree &tree, const SparseColumns &columns) {
+    SyncArray<bool> has_splittable(1);
+    //set new node id for each instance
+    {
+        TIMED_SCOPE(timerObj, "get new node id");
+        auto nid_data = stats.nid.device_data();
+        const int *iid_data = columns.csc_row_idx.device_data();
+        const Tree::TreeNode *nodes_data = tree.nodes.device_data();
+        const int *col_ptr_data = columns.csc_col_ptr.device_data();
+        const float_type *f_val_data = columns.csc_val.device_data();
+        has_splittable.host_data()[0] = false;
+        bool *h_s_data = has_splittable.device_data();
+        int column_offset = columns.column_offset;
+
+        int n_column = columns.n_column;
+        int nnz = columns.nnz;
+        int n_block = std::min((nnz / n_column - 1) / 256 + 1, 32 * 56);
+        auto dense_bin_id_data = dense_bin_id.device_data();
+        int max_num_bin = this->max_num_bin;
+        device_loop(stats.n_instances, [=]__device__(int iid) {
+            int nid = nid_data[iid];
+            const Tree::TreeNode &node = nodes_data[nid];
+            if (node.splittable()) {
+                h_s_data[0] = true;
+                int split_fid = node.split_feature_id;
+                unsigned char split_bid = node.split_bid;
+                unsigned char bid = dense_bin_id_data[iid * n_column + split_fid];
+                bool to_left = true;
+                if ((bid == max_num_bin && node.default_right) || (bid <= split_bid))
+                    to_left = false;
+                if (to_left) {
+                    //goes to left child
+                    nid_data[iid] = node.lch_index;
+                } else {
+                    //right child
+                    nid_data[iid] = node.rch_index;
+                }
+            }
+        });
+//        LOG(TRACE) << "update ins2node id for each fval";
+//        device_loop_2d(n_column, col_ptr_data,
+//                       [=]__device__(int col_id, int fvid) {
+//                           //feature value id -> instance id
+//                           int iid = iid_data[fvid];
+//                           //instance id -> node id
+//                           int nid = nid_data[iid];
+//                           //node id -> node
+//                           const Tree::TreeNode &node = nodes_data[nid];
+//                           //if the node splits on this feature
+//                           if (node.splittable() && node.split_feature_id == col_id + column_offset) {
+//                               h_s_data[0] = true;
+//                               if (f_val_data[fvid] < node.split_value)
+//                                   //goes to left child
+//                                   nid_data[iid] = node.lch_index;
+//                               else
+//                                   //right child
+//                                   nid_data[iid] = node.rch_index;
+//                           }
+//                       }, n_block);
+//
+    }
+    LOG(DEBUG) << "new tree_id = " << stats.nid;
+//    for (int i = 0; i < stats.n_instances; ++i) {
+//        printf("%d,", stats.nid.host_data()[i]);
+//    }
+//    printf("\n");
+//        LOG(DEBUG) << v_trees[cur_device_id].nodes;
+    return has_splittable.host_data()[0];
 }

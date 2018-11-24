@@ -31,7 +31,7 @@ public:
 
         if (!verbose) {
             el::Loggers::reconfigureAllLoggers(el::Level::Debug, el::ConfigurationType::Enabled, "false");
-//            el::Loggers::reconfigureAllLoggers(el::Level::Trace, el::ConfigurationType::Enabled, "false");
+            el::Loggers::reconfigureAllLoggers(el::Level::Trace, el::ConfigurationType::Enabled, "false");
         }
 //        el::Loggers::reconfigureAllLoggers(el::ConfigurationType::PerformanceTracking, "false");
     }
