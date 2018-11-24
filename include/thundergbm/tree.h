@@ -22,6 +22,7 @@ public:
         float_type base_weight;
         int split_feature_id;
         float_type split_value;
+        unsigned char split_bid;
         bool default_right;
         bool is_leaf;
         bool is_valid;// non-valid nodes are those that are "children" of leaf nodes

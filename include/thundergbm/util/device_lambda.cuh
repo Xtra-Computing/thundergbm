@@ -37,6 +37,15 @@ inline void device_loop(int len, L lambda) {
     cudaDeviceSynchronize();
 }
 
+template<size_t SMEM_SIZE, int NUM_BLOCK = 32 * 56, int BLOCK_SIZE = 256, typename L>
+inline void lambda_kernel(L lambda) {
+    if (len > 0) {
+        lambda_kernel << < NUM_BLOCK, BLOCK_SIZE, SMEM_SIZE>> > (len, lambda);
+        CUDA_CHECK(cudaPeekAtLastError());
+    }
+    cudaDeviceSynchronize();
+}
+
 
 template<typename L>
 void device_loop_2d(int len1, const int *len2, L lambda, unsigned int NUM_BLOCK = 4 * 56,
