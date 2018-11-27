@@ -5,6 +5,7 @@
 #include <thundergbm/dataset.h>
 #include <thundergbm/updater/exact_updater.h>
 #include <thundergbm/updater/hist_updater.h>
+#include <thundergbm/syncmem.h>
 #include "gtest/gtest.h"
 //#include "mpi.h"
 

@@ -36,7 +36,7 @@ void HistUpdater::get_bin_ids(const SparseColumns &columns) {
     auto csc_col_data = columns.csc_col_ptr.host_data();
     bin_id[cur_device].reset(new SyncArray<int>(nnz));
     auto bin_id_ptr = (*bin_id[cur_device]).device_data();
-    int n_block = (nnz  - 1) / 256 + 1;
+    int n_block = (nnz - 1) / 256 + 1;
 //    device_loop_2d(n_column, columns.csc_col_ptr.device_data(), [=]__device__(int cid, int i){
 //        auto cutbegin = cut_points_ptr + cut_row_ptr[cid];
 //        auto cutend = cut_points_ptr + cut_row_ptr[cid + 1];
@@ -166,7 +166,7 @@ void HistUpdater::find_split(int level, const SparseColumns &columns, const Tree
 //                        }
                         {
                             const size_t smem_size = n_bins * sizeof(GHPair);
-                            LOG(INFO)<<"smem size = " << smem_size / 1024.0;
+//                            LOG(INFO)<<"smem size = " << smem_size / 1024.0;
                             anonymous_kernel([=]__device__() {
                                 extern __shared__ GHPair local_hist[];
                                 for (int i = threadIdx.x; i < n_bins; i += blockDim.x) {
@@ -205,7 +205,7 @@ void HistUpdater::find_split(int level, const SparseColumns &columns, const Tree
                             nid4sort.copy_from(stats.nid);
                             sequence(cuda::par, node_idx.device_data(), node_idx.device_end(), 0);
                             cub_sort_by_key(nid4sort, node_idx);
-                            auto counting_iter = make_counting_iterator<int>(nid_offset);
+                            auto counting_iter = make_counting_iterator < int > (nid_offset);
                             node_ptr.host_data()[0] =
                                     lower_bound(cuda::par, nid4sort.device_data(), nid4sort.device_end(), nid_offset) -
                                     nid4sort.device_data();
@@ -378,23 +378,27 @@ void HistUpdater::find_split(int level, const SparseColumns &columns, const Tree
                     int nid0 = pid / n_column;
                     int nid = nid0 + nid_offset;
                     if (!nodes_data[nid].splittable()) return;
-                    int fid = hist_fid[pid];
+                    int fid = pid % n_column;
                     GHPair node_gh = hist_data[nid0 * n_bins + cut_row_ptr[fid + 1] - 1];
                     missing_gh_data[pid] = nodes_data[nid].sum_gh_pair - node_gh;
                 });
                 LOG(DEBUG) << missing_gh;
-                auto missing_data = missing_gh.host_data();
-                LOG(INFO)<<cut.cut_row_ptr;
-                if (tree.nodes.host_data()[32].is_valid == 1) {
-                    for (int i = 0; i < n_bins; ++i) {
-                        LOG(INFO)<<i <<" " << hist.host_data()[1 * n_bins + i];
-                    }
-                    for (int j = 0; j < n_partition; ++j) {
-                        if (missing_data[j].h < 0)
-                            LOG(INFO)<<string_format("%d, %f, nid = %d, fid = %d", j, missing_data[j].h, j / n_column + nid_offset, j % n_column);
-                    }
-                    exit(0);
-                };
+//                auto missing_data = missing_gh.host_data();
+//                LOG(INFO)<<cut.cut_row_ptr;
+//                if (tree.nodes.host_data()[32].is_valid == 1) {
+//                    for (int j = 0; j < n_partition; ++j) {
+//                        if (missing_data[j].h < 0) {
+//                            LOG(INFO) << string_format("%d, %f, nid = %d, fid = %d", j, missing_data[j].h,
+//                                                       j / n_column + nid_offset, j % n_column);
+//                            LOG(INFO) << hist.host_data()[n_bins + 253];
+//                            LOG(INFO)<<tree.nodes.host_data()[15];
+//                        }
+//                    }
+//                    for (int i = 0; i < n_bins; ++i) {
+//                        LOG(INFO)<<i <<" " << hist.host_data()[1 * n_bins + i];
+//                    }
+//                    exit(0);
+//                };
             }
         }
         //calculate gain of each split
@@ -426,16 +430,16 @@ void HistUpdater::find_split(int level, const SparseColumns &columns, const Tree
                     GHPair father_gh = nodes_data[nid].sum_gh_pair;
                     GHPair p_missing_gh = missing_gh_data[pid];
                     GHPair rch_gh = gh_prefix_sum_data[i];
-                    float_type max_gain = max(0., compute_gain(father_gh, father_gh - rch_gh, rch_gh, mcw, l));
-//                    if (p_missing_gh.h > 1) {
-if (p_missing_gh.h < 0 ) printf("pid = %d, i = %d\n", pid, i);
-                        rch_gh = rch_gh + p_missing_gh;
-                        float_type temp_gain = compute_gain(father_gh, father_gh - rch_gh, rch_gh, mcw, l);
-                        if (temp_gain > max_gain) {//FIXME 0.1?
-                            max_gain = -temp_gain;//negative means default split to right
-                        }
-//                    }
-                    gain_data[i] = max_gain;
+                    float_type default_to_left_gain = max(0.,
+                                                          compute_gain(father_gh, father_gh - rch_gh, rch_gh, mcw, l));
+                    rch_gh = rch_gh + p_missing_gh;
+                    float_type default_to_right_gain = max(0.,
+                                                           compute_gain(father_gh, father_gh - rch_gh, rch_gh, mcw, l));
+                    if (default_to_left_gain > default_to_right_gain)
+                        gain_data[i] = default_to_left_gain;
+                    else
+                        gain_data[i] = -default_to_right_gain;//negative means default split to right
+
                 } else gain_data[i] = 0;
             });
             LOG(DEBUG) << "gain = " << gain;
