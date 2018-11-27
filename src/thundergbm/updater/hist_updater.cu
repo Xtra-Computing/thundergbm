@@ -30,22 +30,30 @@ void HistUpdater::get_bin_ids(const SparseColumns &columns) {
     cudaGetDevice(&cur_device);
     int n_column = columns.n_column;
     int nnz = columns.nnz;
-    auto cut_row_ptr = v_cut[cur_device].cut_row_ptr.device_data();
+    auto cut_row_ptr = v_cut[cur_device].cut_row_ptr.host_data();
     auto cut_points_ptr = v_cut[cur_device].cut_points_val.device_data();
     auto csc_val_data = columns.csc_val.device_data();
-    auto csc_col_data = columns.csc_col_ptr.device_data();
+    auto csc_col_data = columns.csc_col_ptr.host_data();
     bin_id[cur_device].reset(new SyncArray<int>(nnz));
     auto bin_id_ptr = (*bin_id[cur_device]).device_data();
-    device_loop(n_column, [=]__device__(int cid) {
+    int n_block = (nnz - 1) / 256 + 1;
+//    device_loop_2d(n_column, columns.csc_col_ptr.device_data(), [=]__device__(int cid, int i){
+//        auto cutbegin = cut_points_ptr + cut_row_ptr[cid];
+//        auto cutend = cut_points_ptr + cut_row_ptr[cid + 1];
+//        bin_id_ptr[i] = lower_bound(cuda::par, cutbegin, cutend, csc_val_data[i], thrust::greater<float_type>()) - cutbegin;
+//    }, n_column);
+//    device_loop(n_column, [=]__device__(int cid) {
+    for (int cid = 0; cid < n_column; ++cid) {
         auto cutbegin = cut_points_ptr + cut_row_ptr[cid];
         auto cutend = cut_points_ptr + cut_row_ptr[cid + 1];
         auto valbeign = csc_val_data + csc_col_data[cid];
         auto valend = csc_val_data + csc_col_data[cid + 1];
         lower_bound(cuda::par, cutbegin, cutend, valbeign, valend,
                     bin_id_ptr + csc_col_data[cid], thrust::greater<float_type>());
+    }
 //        for_each(cuda::par, bin_id_ptr + csc_col_data[cid],
 //                 bin_id_ptr + csc_col_data[cid + 1], thrust::placeholders::_1 += cut_row_ptr[cid]);
-    });
+//    });
 }
 
 __global__ void
@@ -103,9 +111,7 @@ void HistUpdater::find_split(int level, const SparseColumns &columns, const Tree
         SyncArray<GHPair> hist(n_max_splits);
         SyncArray<GHPair> missing_gh(n_partition);
         auto cut_fid_data = cut.cut_fid.device_data();
-        auto i2fid = [=] __device__(int i) {
-            return cut_fid_data[i % n_bins];
-        };
+        auto i2fid = [=] __device__(int i) { return cut_fid_data[i % n_bins]; };
         auto hist_fid = make_transform_iterator(counting_iterator<int>(0), i2fid);
         {
             {
@@ -137,26 +143,58 @@ void HistUpdater::find_split(int level, const SparseColumns &columns, const Tree
                     TIMED_SCOPE(timerObj, "hist3");
                     if (n_nodes_in_level == 1) {
                         //root
-                        int nid0 = 0;
                         auto hist_data = hist.device_data();
                         auto cut_row_ptr_data = cut.cut_row_ptr.device_data();
                         auto gh_data = stats.gh_pair.device_data();
                         auto dense_bin_id_data = dense_bin_id.device_data();
                         auto max_num_bin = this->max_num_bin;
-
-                        device_loop(stats.n_instances * n_column, [=]__device__(int i) {
-                            int iid = i / n_column;
-                            int fid = i % n_column;
-                            unsigned char bid = dense_bin_id_data[iid * n_column + fid];
-                            if (bid != max_num_bin) {
-                                int feature_offset = cut_row_ptr_data[fid];
-                                const GHPair src = gh_data[iid];
-                                GHPair &dest = hist_data[feature_offset + bid];
-                                //TODO use shared memory
-                                atomicAdd(&dest.g, src.g);
-                                atomicAdd(&dest.h, src.h);
-                            }
-                        });
+                        auto n_instances = stats.n_instances;
+//                        {
+//                            device_loop(stats.n_instances * n_column, [=]__device__(int i) {
+//                                int iid = i / n_column;
+//                                int fid = i % n_column;
+//                                unsigned char bid = dense_bin_id_data[iid * n_column + fid];
+//                                if (bid != max_num_bin) {
+//                                    int feature_offset = cut_row_ptr_data[fid];
+//                                    const GHPair src = gh_data[iid];
+//                                    GHPair &dest = hist_data[feature_offset + bid];
+//                                    //TODO use shared memory
+//                                    atomicAdd(&dest.g, src.g);
+//                                    atomicAdd(&dest.h, src.h);
+//                                }
+//                            });
+//                        }
+                        {
+                            const size_t smem_size = n_bins * sizeof(GHPair);
+//                            LOG(INFO)<<"smem size = " << smem_size / 1024.0;
+                            anonymous_kernel([=]__device__() {
+                                extern __shared__ GHPair local_hist[];
+                                for (int i = threadIdx.x; i < n_bins; i += blockDim.x) {
+                                    local_hist[i] = 0;
+                                }
+                                __syncthreads();
+                                for (int i = blockIdx.x * blockDim.x + threadIdx.x;
+                                     i < n_instances * n_column; i += blockDim.x * gridDim.x) {
+                                    int iid = i / n_column;
+                                    int fid = i % n_column;
+                                    unsigned char bid = dense_bin_id_data[iid * n_column + fid];
+                                    if (bid != max_num_bin) {
+                                        int feature_offset = cut_row_ptr_data[fid];
+                                        const GHPair src = gh_data[iid];
+                                        GHPair &dest = local_hist[feature_offset + bid];
+                                        atomicAdd(&dest.g, src.g);
+                                        atomicAdd(&dest.h, src.h);
+                                    }
+                                }
+                                __syncthreads();
+                                for (int i = threadIdx.x; i < n_bins; i += blockDim.x) {
+                                    GHPair &dest = hist_data[i];
+                                    GHPair src = local_hist[i];
+                                    atomicAdd(&dest.g, src.g);
+                                    atomicAdd(&dest.h, src.h);
+                                }
+                            }, smem_size);
+                        }
                     } else {
                         //otherwise
                         SyncArray<int> node_idx(stats.n_instances);
@@ -196,19 +234,52 @@ void HistUpdater::find_split(int level, const SparseColumns &columns, const Tree
                                 auto dense_bin_id_data = dense_bin_id.device_data();
                                 auto max_num_bin = this->max_num_bin;
 
-                                device_loop((idx_end - idx_begin) * n_column, [=]__device__(int i) {
-                                    int iid = node_idx_data[i / n_column + idx_begin];
-                                    int fid = i % n_column;
-                                    unsigned char bid = dense_bin_id_data[iid * n_column + fid];
-                                    if (bid != max_num_bin) {
-                                        int feature_offset = cut_row_ptr_data[fid];
-                                        const GHPair src = gh_data[iid];
-                                        GHPair &dest = hist_data[feature_offset + bid];
-                                        //TODO use shared memory
-                                        atomicAdd(&dest.g, src.g);
-                                        atomicAdd(&dest.h, src.h);
-                                    }
-                                });
+                                {
+//                                device_loop((idx_end - idx_begin) * n_column, [=]__device__(int i) {
+//                                    int iid = node_idx_data[i / n_column + idx_begin];
+//                                    int fid = i % n_column;
+//                                    unsigned char bid = dense_bin_id_data[iid * n_column + fid];
+//                                    if (bid != max_num_bin) {
+//                                        int feature_offset = cut_row_ptr_data[fid];
+//                                        const GHPair src = gh_data[iid];
+//                                        GHPair &dest = hist_data[feature_offset + bid];
+//                                        //TODO use shared memory
+//                                        atomicAdd(&dest.g, src.g);
+//                                        atomicAdd(&dest.h, src.h);
+//                                    }
+//                                });
+                                }
+                                {
+                                    const size_t smem_size = n_bins * sizeof(GHPair);
+                                    anonymous_kernel([=]__device__() {
+                                        extern __shared__ GHPair local_hist[];
+                                        for (int i = threadIdx.x; i < n_bins; i += blockDim.x) {
+                                            local_hist[i] = 0;
+                                        }
+                                        __syncthreads();
+
+                                        for (int i = blockIdx.x * blockDim.x + threadIdx.x;
+                                             i < (idx_end - idx_begin) * n_column; i += blockDim.x * gridDim.x) {
+                                            int iid = node_idx_data[i / n_column + idx_begin];
+                                            int fid = i % n_column;
+                                            unsigned char bid = dense_bin_id_data[iid * n_column + fid];
+                                            if (bid != max_num_bin) {
+                                                int feature_offset = cut_row_ptr_data[fid];
+                                                const GHPair src = gh_data[iid];
+                                                GHPair &dest = local_hist[feature_offset + bid];
+                                                atomicAdd(&dest.g, src.g);
+                                                atomicAdd(&dest.h, src.h);
+                                            }
+                                        }
+                                        __syncthreads();
+                                        for (int i = threadIdx.x; i < n_bins; i += blockDim.x) {
+                                            GHPair &dest = hist_data[i];
+                                            GHPair src = local_hist[i];
+                                            atomicAdd(&dest.g, src.g);
+                                            atomicAdd(&dest.h, src.h);
+                                        }
+                                    }, smem_size);
+                                }
                             }
 
                             //substract
@@ -289,23 +360,45 @@ void HistUpdater::find_split(int level, const SparseColumns &columns, const Tree
 //                }
                 LOG(DEBUG) << "hist new = " << hist;
                 //calculate missing value for each partition
-                int temp = reduce_by_key(cuda::par, hist_fid, hist_fid + n_split, hist.device_data(),
-                                         make_discard_iterator(), missing_gh.device_data()).second -
-                           missing_gh.device_data();
+//                int temp = reduce_by_key(cuda::par, hist_fid, hist_fid + n_split, hist.device_data(),
+//                                         make_discard_iterator(), missing_gh.device_data()).second -
+//                           missing_gh.device_data();
 //                LOG(INFO)<<temp;
-                CHECK_EQ(temp, n_partition);
-                LOG(DEBUG) << missing_gh;
-                auto nodes_data = tree.nodes.device_data();
-                auto missing_gh_data = missing_gh.device_data();
-                device_loop(n_partition, [=]__device__(int pid) {
-                    int nid0 = pid / n_column;
-                    int nid = nid0 + nid_offset;
-                    missing_gh_data[pid] = nodes_data[nid].sum_gh_pair - missing_gh_data[pid];
-                });
-                LOG(DEBUG) << missing_gh;
+//                CHECK_EQ(temp, n_partition);
+//                LOG(DEBUG) << missing_gh;
                 inclusive_scan_by_key(cuda::par, hist_fid, hist_fid + n_split,
                                       hist.device_data(), hist.device_data());
                 LOG(DEBUG) << hist;
+
+                auto nodes_data = tree.nodes.device_data();
+                auto missing_gh_data = missing_gh.device_data();
+                auto cut_row_ptr = cut.cut_row_ptr.device_data();
+                auto hist_data = hist.device_data();
+                device_loop(n_partition, [=]__device__(int pid) {
+                    int nid0 = pid / n_column;
+                    int nid = nid0 + nid_offset;
+                    if (!nodes_data[nid].splittable()) return;
+                    int fid = pid % n_column;
+                    GHPair node_gh = hist_data[nid0 * n_bins + cut_row_ptr[fid + 1] - 1];
+                    missing_gh_data[pid] = nodes_data[nid].sum_gh_pair - node_gh;
+                });
+                LOG(DEBUG) << missing_gh;
+//                auto missing_data = missing_gh.host_data();
+//                LOG(INFO)<<cut.cut_row_ptr;
+//                if (tree.nodes.host_data()[32].is_valid == 1) {
+//                    for (int j = 0; j < n_partition; ++j) {
+//                        if (missing_data[j].h < 0) {
+//                            LOG(INFO) << string_format("%d, %f, nid = %d, fid = %d", j, missing_data[j].h,
+//                                                       j / n_column + nid_offset, j % n_column);
+//                            LOG(INFO) << hist.host_data()[n_bins + 253];
+//                            LOG(INFO)<<tree.nodes.host_data()[15];
+//                        }
+//                    }
+//                    for (int i = 0; i < n_bins; ++i) {
+//                        LOG(INFO)<<i <<" " << hist.host_data()[1 * n_bins + i];
+//                    }
+//                    exit(0);
+//                };
             }
         }
         //calculate gain of each split
@@ -319,6 +412,7 @@ void HistUpdater::find_split(int level, const SparseColumns &columns, const Tree
                            (father.g * father.g) / (father.h + lambda);
                 else
                     return 0;
+//float_type father_gain = (father.g * father.g) / (father.h + lambda);
             };
 
             const Tree::TreeNode *nodes_data = tree.nodes.device_data();
@@ -332,19 +426,20 @@ void HistUpdater::find_split(int level, const SparseColumns &columns, const Tree
                 int nid0 = i / n_bins;
                 int nid = nid0 + nid_offset;
                 if (nodes_data[nid].is_valid) {
-                    int pid = nid0 * n_bins + hist_fid[i];
+                    int pid = nid0 * n_column + hist_fid[i];
                     GHPair father_gh = nodes_data[nid].sum_gh_pair;
                     GHPair p_missing_gh = missing_gh_data[pid];
                     GHPair rch_gh = gh_prefix_sum_data[i];
-                    float_type max_gain = max(0., compute_gain(father_gh, father_gh - rch_gh, rch_gh, mcw, l));
-                    if (p_missing_gh.h > 1) {
-                        rch_gh = rch_gh + p_missing_gh;
-                        float_type temp_gain = compute_gain(father_gh, father_gh - rch_gh, rch_gh, mcw, l);
-                        if (temp_gain > 0 && temp_gain - max_gain > 0.1) {//FIXME 0.1?
-                            max_gain = -temp_gain;//negative means default split to right
-                        }
-                    }
-                    gain_data[i] = max_gain;
+                    float_type default_to_left_gain = max(0.,
+                                                          compute_gain(father_gh, father_gh - rch_gh, rch_gh, mcw, l));
+                    rch_gh = rch_gh + p_missing_gh;
+                    float_type default_to_right_gain = max(0.,
+                                                           compute_gain(father_gh, father_gh - rch_gh, rch_gh, mcw, l));
+                    if (default_to_left_gain > default_to_right_gain)
+                        gain_data[i] = default_to_left_gain;
+                    else
+                        gain_data[i] = -default_to_right_gain;//negative means default split to right
+
                 } else gain_data[i] = 0;
             });
             LOG(DEBUG) << "gain = " << gain;

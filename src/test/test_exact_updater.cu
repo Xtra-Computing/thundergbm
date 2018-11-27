@@ -5,6 +5,7 @@
 #include <thundergbm/dataset.h>
 #include <thundergbm/updater/exact_updater.h>
 #include <thundergbm/updater/hist_updater.h>
+#include <thundergbm/syncmem.h>
 #include "gtest/gtest.h"
 //#include "mpi.h"
 
@@ -33,7 +34,7 @@ public:
             el::Loggers::reconfigureAllLoggers(el::Level::Debug, el::ConfigurationType::Enabled, "false");
             el::Loggers::reconfigureAllLoggers(el::Level::Trace, el::ConfigurationType::Enabled, "false");
         }
-//        el::Loggers::reconfigureAllLoggers(el::ConfigurationType::PerformanceTracking, "false");
+        el::Loggers::reconfigureAllLoggers(el::ConfigurationType::PerformanceTracking, "false");
     }
 
     void TearDown() {
@@ -128,10 +129,10 @@ public:
                 predict_in_training(stats, tree);
                 //next round
                 round++;
+                rmse = compute_rmse(stats);
+                LOG(INFO) << "rmse = " << rmse;
             }
         }
-        rmse = compute_rmse(stats);
-        LOG(INFO) << "rmse = " << rmse;
         return rmse;
     }
 
@@ -183,6 +184,7 @@ TEST_F(UpdaterTest, abalone_hist) {
 
 
 TEST_F(PerformanceTest, covtype_40_trees) {
+//    param.n_trees = 2;
     param.path = DATASET_DIR "covtype";
     train_hist(param);
 }
@@ -209,7 +211,7 @@ TEST_F(PerformanceTest, news20_40_trees) {
 
 TEST_F(PerformanceTest, abalone) {
     param.path = DATASET_DIR "abalone";
-    train_exact(param);
+    train_hist(param);
 }
 
 TEST_F(PerformanceTest, real_sim_40_trees) {
