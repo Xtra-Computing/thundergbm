@@ -17,6 +17,11 @@ __global__ void lambda_kernel(size_t len, L lambda) {
 }
 
 template<typename L>
+__global__ void anonymous_kernel_k(L lambda) {
+    lambda();
+}
+
+template<typename L>
 __global__ void lambda_2d_sparse_kernel(const int *len2, L lambda) {
     int i = blockIdx.x;
     int begin = len2[i];
@@ -31,18 +36,16 @@ __global__ void lambda_2d_sparse_kernel(const int *len2, L lambda) {
 template<int NUM_BLOCK = 32 * 56, int BLOCK_SIZE = 256, typename L>
 inline void device_loop(int len, L lambda) {
     if (len > 0) {
-        lambda_kernel << < NUM_BLOCK, BLOCK_SIZE>> > (len, lambda);
+        lambda_kernel << < NUM_BLOCK, BLOCK_SIZE >> > (len, lambda);
         CUDA_CHECK(cudaPeekAtLastError());
     }
     cudaDeviceSynchronize();
 }
 
-template<size_t SMEM_SIZE, int NUM_BLOCK = 32 * 56, int BLOCK_SIZE = 256, typename L>
-inline void lambda_kernel(L lambda) {
-    if (len > 0) {
-        lambda_kernel << < NUM_BLOCK, BLOCK_SIZE, SMEM_SIZE>> > (len, lambda);
-        CUDA_CHECK(cudaPeekAtLastError());
-    }
+template<int NUM_BLOCK = 32 * 56, int BLOCK_SIZE = 256, typename L>
+inline void anonymous_kernel(L lambda, size_t smem_size = 0) {
+    anonymous_kernel_k<< < NUM_BLOCK, BLOCK_SIZE, smem_size >> > (lambda);
+    CUDA_CHECK(cudaPeekAtLastError());
     cudaDeviceSynchronize();
 }
 
