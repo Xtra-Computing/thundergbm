@@ -10,22 +10,6 @@
 
 using namespace cub;
 namespace thunder {
-    inline void malloc_host(void **ptr, size_t size) {
-//#ifdef USE_CUDA
-        CUDA_CHECK(cudaHostAlloc(ptr, size, cudaHostAllocPortable));
-//#else
-//        *ptr = new char[size];
-//#endif
-    }
-
-    inline void free_host(void *ptr) {
-//#ifdef USE_CUDA
-        CUDA_CHECK(cudaFreeHost(ptr));
-//#else
-//delete (char*) ptr;
-//        free(ptr);
-//#endif
-    }
 
     inline void device_mem_copy(void *dst, const void *src, size_t size) {
 #ifdef USE_CUDA
@@ -35,15 +19,37 @@ namespace thunder {
 #endif
     }
 
-    class Allocator: public CachingDeviceAllocator {
+    class DeviceAllocator : public CachingDeviceAllocator {
     public:
-        Allocator(unsigned int bin_growth, unsigned int min_bin, unsigned int max_bin, size_t max_cached_bytes,
-                  bool skip_cleanup, bool debug);
+        DeviceAllocator(unsigned int bin_growth, unsigned int min_bin, unsigned int max_bin, size_t max_cached_bytes,
+                        bool skip_cleanup, bool debug) : CachingDeviceAllocator(bin_growth, min_bin, max_bin,
+                                                                                max_cached_bytes, skip_cleanup,
+                                                                                debug) {};
 
-        cudaError_t DeviceAllocate(int device, void **d_ptr, size_t bytes, cudaStream_t active_stream = 0) ;
+        cudaError_t DeviceAllocate(int device, void **d_ptr, size_t bytes, cudaStream_t active_stream = 0);
 
-        cudaError_t DeviceAllocate(void **d_ptr, size_t bytes, cudaStream_t active_stream = 0) ;
+        cudaError_t DeviceAllocate(void **d_ptr, size_t bytes, cudaStream_t active_stream = 0);
     };
+
+    class HostAllocator : public CachingDeviceAllocator {
+    public:
+        HostAllocator(unsigned int bin_growth, unsigned int min_bin, unsigned int max_bin, size_t max_cached_bytes,
+                      bool skip_cleanup, bool debug) : CachingDeviceAllocator(bin_growth, min_bin, max_bin,
+                                                                              max_cached_bytes, skip_cleanup, debug) {};
+
+        cudaError_t DeviceAllocate(int device, void **d_ptr, size_t bytes, cudaStream_t active_stream = 0);
+
+        cudaError_t DeviceAllocate(void **d_ptr, size_t bytes, cudaStream_t active_stream = 0);
+
+        cudaError_t DeviceFree(int device, void *d_ptr);
+
+        cudaError_t DeviceFree(void *d_ptr);
+
+        cudaError_t FreeAllCached();
+
+        ~HostAllocator() override;
+    };
+
     /**
      * @brief Auto-synced memory for CPU and GPU
      */
@@ -97,7 +103,8 @@ namespace thunder {
         int get_owner_id() {
             return device_id;
         }
-        static void clear_cache(){cub_allocator.FreeAllCached();};
+
+        static void clear_cache() { device_allocator.FreeAllCached(); };
 
     private:
         void *device_ptr;
@@ -107,7 +114,13 @@ namespace thunder {
         size_t size_;
         HEAD head_;
         int device_id;
-        static Allocator cub_allocator;
+        static DeviceAllocator device_allocator;
+        static HostAllocator host_allocator;
+
+        inline void malloc_host(void **ptr, size_t size);
+
+        inline void free_host(void *ptr);
+
     };
 }
 using thunder::SyncMem;
