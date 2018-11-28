@@ -7,6 +7,7 @@
 #include <thundergbm/updater/hist_updater.h>
 #include <thundergbm/syncmem.h>
 #include "gtest/gtest.h"
+#include "cuda_profiler_api.h"
 //#include "mpi.h"
 
 class UpdaterTest : public ::testing::Test {
@@ -120,6 +121,7 @@ public:
         updater.init_cut(v_columns, stats, n_instances);
         updater.init_dense_data(*v_columns[0], n_instances);
         {
+            cudaProfilerStart();
             TIMED_SCOPE(timerObj, "construct tree");
             for (Tree &tree:trees) {
                 stats.updateGH();
@@ -132,6 +134,7 @@ public:
                 rmse = compute_rmse(stats);
                 LOG(INFO) << "rmse = " << rmse;
             }
+            cudaProfilerStop();
         }
         return rmse;
     }
