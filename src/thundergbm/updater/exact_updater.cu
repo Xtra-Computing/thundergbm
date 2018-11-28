@@ -234,11 +234,15 @@ void ExactUpdater::split_point_all_reduce(const vector<SyncArray<SplitPoint>> &l
 void ExactUpdater::init_tree(Tree &tree, const InsStat &stats) {
     tree.init(depth);
     //init root node
-    Tree::TreeNode &root_node = tree.nodes.host_data()[0];
-    root_node.sum_gh_pair = stats.sum_gh;
-    root_node.is_valid = true;
-    root_node.calc_weight(lambda);
-    LOG(DEBUG) << "root sum gh " << root_node.sum_gh_pair;
+    auto nodes_data = tree.nodes.device_data();
+    GHPair sum_gh = stats.sum_gh;
+    float_type lambda = this->lambda;
+    device_loop<1, 1>(1, [=]__device__(int i) {
+        Tree::TreeNode &root_node = nodes_data[0];
+        root_node.sum_gh_pair = sum_gh;
+        root_node.is_valid = true;
+        root_node.calc_weight(lambda);
+    });
 }
 
 void ExactUpdater::find_split(int level, const SparseColumns &columns, const Tree &tree, const InsStat &stats,
