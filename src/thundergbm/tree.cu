@@ -2,6 +2,7 @@
 // Created by jiashuai on 18-1-18.
 //
 #include "thundergbm/tree.h"
+#include "thundergbm/util/device_lambda.cuh"
 
 Tree::Tree(int depth) {
     init(depth);
@@ -10,12 +11,12 @@ Tree::Tree(int depth) {
 void Tree::init(int depth) {
     int n_max_nodes = static_cast<int>(pow(2, depth + 1) - 1);
     nodes.resize(n_max_nodes);
-    TreeNode *node_data = nodes.host_data();
-    for (int i = 0; i < n_max_nodes; ++i) {
+    auto node_data = nodes.device_data();
+    device_loop(n_max_nodes, [=]__device__(int i) {
         node_data[i].final_id = i;
         node_data[i].split_feature_id = -1;
         node_data[i].is_valid = false;
-        node_data[i].parent_index = (i - 1) / 2;
+        node_data[i].parent_index = i == 0 ? -1 : (i - 1) / 2;
         if (i < n_max_nodes / 2) {
             node_data[i].is_leaf = false;
             node_data[i].lch_index = i * 2 + 1;
@@ -26,8 +27,7 @@ void Tree::init(int depth) {
             node_data[i].lch_index = -1;
             node_data[i].rch_index = -1;
         }
-    }
-    node_data[0].parent_index = -1;//root node has no parent node
+    });
 }
 
 string Tree::dump(int depth) const {
@@ -52,7 +52,8 @@ void Tree::preorder_traversal(int nid, int max_depth, int depth, string &s) cons
 }
 
 std::ostream &operator<<(std::ostream &os, const Tree::TreeNode &node) {
-    os << string_format("\nnid:%d,l:%d,v:%d,split_feature_id:%d,f:%f,gain:%f,r:%d,w:%f,", node.final_id, node.is_leaf, node.is_valid,
+    os << string_format("\nnid:%d,l:%d,v:%d,split_feature_id:%d,f:%f,gain:%f,r:%d,w:%f,", node.final_id, node.is_leaf,
+                        node.is_valid,
                         node.split_feature_id, node.split_value, node.gain, node.default_right, node.base_weight);
     os << "g/h:" << node.sum_gh_pair;
     return os;
