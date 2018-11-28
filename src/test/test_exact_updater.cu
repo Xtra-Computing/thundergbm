@@ -34,7 +34,7 @@ public:
             el::Loggers::reconfigureAllLoggers(el::Level::Debug, el::ConfigurationType::Enabled, "false");
             el::Loggers::reconfigureAllLoggers(el::Level::Trace, el::ConfigurationType::Enabled, "false");
         }
-        el::Loggers::reconfigureAllLoggers(el::ConfigurationType::PerformanceTracking, "false");
+//        el::Loggers::reconfigureAllLoggers(el::ConfigurationType::PerformanceTracking, "false");
     }
 
     void TearDown() {
@@ -150,7 +150,7 @@ public:
 
     void predict_in_training(InsStat &stats, const Tree &tree) {
 
-        TIMED_SCOPE(timerObj, "predict");
+//        TIMED_SCOPE(timerObj, "predict");
         float_type *y_predict_data = stats.y_predict.device_data();
         auto nid_data = stats.nid.device_data();
         const Tree::TreeNode *nodes_data = tree.nodes.device_data();

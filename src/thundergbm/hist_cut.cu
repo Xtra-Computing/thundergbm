@@ -13,7 +13,7 @@ void HistCut::get_cut_points(SparseColumns &columns, InsStat &stats, int max_num
     LOG(TRACE) << "get cut points";
     int n_features = columns.n_column;
     vector<quanSketch> sketchs(n_features);
-    const int kFactor = 25600;
+    const int kFactor = 3000;
     for (int i = 0; i < n_features; i++) {
         sketchs[i].Init(n_instances, 1.0 / (max_num_bins * kFactor));
     }

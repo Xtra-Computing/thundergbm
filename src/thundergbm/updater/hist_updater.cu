@@ -11,16 +11,11 @@ void HistUpdater::init_cut(const vector<std::shared_ptr<SparseColumns>> &v_colum
         for (int i = 0; i < n_devices; i++)
             v_cut[i].get_cut_points(*v_columns[i], stats, max_num_bin, n_instances, i);
         bin_id.resize(n_devices);
-        cub_seg_sort_by_key(v_columns[0]->csc_row_idx, v_columns[0]->csc_val, v_columns[0]->csc_col_ptr, true);
+//        cub_seg_sort_by_key(v_columns[0]->csc_row_idx, v_columns[0]->csc_val, v_columns[0]->csc_col_ptr, true);
         DO_ON_MULTI_DEVICES(n_devices, [&](int device_id) {
             get_bin_ids(*v_columns[device_id]);
         });
     }
-//    LOG(INFO) << v_cut[0].cut_points;
-//    LOG(INFO) << v_cut[0].cut_points_val;
-//    LOG(INFO) << v_cut[0].cut_row_ptr;
-//    LOG(INFO) << v_columns[0]->csc_val;
-//    LOG(INFO) << *bin_id[0];
     do_cut = 1;
 }
 
@@ -37,12 +32,6 @@ void HistUpdater::get_bin_ids(const SparseColumns &columns) {
     bin_id[cur_device].reset(new SyncArray<int>(nnz));
     auto bin_id_ptr = (*bin_id[cur_device]).device_data();
     int n_block = (nnz - 1) / 256 + 1;
-//    device_loop_2d(n_column, columns.csc_col_ptr.device_data(), [=]__device__(int cid, int i){
-//        auto cutbegin = cut_points_ptr + cut_row_ptr[cid];
-//        auto cutend = cut_points_ptr + cut_row_ptr[cid + 1];
-//        bin_id_ptr[i] = lower_bound(cuda::par, cutbegin, cutend, csc_val_data[i], thrust::greater<float_type>()) - cutbegin;
-//    }, n_column);
-//    device_loop(n_column, [=]__device__(int cid) {
     for (int cid = 0; cid < n_column; ++cid) {
         auto cutbegin = cut_points_ptr + cut_row_ptr[cid];
         auto cutend = cut_points_ptr + cut_row_ptr[cid + 1];
@@ -54,37 +43,6 @@ void HistUpdater::get_bin_ids(const SparseColumns &columns) {
 //        for_each(cuda::par, bin_id_ptr + csc_col_data[cid],
 //                 bin_id_ptr + csc_col_data[cid + 1], thrust::placeholders::_1 += cut_row_ptr[cid]);
 //    });
-}
-
-__global__ void
-hist_kernel(GHPair *hist_data, int fea_offset, const int *bid, int bin_id_len, int n_fea_bin, int n_bins,
-            const int *iid, const GHPair *gh, const int *nid, int nid_offset, int n_nodes_in_level) {
-    //n_nodes_in_level * n_fea_bin
-    extern __shared__ GHPair local_hist[];
-    for (int i = threadIdx.x; i < n_fea_bin * n_nodes_in_level; i += blockDim.x) {
-        local_hist[i] = 0;
-    }
-    __syncthreads();
-
-    for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < bin_id_len; i += blockDim.x * gridDim.x) {
-        int ins_id = iid[i];
-        int node_id0 = nid[ins_id] - nid_offset;
-        if (node_id0 < 0) return;
-        int bin_id = bid[i];
-        GHPair &dest = local_hist[node_id0 * n_fea_bin + bin_id];
-        const GHPair &src = gh[ins_id];
-        atomicAdd(&dest.g, src.g);
-        atomicAdd(&dest.h, src.h);
-    }
-    __syncthreads();
-    for (int i = threadIdx.x; i < n_fea_bin * n_nodes_in_level; i += blockDim.x) {
-        int node_id0 = i / n_fea_bin;
-        int bin_id = i % n_fea_bin;
-        GHPair &dest = hist_data[node_id0 * n_bins + fea_offset + bin_id];
-        GHPair &src = local_hist[i];
-        atomicAdd(&dest.g, src.g);
-        atomicAdd(&dest.h, src.h);
-    }
 }
 
 void HistUpdater::find_split(int level, const SparseColumns &columns, const Tree &tree, const InsStat &stats,
@@ -115,32 +73,9 @@ void HistUpdater::find_split(int level, const SparseColumns &columns, const Tree
         auto hist_fid = make_transform_iterator(counting_iterator<int>(0), i2fid);
         {
             {
-                TIMED_SCOPE(timerObj, "histogram");
-                //input
+//                TIMED_SCOPE(timerObj, "histogram");
                 {
-//                    TIMED_SCOPE(timerOBj, "hist");
-//                    auto *nid_data = stats.nid.device_data();
-//                    auto hist_data = hist.device_data();
-//                    auto cut_row_ptr_data = cut.cut_row_ptr.device_data();
-//                    auto iid_data = columns.csc_row_idx.device_data();
-//                    auto gh_data = stats.gh_pair.device_data();
-//                    auto bin_id_data = bin_id[0]->device_data();
-//                    device_loop_2d(n_column, columns.csc_col_ptr.device_data(), [=]__device__(int fid, int i) {
-//                        int iid = iid_data[i];
-//                        int nid0 = nid_data[iid] - nid_offset;
-//                        if (nid0 < 0) return;
-//                        int hist_offset = nid0 * n_bins;
-//                        int feature_offset = cut_row_ptr_data[fid];
-//                        int bin_id = bin_id_data[i];
-//                        GHPair &dest = hist_data[hist_offset + feature_offset + bin_id];
-//                        const GHPair &src = gh_data[iid];
-//                        //TODO use shared memory
-//                        atomicAdd(&dest.g, src.g);
-//                        atomicAdd(&dest.h, src.h);
-//                    }, n_block);
-                }
-                {
-                    TIMED_SCOPE(timerObj, "hist3");
+//                    TIMED_SCOPE(timerObj, "hist3");
                     if (n_nodes_in_level == 1) {
                         //root
                         auto hist_data = hist.device_data();
@@ -158,7 +93,6 @@ void HistUpdater::find_split(int level, const SparseColumns &columns, const Tree
 //                                    int feature_offset = cut_row_ptr_data[fid];
 //                                    const GHPair src = gh_data[iid];
 //                                    GHPair &dest = hist_data[feature_offset + bid];
-//                                    //TODO use shared memory
 //                                    atomicAdd(&dest.g, src.g);
 //                                    atomicAdd(&dest.h, src.h);
 //                                }
@@ -166,7 +100,6 @@ void HistUpdater::find_split(int level, const SparseColumns &columns, const Tree
 //                        }
                         {
                             const size_t smem_size = n_bins * sizeof(GHPair);
-//                            LOG(INFO)<<"smem size = " << smem_size / 1024.0;
                             anonymous_kernel([=]__device__() {
                                 extern __shared__ GHPair local_hist[];
                                 for (int i = threadIdx.x; i < n_bins; i += blockDim.x) {
@@ -200,7 +133,7 @@ void HistUpdater::find_split(int level, const SparseColumns &columns, const Tree
                         SyncArray<int> node_idx(stats.n_instances);
                         SyncArray<int> node_ptr(n_nodes_in_level + 1);
                         {
-                            TIMED_SCOPE(timerObj, "gather node idx");
+//                            TIMED_SCOPE(timerObj, "gather node idx");
                             SyncArray<unsigned char> nid4sort(stats.n_instances);
                             nid4sort.copy_from(stats.nid);
                             sequence(cuda::par, node_idx.device_data(), node_idx.device_end(), 0);
@@ -243,7 +176,6 @@ void HistUpdater::find_split(int level, const SparseColumns &columns, const Tree
 //                                        int feature_offset = cut_row_ptr_data[fid];
 //                                        const GHPair src = gh_data[iid];
 //                                        GHPair &dest = hist_data[feature_offset + bid];
-//                                        //TODO use shared memory
 //                                        atomicAdd(&dest.g, src.g);
 //                                        atomicAdd(&dest.h, src.h);
 //                                    }
@@ -296,76 +228,7 @@ void HistUpdater::find_split(int level, const SparseColumns &columns, const Tree
                     }
                     last_hist.copy_from(hist);
                 }
-                {
-//                    SyncArray<GHPair> hist(n_max_splits);
-//                    TIMED_SCOPE(timerObj, "hist2");
-//                    auto nid_data = stats.nid.device_data();
-//                    auto hist_data = hist.device_data();
-//                    auto cut_row_ptr_data = cut.cut_row_ptr.device_data();
-//                    auto gh_data = stats.gh_pair.device_data();
-//                    auto dense_bin_id_data = dense_bin_id.device_data();
-//                    auto max_num_bin = this->max_num_bin;
-//                    device_loop(stats.n_instances * n_column, [=]__device__(int i) {
-//                        unsigned char bid = dense_bin_id_data[i];
-//                        if (bid != max_num_bin) {
-//                            int iid = i / n_column;
-//                            int fid = i % n_column;
-//                            int nid0 = nid_data[iid] - nid_offset;
-//                            if (nid0 < 0) return;
-//                            int hist_offset = nid0 * n_bins;
-//                            int feature_offset = cut_row_ptr_data[fid];
-//                            GHPair &dest = hist_data[hist_offset + feature_offset + bid];
-//                            const GHPair &src = gh_data[iid];
-//                            //TODO use shared memory
-//                            atomicAdd(&dest.g, src.g);
-//                            atomicAdd(&dest.h, src.h);
-//                        }
-//                    });
-//                    LOG(INFO)<<hist;
-//                    LOG(INFO)<<hist2;
-//                    for (int i = 0; i < n_max_splits; ++i) {
-//                        GHPair gh1 = hist.host_data()[i];
-//                        GHPair gh2 = hist2.host_data()[i];
-//                        CHECK_EQ(gh1.g, gh2.g);
-//                        CHECK_EQ(gh1.h, gh2.h);
-//                    }
-                }
-//                {
-//                    TIMED_SCOPE(timerOBj, "hist");
-//                    //for each feature
-//                    //construct hist[node][bin]
-//                    //multi block, each block has a local histogram
-//                    //shared memory size = (4+4)Bytes * #node * #bin
-//                    //syncthreads
-//                    //sum local histogram in thread0 to global memory
-//                    for (int fid = 0; fid < n_column; ++fid) {
-//                        auto feature_start = columns.csc_col_ptr.host_data()[fid];
-//                        auto feature_len = columns.csc_col_ptr.host_data()[fid + 1] - feature_start;
-//                        const int *iid_data = columns.csc_row_idx.device_data() + feature_start;
-//                        const int *bin_id_data = bin_id[0]->device_data() + feature_start;
-//                        int fea_offset = cut.cut_row_ptr.host_data()[fid];
-//                        int n_fea_bin = cut.cut_row_ptr.host_data()[fid + 1] - cut.cut_row_ptr.host_data()[fid];
-//                        int shared_mem_size = sizeof(GHPair) * n_nodes_in_level * n_fea_bin;
-//                        LOG(DEBUG)<<"smem size = " << shared_mem_size / 1024.0 << "KB";
-//                        auto hist_data = hist.device_data();
-//                        hist_kernel << < 2 * 56, 256, shared_mem_size >> >
-//                                                      (hist_data, fea_offset, bin_id_data, feature_len, n_fea_bin, n_bins, iid_data,
-//                                                              stats.gh_pair.device_data(), stats.nid.device_data(), nid_offset, n_nodes_in_level);
-//                        CUDA_CHECK(cudaGetLastError());
-//                    }
-//                }
-//                for (int i = 0; i < hist.size(); ++i) {
-//                    CHECK_EQ(hist.host_data()[i].g, hist2.host_data()[i].g);
-//                    CHECK_EQ(hist.host_data()[i].h, hist2.host_data()[i].h);
-//                }
                 LOG(DEBUG) << "hist new = " << hist;
-                //calculate missing value for each partition
-//                int temp = reduce_by_key(cuda::par, hist_fid, hist_fid + n_split, hist.device_data(),
-//                                         make_discard_iterator(), missing_gh.device_data()).second -
-//                           missing_gh.device_data();
-//                LOG(INFO)<<temp;
-//                CHECK_EQ(temp, n_partition);
-//                LOG(DEBUG) << missing_gh;
                 inclusive_scan_by_key(cuda::par, hist_fid, hist_fid + n_split,
                                       hist.device_data(), hist.device_data());
                 LOG(DEBUG) << hist;
@@ -383,28 +246,12 @@ void HistUpdater::find_split(int level, const SparseColumns &columns, const Tree
                     missing_gh_data[pid] = nodes_data[nid].sum_gh_pair - node_gh;
                 });
                 LOG(DEBUG) << missing_gh;
-//                auto missing_data = missing_gh.host_data();
-//                LOG(INFO)<<cut.cut_row_ptr;
-//                if (tree.nodes.host_data()[32].is_valid == 1) {
-//                    for (int j = 0; j < n_partition; ++j) {
-//                        if (missing_data[j].h < 0) {
-//                            LOG(INFO) << string_format("%d, %f, nid = %d, fid = %d", j, missing_data[j].h,
-//                                                       j / n_column + nid_offset, j % n_column);
-//                            LOG(INFO) << hist.host_data()[n_bins + 253];
-//                            LOG(INFO)<<tree.nodes.host_data()[15];
-//                        }
-//                    }
-//                    for (int i = 0; i < n_bins; ++i) {
-//                        LOG(INFO)<<i <<" " << hist.host_data()[1 * n_bins + i];
-//                    }
-//                    exit(0);
-//                };
             }
         }
         //calculate gain of each split
         SyncArray<float_type> gain(n_max_splits);
         {
-            TIMED_SCOPE(timerObj, "calculate gain");
+//            TIMED_SCOPE(timerObj, "calculate gain");
             auto compute_gain = []__device__(GHPair father, GHPair lch, GHPair rch, float_type min_child_weight,
                                              float_type lambda) -> float_type {
                 if (lch.h >= min_child_weight && rch.h >= min_child_weight)
@@ -412,7 +259,6 @@ void HistUpdater::find_split(int level, const SparseColumns &columns, const Tree
                            (father.g * father.g) / (father.h + lambda);
                 else
                     return 0;
-//float_type father_gain = (father.g * father.g) / (father.h + lambda);
             };
 
             const Tree::TreeNode *nodes_data = tree.nodes.device_data();
@@ -447,7 +293,7 @@ void HistUpdater::find_split(int level, const SparseColumns &columns, const Tree
 
         SyncArray<int_float> best_idx_gain(n_nodes_in_level);
         {
-            TIMED_SCOPE(timerObj, "get best gain");
+//            TIMED_SCOPE(timerObj, "get best gain");
             auto arg_abs_max = []__device__(const int_float &a, const int_float &b) {
                 if (fabsf(get<1>(a)) == fabsf(get<1>(b)))
                     return get<0>(a) < get<0>(b) ? a : b;
@@ -510,7 +356,7 @@ void HistUpdater::find_split(int level, const SparseColumns &columns, const Tree
 }
 
 void HistUpdater::grow(Tree &tree, const vector<std::shared_ptr<SparseColumns>> &v_columns, InsStat &stats) {
-    TIMED_SCOPE(timerObj, "grow tree");
+//    TIMED_SCOPE(timerObj, "grow tree");
 
     int n_instances = stats.n_instances;
     int cur_device = 0;
@@ -544,7 +390,7 @@ void HistUpdater::grow(Tree &tree, const vector<std::shared_ptr<SparseColumns>> 
         LOG(TRACE) << "growing tree at depth " << i;
         vector<SyncArray<SplitPoint>> local_sp(n_devices);
         {
-            TIMED_SCOPE(timerObj, "find split");
+//            TIMED_SCOPE(timerObj, "find split");
             DO_ON_MULTI_DEVICES(n_devices, [&](int device_id) {
                 LOG(TRACE) << string_format("finding split on device %d", device_id);
                 find_split(i, *v_columns[device_id], *v_trees[device_id], *v_stats[device_id], v_cut[device_id],
@@ -556,7 +402,7 @@ void HistUpdater::grow(Tree &tree, const vector<std::shared_ptr<SparseColumns>> 
         int nid_offset = (1 << i) - 1;//2^i - 1
         SyncArray<SplitPoint> global_sp(n_max_nodes_in_level);
         {
-            TIMED_SCOPE(timerObj, "split point all reduce");
+//            TIMED_SCOPE(timerObj, "split point all reduce");
             if (n_devices > 1)
                 split_point_all_reduce(local_sp, global_sp, i);
             else
@@ -587,7 +433,7 @@ void HistUpdater::grow(Tree &tree, const vector<std::shared_ptr<SparseColumns>> 
 
         //do split
         {
-            TIMED_SCOPE(timerObj, "update tree");
+//            TIMED_SCOPE(timerObj, "update tree");
             update_tree(*v_trees[0], global_sp);
         }
 
@@ -627,7 +473,7 @@ void HistUpdater::grow(Tree &tree, const vector<std::shared_ptr<SparseColumns>> 
 
         //get global ins2node id
         {
-            TIMED_SCOPE(timerObj, "global ins2node id");
+//            TIMED_SCOPE(timerObj, "global ins2node id");
             SyncArray<int> local_ins2node_id(n_instances);
             auto local_ins2node_id_data = local_ins2node_id.device_data();
             auto global_ins2node_id_data = v_stats[0]->nid.device_data();
@@ -720,7 +566,7 @@ bool HistUpdater::reset_ins2node_id(InsStat &stats, const Tree &tree, const Spar
     SyncArray<bool> has_splittable(1);
     //set new node id for each instance
     {
-        TIMED_SCOPE(timerObj, "get new node id");
+//        TIMED_SCOPE(timerObj, "get new node id");
         auto nid_data = stats.nid.device_data();
         const int *iid_data = columns.csc_row_idx.device_data();
         const Tree::TreeNode *nodes_data = tree.nodes.device_data();
