@@ -35,7 +35,7 @@ public:
             el::Loggers::reconfigureAllLoggers(el::Level::Debug, el::ConfigurationType::Enabled, "false");
             el::Loggers::reconfigureAllLoggers(el::Level::Trace, el::ConfigurationType::Enabled, "false");
         }
-//        el::Loggers::reconfigureAllLoggers(el::ConfigurationType::PerformanceTracking, "false");
+        el::Loggers::reconfigureAllLoggers(el::ConfigurationType::PerformanceTracking, "false");
     }
 
     void TearDown() {
@@ -223,6 +223,7 @@ TEST_F(PerformanceTest, real_sim_40_trees) {
 }
 
 TEST_F(PerformanceTest, susy_40_trees) {
+    param.n_trees = 3;
     param.path = DATASET_DIR "SUSY";
     train_hist(param);
 }
