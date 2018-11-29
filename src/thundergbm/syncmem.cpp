@@ -104,24 +104,24 @@ namespace thunder {
     void SyncMem::to_device() {
 #ifdef USE_CUDA
         DO_ON_DEVICE(device_id, {
-        switch (head_) {
-            case UNINITIALIZED:
-                CUDA_CHECK(device_allocator.DeviceAllocate(&device_ptr, size_));
-                CUDA_CHECK(cudaMemset(device_ptr, 0, size_));
-                head_ = DEVICE;
-                own_device_data = true;
-                break;
-            case HOST:
-                if (nullptr == device_ptr) {
+            switch (head_) {
+                case UNINITIALIZED:
                     CUDA_CHECK(device_allocator.DeviceAllocate(&device_ptr, size_));
                     CUDA_CHECK(cudaMemset(device_ptr, 0, size_));
+                    head_ = DEVICE;
                     own_device_data = true;
-                }
-                CUDA_CHECK(cudaMemcpy(device_ptr, host_ptr, size_, cudaMemcpyHostToDevice));
-                head_ = DEVICE;
-                break;
-            case DEVICE:;
-        }
+                    break;
+                case HOST:
+                    if (nullptr == device_ptr) {
+                        CUDA_CHECK(device_allocator.DeviceAllocate(&device_ptr, size_));
+                        CUDA_CHECK(cudaMemset(device_ptr, 0, size_));
+                        own_device_data = true;
+                    }
+                    CUDA_CHECK(cudaMemcpy(device_ptr, host_ptr, size_, cudaMemcpyHostToDevice));
+                    head_ = DEVICE;
+                    break;
+                case DEVICE:;
+            }
         });
 #else
         NO_GPU;
@@ -143,7 +143,8 @@ namespace thunder {
         DO_ON_DEVICE(device_id, {
             CHECK_NOTNULL(data);
             if (own_device_data) {
-                CUDA_CHECK(cudaFree(device_data()));
+//                CUDA_CHECK(cudaFree(device_data()));
+                device_allocator.DeviceFree(device_ptr);
             }
             device_ptr = data;
             own_device_data = false;

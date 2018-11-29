@@ -88,7 +88,11 @@ public:
 
         CHECK_EQ(size(), source.size()) << "destination and source count doesn't match";
 #ifdef USE_CUDA
-        copy_from(source.device_data(), source.size());
+        if (get_owner_id() == source.get_owner_id())
+            copy_from(source.device_data(), source.size());
+        else
+            CUDA_CHECK(cudaMemcpyPeer(mem->device_data(), get_owner_id(), source.device_data(), source.get_owner_id(),
+                                      source.mem_size()));
 #else
         copy_from(source.host_data(), source.size());
 #endif
@@ -131,7 +135,7 @@ public:
         }
     };
 
-    int get_owner_id() {
+    int get_owner_id() const {
         return mem->get_owner_id();
     }
 

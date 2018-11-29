@@ -223,7 +223,6 @@ TEST_F(PerformanceTest, real_sim_40_trees) {
 }
 
 TEST_F(PerformanceTest, susy_40_trees) {
-    param.n_trees = 3;
     param.path = DATASET_DIR "SUSY";
     train_hist(param);
 }

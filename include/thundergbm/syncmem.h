@@ -100,7 +100,7 @@ namespace thunder {
 
         HEAD head() const;
 
-        int get_owner_id() {
+        int get_owner_id() const {
             return device_id;
         }
 
