@@ -481,7 +481,7 @@ void HistUpdater::grow(Tree &tree, const vector<std::shared_ptr<SparseColumns>> 
                 CUDA_CHECK(cudaMemcpyPeerAsync(local_ins2node_id_data, cur_device,
                                                v_stats[d]->nid.device_data(), d,
                                                sizeof(int) * n_instances));
-                cudaDeviceSynchronize();
+//                cudaDeviceSynchronize();
                 device_loop(n_instances, [=]__device__(int i) {
                     global_ins2node_id_data[i] = (global_ins2node_id_data[i] > local_ins2node_id_data[i]) ?
                                                  global_ins2node_id_data[i] : local_ins2node_id_data[i];

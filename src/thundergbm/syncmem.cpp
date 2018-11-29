@@ -7,7 +7,6 @@
 namespace thunder {
     void SyncMem::malloc_host(void **ptr, size_t size) {
 #ifdef USE_CUDA
-//        CUDA_CHECK(cudaHostAlloc(ptr, size, cudaHostAllocPortable));
         host_allocator.DeviceAllocate(ptr, size);
 
 #else
@@ -17,7 +16,6 @@ namespace thunder {
 
     void SyncMem::free_host(void *ptr) {
 #ifdef USE_CUDA
-//        CUDA_CHECK(cudaFreeHost(ptr));
         host_allocator.DeviceFree(ptr);
 #else
         free(ptr);
