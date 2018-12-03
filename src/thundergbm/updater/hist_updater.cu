@@ -3,6 +3,7 @@
 
 #include "thundergbm/updater/hist_updater.h"
 #include "thundergbm/util/cub_wrapper.h"
+#include "cuda_profiler_api.h"
 
 void HistUpdater::init_cut(const vector<std::shared_ptr<SparseColumns>> &v_columns, InsStat &stats, int n_instances) {
     LOG(TRACE) << "init cut";
@@ -25,24 +26,35 @@ void HistUpdater::get_bin_ids(const SparseColumns &columns) {
     cudaGetDevice(&cur_device);
     int n_column = columns.n_column;
     int nnz = columns.nnz;
-    auto cut_row_ptr = v_cut[cur_device].cut_row_ptr.host_data();
+    auto cut_row_ptr = v_cut[cur_device].cut_row_ptr.device_data();
     auto cut_points_ptr = v_cut[cur_device].cut_points_val.device_data();
     auto csc_val_data = columns.csc_val.device_data();
-    auto csc_col_data = columns.csc_col_ptr.host_data();
+//    auto csc_col_data = columns.csc_col_ptr.device_data();
     bin_id[cur_device].reset(new SyncArray<int>(nnz));
     auto bin_id_ptr = (*bin_id[cur_device]).device_data();
-    int n_block = (nnz - 1) / 256 + 1;
-    for (int cid = 0; cid < n_column; ++cid) {
-        auto cutbegin = cut_points_ptr + cut_row_ptr[cid];
-        auto cutend = cut_points_ptr + cut_row_ptr[cid + 1];
-        auto valbeign = csc_val_data + csc_col_data[cid];
-        auto valend = csc_val_data + csc_col_data[cid + 1];
-        lower_bound(cuda::par, cutbegin, cutend, valbeign, valend,
-                    bin_id_ptr + csc_col_data[cid], thrust::greater<float_type>());
+    int n_block = min((nnz / n_column - 1) / 256 + 1, 4 * 56);
+    {
+        auto lowerBound = [=]__device__(float_type *search_begin, float_type *search_end, float_type val){
+            float_type *left = search_begin;
+            float_type *right = search_end;
+
+            while (left != right) {
+                float_type *mid = left + (right - left) / 2;
+                if (*mid <= val)
+                    right = mid;
+                else left = mid + 1;
+            }
+            return left;
+        };
+        TIMED_SCOPE(timerObj, "binning");
+        device_loop_2d(n_column, columns.csc_col_ptr.device_data(), [=]__device__(int cid, int i) {
+            auto search_begin = cut_points_ptr + cut_row_ptr[cid];
+            auto search_end = cut_points_ptr + cut_row_ptr[cid + 1];
+            auto val = csc_val_data[i];
+            bin_id_ptr[i] = lowerBound(search_begin, search_end, val) - search_begin;
+        }, n_block);
+        cudaDeviceSynchronize();
     }
-//        for_each(cuda::par, bin_id_ptr + csc_col_data[cid],
-//                 bin_id_ptr + csc_col_data[cid + 1], thrust::placeholders::_1 += cut_row_ptr[cid]);
-//    });
 }
 
 void HistUpdater::find_split(int level, const SparseColumns &columns, const Tree &tree, const InsStat &stats,
@@ -142,6 +154,7 @@ void HistUpdater::find_split(int level, const SparseColumns &columns, const Tree
                             node_ptr.host_data()[0] =
                                     lower_bound(cuda::par, nid4sort.device_data(), nid4sort.device_end(), nid_offset) -
                                     nid4sort.device_data();
+
                             upper_bound(cuda::par, nid4sort.device_data(), nid4sort.device_end(), counting_iter,
                                         counting_iter + n_nodes_in_level, node_ptr.device_data() + 1);
                         }
