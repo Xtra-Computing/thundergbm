@@ -118,10 +118,12 @@ public:
         float_type rmse = 0;
         SyncMem::clear_cache();
         stats.updateGH();
-        updater.init_cut(v_columns, stats, n_instances);
+        {
+            TIMED_SCOPE(timerObj, "get cut points");
+            updater.init_cut(v_columns, stats, n_instances);
+        }
         updater.init_dense_data(*v_columns[0], n_instances);
         {
-            cudaProfilerStart();
             TIMED_SCOPE(timerObj, "construct tree");
             for (Tree &tree:trees) {
                 stats.updateGH();
@@ -134,7 +136,6 @@ public:
                 rmse = compute_rmse(stats);
                 LOG(INFO) << "rmse = " << rmse;
             }
-            cudaProfilerStop();
         }
         return rmse;
     }

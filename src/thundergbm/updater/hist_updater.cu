@@ -34,7 +34,7 @@ void HistUpdater::get_bin_ids(const SparseColumns &columns) {
     auto bin_id_ptr = (*bin_id[cur_device]).device_data();
     int n_block = min((nnz / n_column - 1) / 256 + 1, 4 * 56);
     {
-        auto lowerBound = [=]__device__(float_type *search_begin, float_type *search_end, float_type val){
+        auto lowerBound = [=]__device__(float_type *search_begin, float_type *search_end, float_type val) {
             float_type *left = search_begin;
             float_type *right = search_end;
 
