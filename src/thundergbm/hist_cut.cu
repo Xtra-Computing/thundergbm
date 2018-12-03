@@ -10,6 +10,7 @@
 #include "thundergbm/util/device_lambda.cuh"
 
 void HistCut::get_cut_points(SparseColumns &columns, InsStat &stats, int max_num_bins, int n_instances, int device_id) {
+    TIMED_FUNC(timerObj);
     LOG(TRACE) << "get cut points";
     int n_features = columns.n_column;
     vector<quanSketch> sketchs(n_features);

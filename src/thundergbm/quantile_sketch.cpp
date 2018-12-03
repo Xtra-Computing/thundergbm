@@ -277,7 +277,7 @@ void quanSketch::Add(float_type value, float_type weight){
         Qentry.GetSummary(t_summary);
         Qentry.tail = 0;
         for(int i = 1;; i++){
-            if(summaries.size() < i + 1){
+            if(summaries.size() < i){
 				//Qentry.data.resize((i+1)*summarySize);
                 summaries.resize(i + 1, summary(0, (i+1) * summarySize));
             }
