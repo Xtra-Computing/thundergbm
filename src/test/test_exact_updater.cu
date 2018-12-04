@@ -195,7 +195,7 @@ TEST_F(PerformanceTest, covtype_40_trees) {
 
 TEST_F(PerformanceTest, e2006_40_trees) {
     param.path = DATASET_DIR "E2006.train";
-    train_hist(param);
+    train_exact(param);
 }
 
 TEST_F(PerformanceTest, log1p_40_trees) {
@@ -220,7 +220,7 @@ TEST_F(PerformanceTest, abalone) {
 
 TEST_F(PerformanceTest, real_sim_40_trees) {
     param.path = DATASET_DIR "real-sim";
-    train_hist(param);
+    train_exact(param);
 }
 
 TEST_F(PerformanceTest, susy_40_trees) {

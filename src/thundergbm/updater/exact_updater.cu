@@ -28,8 +28,8 @@ void ExactUpdater::grow(Tree &tree, const vector<std::shared_ptr<SparseColumns>>
         v_stats[device_id].reset(new InsStat());
         InsStat &gpu_stats = *v_stats[device_id];
         gpu_stats.resize(n_instances);
-        gpu_stats.gh_pair.copy_from(stats.gh_pair.host_data(), n_instances);
-        gpu_stats.nid.copy_from(stats.nid.host_data(), n_instances);
+        gpu_stats.gh_pair.copy_from(stats.gh_pair);
+        gpu_stats.nid.copy_from(stats.nid);
         //        gpu_stats.y.copy_from(stats.y.host_data(), n_instances);
 //        gpu_stats.y_predict.copy_from(stats.y_predict.host_data(), n_instances);
 
@@ -37,7 +37,7 @@ void ExactUpdater::grow(Tree &tree, const vector<std::shared_ptr<SparseColumns>>
         v_trees[device_id].reset(new Tree());
         Tree &gpu_tree = *v_trees[device_id];
         gpu_tree.nodes.resize(tree.nodes.size());
-        gpu_tree.nodes.copy_from(tree.nodes.host_data(), tree.nodes.size());
+        gpu_tree.nodes.copy_from(tree.nodes);
     });
 
     for (int i = 0; i < depth; ++i) {
@@ -98,7 +98,7 @@ void ExactUpdater::grow(Tree &tree, const vector<std::shared_ptr<SparseColumns>>
             //copy tree on gpu 0 to host, prepare to broadcast
             v_trees[0]->nodes.to_host();
             DO_ON_MULTI_DEVICES(n_devices, [&](int device_id) {
-                v_trees[device_id]->nodes.copy_from(v_trees[0]->nodes.host_data(), v_trees[0]->nodes.size());
+                v_trees[device_id]->nodes.copy_from(v_trees[0]->nodes);
             });
         }
 
@@ -187,7 +187,7 @@ void ExactUpdater::grow(Tree &tree, const vector<std::shared_ptr<SparseColumns>>
             v_stats[0]->nid.to_host();
             DO_ON_MULTI_DEVICES(n_devices, [&](int device_id) {
 //                v_stats[device_id]->nid.copy_from(stats.nid.host_data(), stats.nid.size());
-                v_stats[device_id]->nid.copy_from(v_stats[0]->nid.host_data(), stats.nid.size());
+                v_stats[device_id]->nid.copy_from(v_stats[0]->nid);
             });
         }
     }
