@@ -63,10 +63,12 @@ public:
     }
 
     void to_host() const {
+        CHECK_GT(size_, 0);
         mem->to_host();
     }
 
     void to_device() const {
+        CHECK_GT(size_, 0);
         mem->to_device();
     }
 

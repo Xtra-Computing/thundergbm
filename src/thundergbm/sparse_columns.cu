@@ -81,7 +81,7 @@ void SparseColumns::from_dataset(const DataSet &dataset) {
 }
 
 
-void SparseColumns::to_multi_devices(vector<std::shared_ptr<SparseColumns>> &v_columns) const {
+void SparseColumns::to_multi_devices(vector<SparseColumns*> &v_columns) const {
     //devide data into multiple devices
     int n_device = v_columns.size();
     int ave_n_columns = n_column / n_device;

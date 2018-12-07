@@ -20,7 +20,7 @@ public:
 
     void from_dataset(const DataSet &dataSet);
 
-    void to_multi_devices(vector<std::shared_ptr<SparseColumns>> &) const;
+    void to_multi_devices(vector<SparseColumns*> &) const;
 
     void get_shards(int rank, int n, SparseColumns &result) const;
 };

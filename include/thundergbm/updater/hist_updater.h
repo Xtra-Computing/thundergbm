@@ -8,27 +8,54 @@
 #include "thundergbm/updater/exact_updater.h"
 #include "thundergbm/hist_cut.h"
 
-class HistUpdater : public ExactUpdater{
+class HistUpdater {
 public:
+    explicit HistUpdater(GBMParam &param) {
+        this->param = param;
+    }
+    GBMParam param;
     unsigned char max_num_bin = 255;
-    int do_cut = 0;
-    vector<HistCut> v_cut;
-    vector<std::shared_ptr<SyncArray<int>>> bin_id;
-    SyncArray<unsigned char> dense_bin_id;
-    SyncArray<GHPair> last_hist;
+    struct Shard {
+        HistCut cut;
+        SyncArray<int> bin_id;
+        SyncArray<unsigned char> dense_bin_id;
+        SparseColumns columns;
+        InsStat stats;
+        Tree tree;
+        SyncArray<SplitPoint> sp;
+        SyncArray<GHPair> last_hist;
+        bool has_split;
+    };
 
-    virtual void grow(Tree &tree, const vector<std::shared_ptr<SparseColumns>> &v_columns, InsStat &stats);
+    vector<std::unique_ptr<Shard>> shards;
+    template <typename L>
+    void for_each_shard(L lambda){
+      DO_ON_MULTI_DEVICES(param.n_device, [&](int device_id){
+         lambda(*shards[device_id].get());
+      });
+    }
 
-    void init_cut(const vector<std::shared_ptr<SparseColumns>> &v_columns, InsStat &stats, int n_instance);
+    void init(const DataSet& dataset);
 
-    void get_bin_ids(const SparseColumns &columns);
+    void grow(Tree &tree);
 
-    void init_dense_data(const SparseColumns &columns, int n_instances);
 
-    void find_split(int level, const SparseColumns &columns, const Tree &tree, const InsStat &stats, const HistCut &cut,
-                    SyncArray<SplitPoint> &sp);
-    explicit HistUpdater(GBMParam &param): ExactUpdater(param) {};
+    void get_bin_ids(const SparseColumns &columns, const HistCut &cut, SyncArray<int> &bin_id);
 
-    virtual bool reset_ins2node_id(InsStat &stats, const Tree &tree, const SparseColumns &columns);
+    void init_dense_data(const SparseColumns &columns, int n_instances, SyncArray<unsigned char> &dense_bin_id,
+                             const SyncArray<int> &bin_id);
+
+    void find_split(int level, const SparseColumns &columns, const Tree &tree, const InsStat &stats,
+                        const HistCut &cut, SyncArray<SplitPoint> &sp,
+                        const SyncArray<unsigned char> &dense_bin_id, SyncArray<GHPair> &last_hist);
+
+    bool reset_ins2node_id(InsStat &stats, const Tree &tree, const SparseColumns &columns,
+                               const SyncArray<unsigned char> &dense_bin_id);
+
+    void split_point_all_reduce(const vector<SyncArray<SplitPoint>> &local_sp, SyncArray<SplitPoint> &global_sp,
+                                int depth);
+
+    void update_tree(Tree &tree, const SyncArray<SplitPoint> &sp);
 };
+
 #endif //GBM_MIRROR2_HIST_UPDATER_H

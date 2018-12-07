@@ -45,28 +45,19 @@ public:
 class ExactUpdater {
 public:
     explicit ExactUpdater(GBMParam &param) {
-        depth = param.depth;
-        min_child_weight = param.min_child_weight;
-        lambda = param.lambda;
-        gamma = param.gamma;
-        rt_eps = param.rt_eps;
+        this->param = param;
         n_devices = param.n_device;
     }
 
 
     virtual void grow(Tree &tree, const vector<std::shared_ptr<SparseColumns>> &v_columns, InsStat &stats);
 
-    int depth;
-    float_type min_child_weight;
-    float_type lambda;
-    float_type gamma;
-    float_type rt_eps;
+    GBMParam param;
 
     int n_devices;
     vector<std::shared_ptr<InsStat>> v_stats;
     vector<std::shared_ptr<Tree>> v_trees;
 
-    void init_tree(Tree &tree, const InsStat &stats);
 
     virtual void find_split(int level, const SparseColumns &columns, const Tree &tree, const InsStat &stats,
                             SyncArray<SplitPoint> &sp);

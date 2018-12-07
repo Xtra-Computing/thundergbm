@@ -6,9 +6,9 @@
 #define THUNDERGBM_HIST_CUT_H
 
 #include "thundergbm/thundergbm.h"
+#include "sparse_columns.h"
 #include "thundergbm/dataset.h"
 #include "thundergbm/tree.h"
-#include "sparse_columns.h"
 
 class HistCut {
 public:
@@ -30,7 +30,7 @@ public:
         cut_row_ptr.copy_from(cut.cut_row_ptr);
     }
 
-    void get_cut_points(SparseColumns &columns, InsStat &stats, int max_num_bins, int n_instances, int n_features);
+    void get_cut_points(SparseColumns &columns, InsStat &stats, int max_num_bins, int n_instances);
 };
 
 //store the g/h of the bins of one feature

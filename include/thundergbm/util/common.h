@@ -28,5 +28,7 @@ std::string string_format(const std::string &format, Args ... args) {
     return std::string(buf.get(), buf.get() + size - 1); // We don't want the '\0' inside
 }
 
+typedef float float_type;
+
 #define HOST_DEVICE __host__ __device__
 #endif //THUNDERGBM_COMMON_H

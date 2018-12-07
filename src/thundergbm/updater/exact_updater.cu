@@ -19,7 +19,7 @@ void ExactUpdater::grow(Tree &tree, const vector<std::shared_ptr<SparseColumns>>
     LOG(TRACE) << "broadcast tree and stats";
     v_stats.resize(n_devices);
     v_trees.resize(n_devices);
-    init_tree(tree, stats);
+    tree.init(stats, param);
     DO_ON_MULTI_DEVICES(n_devices, [&](int device_id) {
         //copy stats and tree from host (stats, tree) to multi-device (v_stats, v_trees)
 
@@ -28,8 +28,8 @@ void ExactUpdater::grow(Tree &tree, const vector<std::shared_ptr<SparseColumns>>
         v_stats[device_id].reset(new InsStat());
         InsStat &gpu_stats = *v_stats[device_id];
         gpu_stats.resize(n_instances);
-        gpu_stats.gh_pair.copy_from(stats.gh_pair.host_data(), n_instances);
-        gpu_stats.nid.copy_from(stats.nid.host_data(), n_instances);
+        gpu_stats.gh_pair.copy_from(stats.gh_pair);
+        gpu_stats.nid.copy_from(stats.nid);
         //        gpu_stats.y.copy_from(stats.y.host_data(), n_instances);
 //        gpu_stats.y_predict.copy_from(stats.y_predict.host_data(), n_instances);
 
@@ -37,10 +37,10 @@ void ExactUpdater::grow(Tree &tree, const vector<std::shared_ptr<SparseColumns>>
         v_trees[device_id].reset(new Tree());
         Tree &gpu_tree = *v_trees[device_id];
         gpu_tree.nodes.resize(tree.nodes.size());
-        gpu_tree.nodes.copy_from(tree.nodes.host_data(), tree.nodes.size());
+        gpu_tree.nodes.copy_from(tree.nodes);
     });
 
-    for (int i = 0; i < depth; ++i) {
+    for (int i = 0; i < param.depth; ++i) {
         LOG(TRACE) << "growing tree at depth " << i;
         vector<SyncArray<SplitPoint>> local_sp(n_devices);
         {
@@ -98,7 +98,7 @@ void ExactUpdater::grow(Tree &tree, const vector<std::shared_ptr<SparseColumns>>
             //copy tree on gpu 0 to host, prepare to broadcast
             v_trees[0]->nodes.to_host();
             DO_ON_MULTI_DEVICES(n_devices, [&](int device_id) {
-                v_trees[device_id]->nodes.copy_from(v_trees[0]->nodes.host_data(), v_trees[0]->nodes.size());
+                v_trees[device_id]->nodes.copy_from(v_trees[0]->nodes);
             });
         }
 
@@ -187,7 +187,7 @@ void ExactUpdater::grow(Tree &tree, const vector<std::shared_ptr<SparseColumns>>
             v_stats[0]->nid.to_host();
             DO_ON_MULTI_DEVICES(n_devices, [&](int device_id) {
 //                v_stats[device_id]->nid.copy_from(stats.nid.host_data(), stats.nid.size());
-                v_stats[device_id]->nid.copy_from(v_stats[0]->nid.host_data(), stats.nid.size());
+                v_stats[device_id]->nid.copy_from(v_stats[0]->nid);
             });
         }
     }
@@ -229,20 +229,6 @@ void ExactUpdater::split_point_all_reduce(const vector<SyncArray<SplitPoint>> &l
             global_sp_data[n].nid = -1;
     }
     LOG(DEBUG) << "global best split point = " << global_sp;
-}
-
-void ExactUpdater::init_tree(Tree &tree, const InsStat &stats) {
-    tree.init(depth);
-    //init root node
-    auto nodes_data = tree.nodes.device_data();
-    GHPair sum_gh = stats.sum_gh;
-    float_type lambda = this->lambda;
-    device_loop<1, 1>(1, [=]__device__(int i) {
-        Tree::TreeNode &root_node = nodes_data[0];
-        root_node.sum_gh_pair = sum_gh;
-        root_node.is_valid = true;
-        root_node.calc_weight(lambda);
-    });
 }
 
 void ExactUpdater::find_split(int level, const SparseColumns &columns, const Tree &tree, const InsStat &stats,
@@ -359,7 +345,7 @@ void ExactUpdater::find_split(int level, const SparseColumns &columns, const Tre
 
             auto pid_ptr_data = pid_ptr.device_data();
             auto rle_key_data = rle_key.device_data();
-            float_type rt_eps = this->rt_eps;
+            float_type rt_eps = param.rt_eps;
             device_loop(n_split, [=]__device__(int i) {
                 int pid = rle_pid_data[i];
                 if (pid == INT_MAX) return;
@@ -403,8 +389,8 @@ void ExactUpdater::find_split(int level, const SparseColumns &columns, const Tre
             float_type *gain_data = gain.device_data();
             const auto missing_gh_data = missing_gh.device_data();
             //for lambda expression
-            float_type mcw = min_child_weight;
-            float_type l = lambda;
+            float_type mcw = param.min_child_weight;
+            float_type l = param.lambda;
             device_loop(n_split, [=]__device__(int i) {
                 int pid = rle_pid_data[i];
                 int nid0 = pid % n_max_nodes_in_level;
@@ -511,8 +497,8 @@ void ExactUpdater::update_tree(Tree &tree, const SyncArray<SplitPoint> &sp) {
     int n_nodes_in_level = sp.size();
 
     Tree::TreeNode *nodes_data = tree.nodes.device_data();
-    float_type rt_eps = this->rt_eps;
-    float_type lambda = this->lambda;
+    float_type rt_eps = param.rt_eps;
+    float_type lambda = param.lambda;
 
     LOG(DEBUG) << n_nodes_in_level;
     device_loop(n_nodes_in_level, [=]__device__(int i) {

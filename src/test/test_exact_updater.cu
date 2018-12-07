@@ -66,7 +66,7 @@ public:
 //        SparseColumns local_columns;
 //        columns.get_shards(rank, param.n_executor, local_columns);
 //        local_columns.to_multi_devices(v_columns);
-        columns.to_multi_devices(v_columns);
+//        columns.to_multi_devices(v_columns);
         ExactUpdater updater(param);
         int round = 0;
         float_type rmse = 0;
@@ -78,7 +78,7 @@ public:
                 updater.grow(tree, v_columns, stats);
                 tree.prune_self(param.gamma);
                 LOG(DEBUG) << string_format("\nbooster[%d]", round) << tree.dump(param.depth);
-                predict_in_training(stats, tree);
+//                predict_in_training(stats, tree);
                 //next round
                 round++;
             }
@@ -91,49 +91,24 @@ public:
     float_type train_hist(GBMParam &param) {
         DataSet dataSet;
         dataSet.load_from_file(param.path);
-        int n_instances = dataSet.n_instances();
-        InsStat stats;
-        vector<Tree> trees;
-        SparseColumns columns;
-        columns.from_dataset(dataSet);
-        trees.resize(param.n_trees);
-        stats.resize(n_instances);
-        stats.y.copy_from(dataSet.y.data(), n_instances);
 
-        int n_devices = param.n_device;
-//        int rank;
-//        MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-//        LOG(INFO) << "rank = " << rank;
-//        MPI_Barrier(MPI_COMM_WORLD);
-        vector<std::shared_ptr<SparseColumns>> v_columns;
-        v_columns.resize(n_devices);
-        for (int i = 0; i < n_devices; i++)
-            v_columns[i].reset(new SparseColumns());
-//        SparseColumns local_columns;
-//        columns.get_shards(rank, param.n_executor, local_columns);
-//        local_columns.to_multi_devices(v_columns);
-        columns.to_multi_devices(v_columns);
-        HistUpdater updater(param);
         int round = 0;
         float_type rmse = 0;
         SyncMem::clear_cache();
-        stats.updateGH();
-        {
-            TIMED_SCOPE(timerObj, "get cut points");
-            updater.init_cut(v_columns, stats, n_instances);
-        }
-        updater.init_dense_data(*v_columns[0], n_instances);
+        vector<Tree> trees;
+        HistUpdater updater(param);
+
+        trees.resize(param.n_trees);
+        updater.init(dataSet);
         {
             TIMED_SCOPE(timerObj, "construct tree");
             for (Tree &tree:trees) {
-                stats.updateGH();
-                updater.grow(tree, v_columns, stats);
-                tree.prune_self(param.gamma);
+//                stats.updateGH();
+                updater.grow(tree);
                 LOG(DEBUG) << string_format("\nbooster[%d]", round) << tree.dump(param.depth);
-                predict_in_training(stats, tree);
                 //next round
                 round++;
-                rmse = compute_rmse(stats);
+                rmse = compute_rmse(updater.shards.front()->stats);
                 LOG(INFO) << "rmse = " << rmse;
             }
         }
@@ -152,20 +127,7 @@ public:
         return rmse;
     }
 
-    void predict_in_training(InsStat &stats, const Tree &tree) {
-
-//        TIMED_SCOPE(timerObj, "predict");
-        float_type *y_predict_data = stats.y_predict.device_data();
-        auto nid_data = stats.nid.device_data();
-        const Tree::TreeNode *nodes_data = tree.nodes.device_data();
-        device_loop(stats.n_instances, [=]__device__(int i) {
-            int nid = nid_data[i];
-            while (nid != -1 && (nodes_data[nid].is_pruned)) nid = nodes_data[nid].parent_index;
-            y_predict_data[i] += nodes_data[nid].base_weight;
-        });
-    }
 };
-
 class PerformanceTest : public UpdaterTest {
 };
 
