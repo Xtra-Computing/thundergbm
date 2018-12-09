@@ -52,8 +52,7 @@ public:
     bool reset_ins2node_id(InsStat &stats, const Tree &tree, const SparseColumns &columns,
                                const SyncArray<unsigned char> &dense_bin_id);
 
-    void split_point_all_reduce(const vector<SyncArray<SplitPoint>> &local_sp, SyncArray<SplitPoint> &global_sp,
-                                int depth);
+    void split_point_all_reduce(SyncArray<SplitPoint> &global_sp, int depth);
 
     void update_tree(Tree &tree, const SyncArray<SplitPoint> &sp);
 };

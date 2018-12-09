@@ -26,7 +26,7 @@ public:
         param.gamma = 1;
         param.rt_eps = 1e-6;
         param.do_exact = true;
-        param.n_device = 1;
+        param.n_device = 2;
 //        verbose = true;
 //        MPI_Comm_size(MPI_COMM_WORLD, &param.n_executor);
 
@@ -145,6 +145,7 @@ TEST_F(UpdaterTest, abalone_40_trees_same_as_xgboost) {
 
 TEST_F(UpdaterTest, abalone_hist) {
     param.path = DATASET_DIR "abalone";
+    param.n_trees = 1;
     float_type rmse = train_hist(param);//1674 ms
 }
 
