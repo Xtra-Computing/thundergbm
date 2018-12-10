@@ -424,7 +424,6 @@ void HistUpdater::grow(Tree &tree) {
 //            TIMED_SCOPE(timerObj, "split point all reduce");
             if (param.n_device > 1)
                 split_point_all_reduce(global_sp, level);
-//            {}
             else
                 global_sp.copy_from(shards.front()->sp.device_data(), shards.front()->sp.size());
         }
@@ -461,9 +460,6 @@ void HistUpdater::grow(Tree &tree) {
                 LOG(INFO) << "no splittable nodes, stop";
                 break;
             }
-//            } else {
-//                todo early stop
-//            }
         }
 
         //get global ins2node id

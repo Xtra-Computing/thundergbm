@@ -1,176 +1,93 @@
 //
 // Created by shijiashuai on 5/7/18.
 //
+#include <thundergbm/updater/exact_updater.h>
+
 #include "thundergbm/updater/exact_updater.h"
 #include "thundergbm/util/cub_wrapper.h"
-//#include "mpi.h"
 
 
-void ExactUpdater::grow(Tree &tree, const vector<std::shared_ptr<SparseColumns>> &v_columns, InsStat &stats) {
+void ExactUpdater::grow(Tree &tree) {
     TIMED_SCOPE(timerObj, "grow tree");
-
-    int n_instances = stats.n_instances;
-    int cur_device = 0;
-//    int rank;
-//    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-//    int n_executor;
-//    MPI_Comm_size(MPI_COMM_WORLD, &n_executor);
-
-    LOG(TRACE) << "broadcast tree and stats";
-    v_stats.resize(n_devices);
-    v_trees.resize(n_devices);
-    tree.init(stats, param);
-    DO_ON_MULTI_DEVICES(n_devices, [&](int device_id) {
-        //copy stats and tree from host (stats, tree) to multi-device (v_stats, v_trees)
-
-        //stats
-        int n_instances = stats.n_instances;
-        v_stats[device_id].reset(new InsStat());
-        InsStat &gpu_stats = *v_stats[device_id];
-        gpu_stats.resize(n_instances);
-        gpu_stats.gh_pair.copy_from(stats.gh_pair);
-        gpu_stats.nid.copy_from(stats.nid);
-        //        gpu_stats.y.copy_from(stats.y.host_data(), n_instances);
-//        gpu_stats.y_predict.copy_from(stats.y_predict.host_data(), n_instances);
-
-        //tree
-        v_trees[device_id].reset(new Tree());
-        Tree &gpu_tree = *v_trees[device_id];
-        gpu_tree.nodes.resize(tree.nodes.size());
-        gpu_tree.nodes.copy_from(tree.nodes);
+    for_each_shard([&](Shard &shard) {
+        shard.tree.init(shard.stats, param);
     });
-
-    for (int i = 0; i < param.depth; ++i) {
-        LOG(TRACE) << "growing tree at depth " << i;
-        vector<SyncArray<SplitPoint>> local_sp(n_devices);
+    for (int level = 0; level < param.depth; ++level) {
+        LOG(TRACE) << "growing tree at depth " << level;
         {
             TIMED_SCOPE(timerObj, "find split");
-            DO_ON_MULTI_DEVICES(n_devices, [&](int device_id) {
-                LOG(TRACE) << string_format("finding split on device %d", device_id);
-                find_split(i, *v_columns[device_id], *v_trees[device_id], *v_stats[device_id], local_sp[device_id]);
+            for_each_shard([&](Shard &shard) {
+                find_split(level, shard.columns, shard.tree, shard.stats, shard.sp);
             });
         }
 
-        int n_max_nodes_in_level = 1 << i;//2^i
-        int nid_offset = (1 << i) - 1;//2^i - 1
+        int n_max_nodes_in_level = 1 << level;//2^level
+        int nid_offset = (1 << level) - 1;//2^level - 1
         SyncArray<SplitPoint> global_sp(n_max_nodes_in_level);
         {
             TIMED_SCOPE(timerObj, "split point all reduce");
-            if (n_devices > 1)
-                split_point_all_reduce(local_sp, global_sp, i);
+            if (param.n_device > 1)
+                split_point_all_reduce(global_sp, level);
             else {
-                global_sp.resize(local_sp[0].size());
-                global_sp.copy_from(local_sp[0].device_data(), local_sp[0].size());
+                global_sp.copy_from(shards.front()->sp.device_data(), shards.front()->sp.size());
             }
-//            if (n_executor > 1) {
-//                if (rank == 0) {
-//                    SyncArray<SplitPoint> global_sp2(n_max_nodes_in_level);
-//                    MPI_Recv(global_sp2.host_data(), global_sp2.mem_size(), MPI_CHAR, 1, 0, MPI_COMM_WORLD,
-//                             MPI_STATUS_IGNORE);
-//                    auto global_sp_data = global_sp.host_data();
-//                    auto global_sp2_data = global_sp2.host_data();
-//                    for (int j = 0; j < global_sp.size(); ++j) {
-//                        if (global_sp2_data[j].gain > global_sp_data[j].gain)
-//                            global_sp_data[j] = global_sp2_data[j];
-//                    }
-//                } else if (rank == 1) {
-//                    MPI_Send(global_sp.host_data(), global_sp.mem_size(), MPI_CHAR, 0, 0, MPI_COMM_WORLD);
-//                }
-//                if (rank == 0) {
-//                    MPI_Send(global_sp.host_data(), global_sp.mem_size(), MPI_CHAR, 1, 0, MPI_COMM_WORLD);
-//                } else {
-//                    MPI_Recv(global_sp.host_data(), global_sp.mem_size(), MPI_CHAR, 0, 0, MPI_COMM_WORLD,
-//                             MPI_STATUS_IGNORE);
-//                }
-//            }
         }
-//        LOG(DEBUG) << "rank " << rank << " sp" << global_sp;
 
         //do split
         {
             TIMED_SCOPE(timerObj, "update tree");
-            update_tree(*v_trees[0], global_sp);
+            update_tree(shards.front()->tree, global_sp);
         }
 
         //broadcast tree
-        if (n_devices > 1) {
+        if (param.n_device > 1) {
             LOG(TRACE) << "broadcasting updated tree";
             //copy tree on gpu 0 to host, prepare to broadcast
-            v_trees[0]->nodes.to_host();
-            DO_ON_MULTI_DEVICES(n_devices, [&](int device_id) {
-                v_trees[device_id]->nodes.copy_from(v_trees[0]->nodes);
+            for_each_shard([&](Shard &shard) {
+                shard.tree.nodes.copy_from(shards.front()->tree.nodes);
             });
         }
 
         {
-            vector<bool> v_has_split(n_devices);
             TIMED_SCOPE(timerObj, "reset ins2node id");
             LOG(TRACE) << "reset ins2node id";
-            DO_ON_MULTI_DEVICES(n_devices, [&](int device_id) {
-                v_has_split[device_id] = reset_ins2node_id(*v_stats[device_id], *v_trees[device_id],
-                                                           *v_columns[device_id]);
+            for_each_shard([&](Shard &shard) {
+                shard.has_split = reset_ins2node_id(shard.stats, shard.tree, shard.columns);
             });
 
             LOG(TRACE) << "gathering ins2node id";
             //get final result of the reset instance id to node id
-//            if (n_executor == 1) {
             bool has_split = false;
-            for (int d = 0; d < n_devices; d++) {
-                has_split |= v_has_split[d];
+            for (int d = 0; d < param.n_device; d++) {
+                has_split |= shards[d]->has_split;
             }
             if (!has_split) {
                 LOG(INFO) << "no splittable nodes, stop";
                 break;
             }
-//            } else {
-//                todo early stop
-//            }
         }
 
         //get global ins2node id
         {
             TIMED_SCOPE(timerObj, "global ins2node id");
-            SyncArray<int> local_ins2node_id(n_instances);
+            SyncArray<unsigned char> local_ins2node_id(shards.front()->stats.n_instances);
             auto local_ins2node_id_data = local_ins2node_id.device_data();
-            auto global_ins2node_id_data = v_stats[0]->nid.device_data();
-            for (int d = 1; d < n_devices; d++) {
-                CUDA_CHECK(cudaMemcpyPeerAsync(local_ins2node_id_data, cur_device,
-                                               v_stats[d]->nid.device_data(), d,
-                                               sizeof(int) * n_instances));
-                cudaDeviceSynchronize();
-                device_loop(n_instances, [=]__device__(int i) {
+            auto global_ins2node_id_data = shards.front()->stats.nid.device_data();
+            for (int d = 1; d < param.n_device; d++) {
+                local_ins2node_id.copy_from(shards[d]->stats.nid);
+                device_loop(shards.front()->stats.n_instances, [=]__device__(int i) {
                     global_ins2node_id_data[i] = (global_ins2node_id_data[i] > local_ins2node_id_data[i]) ?
                                                  global_ins2node_id_data[i] : local_ins2node_id_data[i];
                 });
             }
-//            if (n_executor > 1) {
-//                if (rank == 0) {
-//                    MPI_Recv(local_ins2node_id.host_data(), local_ins2node_id.mem_size(), MPI_CHAR, 1, 0,
-//                             MPI_COMM_WORLD,
-//                             MPI_STATUS_IGNORE);
-//                    auto local_ins2node_id_data = local_ins2node_id.device_data();
-//                    auto global_ins2node_id_data = stats.nid.device_data();
-//                    device_loop(n_instances, [=]__device__(int i) {
-//                        global_ins2node_id_data[i] = (global_ins2node_id_data[i] > local_ins2node_id_data[i]) ?
-//                                                     global_ins2node_id_data[i] : local_ins2node_id_data[i];
-//                    });
-//                } else {
-//                    MPI_Send(stats.nid.host_data(), stats.nid.mem_size(), MPI_CHAR, 0, 0, MPI_COMM_WORLD);
-//                }
-//                if (rank == 0) {
-//                    MPI_Send(stats.nid.host_data(), stats.nid.mem_size(), MPI_CHAR, 1, 0, MPI_COMM_WORLD);
-//                } else {
-//                    MPI_Recv(stats.nid.host_data(), stats.nid.mem_size(), MPI_CHAR, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-//                }
-//            }
         }
         //processing missing value
         {
             TIMED_SCOPE(timerObj, "process missing value");
             LOG(TRACE) << "update ins2node id for each missing fval";
-            auto global_ins2node_id_data = v_stats[0]->nid.device_data();//essential
-            auto nodes_data = v_trees[0]->nodes.device_data();//already broadcast above
-            device_loop(n_instances, [=]__device__(int iid) {
+            auto global_ins2node_id_data = shards.front()->stats.nid.device_data();//essential
+            auto nodes_data = shards.front()->tree.nodes.device_data();//already broadcast above
+            device_loop(shards.front()->stats.n_instances, [=]__device__(int iid) {
                 int nid = global_ins2node_id_data[iid];
                 //if the instance is not on leaf node and not goes down
                 if (nodes_data[nid].splittable() && nid < nid_offset + n_max_nodes_in_level) {
@@ -182,53 +99,29 @@ void ExactUpdater::grow(Tree &tree, const vector<std::shared_ptr<SparseColumns>>
                         global_ins2node_id_data[iid] = node.lch_index;
                 }
             });
-            LOG(DEBUG) << "new nid = " << stats.nid;
+            LOG(DEBUG) << "new nid = " << shards.front()->stats.nid;
             //broadcast ins2node id
-            v_stats[0]->nid.to_host();
-            DO_ON_MULTI_DEVICES(n_devices, [&](int device_id) {
-//                v_stats[device_id]->nid.copy_from(stats.nid.host_data(), stats.nid.size());
-                v_stats[device_id]->nid.copy_from(v_stats[0]->nid);
-            });
         }
-    }
-    tree.nodes.copy_from(v_trees[0]->nodes);
-    stats.nid.copy_from(v_stats[0]->nid);
-}
 
-void ExactUpdater::split_point_all_reduce(const vector<SyncArray<SplitPoint>> &local_sp,
-                                          SyncArray<SplitPoint> &global_sp, int depth) {
-    //get global best split of each node
-    int n_max_nodes_in_level = 1 << depth;//2^i
-    int nid_offset = (1 << depth) - 1;//2^i - 1
-    auto global_sp_data = global_sp.host_data();
-    vector<bool> active_sp(n_max_nodes_in_level);
-    for (int n = 0; n < n_max_nodes_in_level; n++) {
-        global_sp_data[n].nid = -1;
-        global_sp_data[n].gain = -1.0f;
-        active_sp[n] = false;
+        for_each_shard([&](Shard &shard) {
+            shard.stats.nid.copy_from(shards.front()->stats.nid);
+        });
     }
 
-    for (int device_id = 0; device_id < n_devices; device_id++) {
-        auto local_sp_data = local_sp[device_id].host_data();
-        for (int j = 0; j < local_sp[device_id].size(); j++) {
-            int sp_nid = local_sp_data[j].nid;
-            if (sp_nid == -1) continue;
-            int global_pos = sp_nid - nid_offset;
-            if (!active_sp[global_pos])
-                global_sp_data[global_pos] = local_sp_data[j];
-            else
-                global_sp_data[global_pos] = (global_sp_data[global_pos].gain >= local_sp_data[j].gain)
-                                             ?
-                                             global_sp_data[global_pos] : local_sp_data[j];
-            active_sp[global_pos] = true;
-        }
-    }
-    //set inactive sp
-    for (int n = 0; n < n_max_nodes_in_level; n++) {
-        if (!active_sp[n])
-            global_sp_data[n].nid = -1;
-    }
-    LOG(DEBUG) << "global best split point = " << global_sp;
+    for_each_shard([&](Shard &shard) {
+        shard.tree.prune_self(param.gamma);
+        auto y_predict_data = shard.stats.y_predict.device_data();
+        auto nid_data = shard.stats.nid.device_data();
+        const Tree::TreeNode *nodes_data = shard.tree.nodes.device_data();
+        device_loop(shard.stats.n_instances, [=]__device__(int i) {
+            int nid = nid_data[i];
+            while (nid != -1 && (nodes_data[nid].is_pruned)) nid = nodes_data[nid].parent_index;
+            y_predict_data[i] += nodes_data[nid].base_weight;
+        });
+        shard.stats.updateGH();
+    });
+    tree.nodes.resize(shards.front()->tree.nodes.size());
+    tree.nodes.copy_from(shards.front()->tree.nodes);
 }
 
 void ExactUpdater::find_split(int level, const SparseColumns &columns, const Tree &tree, const InsStat &stats,
@@ -584,6 +477,63 @@ bool ExactUpdater::reset_ins2node_id(InsStat &stats, const Tree &tree, const Spa
     LOG(DEBUG) << "new tree_id = " << stats.nid;
 //        LOG(DEBUG) << v_trees[cur_device_id].nodes;
     return has_splittable.host_data()[0];
+}
+
+void ExactUpdater::init(const DataSet &dataset) {
+    shards.resize(param.n_device);
+    for (int i = 0; i < param.n_device; ++i) {
+        shards[i].reset(new Shard());
+    }
+    SparseColumns columns;
+    columns.from_dataset(dataset);
+    //todo refactor v_columns
+    vector<SparseColumns *> v_columns(param.n_device);
+    for (int i = 0; i < param.n_device; ++i) {
+        v_columns[i] = &shards[i]->columns;
+    }
+    for_each_shard([&](Shard &shard) {
+        int n_instances = dataset.n_instances();
+        shard.stats.resize(n_instances);
+        shard.stats.y.copy_from(dataset.y.data(), n_instances);
+        shard.stats.updateGH();
+    });
+    columns.to_multi_devices(v_columns);
+
+}
+
+void ExactUpdater::split_point_all_reduce(SyncArray<SplitPoint> &global_sp, int depth) {
+    //get global best split of each node
+    int n_max_nodes_in_level = 1 << depth;//2^i
+    int nid_offset = (1 << depth) - 1;//2^i - 1
+    auto global_sp_data = global_sp.host_data();
+    vector<bool> active_sp(n_max_nodes_in_level);
+    for (int n = 0; n < n_max_nodes_in_level; n++) {
+        global_sp_data[n].nid = -1;
+        global_sp_data[n].gain = -1.0f;
+        active_sp[n] = false;
+    }
+
+    for (int device_id = 0; device_id < param.n_device; device_id++) {
+        auto local_sp_data = shards[device_id]->sp.host_data();
+        for (int j = 0; j < shards[device_id]->sp.size(); j++) {
+            int sp_nid = local_sp_data[j].nid;
+            if (sp_nid == -1) continue;
+            int global_pos = sp_nid - nid_offset;
+            if (!active_sp[global_pos])
+                global_sp_data[global_pos] = local_sp_data[j];
+            else
+                global_sp_data[global_pos] = (global_sp_data[global_pos].gain >= local_sp_data[j].gain)
+                                             ?
+                                             global_sp_data[global_pos] : local_sp_data[j];
+            active_sp[global_pos] = true;
+        }
+    }
+    //set inactive sp
+    for (int n = 0; n < n_max_nodes_in_level; n++) {
+        if (!active_sp[n])
+            global_sp_data[n].nid = -1;
+    }
+    LOG(DEBUG) << "global best split point = " << global_sp;
 }
 
 std::ostream &operator<<(std::ostream &os, const int_float &rhs) {

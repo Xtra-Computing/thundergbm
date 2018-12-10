@@ -26,7 +26,7 @@ public:
         param.gamma = 1;
         param.rt_eps = 1e-6;
         param.do_exact = true;
-        param.n_device = 1;
+        param.n_device = 2;
 //        verbose = true;
 //        MPI_Comm_size(MPI_COMM_WORLD, &param.n_executor);
 
@@ -46,36 +46,24 @@ public:
         DataSet dataSet;
         dataSet.load_from_file(param.path);
         int n_instances = dataSet.n_instances();
-        InsStat stats;
         vector<Tree> trees;
-        SparseColumns columns;
-        columns.from_dataset(dataSet);
         trees.resize(param.n_trees);
-        stats.resize(n_instances);
-        stats.y.copy_from(dataSet.y.data(), n_instances);
 
-        int n_devices = param.n_device;
-        vector<std::shared_ptr<SparseColumns>> v_columns;
-        v_columns.resize(n_devices);
-        for (int i = 0; i < n_devices; i++)
-            v_columns[i].reset(new SparseColumns());
         ExactUpdater updater(param);
+        updater.init(dataSet);
         int round = 0;
         float_type rmse = 0;
         SyncMem::clear_cache();
         {
             TIMED_SCOPE(timerObj, "construct tree");
             for (Tree &tree:trees) {
-                stats.updateGH();
-                updater.grow(tree, v_columns, stats);
-                tree.prune_self(param.gamma);
+                updater.grow(tree);
                 LOG(DEBUG) << string_format("\nbooster[%d]", round) << tree.dump(param.depth);
-//                predict_in_training(stats, tree);
                 //next round
                 round++;
             }
         }
-        rmse = compute_rmse(stats);
+        rmse = compute_rmse(updater.shards.front()->stats);
         LOG(INFO) << "rmse = " << rmse;
         return rmse;
     }
