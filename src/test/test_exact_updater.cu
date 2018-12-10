@@ -26,7 +26,7 @@ public:
         param.gamma = 1;
         param.rt_eps = 1e-6;
         param.do_exact = true;
-        param.n_device = 2;
+        param.n_device = 1;
 //        verbose = true;
 //        MPI_Comm_size(MPI_COMM_WORLD, &param.n_executor);
 
