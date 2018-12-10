@@ -26,7 +26,7 @@ public:
         param.gamma = 1;
         param.rt_eps = 1e-6;
         param.do_exact = true;
-        param.n_device = 2;
+        param.n_device = 1;
 //        verbose = true;
 //        MPI_Comm_size(MPI_COMM_WORLD, &param.n_executor);
 
@@ -55,18 +55,10 @@ public:
         stats.y.copy_from(dataSet.y.data(), n_instances);
 
         int n_devices = param.n_device;
-//        int rank;
-//        MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-//        LOG(INFO) << "rank = " << rank;
-//        MPI_Barrier(MPI_COMM_WORLD);
         vector<std::shared_ptr<SparseColumns>> v_columns;
         v_columns.resize(n_devices);
         for (int i = 0; i < n_devices; i++)
             v_columns[i].reset(new SparseColumns());
-//        SparseColumns local_columns;
-//        columns.get_shards(rank, param.n_executor, local_columns);
-//        local_columns.to_multi_devices(v_columns);
-//        columns.to_multi_devices(v_columns);
         ExactUpdater updater(param);
         int round = 0;
         float_type rmse = 0;
@@ -103,7 +95,6 @@ public:
         {
             TIMED_SCOPE(timerObj, "construct tree");
             for (Tree &tree:trees) {
-//                stats.updateGH();
                 updater.grow(tree);
                 LOG(DEBUG) << string_format("\nbooster[%d]", round) << tree.dump(param.depth);
                 //next round
@@ -116,18 +107,21 @@ public:
     }
 
     float_type compute_rmse(const InsStat &stats) {
-        float_type sum_error = 0;
-        const float_type *y_data = stats.y.host_data();
-        const float_type *y_predict_data = stats.y_predict.host_data();
-        for (int i = 0; i < stats.n_instances; ++i) {
+        SyncArray<float_type> sq_err(stats.n_instances);
+        auto sq_err_data = sq_err.device_data();
+        const float_type *y_data = stats.y.device_data();
+        const float_type *y_predict_data = stats.y_predict.device_data();
+        device_loop(stats.n_instances, [=]__device__(int i) {
             float_type e = y_predict_data[i] - y_data[i];
-            sum_error += e * e;
-        }
-        float_type rmse = sqrt(sum_error / stats.n_instances);
+            sq_err_data[i] = e * e;
+        });
+        float_type rmse =
+                sqrt(thrust::reduce(thrust::cuda::par, sq_err.device_data(), sq_err.device_end()) / stats.n_instances);
         return rmse;
     }
 
 };
+
 class PerformanceTest : public UpdaterTest {
 };
 
