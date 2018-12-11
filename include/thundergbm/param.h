@@ -18,7 +18,7 @@ struct GBMParam {
     bool do_exact = true;
 
     //for histogram
-//    int max_num_bin = 256;
+    int max_num_bin = 255;
 
     int n_device;
 //    int n_executor;
