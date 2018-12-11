@@ -33,7 +33,7 @@ public:
     SplitPoint() {
         nid = -1;
         split_fea_id = -1;
-        gain = std::numeric_limits<float_type>::min();
+        gain = 0;
     }
 
     friend std::ostream &operator<<(std::ostream &output, const SplitPoint &sp) {

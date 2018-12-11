@@ -36,7 +36,7 @@ public:
 
         void reset_ins2node_id();
 
-        void update_tree(const SyncArray<SplitPoint> &global_sp);
+        void update_tree();
 
         void predict_in_training();
     };
@@ -54,7 +54,9 @@ public:
 
     void grow(Tree &tree);
 
-    void split_point_all_reduce(SyncArray<SplitPoint> &global_sp, int depth);
+    void split_point_all_reduce(int depth);
+
+    void ins2node_id_all_reduce();
 };
 
 #endif //GBM_MIRROR2_HIST_UPDATER_H
