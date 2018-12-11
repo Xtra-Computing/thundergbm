@@ -12,9 +12,9 @@
 #include "thundergbm/util/log.h"
 #include "thundergbm/util/common.h"
 #include "thundergbm/util/multi_device.h"
+#include "thundergbm/param.h"
 #include "config.h"
 
-typedef float float_type;
 using std::vector;
 using std::string;
 #endif //THUNDERGBM_THUNDERGBM_H

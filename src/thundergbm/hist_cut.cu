@@ -9,12 +9,15 @@
 #include <omp.h>
 #include "thundergbm/util/device_lambda.cuh"
 
-void HistCut::get_cut_points(SparseColumns &columns, InsStat &stats, int max_num_bins, int n_instances, int device_id) {
-    TIMED_FUNC(timerObj);
+void HistCut::get_cut_points(SparseColumns &columns, InsStat &stats, int max_num_bins, int n_instances) {
     LOG(TRACE) << "get cut points";
+    LOG(DEBUG)<<"val = " << columns.csc_val;
+    LOG(DEBUG)<<"idx = " << columns.csc_row_idx;
+    LOG(DEBUG)<<"ptr = " << columns.csc_col_ptr;
     int n_features = columns.n_column;
+//    std::cout<<"n_featrues:"<<n_features<<std::endl;
     vector<quanSketch> sketchs(n_features);
-    const int kFactor = 51200;
+    const int kFactor = 8;
     for (int i = 0; i < n_features; i++) {
         sketchs[i].Init(n_instances, 1.0 / (max_num_bins * kFactor));
     }
@@ -22,17 +25,19 @@ void HistCut::get_cut_points(SparseColumns &columns, InsStat &stats, int max_num
     int *row_ptr = columns.csc_row_idx.host_data();
     int *col_ptr = columns.csc_col_ptr.host_data();
     auto stat_gh_ptr = stats.gh_pair.host_data();
+//	std::cout<<"before add"<<std::endl;
 #pragma omp parallel for
     for (int i = 0; i < columns.csc_col_ptr.size() - 1; i++) {
         for (int j = col_ptr[i + 1] - 1; j >= col_ptr[i]; j--) {
-            CHECK(j < columns.csc_val.size()) << j;
             float_type val = val_ptr[j];
-            CHECK(row_ptr[j] < n_instances) << row_ptr[j];
             float_type weight = stat_gh_ptr[row_ptr[j]].h;
             sketchs[i].Add(val, weight);
         }
     }
-    summary n_summary[n_features];
+//    std::cout<<"after add"<<std::endl;
+    vector<summary> n_summary(n_features);
+//    summary n_summary[n_features];
+//	std::cout<<"before prune"<<std::endl;
 #pragma omp parallel for
     for (int i = 0; i < n_features; i++) {
         summary ts;
@@ -41,6 +46,7 @@ void HistCut::get_cut_points(SparseColumns &columns, InsStat &stats, int max_num
         n_summary[i].Prune(ts, max_num_bins * kFactor);
     }
     int nthread = omp_get_max_threads();
+//    LOG(DEBUG)<<"nthread = " << nthread;
     vector<vector<float_type>> cut_points_local;
     cut_points_local.resize(n_features);
     vector<int> cut_points_size(n_features);
@@ -49,6 +55,7 @@ void HistCut::get_cut_points(SparseColumns &columns, InsStat &stats, int max_num
 #pragma omp parallel num_threads(nthread)
     {
         int tid = omp_get_thread_num();
+//        LOG(DEBUG)<<"tid = "<< tid;
         int nstep = (n_features + nthread - 1) / nthread;
         int sbegin = std::min(tid * nstep, n_features);
         int send = std::min((tid + 1) * nstep, n_features);
@@ -62,7 +69,9 @@ void HistCut::get_cut_points(SparseColumns &columns, InsStat &stats, int max_num
                 continue;
             }
             float_type min_val = ts.entries[0].val;
+
             cut_points_local[i][k++] = min_val - (fabsf(min_val) + 1e-5);
+
             if (ts.entry_size > 1 && ts.entry_size <= 16) {
                 cut_points_local[i][k++] = (ts.entries[0].val + ts.entries[1].val) / 2;
                 for (int j = 2; j < ts.entry_size; j++) {
@@ -81,6 +90,16 @@ void HistCut::get_cut_points(SparseColumns &columns, InsStat &stats, int max_num
                     }
                 }
             }
+
+            /*
+            float_type max_val = ts.entries[ts.entry_size - 1].val;
+            if(max_val > 0){
+                cut_points_local[i][k++] = max_val*2 + 1e-5;
+            }
+            else{
+                cut_points_local[i][k++] = 1e-5;
+            }
+            */
             cut_points_size[i] = k;
         }
     }
@@ -93,7 +112,6 @@ void HistCut::get_cut_points(SparseColumns &columns, InsStat &stats, int max_num
     for (int i = 0; i < n_features; i++) {
         this->row_ptr.push_back(cut_points_size[i] + this->row_ptr.back());
     }
-    CUDA_CHECK(cudaSetDevice(device_id));
     cut_row_ptr.resize(this->row_ptr.size());
     cut_row_ptr.copy_from(this->row_ptr.data(), this->row_ptr.size());
     cut_points_val.resize(this->cut_points.size());
@@ -104,11 +122,13 @@ void HistCut::get_cut_points(SparseColumns &columns, InsStat &stats, int max_num
         for (int j = cut_row_ptr_data[i + 1] - 1; j >= cut_row_ptr_data[i]; j--)
             cut_points_val_ptr[j] = this->cut_points[sum - j];
     }
-    CUDA_CHECK(cudaSetDevice(0));
     cut_fid.resize(cut_points.size());
+    LOG(DEBUG) << cut_row_ptr;
+    LOG(DEBUG) << cut_fid.size();
     auto cut_fid_data = cut_fid.device_data();
-    device_loop_2d(n_features, cut_row_ptr.device_data(), [=] __device__(int fid, int i){
+    device_loop_2d(n_features, cut_row_ptr.device_data(), [=] __device__(int fid, int i) {
         cut_fid_data[i] = fid;
+//        printf("i = %d, fid = %d\n", i, fid);
     });
 }
 
@@ -134,7 +154,7 @@ void BinStat::Init(HistCut &cut, InsStat &stats, int pid, float_type *f_val, int
 //    this->fid = fid;
 //    this->gh_pair.resize(cut_points.size());
 //    float_type* val_ptr = columns.csc_val.host_data();
-//    int* row_ptr = columns.csc_row_idx.host_data();
+//    int* row_ptr = columns.csc_row_ind.host_data();
 //    int* col_ptr = columns.csc_col_ptr.host_data();
 //    for(int i = col_ptr[fid + 1] - 1; i >= col_ptr[fid]; i--){
 //        float_type val = val_ptr[i];

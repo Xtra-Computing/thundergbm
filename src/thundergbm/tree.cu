@@ -4,12 +4,12 @@
 #include "thundergbm/tree.h"
 #include "thundergbm/util/device_lambda.cuh"
 
-Tree::Tree(int depth) {
-    init(depth);
-}
+//Tree::Tree(int depth) {
+//    init(depth);
+//}
 
-void Tree::init(int depth) {
-    int n_max_nodes = static_cast<int>(pow(2, depth + 1) - 1);
+void Tree::init(const InsStat &stats, const GBMParam &param) {
+    int n_max_nodes = static_cast<int>(pow(2, param.depth + 1) - 1);
     nodes.resize(n_max_nodes);
     auto node_data = nodes.device_data();
     device_loop(n_max_nodes, [=]__device__(int i) {
@@ -27,6 +27,16 @@ void Tree::init(int depth) {
             node_data[i].lch_index = -1;
             node_data[i].rch_index = -1;
         }
+    });
+
+    //init root node
+    GHPair sum_gh = stats.sum_gh;
+    float_type lambda = param.lambda;
+    device_loop<1, 1>(1, [=]__device__(int i) {
+        Tree::TreeNode &root_node = node_data[0];
+        root_node.sum_gh_pair = sum_gh;
+        root_node.is_valid = true;
+        root_node.calc_weight(lambda);
     });
 }
 

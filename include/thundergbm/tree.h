@@ -43,7 +43,7 @@ public:
 
     };
 
-    explicit Tree(int depth);
+//    explicit Tree(int depth);
 
     Tree() = default;
 
@@ -58,7 +58,7 @@ public:
         return *this;
     }
 
-    void init(int depth);
+    void init(const InsStat &stats, const GBMParam &param);
 
     string dump(int depth) const;
 

@@ -101,15 +101,16 @@ namespace thunder {
 
     void SyncMem::to_device() {
 #ifdef USE_CUDA
-        DO_ON_DEVICE(device_id, {
-            switch (head_) {
-                case UNINITIALIZED:
-                    CUDA_CHECK(device_allocator.DeviceAllocate(&device_ptr, size_));
-                    CUDA_CHECK(cudaMemset(device_ptr, 0, size_));
-                    head_ = DEVICE;
-                    own_device_data = true;
-                    break;
-                case HOST:
+        switch (head_) {
+            case UNINITIALIZED:
+                CUDA_CHECK(device_allocator.DeviceAllocate(&device_ptr, size_));
+                CUDA_CHECK(cudaMemset(device_ptr, 0, size_));
+                head_ = DEVICE;
+                own_device_data = true;
+                CUDA_CHECK(cudaGetDevice(&device_id));
+                break;
+            case HOST:
+                DO_ON_DEVICE(device_id, {
                     if (nullptr == device_ptr) {
                         CUDA_CHECK(device_allocator.DeviceAllocate(&device_ptr, size_));
                         CUDA_CHECK(cudaMemset(device_ptr, 0, size_));
@@ -117,10 +118,10 @@ namespace thunder {
                     }
                     CUDA_CHECK(cudaMemcpy(device_ptr, host_ptr, size_, cudaMemcpyHostToDevice));
                     head_ = DEVICE;
-                    break;
-                case DEVICE:;
-            }
-        });
+                });
+                break;//must break here in order to finish DO_ON_DEVICE
+            case DEVICE:;
+        }
 #else
         NO_GPU;
 #endif

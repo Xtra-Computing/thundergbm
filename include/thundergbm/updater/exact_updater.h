@@ -45,39 +45,41 @@ public:
 class ExactUpdater {
 public:
     explicit ExactUpdater(GBMParam &param) {
-        depth = param.depth;
-        min_child_weight = param.min_child_weight;
-        lambda = param.lambda;
-        gamma = param.gamma;
-        rt_eps = param.rt_eps;
-        n_devices = param.n_device;
+        this->param = param;
     }
 
 
-    virtual void grow(Tree &tree, const vector<std::shared_ptr<SparseColumns>> &v_columns, InsStat &stats);
+    GBMParam param;
+    struct Shard {
+        SparseColumns columns;
+        InsStat stats;
+        Tree tree;
+        SyncArray<SplitPoint> sp;
+        bool has_split;
+    };
+    vector<std::unique_ptr<Shard>> shards;
+    
+    template <typename L>
+    void for_each_shard(L lambda){
+        DO_ON_MULTI_DEVICES(param.n_device, [&](int device_id){
+            lambda(*shards[device_id].get());
+        });
+    }
+    
+    void init(const DataSet& dataset);
 
-    int depth;
-    float_type min_child_weight;
-    float_type lambda;
-    float_type gamma;
-    float_type rt_eps;
+    void grow(Tree &tree);
 
-    int n_devices;
-    vector<std::shared_ptr<InsStat>> v_stats;
-    vector<std::shared_ptr<Tree>> v_trees;
-
-    void init_tree(Tree &tree, const InsStat &stats);
-
-    virtual void find_split(int level, const SparseColumns &columns, const Tree &tree, const InsStat &stats,
+    void find_split(int level, const SparseColumns &columns, const Tree &tree, const InsStat &stats,
                             SyncArray<SplitPoint> &sp);
 
-//update global best split for each node
     void update_tree(Tree &tree, const SyncArray<SplitPoint> &sp);
 
-    virtual bool reset_ins2node_id(InsStat &stats, const Tree &tree, const SparseColumns &columns);
+    bool reset_ins2node_id(InsStat &stats, const Tree &tree, const SparseColumns &columns);
 
-    void split_point_all_reduce(const vector<SyncArray<SplitPoint>> &local_sp, SyncArray<SplitPoint> &global_sp,
-                                int depth);
+//    void split_point_all_reduce(const vector<SyncArray<SplitPoint>> &local_sp, SyncArray<SplitPoint> &global_sp,
+//                                int depth);
+    void split_point_all_reduce(SyncArray<SplitPoint> &global_sp, int depth);
 };
 
 typedef thrust::tuple<int, float_type> int_float;

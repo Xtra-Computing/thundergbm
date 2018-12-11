@@ -37,6 +37,8 @@ void summary::Merge(summary& src1, summary& src2){
     float_type r1 = 0;
     float_type r2 = 0;
     int i = 0, j = 0;
+    this->Reserve(src1.entry_size + src2.entry_size);
+    this->entry_size = 0;
     for(; i < src1.entry_size && j < src2.entry_size;){
         int val1 = src1.entries[i].val;
         int val2 = src2.entries[j].val;
@@ -259,7 +261,7 @@ void quanSketch::Init(int maxn, float_type eps){
         if (n * summarySize >= maxn) break;
         ++numOfLevel;
     }
-    //std::cout<<"summarySize:"<<summarySize<<std::endl;
+//    std::cout<<"summarySize:"<<summarySize<<std::endl;
 	int n = (1ULL << numOfLevel);
     CHECK(n * summarySize >= maxn) << "invalid init parameter";
     CHECK(numOfLevel <= summarySize * eps) << "invalid init parameter";
@@ -277,7 +279,7 @@ void quanSketch::Add(float_type value, float_type weight){
         Qentry.GetSummary(t_summary);
         Qentry.tail = 0;
         for(int i = 1;; i++){
-            if(summaries.size() < i){
+            if(summaries.size() < i + 1){
 				//Qentry.data.resize((i+1)*summarySize);
                 summaries.resize(i + 1, summary(0, (i+1) * summarySize));
             }

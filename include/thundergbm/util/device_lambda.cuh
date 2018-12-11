@@ -35,6 +35,7 @@ template<int NUM_BLOCK = 32 * 56, int BLOCK_SIZE = 256, typename L>
 inline void device_loop(int len, L lambda) {
     if (len > 0) {
         lambda_kernel << < NUM_BLOCK, BLOCK_SIZE >> > (len, lambda);
+        cudaDeviceSynchronize();
         CUDA_CHECK(cudaPeekAtLastError());
     }
 }
@@ -42,6 +43,7 @@ inline void device_loop(int len, L lambda) {
 template<int NUM_BLOCK = 32 * 56, int BLOCK_SIZE = 256, typename L>
 inline void anonymous_kernel(L lambda, size_t smem_size = 0) {
     anonymous_kernel_k<< < NUM_BLOCK, BLOCK_SIZE, smem_size >> > (lambda);
+    cudaDeviceSynchronize();
     CUDA_CHECK(cudaPeekAtLastError());
 }
 
@@ -51,6 +53,7 @@ void device_loop_2d(int len1, const int *len2, L lambda, unsigned int NUM_BLOCK 
                     unsigned int BLOCK_SIZE = 256) {
     if (len1 > 0) {
         lambda_2d_sparse_kernel << < dim3(len1, NUM_BLOCK), BLOCK_SIZE >> > (len2, lambda);
+        cudaDeviceSynchronize();
         CUDA_CHECK(cudaPeekAtLastError());
     }
 }
