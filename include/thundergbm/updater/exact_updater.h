@@ -56,6 +56,8 @@ public:
         Tree tree;
         SyncArray<SplitPoint> sp;
         bool has_split;
+        void predict_in_training();
+
     };
     vector<std::unique_ptr<Shard>> shards;
     

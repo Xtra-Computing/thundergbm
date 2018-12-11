@@ -85,6 +85,11 @@ void SparseColumns::to_multi_devices(vector<SparseColumns*> &v_columns) const {
     //devide data into multiple devices
     int n_device = v_columns.size();
     int ave_n_columns = n_column / n_device;
+    auto correct_start = [](int *csc_col_ptr_2d_data, int first_col_start, int n_column_sub){
+        device_loop(n_column_sub + 1, [=] __device__(int col_id) {
+            csc_col_ptr_2d_data[col_id] = csc_col_ptr_2d_data[col_id] - first_col_start;
+        });
+    };
     DO_ON_MULTI_DEVICES(n_device, [&](int device_id) {
         SparseColumns &columns = *v_columns[device_id];
         const int *csc_col_ptr_data = csc_col_ptr.host_data();
@@ -106,11 +111,8 @@ void SparseColumns::to_multi_devices(vector<SparseColumns*> &v_columns) const {
         columns.csc_col_ptr.copy_from(csc_col_ptr.host_data() + first_col_id, n_column_sub + 1);
 
         int *csc_col_ptr_2d_data = columns.csc_col_ptr.device_data();
-
+        correct_start(csc_col_ptr_2d_data, first_col_start, n_column_sub);
         //correct segment start positions
-        device_loop(n_column_sub + 1, [=] __device__(int col_id) {
-            csc_col_ptr_2d_data[col_id] = csc_col_ptr_2d_data[col_id] - first_col_start;
-        });
         LOG(TRACE) << "sorting feature values (multi-device)";
         cub_seg_sort_by_key(columns.csc_val, columns.csc_row_idx, columns.csc_col_ptr, false);
     });

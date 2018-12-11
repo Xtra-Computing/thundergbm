@@ -110,14 +110,7 @@ void ExactUpdater::grow(Tree &tree) {
 
     for_each_shard([&](Shard &shard) {
         shard.tree.prune_self(param.gamma);
-        auto y_predict_data = shard.stats.y_predict.device_data();
-        auto nid_data = shard.stats.nid.device_data();
-        const Tree::TreeNode *nodes_data = shard.tree.nodes.device_data();
-        device_loop(shard.stats.n_instances, [=]__device__(int i) {
-            int nid = nid_data[i];
-            while (nid != -1 && (nodes_data[nid].is_pruned)) nid = nodes_data[nid].parent_index;
-            y_predict_data[i] += nodes_data[nid].base_weight;
-        });
+        shard.predict_in_training();
         shard.stats.updateGH();
     });
     tree.nodes.resize(shards.front()->tree.nodes.size());
@@ -539,4 +532,15 @@ void ExactUpdater::split_point_all_reduce(SyncArray<SplitPoint> &global_sp, int 
 std::ostream &operator<<(std::ostream &os, const int_float &rhs) {
     os << string_format("%d/%f", thrust::get<0>(rhs), thrust::get<1>(rhs));
     return os;
+}
+
+void ExactUpdater::Shard::predict_in_training() {
+    auto y_predict_data = stats.y_predict.device_data();
+    auto nid_data = stats.nid.device_data();
+    const Tree::TreeNode *nodes_data = tree.nodes.device_data();
+    device_loop(shard.stats.n_instances, [=]__device__(int i) {
+        int nid = nid_data[i];
+        while (nid != -1 && (nodes_data[nid].is_pruned)) nid = nodes_data[nid].parent_index;
+        y_predict_data[i] += nodes_data[nid].base_weight;
+    });
 }
