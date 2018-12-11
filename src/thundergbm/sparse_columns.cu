@@ -81,15 +81,16 @@ void SparseColumns::from_dataset(const DataSet &dataset) {
 }
 
 
+//FIXME remove this function
+void correct_start(int *csc_col_ptr_2d_data, int first_col_start, int n_column_sub){
+    device_loop(n_column_sub + 1, [=] __device__(int col_id) {
+        csc_col_ptr_2d_data[col_id] = csc_col_ptr_2d_data[col_id] - first_col_start;
+    });
+};
 void SparseColumns::to_multi_devices(vector<SparseColumns*> &v_columns) const {
     //devide data into multiple devices
     int n_device = v_columns.size();
     int ave_n_columns = n_column / n_device;
-    auto correct_start = [](int *csc_col_ptr_2d_data, int first_col_start, int n_column_sub){
-        device_loop(n_column_sub + 1, [=] __device__(int col_id) {
-            csc_col_ptr_2d_data[col_id] = csc_col_ptr_2d_data[col_id] - first_col_start;
-        });
-    };
     DO_ON_MULTI_DEVICES(n_device, [&](int device_id) {
         SparseColumns &columns = *v_columns[device_id];
         const int *csc_col_ptr_data = csc_col_ptr.host_data();

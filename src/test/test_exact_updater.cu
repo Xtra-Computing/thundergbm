@@ -10,28 +10,16 @@
 #include "cuda_profiler_api.h"
 //#include "mpi.h"
 
+extern GBMParam global_test_param;
 class UpdaterTest : public ::testing::Test {
 public:
 
-    GBMParam param;
-    bool verbose = false;
+    GBMParam param = global_test_param;
 
     void SetUp() override {
-//        MPI_Init(NULL, NULL);
-        //common param
-        param.depth = 6;
-        param.n_trees = 40;
-        param.min_child_weight = 1;
-        param.lambda = 1;
-        param.gamma = 1;
-        param.rt_eps = 1e-6;
-        param.do_exact = true;
-        param.n_device = 1;
-//        verbose = true;
-//        MPI_Comm_size(MPI_COMM_WORLD, &param.n_executor);
 
 
-        if (!verbose) {
+        if (!param.verbose) {
             el::Loggers::reconfigureAllLoggers(el::Level::Debug, el::ConfigurationType::Enabled, "false");
             el::Loggers::reconfigureAllLoggers(el::Level::Trace, el::ConfigurationType::Enabled, "false");
         }
@@ -200,15 +188,3 @@ TEST_F(PerformanceTest, airline) {
     param.path = DATASET_DIR "airline_14col.data";
     train_exact(param);
 }
-//TEST_F(UpdaterTest, test_abalone_hist) {
-//    param.path = DATASET_DIR "abalone";
-//    float_type rmse = train_hist(param);
-//    EXPECT_NEAR(rmse, 0.904459, 1e-5);
-//}
-//
-//TEST_F(UpdaterTest, test_news20_hist) {
-//    param.path = DATASET_DIR "news20.scale";
-//    float_type rmse = train_hist(param);
-//    EXPECT_NEAR(rmse, 2.55908, 1e-5);
-//}
-

@@ -7,14 +7,11 @@
 
 
 void HistUpdater::grow(Tree &tree) {
-//    TIMED_SCOPE(timerObj, "grow tree");
     for_each_shard([&](Shard &shard) {
         shard.tree.init(shard.stats, param);
     });
     for (int level = 0; level < param.depth; ++level) {
-        LOG(TRACE) << "growing tree at depth " << level;
         {
-//            TIMED_SCOPE(timerObj, "find split");
             for_each_shard([&](Shard &shard) {
                 shard.find_split(level);
             });
@@ -23,7 +20,6 @@ void HistUpdater::grow(Tree &tree) {
         int n_max_nodes_in_level = 1 << level;//2^level
         SyncArray<SplitPoint> global_sp(n_max_nodes_in_level);
         {
-//            TIMED_SCOPE(timerObj, "split point all reduce");
             if (param.n_device > 1)
                 split_point_all_reduce(global_sp, level);
             else
@@ -32,7 +28,6 @@ void HistUpdater::grow(Tree &tree) {
 
         //do split
         {
-//            TIMED_SCOPE(timerObj, "update tree");
             shards.front()->update_tree(global_sp);
         }
 
@@ -53,7 +48,6 @@ void HistUpdater::grow(Tree &tree) {
 
             LOG(TRACE) << "gathering ins2node id";
             //get final result of the reset instance id to node id
-//            if (n_executor == 1) {
             bool has_split = false;
             for (int d = 0; d < param.n_device; d++) {
                 has_split |= shards[d]->has_split;
@@ -66,8 +60,7 @@ void HistUpdater::grow(Tree &tree) {
 
         //get global ins2node id
         {
-//            TIMED_SCOPE(timerObj, "global ins2node id");
-            SyncArray<unsigned char> local_ins2node_id(shards.front()->stats.n_instances);
+            SyncArray<int> local_ins2node_id(shards.front()->stats.n_instances);
             auto local_ins2node_id_data = local_ins2node_id.device_data();
             auto global_ins2node_id_data = shards.front()->stats.nid.device_data();
             for (int d = 1; d < param.n_device; d++) {
@@ -222,9 +215,7 @@ void HistUpdater::Shard::find_split(int level) {
     int nid_offset = static_cast<int>(pow(2, level) - 1);
     int n_column = columns.n_column;
     int n_partition = n_column * n_nodes_in_level;
-    int nnz = columns.nnz;
     int n_bins = cut.cut_points.size();
-    int n_block = std::min((nnz / n_column - 1) / 256 + 1, 32 * 56);
     int n_max_nodes = 2 << param.depth;
     int n_max_splits = n_max_nodes * n_bins;
     int n_split = n_nodes_in_level * n_bins;
@@ -304,7 +295,7 @@ void HistUpdater::Shard::find_split(int level) {
                         SyncArray<int> node_ptr(n_nodes_in_level + 1);
                         {
 //                            TIMED_SCOPE(timerObj, "gather node idx");
-                            SyncArray<unsigned char> nid4sort(stats.n_instances);
+                            SyncArray<int> nid4sort(stats.n_instances);
                             nid4sort.copy_from(stats.nid);
                             sequence(cuda::par, node_idx.device_data(), node_idx.device_end(), 0);
                             cub_sort_by_key(nid4sort, node_idx);

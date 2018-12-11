@@ -15,12 +15,11 @@ struct GBMParam {
     float_type gamma;
     float_type rt_eps;
     std::string path;
-    bool do_exact = true;
+    bool verbose;
 
     //for histogram
     int max_num_bin = 255;
 
     int n_device;
-//    int n_executor;
 };
 #endif //THUNDERGBM_PARAM_H

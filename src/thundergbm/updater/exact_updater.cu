@@ -70,7 +70,7 @@ void ExactUpdater::grow(Tree &tree) {
         //get global ins2node id
         {
             TIMED_SCOPE(timerObj, "global ins2node id");
-            SyncArray<unsigned char> local_ins2node_id(shards.front()->stats.n_instances);
+            SyncArray<int> local_ins2node_id(shards.front()->stats.n_instances);
             auto local_ins2node_id_data = local_ins2node_id.device_data();
             auto global_ins2node_id_data = shards.front()->stats.nid.device_data();
             for (int d = 1; d < param.n_device; d++) {
@@ -538,7 +538,7 @@ void ExactUpdater::Shard::predict_in_training() {
     auto y_predict_data = stats.y_predict.device_data();
     auto nid_data = stats.nid.device_data();
     const Tree::TreeNode *nodes_data = tree.nodes.device_data();
-    device_loop(shard.stats.n_instances, [=]__device__(int i) {
+    device_loop(stats.n_instances, [=]__device__(int i) {
         int nid = nid_data[i];
         while (nid != -1 && (nodes_data[nid].is_pruned)) nid = nodes_data[nid].parent_index;
         y_predict_data[i] += nodes_data[nid].base_weight;
