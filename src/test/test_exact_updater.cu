@@ -189,3 +189,7 @@ TEST_F(Hist, susy) {
     param.path = DATASET_DIR "SUSY";
     train_hist(param);
 }
+
+TEST_F(Hist, any) {
+    train_hist(param);
+}

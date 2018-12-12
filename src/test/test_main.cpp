@@ -24,6 +24,7 @@ int main(int argc, char **argv) {
         if (string(argv[i]) == "-n") global_test_param.n_trees = atoi(argv[++i]);
         if (string(argv[i]) == "-n_gpu") global_test_param.n_device = atoi(argv[++i]);
         if (string(argv[i]) == "-v") global_test_param.verbose= atoi(argv[++i]);
+        if (string(argv[i]) == "-dataset") global_test_param.path= argv[++i];
     }
     return RUN_ALL_TESTS();
 }
