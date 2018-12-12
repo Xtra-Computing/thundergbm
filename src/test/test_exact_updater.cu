@@ -28,6 +28,7 @@ public:
 
     void TearDown() {
 //        MPI_Finalize();
+        SyncMem::clear_cache();
     }
 
     float_type train_exact(GBMParam &param) {
@@ -49,10 +50,10 @@ public:
                 LOG(DEBUG) << string_format("\nbooster[%d]", round) << tree.dump(param.depth);
                 //next round
                 round++;
+                rmse = compute_rmse(updater.shards.front()->stats);
+                LOG(INFO) << "rmse = " << rmse;
             }
         }
-        rmse = compute_rmse(updater.shards.front()->stats);
-        LOG(INFO) << "rmse = " << rmse;
         return rmse;
     }
 
@@ -83,6 +84,7 @@ public:
     }
 
     float_type compute_rmse(const InsStat &stats) {
+        TIMED_FUNC(timerObj);
         SyncArray<float_type> sq_err(stats.n_instances);
         auto sq_err_data = sq_err.device_data();
         const float_type *y_data = stats.y.device_data();
@@ -98,7 +100,9 @@ public:
 
 };
 
-class PerformanceTest : public UpdaterTest {
+class Exact : public UpdaterTest {
+};
+class Hist : public UpdaterTest {
 };
 
 TEST_F(UpdaterTest, news20_40_trees_same_as_xgboost) {
@@ -113,78 +117,75 @@ TEST_F(UpdaterTest, abalone_40_trees_same_as_xgboost) {
     EXPECT_NEAR(rmse, 0.803684, 1e-5);
 }
 
-TEST_F(UpdaterTest, abalone_hist) {
-    param.path = DATASET_DIR "abalone";
-    param.n_trees = 1;
-    float_type rmse = train_hist(param);//1674 ms
+TEST_F(UpdaterTest, iris) {
+    param.n_trees = 2;
+    param.path = DATASET_DIR "iris.scale";
+    train_hist(param);
 }
 
+TEST_F(UpdaterTest, iris_exact) {
+    param.n_trees = 2;
+    param.path = DATASET_DIR "iris.scale";
+    train_exact(param);
+}
 
-TEST_F(PerformanceTest, covtype_40_trees) {
-//    param.n_trees = 2;
+TEST_F(Exact, covtype) {
     param.path = DATASET_DIR "covtype";
-    train_hist(param);
+    train_exact(param);
 }
 
-TEST_F(PerformanceTest, e2006_40_trees) {
+TEST_F(Exact, e2006) {
     param.path = DATASET_DIR "E2006.train";
-    train_hist(param);
+    train_exact(param);
 }
 
-TEST_F(PerformanceTest, log1p_40_trees) {
+TEST_F(Exact, higgs) {
+    param.path = DATASET_DIR "HIGGS";
+    train_exact(param);
+}
+
+TEST_F(Exact, ins) {
+    param.path = DATASET_DIR "ins.libsvm";
+    train_exact(param);
+}
+
+TEST_F(Exact, log1p) {
     param.path = DATASET_DIR "log1p.E2006.train";
     train_exact(param);
 }
 
-TEST_F(PerformanceTest, higgs_40_trees) {
-    param.path = DATASET_DIR "HIGGS";
-    train_hist(param);
-}
 
-TEST_F(PerformanceTest, news20_40_trees) {
+TEST_F(Exact, news20) {
     param.path = DATASET_DIR "news20.binary";
     train_exact(param);
 }
 
-TEST_F(PerformanceTest, abalone) {
-    param.path = DATASET_DIR "abalone";
-    train_hist(param);
-}
-
-TEST_F(PerformanceTest, real_sim_40_trees) {
+TEST_F(Exact, real_sim) {
     param.path = DATASET_DIR "real-sim";
-    train_hist(param);
+    train_exact(param);
 }
 
-TEST_F(PerformanceTest, susy_40_trees) {
+TEST_F(Exact, susy) {
     param.path = DATASET_DIR "SUSY";
+    train_exact(param);
+}
+
+TEST_F(Hist, covtype) {
+    param.path = DATASET_DIR "covtype";
     train_hist(param);
 }
 
-TEST_F(PerformanceTest, ins_40_trees) {
+TEST_F(Hist, higgs) {
+    param.path = DATASET_DIR "HIGGS";
+    train_hist(param);
+}
+
+TEST_F(Hist, ins) {
     param.path = DATASET_DIR "ins.libsvm";
     train_hist(param);
 }
 
-TEST_F(PerformanceTest, iris) {
-    param.n_trees = 2;
-    param.path = DATASET_DIR "iris.scale";
+TEST_F(Hist, susy) {
+    param.path = DATASET_DIR "SUSY";
     train_hist(param);
-}
-
-TEST_F(PerformanceTest, iris_exact) {
-    param.n_trees = 2;
-    param.path = DATASET_DIR "iris.scale";
-    train_exact(param);
-}
-
-TEST_F(PerformanceTest, year) {
-    param.n_trees = 2;
-    param.path = DATASET_DIR "YearPredictionMSD.scale";
-    train_hist(param);
-}
-
-TEST_F(PerformanceTest, airline) {
-    param.path = DATASET_DIR "airline_14col.data";
-    train_exact(param);
 }

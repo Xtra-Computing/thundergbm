@@ -9,7 +9,7 @@
 //}
 
 void Tree::init(const InsStat &stats, const GBMParam &param) {
-    TIMED_FUNC(timerObj);
+//    TIMED_FUNC(timerObj);
     int n_max_nodes = static_cast<int>(pow(2, param.depth + 1) - 1);
     nodes.resize(n_max_nodes);
     auto node_data = nodes.device_data();

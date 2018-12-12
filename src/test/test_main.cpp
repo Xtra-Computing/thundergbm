@@ -9,7 +9,7 @@ GBMParam global_test_param;
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     el::Loggers::reconfigureAllLoggers(el::ConfigurationType::Format, "%datetime %level %fbase:%line : %msg");
-    el::Loggers::addFlag(el::LoggingFlag::ColoredTerminalOutput);
+    //el::Loggers::addFlag(el::LoggingFlag::ColoredTerminalOutput);
     el::Loggers::addFlag(el::LoggingFlag::FixedTimeFormat);
     global_test_param.depth = 6;
     global_test_param.n_trees = 40;

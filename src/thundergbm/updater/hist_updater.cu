@@ -16,23 +16,26 @@ void HistUpdater::grow(Tree &tree) {
             shard.find_split(level);
         });
         split_point_all_reduce(level);
-        for_each_shard([&](Shard &shard) {
-            shard.update_tree();
-            shard.reset_ins2node_id();
-        });
         {
-            LOG(TRACE) << "gathering ins2node id";
-            //get final result of the reset instance id to node id
-            bool has_split = false;
-            for (int d = 0; d < param.n_device; d++) {
-                has_split |= shards[d]->has_split;
+            TIMED_SCOPE(timerObj, "apply sp");
+            for_each_shard([&](Shard &shard) {
+                shard.update_tree();
+                shard.reset_ins2node_id();
+            });
+            {
+                LOG(TRACE) << "gathering ins2node id";
+                //get final result of the reset instance id to node id
+                bool has_split = false;
+                for (int d = 0; d < param.n_device; d++) {
+                    has_split |= shards[d]->has_split;
+                }
+                if (!has_split) {
+                    LOG(INFO) << "no splittable nodes, stop";
+                    break;
+                }
             }
-            if (!has_split) {
-                LOG(INFO) << "no splittable nodes, stop";
-                break;
-            }
+            ins2node_id_all_reduce();
         }
-        ins2node_id_all_reduce();
     }
     for_each_shard([&](Shard &shard) {
         shard.tree.prune_self(param.gamma);
@@ -212,7 +215,7 @@ void HistUpdater::Shard::find_split(int level) {
         auto hist_fid = make_transform_iterator(counting_iterator<int>(0), i2fid);
         {
             {
-//                TIMED_SCOPE(timerObj, "histogram");
+                TIMED_SCOPE(timerObj, "build hist");
                 {
 //                    TIMED_SCOPE(timerObj, "hist3");
                     if (n_nodes_in_level == 1) {
@@ -272,7 +275,7 @@ void HistUpdater::Shard::find_split(int level) {
                         SyncArray<int> node_idx(stats.n_instances);
                         SyncArray<int> node_ptr(n_nodes_in_level + 1);
                         {
-//                            TIMED_SCOPE(timerObj, "gather node idx");
+                            TIMED_SCOPE(timerObj, "data partitioning");
                             SyncArray<int> nid4sort(stats.n_instances);
                             nid4sort.copy_from(stats.nid);
                             sequence(cuda::par, node_idx.device_data(), node_idx.device_end(), 0);

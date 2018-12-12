@@ -8,6 +8,7 @@
 
 
 void ExactUpdater::grow(Tree &tree) {
+    TIMED_FUNC(timerObj);
     for_each_shard([&](Shard &shard) {
         shard.tree.init(shard.stats, param);
     });
@@ -16,25 +17,28 @@ void ExactUpdater::grow(Tree &tree) {
             shard.find_split(level);
         });
         split_point_all_reduce(level);
-        for_each_shard([&](Shard &shard) {
-            shard.update_tree();
-            shard.reset_ins2node_id();
-        });
         {
-            LOG(TRACE) << "gathering ins2node id";
-            //get final result of the reset instance id to node id
-            bool has_split = false;
-            for (int d = 0; d < param.n_device; d++) {
-                has_split |= shards[d]->has_split;
+            TIMED_SCOPE(timerObj, "apply sp");
+            for_each_shard([&](Shard &shard) {
+                shard.update_tree();
+                shard.reset_ins2node_id();
+            });
+            cudaDeviceSynchronize();
+            {
+                LOG(TRACE) << "gathering ins2node id";
+                //get final result of the reset instance id to node id
+                bool has_split = false;
+                for (int d = 0; d < param.n_device; d++) {
+                    has_split |= shards[d]->has_split;
+                }
+                if (!has_split) {
+                    LOG(INFO) << "no splittable nodes, stop";
+                    break;
+                }
             }
-            if (!has_split) {
-                LOG(INFO) << "no splittable nodes, stop";
-                break;
-            }
+            ins2node_id_all_reduce(level);
         }
-        ins2node_id_all_reduce(level);
     }
-
 
 
     for_each_shard([&](Shard &shard) {
@@ -44,6 +48,7 @@ void ExactUpdater::grow(Tree &tree) {
     });
     tree.nodes.resize(shards.front()->tree.nodes.size());
     tree.nodes.copy_from(shards.front()->tree.nodes);
+    cudaDeviceSynchronize();
 }
 
 void ExactUpdater::init(const DataSet &dataset) {
@@ -123,7 +128,7 @@ void ExactUpdater::ins2node_id_all_reduce(int depth) {
     {
         int n_nodes_in_level = 1 << depth;//2^i
         int nid_offset = (1 << depth) - 1;//2^i - 1
-        TIMED_SCOPE(timerObj, "process missing value");
+//        TIMED_SCOPE(timerObj, "process missing value");
         LOG(TRACE) << "update ins2node id for each missing fval";
         auto global_ins2node_id_data = shards.front()->stats.nid.device_data();//essential
         auto nodes_data = shards.front()->tree.nodes.device_data();//already broadcast above
@@ -150,6 +155,7 @@ std::ostream &operator<<(std::ostream &os, const int_float &rhs) {
 }
 
 void ExactUpdater::Shard::predict_in_training() {
+    TIMED_FUNC(timerObj);
     auto y_predict_data = stats.y_predict.device_data();
     auto nid_data = stats.nid.device_data();
     const Tree::TreeNode *nodes_data = tree.nodes.device_data();
@@ -161,6 +167,7 @@ void ExactUpdater::Shard::predict_in_training() {
 }
 
 void ExactUpdater::Shard::find_split(int level) {
+    TIMED_FUNC(timerObj);
     int n_max_nodes_in_level = static_cast<int>(pow(2, level));
     int nid_offset = static_cast<int>(pow(2, level) - 1);
     int n_column = columns.n_column;
@@ -185,50 +192,53 @@ void ExactUpdater::Shard::find_split(int level) {
         auto rle_fval_data = make_transform_iterator(rle_key.device_data(),
                                                      [=]__device__(int_float key) { return get<1>(key); });
         {
-            SyncArray<int> fvid2pid(nnz);
-            {
-                TIMED_SCOPE(timerObj, "fvid2pid");
-                //input
-                auto *nid_data = stats.nid.device_data();
-                const int *iid_data = columns.csc_row_idx.device_data();
-
-                LOG(TRACE) << "after using v_stats and columns";
-                //output
-                int *fvid2pid_data = fvid2pid.device_data();
-                device_loop_2d(
-                        n_column, columns.csc_col_ptr.device_data(),
-                        [=]__device__(int col_id, int fvid) {
-                            //feature value id -> instance id -> node id
-                            int nid = nid_data[iid_data[fvid]];
-                            int pid;
-                            //if this node is leaf node, move it to the end
-                            if (nid < nid_offset) pid = INT_MAX;//todo negative
-                            else pid = col_id * n_max_nodes_in_level + nid - nid_offset;
-                            fvid2pid_data[fvid] = pid;
-                        },
-                        n_block);
-                cudaDeviceSynchronize();
-                LOG(DEBUG) << "fvid2pid " << fvid2pid;
-            }
 
             //gather g/h pairs and do prefix sum
             {
-                //get feature value id mapping for partition, new -> old
+                SyncArray<int> fvid2pid(nnz);
                 SyncArray<int> fvid_new2old(nnz);
                 {
-                    TIMED_SCOPE(timerObj, "fvid_new2old");
-                    sequence(cuda::par, fvid_new2old.device_data(), fvid_new2old.device_end(), 0);
+                    TIMED_SCOPE(timerObj,"find_split - data partitioning");
+                    {
+                        //input
+                        auto *nid_data = stats.nid.device_data();
+                        const int *iid_data = columns.csc_row_idx.device_data();
 
-                    //using prefix sum memory for temporary storage
-                    cub_sort_by_key(fvid2pid, fvid_new2old, -1, true, (void *) gh_prefix_sum.device_data());
-                    LOG(DEBUG) << "sorted fvid2pid " << fvid2pid;
-                    LOG(DEBUG) << "fvid_new2old " << fvid_new2old;
+                        LOG(TRACE) << "after using v_stats and columns";
+                        //output
+                        int *fvid2pid_data = fvid2pid.device_data();
+                        device_loop_2d(
+                                n_column, columns.csc_col_ptr.device_data(),
+                                [=]__device__(int col_id, int fvid) {
+                                    //feature value id -> instance id -> node id
+                                    int nid = nid_data[iid_data[fvid]];
+                                    int pid;
+                                    //if this node is leaf node, move it to the end
+                                    if (nid < nid_offset) pid = INT_MAX;//todo negative
+                                    else pid = col_id * n_max_nodes_in_level + nid - nid_offset;
+                                    fvid2pid_data[fvid] = pid;
+                                },
+                                n_block);
+                        cudaDeviceSynchronize();
+                        LOG(DEBUG) << "fvid2pid " << fvid2pid;
+                    }
+
+                    //get feature value id mapping for partition, new -> old
+                    {
+//                    TIMED_SCOPE(timerObj, "fvid_new2old");
+                        sequence(cuda::par, fvid_new2old.device_data(), fvid_new2old.device_end(), 0);
+
+                        //using prefix sum memory for temporary storage
+                        cub_sort_by_key(fvid2pid, fvid_new2old, -1, true, (void *) gh_prefix_sum.device_data());
+                        LOG(DEBUG) << "sorted fvid2pid " << fvid2pid;
+                        LOG(DEBUG) << "fvid_new2old " << fvid_new2old;
+                    }
                     cudaDeviceSynchronize();
                 }
 
                 //do prefix sum
                 {
-                    TIMED_SCOPE(timerObj, "do prefix sum");
+                    TIMED_SCOPE(timerObj, "find_split - RLE compression");
                     //same feature value in the same part has the same key.
                     auto key_iter = make_zip_iterator(
                             make_tuple(
@@ -248,7 +258,7 @@ void ExactUpdater::Shard::find_split(int level) {
                             gh_prefix_sum.device_data()
                     ).first - rle_key.device_data();
                     CHECK_LE(n_split, rle_key.size());
-                    LOG(INFO) << "RLE ratio = " << (float) n_split / nnz;
+                    LOG(DEBUG) << "RLE ratio = " << (float) n_split / nnz;
 
                     //prefix sum
                     inclusive_scan_by_key(
@@ -264,7 +274,7 @@ void ExactUpdater::Shard::find_split(int level) {
 
         //calculate missing value for each partition
         {
-            TIMED_SCOPE(timerObj, "calculate missing value");
+            TIMED_SCOPE(timerObj, "find _split - calculate missing value");
             SyncArray<int> pid_ptr(n_partition + 1);
             counting_iterator<int> search_begin(0);
             upper_bound(cuda::par, rle_pid_data, rle_pid_data + n_split, search_begin,
@@ -302,7 +312,7 @@ void ExactUpdater::Shard::find_split(int level) {
         //calculate gain of each split
         SyncArray<float_type> gain(nnz);
         {
-            TIMED_SCOPE(timerObj, "calculate gain");
+            TIMED_SCOPE(timerObj, "find_split - calculate gain");
             auto compute_gain = []__device__(GHPair father, GHPair lch, GHPair rch, float_type min_child_weight,
                                              float_type lambda) -> float_type {
                 if (lch.h >= min_child_weight && rch.h >= min_child_weight)
@@ -344,7 +354,7 @@ void ExactUpdater::Shard::find_split(int level) {
         SyncArray<int_float> best_idx_gain(n_partition);
         int n_nodes_in_level;
         {
-            TIMED_SCOPE(timerObj, "get best gain");
+            TIMED_SCOPE(timerObj, "find_split - get best gain");
             auto arg_abs_max = []__device__(const int_float &a, const int_float &b) {
                 if (fabsf(get<1>(a)) == fabsf(get<1>(b)))
                     return get<0>(a) < get<0>(b) ? a : b;
@@ -398,15 +408,15 @@ void ExactUpdater::Shard::find_split(int level) {
         auto sp_data = sp.device_data();
 
         int column_offset = columns.column_offset;
-        device_loop(n_max_nodes_in_level, [=]__device__(int i){
-           sp_data[i].nid = -1;
+        device_loop(n_max_nodes_in_level, [=]__device__(int i) {
+            sp_data[i].nid = -1;
         });
         device_loop(n_nodes_in_level, [=]__device__(int i) {
             int_float bst = best_idx_gain_data[i];
             float_type best_split_gain = get<1>(bst);
             int split_index = get<0>(bst);
             int pid = rle_pid_data[split_index];
-            if (pid != INT_MAX){
+            if (pid != INT_MAX) {
                 int nid0 = pid % n_max_nodes_in_level;
                 sp_data[nid0].nid = nid0 + nid_offset;
                 sp_data[nid0].split_fea_id = pid / n_max_nodes_in_level + column_offset;
@@ -420,6 +430,7 @@ void ExactUpdater::Shard::find_split(int level) {
     }
 
     LOG(DEBUG) << "split points (gain/fea_id/nid): " << sp;
+    cudaDeviceSynchronize();
 }
 
 void ExactUpdater::Shard::update_tree() {
@@ -476,7 +487,7 @@ void ExactUpdater::Shard::reset_ins2node_id() {
     SyncArray<bool> has_splittable(1);
     //set new node id for each instance
     {
-        TIMED_SCOPE(timerObj, "get new node id");
+//        TIMED_SCOPE(timerObj, "get new node id");
         auto nid_data = stats.nid.device_data();
         const int *iid_data = columns.csc_row_idx.device_data();
         const Tree::TreeNode *nodes_data = tree.nodes.device_data();
