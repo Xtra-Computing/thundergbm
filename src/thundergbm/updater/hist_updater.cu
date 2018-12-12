@@ -7,6 +7,7 @@
 
 
 void HistUpdater::grow(Tree &tree) {
+    TIMED_FUNC(timerObj);
     for_each_shard([&](Shard &shard) {
         shard.tree.init(shard.stats, param);
     });
@@ -43,6 +44,7 @@ void HistUpdater::grow(Tree &tree) {
 }
 
 void HistUpdater::split_point_all_reduce(int depth) {
+    TIMED_FUNC(timerObj);
     //get global best split of each node
     int n_nodes_in_level = 1 << depth;//2^i
     int nid_offset = (1 << depth) - 1;//2^i - 1
@@ -186,6 +188,7 @@ void HistUpdater::Shard::init_dense_data() {
 }
 
 void HistUpdater::Shard::find_split(int level) {
+    TIMED_FUNC(timerObj);
     int n_nodes_in_level = static_cast<int>(pow(2, level));
     int nid_offset = static_cast<int>(pow(2, level) - 1);
     int n_column = columns.n_column;
@@ -496,6 +499,7 @@ void HistUpdater::Shard::find_split(int level) {
 }
 
 void HistUpdater::Shard::reset_ins2node_id() {
+    TIMED_FUNC(timerObj);
     SyncArray<bool> has_splittable(1);
     //set new node id for each instance
     {
@@ -535,6 +539,7 @@ void HistUpdater::Shard::reset_ins2node_id() {
 }
 
 void HistUpdater::Shard::update_tree() {
+    TIMED_FUNC(timerObj);
     auto sp_data = sp.device_data();
     LOG(DEBUG) << sp;
     int n_nodes_in_level = sp.size();

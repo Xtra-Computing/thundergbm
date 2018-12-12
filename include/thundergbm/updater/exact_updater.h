@@ -51,11 +51,17 @@ public:
 
     GBMParam param;
     struct Shard {
+        GBMParam param;
         SparseColumns columns;
         InsStat stats;
         Tree tree;
         SyncArray<SplitPoint> sp;
         bool has_split;
+        void find_split(int level);
+
+        void update_tree();
+
+        void reset_ins2node_id();
         void predict_in_training();
 
     };
@@ -72,16 +78,9 @@ public:
 
     void grow(Tree &tree);
 
-    void find_split(int level, const SparseColumns &columns, const Tree &tree, const InsStat &stats,
-                            SyncArray<SplitPoint> &sp);
 
-    void update_tree(Tree &tree, const SyncArray<SplitPoint> &sp);
-
-    bool reset_ins2node_id(InsStat &stats, const Tree &tree, const SparseColumns &columns);
-
-//    void split_point_all_reduce(const vector<SyncArray<SplitPoint>> &local_sp, SyncArray<SplitPoint> &global_sp,
-//                                int depth);
-    void split_point_all_reduce(SyncArray<SplitPoint> &global_sp, int depth);
+    void split_point_all_reduce(int depth);
+    void ins2node_id_all_reduce(int depth);
 };
 
 typedef thrust::tuple<int, float_type> int_float;
