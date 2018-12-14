@@ -107,7 +107,7 @@ void HistUpdater::init(const DataSet &dataset) {
         CUDA_CHECK(cudaGetDevice(&org_device_id));
         CUDA_CHECK(cudaSetDevice(device_id));
         Shard &shard = *shards[device_id].get();
-        shard.cut.get_cut_points(shard.columns, shard.stats, param.max_num_bin, shard.stats.n_instances);
+        shard.cut.get_cut_points2(shard.columns, shard.stats, param.max_num_bin, shard.stats.n_instances);
         CUDA_CHECK(cudaSetDevice(org_device_id));
     }
     for_each_shard([&](Shard &shard) {
@@ -154,7 +154,7 @@ void HistUpdater::Shard::get_bin_ids() {
 
             while (left != right) {
                 const float_type *mid = left + (right - left) / 2;
-                if (*mid < val)
+                if (*mid <= val)
                     right = mid;
                 else left = mid + 1;
             }

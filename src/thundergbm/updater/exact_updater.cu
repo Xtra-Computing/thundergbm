@@ -284,17 +284,24 @@ void ExactUpdater::Shard::find_split(int level) {
             auto pid_ptr_data = pid_ptr.device_data();
             auto rle_key_data = rle_key.device_data();
             float_type rt_eps = param.rt_eps;
-            device_loop(n_split, [=]__device__(int i) {
-                int pid = rle_pid_data[i];
-                if (pid == INT_MAX) return;
-                float_type f = rle_fval_data[i];
-                if ((pid_ptr_data[pid + 1] - 1) == i)//the last RLE
-                    //using "get" to get a modifiable lvalue
-                    get<1>(rle_key_data[i]) = (f - fabsf(rle_fval_data[pid_ptr_data[pid]]) - rt_eps);
-                else
-                    //FIXME read/write collision
-                    get<1>(rle_key_data[i]) = (f + rle_fval_data[i + 1]) * 0.5f;
-            });
+            {
+                SyncArray<float_type> fval(nnz);
+                auto fval_data = fval.device_data();
+                device_loop(nnz, [=]__device__(int i) {
+                    fval_data[i] = rle_fval_data[i];
+                });
+                device_loop(n_split, [=]__device__(int i) {
+                    int pid = rle_pid_data[i];
+                    if (pid == INT_MAX) return;
+                    float_type f = fval_data[i];
+                    if ((pid_ptr_data[pid + 1] - 1) == i)//the last RLE
+                        //using "get" to get a modifiable lvalue
+                        get<1>(rle_key_data[i]) = (f - fabsf(fval_data[pid_ptr_data[pid]]) - rt_eps);
+                    else
+                        //FIXME read/write collision
+                        get<1>(rle_key_data[i]) = (f + fval_data[i + 1]) * 0.5f;
+                });
+            }
 
             const auto gh_prefix_sum_data = gh_prefix_sum.device_data();
             const auto node_data = tree.nodes.device_data();

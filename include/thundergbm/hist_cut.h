@@ -31,23 +31,7 @@ public:
     }
 
     void get_cut_points(SparseColumns &columns, InsStat &stats, int max_num_bins, int n_instances);
-};
-
-//store the g/h of the bins of one feature
-class BinStat {
-public:
-    SyncArray<GHPair> gh_pair;
-    //feature id
-    int fid;
-    //number of bins
-    int numBin;
-
-    BinStat() = default;
-
-    //feature: the pointer to features that need to build hist
-    //insId: the pointer to instance id of features
-    void Init(HistCut &cut, InsStat &stats, int pid, float_type *f_val, int n_f_val, int *iid);
-    //void Init(vector<float_type>& cut_points, InsStat& stats,SparseColumns& columns, int fid);
+    void get_cut_points2(SparseColumns &columns, InsStat &stats, int max_num_bins, int n_instances);
 };
 
 #endif //THUNDERGBM_HIST_CUT_H

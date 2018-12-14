@@ -18,7 +18,7 @@ struct GBMParam {
     bool verbose;
 
     //for histogram
-    int max_num_bin = 255;
+    int max_num_bin;
 
     int n_device;
 };

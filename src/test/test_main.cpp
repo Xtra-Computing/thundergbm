@@ -18,6 +18,7 @@ int main(int argc, char **argv) {
     global_test_param.lambda = 1;
     global_test_param.gamma = 1;
     global_test_param.rt_eps = 1e-6;
+    global_test_param.max_num_bin = 255;
     global_test_param.verbose = false;
     for (int i = 0; i < argc; ++i) {
         if (string(argv[i]) == "-d") global_test_param.depth = atoi(argv[++i]);
@@ -25,6 +26,7 @@ int main(int argc, char **argv) {
         if (string(argv[i]) == "-n_gpu") global_test_param.n_device = atoi(argv[++i]);
         if (string(argv[i]) == "-v") global_test_param.verbose= atoi(argv[++i]);
         if (string(argv[i]) == "-dataset") global_test_param.path= argv[++i];
+        if (string(argv[i]) == "-b") global_test_param.max_num_bin= atoi(argv[++i]);
     }
     return RUN_ALL_TESTS();
 }
