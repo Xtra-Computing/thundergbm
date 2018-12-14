@@ -10,12 +10,13 @@
 #include <thundergbm/hist_cut.h>
 
 #include "thundergbm/util/device_lambda.cuh"
+#include "thrust/unique.h"
 
 void HistCut::get_cut_points(SparseColumns &columns, InsStat &stats, int max_num_bins, int n_instances) {
     LOG(TRACE) << "get cut points";
-    LOG(DEBUG)<<"val = " << columns.csc_val;
-    LOG(DEBUG)<<"idx = " << columns.csc_row_idx;
-    LOG(DEBUG)<<"ptr = " << columns.csc_col_ptr;
+    LOG(DEBUG) << "val = " << columns.csc_val;
+    LOG(DEBUG) << "idx = " << columns.csc_row_idx;
+    LOG(DEBUG) << "ptr = " << columns.csc_col_ptr;
     int n_features = columns.n_column;
 //    std::cout<<"n_featrues:"<<n_features<<std::endl;
     vector<quanSketch> sketchs(n_features);
@@ -141,19 +142,23 @@ void HistCut::get_cut_points2(SparseColumns &columns, InsStat &stats, int max_nu
     row_ptr.clear();
     row_ptr.resize(1, 0);
 
+    //TODO do this on GPU
     for (int fid = 0; fid < n_column; ++fid) {
         int col_start = csc_col_ptr_data[fid];
         int col_len = csc_col_ptr_data[fid + 1] - col_start;
         auto val_data = csc_val_data + col_start;
-        if (col_len <= max_num_bins){
-            row_ptr.push_back(col_len + row_ptr.back());
-            for (int i = 0; i < col_len; ++i) {
-                cut_points.push_back(val_data[i]);
+        vector<float_type> unique_val(col_len);
+
+        int unique_len = thrust::unique_copy(thrust::host, val_data, val_data + col_len, unique_val.data()) - unique_val.data();
+        if (unique_len <= max_num_bins) {
+            row_ptr.push_back(unique_len + row_ptr.back());
+            for (int i = 0; i < unique_len; ++i) {
+                cut_points.push_back(unique_val[i]);
             }
         } else {
             row_ptr.push_back(max_num_bins + row_ptr.back());
             for (int i = 0; i < max_num_bins; ++i) {
-                cut_points.push_back(val_data[col_len / 256 * i]);
+                cut_points.push_back(unique_val[unique_len / max_num_bins * i]);
             }
         }
     }

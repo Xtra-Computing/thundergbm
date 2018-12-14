@@ -217,7 +217,8 @@ void HistUpdater::Shard::find_split(int level) {
             {
                 TIMED_SCOPE(timerObj, "build hist");
                 {
-//                    TIMED_SCOPE(timerObj, "hist3");
+                    size_t smem_size = n_bins * sizeof(GHPair);
+                    LOG(DEBUG) << "shared memory size = " << smem_size / 1024.0 << " KB";
                     if (n_nodes_in_level == 1) {
                         //root
                         auto hist_data = hist.device_data();
@@ -226,7 +227,6 @@ void HistUpdater::Shard::find_split(int level) {
                         auto dense_bin_id_data = dense_bin_id.device_data();
                         auto max_num_bin = param.max_num_bin;
                         auto n_instances = stats.n_instances;
-                        const size_t smem_size = n_bins * sizeof(GHPair);
                         if (smem_size > 48 * 1024) {
                             device_loop(stats.n_instances * n_column, [=]__device__(int i) {
                                 int iid = i / n_column;
@@ -287,6 +287,7 @@ void HistUpdater::Shard::find_split(int level) {
                             upper_bound(cuda::par, nid4sort.device_data(), nid4sort.device_end(), counting_iter,
                                         counting_iter + n_nodes_in_level, node_ptr.device_data() + 1);
                             LOG(DEBUG) << "node ptr = " << node_ptr;
+                            cudaDeviceSynchronize();
                         }
 
                         for (int i = 0; i < n_nodes_in_level / 2; ++i) {
@@ -310,7 +311,6 @@ void HistUpdater::Shard::find_split(int level) {
                                 auto gh_data = stats.gh_pair.device_data();
                                 auto dense_bin_id_data = dense_bin_id.device_data();
                                 auto max_num_bin = param.max_num_bin;
-                                const size_t smem_size = n_bins * sizeof(GHPair);
                                 if (smem_size > 48 * 1024) {
                                     device_loop((idx_end - idx_begin) * n_column, [=]__device__(int i) {
                                         int iid = node_idx_data[i / n_column + idx_begin];
@@ -369,6 +369,7 @@ void HistUpdater::Shard::find_split(int level) {
                         }
                     }
                     last_hist.copy_from(hist);
+                    cudaDeviceSynchronize();
                 }
                 LOG(DEBUG) << "hist new = " << hist;
                 LOG(DEBUG) << "cutfid = " << cut.cut_fid;
