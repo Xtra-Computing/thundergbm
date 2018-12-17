@@ -19,18 +19,17 @@ public:
     struct Shard {
         GBMParam param;
         HistCut cut;
-        SyncArray<int> bin_id;
         SyncArray<unsigned char> dense_bin_id;
-        SparseColumns columns;
         InsStat stats;
         Tree tree;
         SyncArray<SplitPoint> sp;
         SyncArray<GHPair> last_hist;
         bool has_split;
+        int n_column;
+        int column_offset;
+        int idx;
 
-        void get_bin_ids();
-
-        void init_dense_data();
+        void get_bin_ids(const SparseColumns &columns);
 
         void find_split(int level);
 

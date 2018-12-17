@@ -87,7 +87,7 @@ void correct_start(int *csc_col_ptr_2d_data, int first_col_start, int n_column_s
         csc_col_ptr_2d_data[col_id] = csc_col_ptr_2d_data[col_id] - first_col_start;
     });
 };
-void SparseColumns::to_multi_devices(vector<SparseColumns*> &v_columns) const {
+void SparseColumns::to_multi_devices(vector<std::unique_ptr<SparseColumns>> &v_columns) const {
     //devide data into multiple devices
     int n_device = v_columns.size();
     int ave_n_columns = n_column / n_device;

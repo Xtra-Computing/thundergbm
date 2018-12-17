@@ -69,6 +69,7 @@ public:
 
         trees.resize(param.n_trees);
         updater.init(dataSet);
+        SyncMem::clear_cache();
         {
             TIMED_SCOPE(timerObj, "construct tree");
             for (Tree &tree:trees) {

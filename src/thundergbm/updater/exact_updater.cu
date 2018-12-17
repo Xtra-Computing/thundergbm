@@ -59,9 +59,9 @@ void ExactUpdater::init(const DataSet &dataset) {
     SparseColumns columns;
     columns.from_dataset(dataset);
     //todo refactor v_columns
-    vector<SparseColumns *> v_columns(param.n_device);
+    vector<std::unique_ptr<SparseColumns>> v_columns(param.n_device);
     for (int i = 0; i < param.n_device; ++i) {
-        v_columns[i] = &shards[i]->columns;
+        v_columns[i].reset(&shards[i]->columns);
     }
     for_each_shard([&](Shard &shard) {
         shard.param = param;
