@@ -121,9 +121,7 @@ void ExactUpdater::ins2node_id_all_reduce(int depth) {
             });
         }
     }
-    for_each_shard([&](Shard &shard) {
-        shard.stats.nid.copy_from(shards.front()->stats.nid);
-    });
+
     //processing missing value
     {
         int n_nodes_in_level = 1 << depth;//2^i
@@ -145,8 +143,12 @@ void ExactUpdater::ins2node_id_all_reduce(int depth) {
             }
         });
         LOG(DEBUG) << "new nid = " << shards.front()->stats.nid;
-        //broadcast ins2node id
     }
+
+    //broadcast ins2node id
+    for_each_shard([&](Shard &shard) {
+        shard.stats.nid.copy_from(shards.front()->stats.nid);
+    });
 }
 
 std::ostream &operator<<(std::ostream &os, const int_float &rhs) {
