@@ -71,7 +71,9 @@ void ExactUpdater::init(const DataSet &dataset) {
         shard.stats.updateGH();
     });
     columns.to_multi_devices(v_columns);
-
+    for (int i = 0; i < param.n_device; ++i) {
+        v_columns[i].release();
+    }
 }
 
 void ExactUpdater::split_point_all_reduce(int depth) {
@@ -289,7 +291,7 @@ void ExactUpdater::Shard::find_split(int level) {
             {
                 SyncArray<float_type> fval(nnz);
                 auto fval_data = fval.device_data();
-                device_loop(nnz, [=]__device__(int i) {
+                device_loop(n_split, [=]__device__(int i) {
                     fval_data[i] = rle_fval_data[i];
                 });
                 device_loop(n_split, [=]__device__(int i) {
