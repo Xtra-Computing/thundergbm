@@ -10,6 +10,7 @@ void HistUpdater::grow(Tree &tree) {
     TIMED_FUNC(timerObj);
     for_each_shard([&](Shard &shard) {
         shard.tree.init(shard.stats, param);
+        shard.update_ignored_set();
     });
     for (int level = 0; level < param.depth; ++level) {
         for_each_shard([&](Shard &shard) {
@@ -104,6 +105,7 @@ void HistUpdater::init(const DataSet &dataset) {
 
     for_each_shard([&](Shard &shard) {
         shard.n_column = v_columns[shard.idx]->n_column;
+        shard.ignored_set.resize(shard.n_column);
         shard.column_offset = v_columns[shard.idx]->column_offset;
         shard.cut.get_cut_points2(*v_columns[shard.idx], shard.stats, param.max_num_bin, shard.stats.n_instances);
         shard.last_hist.resize((2 << param.depth) * shard.cut.cut_points.size());
@@ -396,13 +398,15 @@ void HistUpdater::Shard::find_split(int level) {
             GHPair *gh_prefix_sum_data = hist.device_data();
             float_type *gain_data = gain.device_data();
             const auto missing_gh_data = missing_gh.device_data();
+            auto ignored_set_data = ignored_set.device_data();
             //for lambda expression
             float_type mcw = param.min_child_weight;
             float_type l = param.lambda;
             device_loop(n_split, [=]__device__(int i) {
                 int nid0 = i / n_bins;
                 int nid = nid0 + nid_offset;
-                if (nodes_data[nid].is_valid) {
+                int fid = hist_fid[i % n_bins];
+                if (nodes_data[nid].is_valid && !ignored_set_data[fid]) {
                     int pid = nid0 * n_column + hist_fid[i];
                     GHPair father_gh = nodes_data[nid].sum_gh_pair;
                     GHPair p_missing_gh = missing_gh_data[pid];
@@ -586,4 +590,20 @@ void HistUpdater::Shard::predict_in_training() {
         while (nid != -1 && (nodes_data[nid].is_pruned)) nid = nodes_data[nid].parent_index;
         y_predict_data[i] += nodes_data[nid].base_weight;
     });
+}
+
+void HistUpdater::Shard::update_ignored_set() {
+    if (param.column_sampling_rate < 1){
+        CHECK_GT(param.column_sampling_rate, 0);
+        SyncArray<int> idx(n_column);
+        thrust::sequence(thrust::cuda::par, idx.device_data(), idx.device_end(), 0);
+        std::random_shuffle(idx.host_data(), idx.host_data() + n_column);
+        int sample_count = max(1, int(n_column * param.column_sampling_rate));
+        ignored_set.resize(n_column);
+        auto idx_data = idx.device_data();
+        auto ignored_set_data = ignored_set.device_data();
+        device_loop(sample_count, [=]__device__(int i){
+            ignored_set_data[idx_data[i]] = true;
+        });
+    }
 }

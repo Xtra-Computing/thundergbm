@@ -14,8 +14,11 @@ struct GBMParam {
     float_type lambda;
     float_type gamma;
     float_type rt_eps;
+    float column_sampling_rate;
     std::string path;
     bool verbose;
+    bool bagging;
+    int n_parallel_trees;
 
     //for histogram
     int max_num_bin;

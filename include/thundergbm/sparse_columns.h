@@ -22,6 +22,5 @@ public:
 
     void to_multi_devices(vector<std::unique_ptr<SparseColumns>> &) const;
 
-    void get_shards(int rank, int n, SparseColumns &result) const;
 };
 #endif //THUNDERGBM_SPARSE_COLUMNS_H

@@ -2,6 +2,8 @@
 // Created by shijiashuai on 5/7/18.
 //
 #include <thundergbm/util/cub_wrapper.h>
+#include <thundergbm/sparse_columns.h>
+
 #include "thundergbm/sparse_columns.h"
 #include "thundergbm/util/device_lambda.cuh"
 #include "cusparse.h"
@@ -120,34 +122,3 @@ void SparseColumns::to_multi_devices(vector<std::unique_ptr<SparseColumns>> &v_c
     LOG(TRACE) << "sorting finished";
 }
 
-void SparseColumns::get_shards(int rank, int n, SparseColumns &result) const {
-    //devide data into multiple devices
-    int ave_n_columns = n_column / n;
-    SparseColumns &columns = result;
-    const int *csc_col_ptr_data = csc_col_ptr.host_data();
-    int first_col_id = rank * ave_n_columns;
-    int n_column_sub = (rank < n - 1) ? ave_n_columns : n_column - first_col_id;
-    int first_col_start = csc_col_ptr_data[first_col_id];
-    int nnz_sub = (rank < n - 1) ?
-                  (csc_col_ptr_data[(rank + 1) * ave_n_columns] - first_col_start) : (nnz -
-                                                                                      first_col_start);
-    columns.column_offset = first_col_id;
-    columns.nnz = nnz_sub;
-    columns.n_column = n_column_sub;
-    columns.csc_val.resize(nnz_sub);
-    columns.csc_row_idx.resize(nnz_sub);
-    columns.csc_col_ptr.resize(n_column_sub + 1);
-
-    columns.csc_val.copy_from(csc_val.host_data() + first_col_start, nnz_sub);
-    columns.csc_row_idx.copy_from(csc_row_idx.host_data() + first_col_start, nnz_sub);
-    columns.csc_col_ptr.copy_from(csc_col_ptr.host_data() + first_col_id, n_column_sub + 1);
-
-    int *csc_col_ptr_2d_data = columns.csc_col_ptr.device_data();
-
-    //correct segment start positions
-    device_loop(n_column_sub + 1, [=] __device__(int col_id) {
-        csc_col_ptr_2d_data[col_id] = csc_col_ptr_2d_data[col_id] - first_col_start;
-    });
-    LOG(TRACE) << "sorting feature values (multi-device)";
-    cub_seg_sort_by_key(columns.csc_val, columns.csc_row_idx, columns.csc_col_ptr, false);
-}
