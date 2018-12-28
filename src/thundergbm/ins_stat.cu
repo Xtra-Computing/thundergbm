@@ -4,6 +4,7 @@
 #include "thundergbm/ins_stat.h"
 #include "thundergbm/util/device_lambda.cuh"
 #include "thrust/reduce.h"
+#include "thrust/execution_policy.h"
 
 void InsStat::resize(size_t n_instances) {
     this->n_instances = n_instances;

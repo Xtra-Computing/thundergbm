@@ -7,13 +7,16 @@
 #include "thundergbm/syncarray.h"
 #include <sstream>
 #include <omp.h>
+#include <thundergbm/hist_cut.h>
+
 #include "thundergbm/util/device_lambda.cuh"
+#include "thrust/unique.h"
 
 void HistCut::get_cut_points(SparseColumns &columns, InsStat &stats, int max_num_bins, int n_instances) {
     LOG(TRACE) << "get cut points";
-    LOG(DEBUG)<<"val = " << columns.csc_val;
-    LOG(DEBUG)<<"idx = " << columns.csc_row_idx;
-    LOG(DEBUG)<<"ptr = " << columns.csc_col_ptr;
+    LOG(DEBUG) << "val = " << columns.csc_val;
+    LOG(DEBUG) << "idx = " << columns.csc_row_idx;
+    LOG(DEBUG) << "ptr = " << columns.csc_col_ptr;
     int n_features = columns.n_column;
 //    std::cout<<"n_featrues:"<<n_features<<std::endl;
     vector<quanSketch> sketchs(n_features);
@@ -122,50 +125,51 @@ void HistCut::get_cut_points(SparseColumns &columns, InsStat &stats, int max_num
         for (int j = cut_row_ptr_data[i + 1] - 1; j >= cut_row_ptr_data[i]; j--)
             cut_points_val_ptr[j] = this->cut_points[sum - j];
     }
-    cut_fid.resize(cut_points.size());
     LOG(DEBUG) << cut_row_ptr;
     LOG(DEBUG) << cut_fid.size();
+    cut_fid.resize(cut_points.size());
     auto cut_fid_data = cut_fid.device_data();
     device_loop_2d(n_features, cut_row_ptr.device_data(), [=] __device__(int fid, int i) {
         cut_fid_data[i] = fid;
-//        printf("i = %d, fid = %d\n", i, fid);
     });
 }
 
-void BinStat::Init(HistCut &cut, InsStat &stats, int pid, float_type *f_val, int n_f_val, int *iid) {
-    this->numBin = cut.row_ptr[pid + 1] - cut.row_ptr[pid];
-    this->gh_pair.resize(cut.row_ptr[pid + 1] - cut.row_ptr[pid]);
-    auto cbegin = cut.cut_points.begin() + cut.row_ptr[pid];
-    auto cend = cut.cut_points.begin() + cut.row_ptr[pid + 1];
-    for (int i = 0; i < n_f_val; i++) {
-        float_type val = f_val[i];
-        float_type g = stats.gh_pair.host_data()[iid[i]].g;
-        float_type h = stats.gh_pair.host_data()[iid[i]].h;
-        auto off = std::upper_bound(cbegin, cend, val);
-        if (off == cend) off = cend - 1;
-        int bid = off - cbegin;
-        this->gh_pair.host_data()[bid].g += g;
-        this->gh_pair.host_data()[bid].h += h;
+void HistCut::get_cut_points2(SparseColumns &columns, InsStat &stats, int max_num_bins, int n_instances) {
+    int n_column = columns.n_column;
+    auto csc_val_data = columns.csc_val.host_data();
+    auto csc_col_ptr_data = columns.csc_col_ptr.host_data();
+    cut_points.clear();
+    row_ptr.clear();
+    row_ptr.resize(1, 0);
+
+    //TODO do this on GPU
+    for (int fid = 0; fid < n_column; ++fid) {
+        int col_start = csc_col_ptr_data[fid];
+        int col_len = csc_col_ptr_data[fid + 1] - col_start;
+        auto val_data = csc_val_data + col_start;
+        vector<float_type> unique_val(col_len);
+
+        int unique_len = thrust::unique_copy(thrust::host, val_data, val_data + col_len, unique_val.data()) - unique_val.data();
+        if (unique_len <= max_num_bins) {
+            row_ptr.push_back(unique_len + row_ptr.back());
+            for (int i = 0; i < unique_len; ++i) {
+                cut_points.push_back(unique_val[i]);
+            }
+        } else {
+            row_ptr.push_back(max_num_bins + row_ptr.back());
+            for (int i = 0; i < max_num_bins; ++i) {
+                cut_points.push_back(unique_val[unique_len / max_num_bins * i]);
+            }
+        }
     }
+
+    cut_points_val.resize(cut_points.size());
+    cut_points_val.copy_from(cut_points.data(), cut_points.size());
+    cut_row_ptr.resize(row_ptr.size());
+    cut_row_ptr.copy_from(row_ptr.data(), row_ptr.size());
+    cut_fid.resize(cut_points.size());
+    auto cut_fid_data = cut_fid.device_data();
+    device_loop_2d(n_column, cut_row_ptr.device_data(), [=] __device__(int fid, int i) {
+        cut_fid_data[i] = fid;
+    });
 }
-
-
-//void BinStat::Init(vector<float_type>& cut_points, InsStat& stats, SparseColumns& columns, int fid){
-//    this->fid = fid;
-//    this->gh_pair.resize(cut_points.size());
-//    float_type* val_ptr = columns.csc_val.host_data();
-//    int* row_ptr = columns.csc_row_ind.host_data();
-//    int* col_ptr = columns.csc_col_ptr.host_data();
-//    for(int i = col_ptr[fid + 1] - 1; i >= col_ptr[fid]; i--){
-//        float_type val = val_ptr[i];
-//        float_type g = stats.gh_pair.host_data()[row_ptr[i]].g;
-//        float_type h = stats.gh_pair.host_data()[row_ptr[i]].h;
-//        auto cbegin = cut_points.begin();
-//        auto cend = cut_points.end();
-//        auto off = std::upper_bound(cbegin, cend, val);
-//        if(off == cend) off = cend - 1;
-//        this->bid = off - cbegin;
-//        this->gh_pair.host_data()[bid].g += g;
-//        this->gh_pair.host_data()[bid].h += h;
-//    }
-//}
