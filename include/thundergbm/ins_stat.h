@@ -7,7 +7,6 @@
 
 
 #include "syncarray.h"
-
 struct GHPair {
     float_type g;
     float_type h;
@@ -24,6 +23,14 @@ struct GHPair {
         res.g = this->g - rhs.g;
         res.h = this->h - rhs.h;
         return res;
+    }
+
+    HOST_DEVICE bool operator==(const GHPair &rhs) const {
+        return this->g == rhs.g && this->h == rhs.h;
+    }
+
+    HOST_DEVICE bool operator!=(const GHPair &rhs) const {
+        return !(*this == rhs);
     }
 
     HOST_DEVICE GHPair() : g(0), h(0) {};
@@ -63,7 +70,9 @@ public:
 
     void resize(size_t n_instances);
 
-    void updateGH();
+    void updateGH(bool bagging);
+
+    void do_bagging();
 };
 
 #endif //THUNDERGBM_INS_STAT_H

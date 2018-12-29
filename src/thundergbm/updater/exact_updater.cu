@@ -10,6 +10,7 @@
 void ExactUpdater::grow(Tree &tree) {
     TIMED_FUNC(timerObj);
     for_each_shard([&](Shard &shard) {
+        shard.stats.updateGH(param.bagging);
         shard.tree.init(shard.stats, param);
     });
     for (int level = 0; level < param.depth; ++level) {
@@ -44,7 +45,6 @@ void ExactUpdater::grow(Tree &tree) {
     for_each_shard([&](Shard &shard) {
         shard.tree.prune_self(param.gamma);
         shard.predict_in_training();
-        shard.stats.updateGH();
     });
     tree.nodes.resize(shards.front()->tree.nodes.size());
     tree.nodes.copy_from(shards.front()->tree.nodes);
@@ -68,7 +68,6 @@ void ExactUpdater::init(const DataSet &dataset) {
         int n_instances = dataset.n_instances();
         shard.stats.resize(n_instances);
         shard.stats.y.copy_from(dataset.y.data(), n_instances);
-        shard.stats.updateGH();
     });
     columns.to_multi_devices(v_columns);
     for (int i = 0; i < param.n_device; ++i) {

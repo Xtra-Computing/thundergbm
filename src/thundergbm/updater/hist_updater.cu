@@ -9,8 +9,9 @@
 void HistUpdater::grow(Tree &tree) {
     TIMED_FUNC(timerObj);
     for_each_shard([&](Shard &shard) {
+        shard.column_sampling();
+        shard.stats.updateGH(param.bagging);
         shard.tree.init(shard.stats, param);
-        shard.update_ignored_set();
     });
     for (int level = 0; level < param.depth; ++level) {
         for_each_shard([&](Shard &shard) {
@@ -41,7 +42,6 @@ void HistUpdater::grow(Tree &tree) {
     for_each_shard([&](Shard &shard) {
         shard.tree.prune_self(param.gamma);
         shard.predict_in_training();
-        shard.stats.updateGH();
     });
     tree.nodes.resize(shards.front()->tree.nodes.size());
     tree.nodes.copy_from(shards.front()->tree.nodes);
@@ -98,7 +98,6 @@ void HistUpdater::init(const DataSet &dataset) {
         int n_instances = dataset.n_instances();
         shard.stats.resize(n_instances);
         shard.stats.y.copy_from(dataset.y.data(), n_instances);
-        shard.stats.updateGH();
         shard.param = param;
     });
     columns.to_multi_devices(v_columns);
@@ -225,8 +224,8 @@ void HistUpdater::Shard::find_split(int level) {
                                     int feature_offset = cut_row_ptr_data[fid];
                                     const GHPair src = gh_data[iid];
                                     GHPair &dest = hist_data[feature_offset + bid];
-                                    atomicAdd(&dest.g, src.g);
-                                    atomicAdd(&dest.h, src.h);
+                                        atomicAdd(&dest.g, src.g);
+                                        atomicAdd(&dest.h, src.h);
                                 }
                             });
                         } else {
@@ -245,16 +244,16 @@ void HistUpdater::Shard::find_split(int level) {
                                         int feature_offset = cut_row_ptr_data[fid];
                                         const GHPair src = gh_data[iid];
                                         GHPair &dest = local_hist[feature_offset + bid];
-                                        atomicAdd(&dest.g, src.g);
-                                        atomicAdd(&dest.h, src.h);
+                                            atomicAdd(&dest.g, src.g);
+                                            atomicAdd(&dest.h, src.h);
                                     }
                                 }
                                 __syncthreads();
                                 for (int i = threadIdx.x; i < n_bins; i += blockDim.x) {
                                     GHPair &dest = hist_data[i];
                                     GHPair src = local_hist[i];
-                                    atomicAdd(&dest.g, src.g);
-                                    atomicAdd(&dest.h, src.h);
+                                        atomicAdd(&dest.g, src.g);
+                                        atomicAdd(&dest.h, src.h);
                                 }
                             }, smem_size);
                         }
@@ -330,16 +329,16 @@ void HistUpdater::Shard::find_split(int level) {
                                                 int feature_offset = cut_row_ptr_data[fid];
                                                 const GHPair src = gh_data[iid];
                                                 GHPair &dest = local_hist[feature_offset + bid];
-                                                atomicAdd(&dest.g, src.g);
-                                                atomicAdd(&dest.h, src.h);
+                                                    atomicAdd(&dest.g, src.g);
+                                                    atomicAdd(&dest.h, src.h);
                                             }
                                         }
                                         __syncthreads();
                                         for (int i = threadIdx.x; i < n_bins; i += blockDim.x) {
                                             GHPair &dest = hist_data[i];
                                             GHPair src = local_hist[i];
-                                            atomicAdd(&dest.g, src.g);
-                                            atomicAdd(&dest.h, src.h);
+                                                atomicAdd(&dest.g, src.g);
+                                                atomicAdd(&dest.h, src.h);
                                         }
                                     }, smem_size);
                                 }
@@ -411,10 +410,10 @@ void HistUpdater::Shard::find_split(int level) {
                     GHPair father_gh = nodes_data[nid].sum_gh_pair;
                     GHPair p_missing_gh = missing_gh_data[pid];
                     GHPair rch_gh = gh_prefix_sum_data[i];
-                    float_type default_to_left_gain = max(0.,
+                    float_type default_to_left_gain = max(0.f,
                                                           compute_gain(father_gh, father_gh - rch_gh, rch_gh, mcw, l));
                     rch_gh = rch_gh + p_missing_gh;
-                    float_type default_to_right_gain = max(0.,
+                    float_type default_to_right_gain = max(0.f,
                                                            compute_gain(father_gh, father_gh - rch_gh, rch_gh, mcw, l));
                     if (default_to_left_gain > default_to_right_gain)
                         gain_data[i] = default_to_left_gain;
@@ -592,7 +591,7 @@ void HistUpdater::Shard::predict_in_training() {
     });
 }
 
-void HistUpdater::Shard::update_ignored_set() {
+void HistUpdater::Shard::column_sampling() {
     if (param.column_sampling_rate < 1){
         CHECK_GT(param.column_sampling_rate, 0);
         SyncArray<int> idx(n_column);

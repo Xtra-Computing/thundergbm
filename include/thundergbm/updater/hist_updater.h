@@ -40,7 +40,7 @@ public:
 
         void predict_in_training();
 
-        void update_ignored_set();
+        void column_sampling();
     };
 
     vector<std::unique_ptr<Shard>> shards;
