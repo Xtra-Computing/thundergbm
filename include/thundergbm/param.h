@@ -19,6 +19,7 @@ struct GBMParam {
     bool verbose;
     bool bagging;
     int n_parallel_trees;
+    float learning_rate;
 
     //for histogram
     int max_num_bin;

@@ -23,7 +23,7 @@ public:
             el::Loggers::reconfigureAllLoggers(el::Level::Debug, el::ConfigurationType::Enabled, "false");
             el::Loggers::reconfigureAllLoggers(el::Level::Trace, el::ConfigurationType::Enabled, "false");
         }
-//        el::Loggers::reconfigureAllLoggers(el::ConfigurationType::PerformanceTracking, "false");
+        el::Loggers::reconfigureAllLoggers(el::ConfigurationType::PerformanceTracking, "false");
     }
 
     void TearDown() {
@@ -64,17 +64,17 @@ public:
         int round = 0;
         float_type rmse = 0;
         SyncMem::clear_cache();
-        vector<Tree> trees;
+        vector<vector<Tree>> trees(param.n_trees);
         HistUpdater updater(param);
 
-        trees.resize(param.n_trees);
         updater.init(dataSet);
         SyncMem::clear_cache();
         {
             TIMED_SCOPE(timerObj, "construct tree");
-            for (Tree &tree:trees) {
+            for (vector<Tree> &tree:trees) {
+                tree.resize(param.n_parallel_trees);
                 updater.grow(tree);
-                LOG(DEBUG) << string_format("\nbooster[%d]", round) << tree.dump(param.depth);
+//                LOG(DEBUG) << string_format("\nbooster[%d]", round) << tree.dump(param.depth);
                 //next round
                 round++;
                 rmse = compute_rmse(updater.shards.front()->stats);

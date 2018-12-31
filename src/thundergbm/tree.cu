@@ -3,10 +3,7 @@
 //
 #include "thundergbm/tree.h"
 #include "thundergbm/util/device_lambda.cuh"
-
-//Tree::Tree(int depth) {
-//    init(depth);
-//}
+#include "thrust/reduce.h"
 
 void Tree::init(const InsStat &stats, const GBMParam &param) {
 //    TIMED_FUNC(timerObj);
@@ -31,7 +28,7 @@ void Tree::init(const InsStat &stats, const GBMParam &param) {
     });
 
     //init root node
-    GHPair sum_gh = stats.sum_gh;
+    GHPair sum_gh = thrust::reduce(thrust::cuda::par, stats.gh_pair.device_data(), stats.gh_pair.device_end());
     float_type lambda = param.lambda;
     device_loop<1, 1>(1, [=]__device__(int i) {
         Tree::TreeNode &root_node = node_data[0];

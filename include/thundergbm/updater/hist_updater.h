@@ -34,7 +34,7 @@ public:
 
         void find_split(int level);
 
-        void reset_ins2node_id();
+        void update_ins2node_id();
 
         void update_tree();
 
@@ -54,7 +54,7 @@ public:
 
     void init(const DataSet &dataset);
 
-    void grow(Tree &tree);
+    void grow(vector<Tree> &trees);
 
     void split_point_all_reduce(int depth);
 

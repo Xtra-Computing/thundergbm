@@ -51,6 +51,9 @@ public:
 
     ///gradient and hessian
     SyncArray<GHPair> gh_pair;
+
+    ///backup for bagging
+    SyncArray<GHPair> gh_pair_backup;
     ///node id
     SyncArray<int> nid;
     ///target value
@@ -60,8 +63,6 @@ public:
 
     int n_instances;
 
-    GHPair sum_gh;
-
     InsStat() = default;
 
     explicit InsStat(size_t n_instances) {
@@ -70,7 +71,9 @@ public:
 
     void resize(size_t n_instances);
 
-    void updateGH(bool bagging);
+    void updateGH();
+
+    void reset_nid();
 
     void do_bagging();
 };

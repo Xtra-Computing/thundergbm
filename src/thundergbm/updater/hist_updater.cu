@@ -6,45 +6,56 @@
 #include "cuda_profiler_api.h"
 
 
-void HistUpdater::grow(Tree &tree) {
+void HistUpdater::grow(vector<Tree> &trees) {
     TIMED_FUNC(timerObj);
     for_each_shard([&](Shard &shard) {
-        shard.column_sampling();
-        shard.stats.updateGH(param.bagging);
-        shard.tree.init(shard.stats, param);
-    });
-    for (int level = 0; level < param.depth; ++level) {
-        for_each_shard([&](Shard &shard) {
-            shard.find_split(level);
-        });
-        split_point_all_reduce(level);
-        {
-            TIMED_SCOPE(timerObj, "apply sp");
-            for_each_shard([&](Shard &shard) {
-                shard.update_tree();
-                shard.reset_ins2node_id();
-            });
-            {
-                LOG(TRACE) << "gathering ins2node id";
-                //get final result of the reset instance id to node id
-                bool has_split = false;
-                for (int d = 0; d < param.n_device; d++) {
-                    has_split |= shards[d]->has_split;
-                }
-                if (!has_split) {
-                    LOG(INFO) << "no splittable nodes, stop";
-                    break;
-                }
-            }
-            ins2node_id_all_reduce();
+        shard.stats.updateGH();
+        shard.stats.reset_nid();
+        if (param.bagging){
+            shard.stats.gh_pair_backup.resize(shard.stats.n_instances);
+            shard.stats.gh_pair_backup.copy_from(shard.stats.gh_pair);
         }
-    }
-    for_each_shard([&](Shard &shard) {
-        shard.tree.prune_self(param.gamma);
-        shard.predict_in_training();
     });
-    tree.nodes.resize(shards.front()->tree.nodes.size());
-    tree.nodes.copy_from(shards.front()->tree.nodes);
+    for (Tree &tree:trees) {
+        for_each_shard([&](Shard &shard) {
+            shard.stats.reset_nid();
+            shard.column_sampling();
+            if (param.bagging) shard.stats.do_bagging();
+            shard.tree.init(shard.stats, param);
+        });
+        for (int level = 0; level < param.depth; ++level) {
+            for_each_shard([&](Shard &shard) {
+                shard.find_split(level);
+            });
+            split_point_all_reduce(level);
+            {
+                TIMED_SCOPE(timerObj, "apply sp");
+                for_each_shard([&](Shard &shard) {
+                    shard.update_tree();
+                    shard.update_ins2node_id();
+                });
+                {
+                    LOG(TRACE) << "gathering ins2node id";
+                    //get final result of the reset instance id to node id
+                    bool has_split = false;
+                    for (int d = 0; d < param.n_device; d++) {
+                        has_split |= shards[d]->has_split;
+                    }
+                    if (!has_split) {
+                        LOG(INFO) << "no splittable nodes, stop";
+                        break;
+                    }
+                }
+                ins2node_id_all_reduce();
+            }
+        }
+        for_each_shard([&](Shard &shard) {
+            shard.tree.prune_self(param.gamma);
+            shard.predict_in_training();
+        });
+        tree.nodes.resize(shards.front()->tree.nodes.size());
+        tree.nodes.copy_from(shards.front()->tree.nodes);
+    }
 }
 
 void HistUpdater::split_point_all_reduce(int depth) {
@@ -90,6 +101,7 @@ void HistUpdater::init(const DataSet &dataset) {
     SparseColumns columns;
     columns.from_dataset(dataset);
 
+    //TODO refactor to remove this v_columns
     vector<std::unique_ptr<SparseColumns>> v_columns(param.n_device);
     for (int i = 0; i < param.n_device; ++i) {
         v_columns[i].reset(new SparseColumns());
@@ -99,7 +111,9 @@ void HistUpdater::init(const DataSet &dataset) {
         shard.stats.resize(n_instances);
         shard.stats.y.copy_from(dataset.y.data(), n_instances);
         shard.param = param;
+        shard.param.learning_rate /= param.n_parallel_trees;//average trees in one iteration
     });
+
     columns.to_multi_devices(v_columns);
 
     for_each_shard([&](Shard &shard) {
@@ -205,7 +219,8 @@ void HistUpdater::Shard::find_split(int level) {
             {
                 TIMED_SCOPE(timerObj, "build hist");
                 {
-                    size_t smem_size = n_bins * sizeof(GHPair);
+                    size_t
+                    smem_size = n_bins * sizeof(GHPair);
                     LOG(DEBUG) << "shared memory size = " << smem_size / 1024.0 << " KB";
                     if (n_nodes_in_level == 1) {
                         //root
@@ -224,8 +239,8 @@ void HistUpdater::Shard::find_split(int level) {
                                     int feature_offset = cut_row_ptr_data[fid];
                                     const GHPair src = gh_data[iid];
                                     GHPair &dest = hist_data[feature_offset + bid];
-                                        atomicAdd(&dest.g, src.g);
-                                        atomicAdd(&dest.h, src.h);
+                                    atomicAdd(&dest.g, src.g);
+                                    atomicAdd(&dest.h, src.h);
                                 }
                             });
                         } else {
@@ -244,16 +259,16 @@ void HistUpdater::Shard::find_split(int level) {
                                         int feature_offset = cut_row_ptr_data[fid];
                                         const GHPair src = gh_data[iid];
                                         GHPair &dest = local_hist[feature_offset + bid];
-                                            atomicAdd(&dest.g, src.g);
-                                            atomicAdd(&dest.h, src.h);
+                                        atomicAdd(&dest.g, src.g);
+                                        atomicAdd(&dest.h, src.h);
                                     }
                                 }
                                 __syncthreads();
                                 for (int i = threadIdx.x; i < n_bins; i += blockDim.x) {
                                     GHPair &dest = hist_data[i];
                                     GHPair src = local_hist[i];
-                                        atomicAdd(&dest.g, src.g);
-                                        atomicAdd(&dest.h, src.h);
+                                    atomicAdd(&dest.g, src.g);
+                                    atomicAdd(&dest.h, src.h);
                                 }
                             }, smem_size);
                         }
@@ -329,16 +344,16 @@ void HistUpdater::Shard::find_split(int level) {
                                                 int feature_offset = cut_row_ptr_data[fid];
                                                 const GHPair src = gh_data[iid];
                                                 GHPair &dest = local_hist[feature_offset + bid];
-                                                    atomicAdd(&dest.g, src.g);
-                                                    atomicAdd(&dest.h, src.h);
+                                                atomicAdd(&dest.g, src.g);
+                                                atomicAdd(&dest.h, src.h);
                                             }
                                         }
                                         __syncthreads();
                                         for (int i = threadIdx.x; i < n_bins; i += blockDim.x) {
                                             GHPair &dest = hist_data[i];
                                             GHPair src = local_hist[i];
-                                                atomicAdd(&dest.g, src.g);
-                                                atomicAdd(&dest.h, src.h);
+                                            atomicAdd(&dest.g, src.g);
+                                            atomicAdd(&dest.h, src.h);
                                         }
                                     }, smem_size);
                                 }
@@ -489,7 +504,7 @@ void HistUpdater::Shard::find_split(int level) {
     LOG(DEBUG) << "split points (gain/fea_id/nid): " << sp;
 }
 
-void HistUpdater::Shard::reset_ins2node_id() {
+void HistUpdater::Shard::update_ins2node_id() {
     TIMED_FUNC(timerObj);
     SyncArray<bool> has_splittable(1);
     //set new node id for each instance
@@ -584,15 +599,16 @@ void HistUpdater::Shard::predict_in_training() {
     auto y_predict_data = stats.y_predict.device_data();
     auto nid_data = stats.nid.device_data();
     const Tree::TreeNode *nodes_data = tree.nodes.device_data();
+    auto lr = param.learning_rate;
     device_loop(stats.n_instances, [=]__device__(int i) {
         int nid = nid_data[i];
         while (nid != -1 && (nodes_data[nid].is_pruned)) nid = nodes_data[nid].parent_index;
-        y_predict_data[i] += nodes_data[nid].base_weight;
+        y_predict_data[i] += lr * nodes_data[nid].base_weight;
     });
 }
 
 void HistUpdater::Shard::column_sampling() {
-    if (param.column_sampling_rate < 1){
+    if (param.column_sampling_rate < 1) {
         CHECK_GT(param.column_sampling_rate, 0);
         SyncArray<int> idx(n_column);
         thrust::sequence(thrust::cuda::par, idx.device_data(), idx.device_end(), 0);
@@ -601,7 +617,7 @@ void HistUpdater::Shard::column_sampling() {
         ignored_set.resize(n_column);
         auto idx_data = idx.device_data();
         auto ignored_set_data = ignored_set.device_data();
-        device_loop(sample_count, [=]__device__(int i){
+        device_loop(sample_count, [=]__device__(int i) {
             ignored_set_data[idx_data[i]] = true;
         });
     }

@@ -16,21 +16,24 @@ void InsStat::resize(size_t n_instances) {
     y_predict.resize(n_instances);
 }
 
-void InsStat::updateGH(bool bagging) {
+void InsStat::updateGH() {
     auto gh_pair_data = gh_pair.device_data();
-    auto nid_data = nid.device_data();
     auto stats_y_data = y.device_data();
     auto stats_yp_data = y_predict.device_data();
     LOG(DEBUG) << y_predict;
     LOG(TRACE) << "initializing instance statistics";
     device_loop(n_instances, [=]__device__(int i){
-        nid_data[i] = 0;
         //TODO support other objective function
         gh_pair_data[i].g = stats_yp_data[i] - stats_y_data[i];
         gh_pair_data[i].h = 1;
     });
-    if (bagging) do_bagging();
-    sum_gh = thrust::reduce(thrust::cuda::par, gh_pair.device_data(), gh_pair.device_end());
+}
+
+void InsStat::reset_nid() {
+    auto nid_data = nid.device_data();
+    device_loop(n_instances, [=]__device__(int i){
+        nid_data[i] = 0;
+    });
 }
 
 void InsStat::do_bagging() {
@@ -39,7 +42,7 @@ void InsStat::do_bagging() {
     SyncArray<int> idx(n_instances);
     auto idx_data = idx.device_data();
     int n_instances = this->n_instances;
-    int seed = std::rand();//TODO add a global random class
+    int seed = std::rand();//TODO add a global random generator class
     device_loop(n_instances, [=]__device__(int i){
         default_random_engine rng(seed);
         uniform_int_distribution<int> uniform_dist(0, n_instances - 1);
@@ -52,9 +55,11 @@ void InsStat::do_bagging() {
         int ins_id = idx_data[i];
         atomicAdd(ins_count_data + ins_id, 1);
     });
+    gh_pair.copy_from(gh_pair_backup);
     auto gh_data = gh_pair.device_data();
     device_loop(n_instances, [=]__device__(int i){
         gh_data[i].g = gh_data[i].g * ins_count_data[i];
         gh_data[i].h = gh_data[i].h * ins_count_data[i];
     });
 }
+

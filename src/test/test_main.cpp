@@ -23,6 +23,8 @@ int main(int argc, char **argv) {
     global_test_param.verbose = false;
     global_test_param.column_sampling_rate = 1;
     global_test_param.bagging = false;
+    global_test_param.n_parallel_trees = 1;
+    global_test_param.learning_rate = 1;
     for (int i = 0; i < argc; ++i) {
         if (string(argv[i]) == "-d") global_test_param.depth = atoi(argv[++i]);
         if (string(argv[i]) == "-n") global_test_param.n_trees = atoi(argv[++i]);
@@ -31,7 +33,9 @@ int main(int argc, char **argv) {
         if (string(argv[i]) == "-dataset") global_test_param.path = argv[++i];
         if (string(argv[i]) == "-bins") global_test_param.max_num_bin = atoi(argv[++i]);
         if (string(argv[i]) == "-cs") global_test_param.column_sampling_rate = atof(argv[++i]);
-        if (string(argv[i]) == "-bagging") global_test_param.bagging= atoi(argv[++i]);
+        if (string(argv[i]) == "-bagging") global_test_param.bagging = atoi(argv[++i]);
+        if (string(argv[i]) == "-pt") global_test_param.n_parallel_trees = atoi(argv[++i]);
+        if (string(argv[i]) == "-lr") global_test_param.learning_rate = atof(argv[++i]);
     }
     return RUN_ALL_TESTS();
 }
