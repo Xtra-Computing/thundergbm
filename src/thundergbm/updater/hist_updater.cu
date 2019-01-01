@@ -96,7 +96,7 @@ void HistUpdater::init(const DataSet &dataset) {
     shards.resize(param.n_device);
     for (int i = 0; i < param.n_device; ++i) {
         shards[i].reset(new Shard());
-        shards[i]->idx = i;
+        shards[i]->rank = i;
     }
     SparseColumns columns;
     columns.from_dataset(dataset);
@@ -110,6 +110,7 @@ void HistUpdater::init(const DataSet &dataset) {
         int n_instances = dataset.n_instances();
         shard.stats.resize(n_instances);
         shard.stats.y.copy_from(dataset.y.data(), n_instances);
+        shard.stats.obj.reset(ObjectiveFunction::create(param.objective));
         shard.param = param;
         shard.param.learning_rate /= param.n_parallel_trees;//average trees in one iteration
     });
@@ -117,12 +118,12 @@ void HistUpdater::init(const DataSet &dataset) {
     columns.to_multi_devices(v_columns);
 
     for_each_shard([&](Shard &shard) {
-        shard.n_column = v_columns[shard.idx]->n_column;
+        shard.n_column = v_columns[shard.rank]->n_column;
         shard.ignored_set.resize(shard.n_column);
-        shard.column_offset = v_columns[shard.idx]->column_offset;
-        shard.cut.get_cut_points2(*v_columns[shard.idx], shard.stats, param.max_num_bin, shard.stats.n_instances);
+        shard.column_offset = v_columns[shard.rank]->column_offset;
+        shard.cut.get_cut_points2(*v_columns[shard.rank], shard.stats, param.max_num_bin, shard.stats.n_instances);
         shard.last_hist.resize((2 << param.depth) * shard.cut.cut_points.size());
-        shard.get_bin_ids(*v_columns[shard.idx]);
+        shard.get_bin_ids(*v_columns[shard.rank]);
     });
 }
 
@@ -462,7 +463,7 @@ void HistUpdater::Shard::find_split(int level) {
                     arg_abs_max
             );
             LOG(DEBUG) << n_split;
-            LOG(DEBUG) << "best idx & gain = " << best_idx_gain;
+            LOG(DEBUG) << "best rank & gain = " << best_idx_gain;
         }
 
         //get split points
@@ -605,6 +606,7 @@ void HistUpdater::Shard::predict_in_training() {
         while (nid != -1 && (nodes_data[nid].is_pruned)) nid = nodes_data[nid].parent_index;
         y_predict_data[i] += lr * nodes_data[nid].base_weight;
     });
+    stats.obj->predict_transform(stats.y_predict);
 }
 
 void HistUpdater::Shard::column_sampling() {

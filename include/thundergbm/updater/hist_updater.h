@@ -28,7 +28,7 @@ public:
         bool has_split;
         int n_column;
         int column_offset;
-        int idx;
+        int rank;
 
         void get_bin_ids(const SparseColumns &columns);
 

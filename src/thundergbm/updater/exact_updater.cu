@@ -69,6 +69,7 @@ void ExactUpdater::init(const DataSet &dataset) {
         int n_instances = dataset.n_instances();
         shard.stats.resize(n_instances);
         shard.stats.y.copy_from(dataset.y.data(), n_instances);
+        shard.stats.obj.reset(ObjectiveFunction::create(param.objective));
     });
     columns.to_multi_devices(v_columns);
     for (int i = 0; i < param.n_device; ++i) {
@@ -168,6 +169,7 @@ void ExactUpdater::Shard::predict_in_training() {
         while (nid != -1 && (nodes_data[nid].is_pruned)) nid = nodes_data[nid].parent_index;
         y_predict_data[i] += nodes_data[nid].base_weight;
     });
+    stats.obj->predict_transform(stats.y_predict);
 }
 
 void ExactUpdater::Shard::find_split(int level) {
@@ -202,7 +204,7 @@ void ExactUpdater::Shard::find_split(int level) {
                 SyncArray<int> fvid2pid(nnz);
                 SyncArray<int> fvid_new2old(nnz);
                 {
-                    TIMED_SCOPE(timerObj,"find_split - data partitioning");
+                    TIMED_SCOPE(timerObj, "find_split - data partitioning");
                     {
                         //input
                         auto *nid_data = stats.nid.device_data();
@@ -386,7 +388,7 @@ void ExactUpdater::Shard::find_split(int level) {
 
             LOG(DEBUG) << "aaa = " << n_feature_with_nodes;
             LOG(DEBUG) << "f n pid" << feature_nodes_pid;
-            LOG(DEBUG) << "best idx & gain = " << best_idx_gain;
+            LOG(DEBUG) << "best rank & gain = " << best_idx_gain;
 
             auto feature_nodes_pid_data = feature_nodes_pid.device_data();
             device_loop(n_feature_with_nodes, [=]__device__(int i) {
@@ -395,7 +397,7 @@ void ExactUpdater::Shard::find_split(int level) {
             LOG(DEBUG) << "f n pid" << feature_nodes_pid;
             cub_sort_by_key(feature_nodes_pid, best_idx_gain, n_feature_with_nodes);
             LOG(DEBUG) << "f n pid" << feature_nodes_pid;
-            LOG(DEBUG) << "best idx & gain = " << best_idx_gain;
+            LOG(DEBUG) << "best rank & gain = " << best_idx_gain;
             n_nodes_in_level = reduce_by_key(
                     cuda::par,
                     feature_nodes_pid.device_data(), feature_nodes_pid.device_data() + n_feature_with_nodes,
@@ -406,7 +408,7 @@ void ExactUpdater::Shard::find_split(int level) {
                     arg_abs_max
             ).second - best_idx_gain.device_data();
             LOG(DEBUG) << "#nodes in level = " << n_nodes_in_level;
-            LOG(DEBUG) << "best idx & gain = " << best_idx_gain;
+            LOG(DEBUG) << "best rank & gain = " << best_idx_gain;
             cudaDeviceSynchronize();
         }
 

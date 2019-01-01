@@ -7,44 +7,7 @@
 
 
 #include "syncarray.h"
-struct GHPair {
-    float_type g;
-    float_type h;
-
-    HOST_DEVICE GHPair operator+(const GHPair &rhs) const {
-        GHPair res;
-        res.g = this->g + rhs.g;
-        res.h = this->h + rhs.h;
-        return res;
-    }
-
-    HOST_DEVICE const GHPair operator-(const GHPair &rhs) const {
-        GHPair res;
-        res.g = this->g - rhs.g;
-        res.h = this->h - rhs.h;
-        return res;
-    }
-
-    HOST_DEVICE bool operator==(const GHPair &rhs) const {
-        return this->g == rhs.g && this->h == rhs.h;
-    }
-
-    HOST_DEVICE bool operator!=(const GHPair &rhs) const {
-        return !(*this == rhs);
-    }
-
-    HOST_DEVICE GHPair() : g(0), h(0) {};
-
-    HOST_DEVICE GHPair(float_type v) : g(v), h(v) {};
-
-    HOST_DEVICE GHPair(float_type g, float_type h) : g(g), h(h) {};
-
-    friend std::ostream &operator<<(std::ostream &os,
-                                    const GHPair &p) {
-        os << string_format("%f/%f", p.g, p.h);
-        return os;
-    }
-};
+#include "thundergbm/objective/objective_function.h"
 
 class InsStat {
 public:
@@ -60,6 +23,8 @@ public:
     SyncArray<float_type> y;
     ///predict value
     SyncArray<float_type> y_predict;
+
+    std::unique_ptr<ObjectiveFunction> obj;
 
     int n_instances;
 

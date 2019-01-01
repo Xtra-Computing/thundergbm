@@ -17,16 +17,8 @@ void InsStat::resize(size_t n_instances) {
 }
 
 void InsStat::updateGH() {
-    auto gh_pair_data = gh_pair.device_data();
-    auto stats_y_data = y.device_data();
-    auto stats_yp_data = y_predict.device_data();
     LOG(DEBUG) << y_predict;
-    LOG(TRACE) << "initializing instance statistics";
-    device_loop(n_instances, [=]__device__(int i){
-        //TODO support other objective function
-        gh_pair_data[i].g = stats_yp_data[i] - stats_y_data[i];
-        gh_pair_data[i].h = 1;
-    });
+    obj->update_gradient(y, y_predict, gh_pair);
 }
 
 void InsStat::reset_nid() {

@@ -20,6 +20,7 @@ struct GBMParam {
     bool bagging;
     int n_parallel_trees;
     float learning_rate;
+    std::string objective;
 
     //for histogram
     int max_num_bin;
