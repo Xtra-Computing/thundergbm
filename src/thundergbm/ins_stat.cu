@@ -49,6 +49,7 @@ void InsStat::do_bagging() {
     });
     gh_pair.copy_from(gh_pair_backup);
     auto gh_data = gh_pair.device_data();
+    //FIXME synchronize between shards
     device_loop(n_instances, [=]__device__(int i){
         gh_data[i].g = gh_data[i].g * ins_count_data[i];
         gh_data[i].h = gh_data[i].h * ins_count_data[i];

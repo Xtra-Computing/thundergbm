@@ -16,18 +16,10 @@ public:
 
     GBMParam param;
 
-    struct Shard {
-        GBMParam param;
+    struct HistShard: public Shard {
         HistCut cut;
         SyncArray<unsigned char> dense_bin_id;
-        InsStat stats;
-        Tree tree;
-        SyncArray<bool> ignored_set;
-        SyncArray<SplitPoint> sp;
         SyncArray<GHPair> last_hist;
-        bool has_split;
-        int n_column;
-        int column_offset;
         int rank;
 
         void get_bin_ids(const SparseColumns &columns);
@@ -35,15 +27,9 @@ public:
         void find_split(int level);
 
         void update_ins2node_id();
-
-        void update_tree();
-
-        void predict_in_training();
-
-        void column_sampling();
     };
 
-    vector<std::unique_ptr<Shard>> shards;
+    vector<std::unique_ptr<HistShard>> shards;
 
     template<typename L>
     void for_each_shard(L lambda) {

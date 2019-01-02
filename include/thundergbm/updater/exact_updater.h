@@ -17,30 +17,8 @@
 #include "thrust/iterator/discard_iterator.h"
 #include <thundergbm/param.h>
 #include "thundergbm/util/device_lambda.cuh"
+#include "thundergbm/shard.h"
 
-
-class SplitPoint {
-public:
-    float_type gain;
-    int split_fea_id;
-    float_type fval;
-    GHPair fea_missing_gh;
-    GHPair rch_sum_gh;
-    bool default_right;
-    int nid;
-    unsigned char split_bid;
-
-    SplitPoint() {
-        nid = -1;
-        split_fea_id = -1;
-        gain = 0;
-    }
-
-    friend std::ostream &operator<<(std::ostream &output, const SplitPoint &sp) {
-        output << sp.gain << "/" << sp.split_fea_id << "/" << sp.nid << "/" <<sp.rch_sum_gh;
-        return output;
-    }
-};
 
 class ExactUpdater {
 public:
@@ -48,24 +26,13 @@ public:
         this->param = param;
     }
 
-
     GBMParam param;
-    struct Shard {
-        GBMParam param;
-        SparseColumns columns;
-        InsStat stats;
-        Tree tree;
-        SyncArray<SplitPoint> sp;
-        bool has_split;
+
+    struct ExactShard: public Shard {
         void find_split(int level);
-
-        void update_tree();
-
-        void reset_ins2node_id();
-        void predict_in_training();
-
+        void update_ins2node_id();
     };
-    vector<std::unique_ptr<Shard>> shards;
+    vector<std::unique_ptr<ExactShard>> shards;
     
     template <typename L>
     void for_each_shard(L lambda){
