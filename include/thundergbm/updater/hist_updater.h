@@ -10,13 +10,7 @@
 
 class HistUpdater {
 public:
-    explicit HistUpdater(GBMParam &param) {
-        this->param = param;
-    }
-
-    GBMParam param;
-
-    struct HistShard: public Shard {
+    struct InternalShard: public Shard {
         HistCut cut;
         SyncArray<unsigned char> dense_bin_id;
         SyncArray<GHPair> last_hist;
@@ -29,22 +23,27 @@ public:
         void update_ins2node_id();
     };
 
-    vector<std::unique_ptr<HistShard>> shards;
+    typedef InternalShard ShardT;
+    GBMParam param;
 
     template<typename L>
-    void for_each_shard(L lambda) {
-        DO_ON_MULTI_DEVICES(param.n_device, [&](int device_id) {
-            lambda(*shards[device_id].get());
+    static void for_each_shard(vector<ShardT> &shards, L lambda) {
+        DO_ON_MULTI_DEVICES(shards.size(), [&](int device_id) {
+            lambda(shards[device_id]);
         });
     }
 
-    void init(const DataSet &dataset);
+    explicit HistUpdater(GBMParam &param) {
+        this->param = param;
+    }
 
-    void grow(vector<Tree> &trees);
+    void init(vector<ShardT> &shards);
 
-    void split_point_all_reduce(int depth);
+    void grow(vector<Tree> &trees, vector<ShardT> &shards);
 
-    void ins2node_id_all_reduce();
+    void split_point_all_reduce(int depth, vector<ShardT> &shards);
+
+    void ins2node_id_all_reduce(vector<ShardT> &shards);
 };
 
 #endif //GBM_MIRROR2_HIST_UPDATER_H

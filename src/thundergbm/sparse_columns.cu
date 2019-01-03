@@ -13,6 +13,7 @@ void SparseColumns::from_dataset(const DataSet &dataset) {
     LOG(TRACE) << "constructing sparse columns, converting csr to csc";
     //cpu transpose
     n_column = dataset.n_features();
+    n_row = dataset.n_instances();
     nnz = dataset.csr_val.size();
     csc_val.resize(nnz);
     csc_row_idx.resize(nnz);
@@ -105,6 +106,7 @@ void SparseColumns::to_multi_devices(vector<std::unique_ptr<SparseColumns>> &v_c
         columns.column_offset = first_col_id + this->column_offset;
         columns.nnz = nnz_sub;
         columns.n_column = n_column_sub;
+        columns.n_row = n_row;
         columns.csc_val.resize(nnz_sub);
         columns.csc_row_idx.resize(nnz_sub);
         columns.csc_col_ptr.resize(n_column_sub + 1);

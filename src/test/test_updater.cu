@@ -11,6 +11,7 @@
 //#include "mpi.h"
 
 extern GBMParam global_test_param;
+
 class UpdaterTest : public ::testing::Test {
 public:
 
@@ -61,25 +62,59 @@ public:
         DataSet dataSet;
         dataSet.load_from_file(param.path);
 
+        SyncMem::clear_cache();
+
+        vector<vector<Tree>> trees(param.n_trees);
+        vector<HistUpdater::ShardT> shards(param.n_device);
+
+        //TODO refactor these
+        SparseColumns columns;
+        columns.from_dataset(dataSet);
+        vector<std::unique_ptr<SparseColumns>> v_columns(param.n_device);
+        for (int i = 0; i < param.n_device; ++i) {
+            v_columns[i].reset(&shards[i].columns);
+        }
+        columns.to_multi_devices(v_columns);
+
+        HistUpdater updater(param);
+        HistUpdater::for_each_shard(shards, [&](Shard &shard) {
+            int n_instances = shard.columns.n_row;
+            shard.stats.resize(n_instances);
+            shard.stats.y.copy_from(dataSet.y.data(), n_instances);
+            shard.stats.obj.reset(ObjectiveFunction::create(param.objective));
+            shard.param = param;
+            shard.param.learning_rate /= param.n_parallel_trees;//average trees in one iteration
+        });
+        updater.init(shards);
+
+        SyncMem::clear_cache();
+
         int round = 0;
         float_type rmse = 0;
-        SyncMem::clear_cache();
-        vector<vector<Tree>> trees(param.n_trees);
-        HistUpdater updater(param);
-
-        updater.init(dataSet);
-        SyncMem::clear_cache();
         {
             TIMED_SCOPE(timerObj, "construct tree");
             for (vector<Tree> &tree:trees) {
                 tree.resize(param.n_parallel_trees);
-                updater.grow(tree);
+
+                //update gradient
+                HistUpdater::for_each_shard(shards, [&](Shard &shard) {
+                    shard.stats.updateGH();
+                    if (updater.param.bagging) {
+                        shard.stats.gh_pair_backup.resize(shard.stats.n_instances);
+                        shard.stats.gh_pair_backup.copy_from(shard.stats.gh_pair);
+                    }
+                });
+
+                updater.grow(tree, shards);
 //                LOG(DEBUG) << string_format("\nbooster[%d]", round) << tree.dump(param.depth);
                 //next round
                 round++;
-                rmse = compute_rmse(updater.shards.front()->stats);
+                rmse = compute_rmse(shards.front().stats);
                 LOG(INFO) << "rmse = " << rmse;
             }
+        }
+        for (int i = 0; i < param.n_device; ++i) {
+            v_columns[i].release();
         }
         return rmse;
     }
@@ -103,6 +138,7 @@ public:
 
 class Exact : public UpdaterTest {
 };
+
 class Hist : public UpdaterTest {
 };
 

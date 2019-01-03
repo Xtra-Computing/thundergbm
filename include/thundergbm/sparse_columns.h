@@ -15,6 +15,7 @@ public:
     SyncArray<int> csc_row_idx;
     SyncArray<int> csc_col_ptr;
     int n_column;
+    int n_row;
     int column_offset;
     int nnz;
 
