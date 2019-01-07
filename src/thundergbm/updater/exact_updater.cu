@@ -10,7 +10,7 @@
 void ExactUpdater::grow(Tree &tree) {
     TIMED_FUNC(timerObj);
     for_each_shard([&](ExactShard &shard) {
-        shard.stats.updateGH();
+        shard.stats.update_gradient();
         shard.stats.reset_nid();
         shard.tree.init(shard.stats, param);
     });

@@ -6,7 +6,6 @@
 #define THUNDERGBM_DEVICE_LAMBDA_H
 
 #include "thundergbm/thundergbm.h"
-#include "thundergbm/clion_cuda.h"
 
 template<typename L>
 __global__ void lambda_kernel(size_t len, L lambda) {

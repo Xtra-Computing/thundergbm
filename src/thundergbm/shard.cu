@@ -67,7 +67,6 @@ void Shard::predict_in_training() {
         while (nid != -1 && (nodes_data[nid].is_pruned)) nid = nodes_data[nid].parent_index;
         y_predict_data[i] += lr * nodes_data[nid].base_weight;
     });
-    stats.obj->predict_transform(stats.y_predict);
 }
 
 void Shard::column_sampling() {

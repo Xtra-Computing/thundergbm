@@ -11,8 +11,8 @@
 template<template<typename> class Loss>
 class RegressionObj : public ObjectiveFunction {
 public:
-    void update_gradient(const SyncArray<float_type> &y, const SyncArray<float_type> &y_p,
-                         SyncArray<GHPair> &gh_pair) override {
+    void get_gradient(const SyncArray<float_type> &y, const SyncArray<float_type> &y_p,
+                      SyncArray<GHPair> &gh_pair) override {
         CHECK_EQ(y.size(), y_p.size());
         CHECK_EQ(y.size(), gh_pair.size());
         auto y_data = y.device_data();
@@ -29,6 +29,10 @@ public:
             y_data[i] = Loss<float_type>::predict_transform(y_data[i]);
         });
     }
+
+    void configure(GBMParam param) override {}
+
+    ~RegressionObj() override = default;
 };
 
 template<typename T>

@@ -25,7 +25,9 @@ int main(int argc, char **argv) {
     global_test_param.bagging = false;
     global_test_param.n_parallel_trees = 1;
     global_test_param.learning_rate = 1;
-    global_test_param.objective = "reg:linear";
+//    global_test_param.objective = "reg:linear";
+    global_test_param.objective = "multi:softprob";
+    global_test_param.num_class = 1;
     for (int i = 0; i < argc; ++i) {
         if (string(argv[i]) == "-d") global_test_param.depth = atoi(argv[++i]);
         if (string(argv[i]) == "-n") global_test_param.n_trees = atoi(argv[++i]);
@@ -38,6 +40,7 @@ int main(int argc, char **argv) {
         if (string(argv[i]) == "-pt") global_test_param.n_parallel_trees = atoi(argv[++i]);
         if (string(argv[i]) == "-lr") global_test_param.learning_rate = atof(argv[++i]);
         if (string(argv[i]) == "-obj") global_test_param.objective = argv[++i];
+        if (string(argv[i]) == "-nc") global_test_param.num_class = atoi(argv[++i]);
     }
     return RUN_ALL_TESTS();
 }

@@ -1,6 +1,4 @@
 
-#include <thundergbm/updater/hist_updater.h>
-
 #include "thundergbm/updater/hist_updater.h"
 #include "thundergbm/util/cub_wrapper.h"
 #include "cuda_profiler_api.h"
@@ -41,7 +39,7 @@ void HistUpdater::grow(vector<Tree> &trees, vector<ShardT> &shards) {
                 ins2node_id_all_reduce(shards);
             }
         }
-        for_each_shard(shards, [&](InternalShard &shard) {
+        HistUpdater::for_each_shard(shards, [&](Shard &shard) {
             shard.tree.prune_self(param.gamma);
             shard.predict_in_training();
         });

@@ -18,8 +18,6 @@ public:
     GBMParam param = global_test_param;
 
     void SetUp() override {
-
-
         if (!param.verbose) {
             el::Loggers::reconfigureAllLoggers(el::Level::Debug, el::ConfigurationType::Enabled, "false");
             el::Loggers::reconfigureAllLoggers(el::Level::Trace, el::ConfigurationType::Enabled, "false");
@@ -28,7 +26,6 @@ public:
     }
 
     void TearDown() {
-//        MPI_Finalize();
         SyncMem::clear_cache();
     }
 
@@ -64,7 +61,7 @@ public:
 
         SyncMem::clear_cache();
 
-        vector<vector<Tree>> trees(param.n_trees);
+        vector<vector<Tree>> trees;
         vector<HistUpdater::ShardT> shards(param.n_device);
 
         //TODO refactor these
@@ -82,6 +79,7 @@ public:
             shard.stats.resize(n_instances);
             shard.stats.y.copy_from(dataSet.y.data(), n_instances);
             shard.stats.obj.reset(ObjectiveFunction::create(param.objective));
+            shard.stats.obj->configure(param);
             shard.param = param;
             shard.param.learning_rate /= param.n_parallel_trees;//average trees in one iteration
         });
@@ -93,24 +91,68 @@ public:
         float_type rmse = 0;
         {
             TIMED_SCOPE(timerObj, "construct tree");
-            for (vector<Tree> &tree:trees) {
+            int n_instances = shards.front().stats.n_instances;
+            SyncArray<GHPair> all_gh_pair(n_instances * param.num_class);
+            SyncArray<float_type> all_y(n_instances * param.num_class);
+            for (int iter = 0; iter < param.n_trees; iter++) {
+                //one boosting iteration
+
+                trees.emplace_back();
+                vector<Tree> &tree = trees.back();
                 tree.resize(param.n_parallel_trees);
+                if (param.num_class == 1) {
+                    //update gradient
+                    HistUpdater::for_each_shard(shards, [&](Shard &shard) {
+                        shard.stats.update_gradient();
+                        if (updater.param.bagging) {
+                            shard.stats.gh_pair_backup.resize(shard.stats.n_instances);
+                            shard.stats.gh_pair_backup.copy_from(shard.stats.gh_pair);
+                        }
+                    });
+                    updater.grow(tree, shards);
 
-                //update gradient
-                HistUpdater::for_each_shard(shards, [&](Shard &shard) {
-                    shard.stats.updateGH();
-                    if (updater.param.bagging) {
-                        shard.stats.gh_pair_backup.resize(shard.stats.n_instances);
-                        shard.stats.gh_pair_backup.copy_from(shard.stats.gh_pair);
-                    }
-                });
-
-                updater.grow(tree, shards);
 //                LOG(DEBUG) << string_format("\nbooster[%d]", round) << tree.dump(param.depth);
-                //next round
-                round++;
-                rmse = compute_rmse(shards.front().stats);
-                LOG(INFO) << "rmse = " << rmse;
+
+                    //next round
+                    round++;
+                    rmse = compute_rmse(shards.front().stats);
+                    LOG(INFO) << "rmse = " << rmse;
+                } else {
+                    SyncArray<float_type> prob(all_y.size());
+                    prob.copy_from(all_y);
+                    shards.front().stats.obj->predict_transform(prob);
+                    auto yp_data = prob.device_data();
+                    auto y_data = shards.front().stats.y.device_data();
+                    int num_class = param.num_class;
+                    device_loop(n_instances, [=] __device__(int i){
+                        int max_k = 0;
+                        float_type max_p = yp_data[i];
+                        for (int k = 1; k < num_class; ++k) {
+                            if (yp_data[k * n_instances + i] > max_p) {
+                                max_p = yp_data[k * n_instances + i];
+                                max_k = k;
+                            }
+                        }
+                        yp_data[i] = max_k == y_data[i];
+                    });
+
+                    float acc = thrust::reduce(thrust::cuda::par, yp_data, yp_data + n_instances) / n_instances;
+                    LOG(INFO)<<"accuracy = " << acc;
+
+                    shards.front().stats.obj->get_gradient(shards.front().stats.y, all_y, all_gh_pair);
+                    for (int i = 0; i < param.num_class; ++i) {
+                        trees.emplace_back();
+                        vector<Tree> &tree = trees.back();
+                        tree.resize(param.n_parallel_trees);
+                        HistUpdater::for_each_shard(shards, [&](Shard &shard){
+                            shard.stats.gh_pair.copy_from(all_gh_pair.device_data() + i * n_instances, n_instances);
+                            shard.stats.y_predict.copy_from(all_y.device_data() + i * n_instances, n_instances);
+                        });
+                        updater.grow(tree, shards);
+                        CUDA_CHECK(cudaMemcpy(all_y.device_data() + i * n_instances, shards.front().stats.y_predict.device_data(),
+                                              sizeof(float_type) * n_instances, cudaMemcpyDefault));
+                    }
+                }
             }
         }
         for (int i = 0; i < param.n_device; ++i) {

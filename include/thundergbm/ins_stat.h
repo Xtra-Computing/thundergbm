@@ -36,7 +36,7 @@ public:
 
     void resize(size_t n_instances);
 
-    void updateGH();
+    void update_gradient();
 
     void reset_nid();
 
