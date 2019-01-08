@@ -17,9 +17,9 @@ struct Shard {
     GBMParam param;
     InsStat stats;
     Tree tree;
-    SparseColumns columns;
+    SparseColumns columns;//a subset of columns (or features)
     SyncArray<bool> ignored_set;//for column sampling
-    SyncArray<SplitPoint> sp;
+    SyncArray<SplitPoint> sp;//local best split points for all the tree nodes
     bool has_split;
 
     void update_tree();
@@ -33,13 +33,15 @@ struct Shard {
 class SplitPoint {
 public:
     float_type gain;
-    int split_fea_id;
-    float_type fval;
-    GHPair fea_missing_gh;
-    GHPair rch_sum_gh;
+    GHPair fea_missing_gh;//missing gh in this segment
+    GHPair rch_sum_gh;//right child total gh (missing gh included if default2right)
     bool default_right;
     int nid;
-    unsigned char split_bid;
+
+    //split condition
+    int split_fea_id;
+    float_type fval;//split on this feature value (for exact)
+    unsigned char split_bid;//split on this bin id (for hist)
 
     SplitPoint() {
         nid = -1;

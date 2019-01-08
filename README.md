@@ -1,8 +1,22 @@
-### Upgrade
-We are upgrading this library to support random forests. Stay tuned!
+## Getting Started
 
-### Related paper
-* Zeyi Wen, Bingsheng He, Kotagiri Ramamohanarao, Shengliang Lu, and Jiashuai Shi. Efficient Gradient Boosted Decision Tree Training on GPUs. The 32nd IEEE International Parallel and Distributed Processing Symposium (IPDPS), pages 234-243, 2018.
+### Prerequisites
+* cmake 2.8 or above 
+* gcc 4.8 or above for Linux
+* [CUDA](https://developer.nvidia.com/cuda-downloads) 8 or above
+
+### Download
+```bash
+git clone https://github.com/zeyiwen/thundergbm.git
+git submodule init cub && git submodule update
+```
+
+### Build test on Linux
+```bash
+git submodule update --init src/test/googletest
+```
+
+### Build on Linux 
 
 ### Installation
 * Add the require binaries to ```$PATH``` (where ```path_to_cuda``` is the home directory of cuda, 
@@ -20,3 +34,6 @@ mkdir build && cd build && cmake .. && make -j
 ```
 make runtest-mpi
 ```
+
+### Related paper
+* Zeyi Wen, Bingsheng He, Kotagiri Ramamohanarao, Shengliang Lu, and Jiashuai Shi. Efficient Gradient Boosted Decision Tree Training on GPUs. The 32nd IEEE International Parallel and Distributed Processing Symposium (IPDPS), pages 234-243, 2018.

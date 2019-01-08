@@ -3,15 +3,19 @@
 #include "thundergbm/util/cub_wrapper.h"
 #include "cuda_profiler_api.h"
 
-
+/**
+ * brief: grow a tree (or many trees for RF) from scratch
+ * @param trees
+ * @param shards: a subset of columns (features) with other meta data (e.g., tree, all g&h)
+ */
 void HistUpdater::grow(vector<Tree> &trees, vector<ShardT> &shards) {
     TIMED_FUNC(timerObj);
     for (Tree &tree:trees) {
         for_each_shard(shards, [&](InternalShard &shard) {
-            shard.stats.reset_nid();
-            shard.column_sampling();
-            if (param.bagging) shard.stats.do_bagging();
-            shard.tree.init(shard.stats, param);
+            shard.stats.reset_nid();//set nid of all the instances to 0
+            shard.column_sampling();//RF uses this, and may be used by GBDTs
+            if (param.bagging) shard.stats.do_bagging();//obtain a bag of instances
+            shard.tree.init(shard.stats, param);//init root node, reserve memory, etc.
         });
         for (int level = 0; level < param.depth; ++level) {
             for_each_shard(shards, [&](InternalShard &shard) {
@@ -39,7 +43,7 @@ void HistUpdater::grow(vector<Tree> &trees, vector<ShardT> &shards) {
                 ins2node_id_all_reduce(shards);
             }
         }
-        HistUpdater::for_each_shard(shards, [&](Shard &shard) {
+        for_each_shard(shards, [&](Shard &shard) {
             shard.tree.prune_self(param.gamma);
             shard.predict_in_training();
         });
