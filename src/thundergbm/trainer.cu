@@ -26,6 +26,18 @@ float_type TreeTrainer::compute_rmse(const InsStat &stats) {
     return rmse;
 }
 
+void TreeTrainer::save_trees(GBMParam &param, vector<Tree> &trees){
+    std::ofstream out(param.out_model_name);
+    int round = 0;
+    for (Tree &tree:trees) {
+        string str_tree = string_format("booster[%d]:", round) + tree.dump(param.depth);
+        LOG(INFO) << "\n" << str_tree;
+        out << str_tree;
+        round++;
+    }
+    out.close();
+}
+
 float_type TreeTrainer::train_exact(GBMParam &param) {
     DataSet dataSet;
     dataSet.load_from_file(param.path);
@@ -40,18 +52,14 @@ float_type TreeTrainer::train_exact(GBMParam &param) {
     SyncMem::clear_cache();
     {
         TIMED_SCOPE(timerObj, "construct tree");
-        std::ofstream out(param.out_model_name);
         for (Tree &tree:trees) {
             updater.grow(tree);
-            string str_tree = string_format("booster[%d]:", round) + tree.dump(param.depth);
-            LOG(INFO) << "\n" << str_tree;
-            out << str_tree;
             //next round
             round++;
             rmse = compute_rmse(updater.shards.front()->stats);
             LOG(INFO) << "rmse = " << rmse;
         }
-        out.close();
+        save_trees(param, trees);
     }
     return rmse;
 }

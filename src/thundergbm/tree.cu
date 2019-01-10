@@ -52,7 +52,7 @@ void Tree::preorder_traversal(int nid, int max_depth, int depth, string &s) cons
              string_format("%d:leaf=%.6g\n", node.final_id, node.base_weight) :
              string_format("%d:[f%d<%.6g] yes=%d,no=%d,missing=%d\n", node.final_id, node.split_feature_id + 1,
                            node.split_value,
-                           node.lch_index, node.rch_index, node.default_right == 0 ? node.rch_index : node.lch_index));
+                           node.lch_index, node.rch_index, node.default_right == 0 ? node.lch_index : node.rch_index));
 //             string_format("%d:[f%d<%.6g], weight=%f, gain=%f, dr=%d\n", node.final_id, node.split_feature_id + 1,
 //                           node.split_value,
 //                           node.base_weight, node.gain, node.default_right));

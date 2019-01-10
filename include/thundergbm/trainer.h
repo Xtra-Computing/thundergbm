@@ -15,6 +15,8 @@ public:
     float_type train_hist(GBMParam &param);
 
     float_type compute_rmse(const InsStat &stats);
+
+    void save_trees(GBMParam &param, vector<Tree> &trees);
 };
 
 #endif //THUNDERGBM_TRAINER_H

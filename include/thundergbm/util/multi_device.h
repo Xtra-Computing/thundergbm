@@ -5,6 +5,7 @@
 #ifndef THUNDERGBM_MULTI_DEVICE_H
 #define THUNDERGBM_MULTI_DEVICE_H
 //switch to specific device and do something, then switch back to the original device
+
 //FIXME make this macro into a function?
 #define DO_ON_DEVICE(device_id, something) \
     do { \
