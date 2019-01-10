@@ -51,5 +51,16 @@ mkdir build && cd build && cmake .. && make -j
 make runtest-mpi
 ```
 
+## How to cite ThunderGBM
+If you use ThunderGBM in your paper, please cite our work.
+```
+@article{wenthundergbm19,
+ author = {Wen, Zeyi and Shi, Jiashuai and He, Bingsheng and Chen, Jian},
+ title = {{ThunderGBM}: A Fast Library for {GBDT} and Random Forest Training on {GPUs}},
+ journal = {To appear in arXiv},
+ year = {2019}
+}
+```
+
 ### Related paper
 * Zeyi Wen, Bingsheng He, Kotagiri Ramamohanarao, Shengliang Lu, and Jiashuai Shi. Efficient Gradient Boosted Decision Tree Training on GPUs. The 32nd IEEE International Parallel and Distributed Processing Symposium (IPDPS), pages 234-243, 2018.
