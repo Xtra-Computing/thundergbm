@@ -50,9 +50,12 @@ void Tree::preorder_traversal(int nid, int max_depth, int depth, string &s) cons
         s = s + string(static_cast<unsigned long>(depth), '\t') +
             (node.is_leaf ?
              string_format("%d:leaf=%.6g\n", node.final_id, node.base_weight) :
-             string_format("%d:[f%d<%.6g], weight=%f, gain=%f, dr=%d\n", node.final_id, node.split_feature_id + 1,
+             string_format("%d:[f%d<%.6g] yes=%d,no=%d,missing=%d\n", node.final_id, node.split_feature_id + 1,
                            node.split_value,
-                           node.base_weight, node.gain, node.default_right));
+                           node.lch_index, node.rch_index, node.default_right == 0 ? node.rch_index : node.lch_index));
+//             string_format("%d:[f%d<%.6g], weight=%f, gain=%f, dr=%d\n", node.final_id, node.split_feature_id + 1,
+//                           node.split_value,
+//                           node.base_weight, node.gain, node.default_right));
     if (depth < max_depth) {
         preorder_traversal(node.lch_index, max_depth, depth + 1, s);
         preorder_traversal(node.rch_index, max_depth, depth + 1, s);

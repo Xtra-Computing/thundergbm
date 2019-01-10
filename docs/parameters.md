@@ -63,3 +63,11 @@ This page is for parameter specification in ThunderGBM. The parameters used in T
 * ``gamma`` [default=1, alias: ``min_split_loss``]
 
     - The minimum loss reduction required to make a further split on a leaf node of the tree. ``gamma`` is used in the pruning stage.
+
+* ``model_out`` [default="tgbm.model"]
+    
+    - The file name of the output model. This option is used in training.
+    
+* ``model_in`` [default="tgbm.model"]
+
+    - The file name of the input model. This option is used in prediction.

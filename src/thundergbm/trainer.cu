@@ -1,6 +1,7 @@
 //
 // Created by zeyi on 1/9/19.
 //
+#include <fstream>
 #include "thundergbm/thundergbm.h"
 #include "thundergbm/param.h"
 #include <thundergbm/tree.h>
@@ -39,14 +40,18 @@ float_type TreeTrainer::train_exact(GBMParam &param) {
     SyncMem::clear_cache();
     {
         TIMED_SCOPE(timerObj, "construct tree");
+        std::ofstream out(param.out_model_name);
         for (Tree &tree:trees) {
             updater.grow(tree);
-            LOG(DEBUG) << string_format("\nbooster[%d]", round) << tree.dump(param.depth);
+            string str_tree = string_format("booster[%d]:", round) + tree.dump(param.depth);
+            LOG(INFO) << "\n" << str_tree;
+            out << str_tree;
             //next round
             round++;
             rmse = compute_rmse(updater.shards.front()->stats);
             LOG(INFO) << "rmse = " << rmse;
         }
+        out.close();
     }
     return rmse;
 }

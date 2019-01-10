@@ -27,5 +27,8 @@ struct GBMParam {
     int max_num_bin;
 
     int n_device;
+
+    std::string out_model_name;
+    std::string in_model_name;
 };
 #endif //THUNDERGBM_PARAM_H
