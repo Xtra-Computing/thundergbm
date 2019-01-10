@@ -2,7 +2,7 @@
 // Created by zeyi on 1/9/19.
 //
 
-
+#include <fstream>
 #include "thundergbm/thundergbm.h"
 #include "thundergbm/param.h"
 #include <thundergbm/trainer.h>
@@ -24,10 +24,14 @@ void parse_param(GBMParam &tree_param, int argc, char **argv){
     tree_param.objective = "reg:linear";
     tree_param.num_class = 1;
 
-    //TODO: confirm handling spaces around "="
-    for (int i = 0; i < argc; ++i) {
+    if (argc < 2) {
+        printf("Usage: <config>\n");
+        exit(0);
+    }
+
+    auto parse_value = [&](const char *name_val){
         char name[256], val[256];
-        if (sscanf(argv[i], "%[^=]=%s", name, val) == 2) {
+        if (sscanf(name_val, "%[^=]=%s", name, val) == 2) {
             string str_name(name);
             if(str_name.compare("max_depth") == 0)
                 tree_param.depth = atoi(val);
@@ -62,6 +66,20 @@ void parse_param(GBMParam &tree_param, int argc, char **argv){
             else
                 LOG(INFO) << "\"" << name << "\" is unknown option!";
         }
+    };
+
+    //read configuration file
+    std::ifstream conf_file(argv[1]);
+    std::string line;
+    while (std::getline(conf_file, line))
+    {
+        LOG(INFO) << line;
+        parse_value(line.c_str());
+    }
+
+    //TODO: confirm handling spaces around "="
+    for (int i = 0; i < argc; ++i) {
+        parse_value(argv[i]);
     }//end parsing parameters
 }
 

@@ -1,3 +1,6 @@
+[![GitHub license](http://dmlc.github.io/img/apache2.svg)](./LICENSE)
+[![GitHub issues](https://img.shields.io/github/issues/zeyiwen/thundergbm.svg)](https://github.com/zeyiwen/thundergbm/issues)
+
 We are upgrading this project. Please frequently visit this repository for new fuctionalities.
 
 
@@ -20,6 +23,16 @@ git submodule update --init src/test/googletest
 ```
 
 ### Build on Linux 
+```bash
+cd thundergbm
+mkdir build && cd build && cmake .. && make -j
+```
+
+### Quick Start
+```bash
+./bin/thundergbm-train ../dataset/machine.conf
+```
+You will see `RMSE = 0.459703` after successful running.
 
 ### Installation
 * Add the require binaries to ```$PATH``` (where ```path_to_cuda``` is the home directory of cuda, 
