@@ -1,6 +1,6 @@
-FastTree Parameters
+ThunderGBM Parameters
 =====================
-This page is for parameter specification in FastTree. The parameters used in FastTree are identical to XGBoost (except some newly introduced parameters), so existing XGBoost users can easily get used to FastTree.
+This page is for parameter specification in ThunderGBM. The parameters used in ThunderGBM are identical to XGBoost (except some newly introduced parameters), so existing XGBoost users can easily get used to ThunderGBM.
 
 ### Key Parameters
 * ``verbosity`` [default=1]
