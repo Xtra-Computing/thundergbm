@@ -32,6 +32,7 @@ mkdir build && cd build && cmake .. && make -j
 ### Quick Start
 ```bash
 ./bin/thundergbm-train ../dataset/machine.conf
+./bin/thundergbm-predict ../dataset/machine.conf
 ```
 You will see `RMSE = 0.459703` after successful running.
 
