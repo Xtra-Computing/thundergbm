@@ -68,8 +68,6 @@ void Tree::preorder_traversal(int nid, int max_depth, int depth, string &s) cons
 //                           node.split_value,
 //                           node.base_weight, node.gain, node.default_right));
     }
-    LOG(INFO) << s;
-    LOG(INFO) << "depth=" << depth << "; max_depth=" << max_depth;
     if (depth < max_depth) {
         preorder_traversal(node.lch_index, max_depth, depth + 1, s);
         preorder_traversal(node.rch_index, max_depth, depth + 1, s);

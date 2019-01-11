@@ -31,7 +31,7 @@ void TreeTrainer::save_trees(GBMParam &param, vector<Tree> &trees){
     int round = 0;
     for (Tree &tree:trees) {
         string str_tree = string_format("booster[%d]:", round) + tree.dump(param.depth);
-        LOG(INFO) << "\n" << str_tree;
+        //LOG(INFO) << "\n" << str_tree;
         out << str_tree;
         round++;
     }

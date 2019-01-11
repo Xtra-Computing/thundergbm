@@ -20,6 +20,7 @@ void ParamParser::parse_param(GBMParam &model_param, int argc, char **argv){
     model_param.learning_rate = 1;
     model_param.objective = "reg:linear";
     model_param.num_class = 1;
+    model_param.path = "../dataset/test_dataset.txt";
     model_param.out_model_name = "tgbm.model";
     model_param.in_model_name =  "tgbm.model";
 

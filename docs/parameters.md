@@ -19,7 +19,7 @@ This page is for parameter specification in ThunderGBM. The parameters used in T
 
     - The number of GPUs to be used in the training.
     
-* ``data``
+* ``data`` [default="../dataset/test_dataset.txt"]
     
     - The path to the training data set
     
