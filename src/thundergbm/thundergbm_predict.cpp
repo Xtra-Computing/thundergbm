@@ -15,6 +15,19 @@ inline std::string trim(std::string& str)
     return str;
 }
 
+void init_tree(vector<Tree> &trees){
+    for(Tree &t : trees){
+        for(int i = 0; i < t.nodes.size(); i++) {
+            Tree::TreeNode &node = t.nodes.host_data()[i];
+            node.is_leaf = false;
+            node.is_valid = false;
+            node.is_pruned = true;
+            node.lch_index = -1;
+            node.rch_index = -1;
+        }
+    }
+}
+
 int main(int argc, char **argv) {
     el::Loggers::reconfigureAllLoggers(el::ConfigurationType::Format, "%datetime %level %fbase:%line : %msg");
     el::Loggers::addFlag(el::LoggingFlag::ColoredTerminalOutput);
@@ -33,8 +46,9 @@ int main(int argc, char **argv) {
     std::string line;
     vector<Tree> trees;
     trees.resize(2);
-    trees[0].nodes.resize(256);
-    trees[1].nodes.resize(256);
+    trees[0].nodes.resize(512);
+    trees[1].nodes.resize(512);
+    init_tree(trees);
     model_param.depth = 6;
     Tree::TreeNode *nodes;
     int tid = -1;
@@ -54,6 +68,8 @@ int main(int argc, char **argv) {
             node.is_valid = true;
             node.is_pruned = false;
             node.is_leaf = true;
+            node.lch_index = -1;
+            node.rch_index = -1;
         }
         else {
             int fill_val = sscanf(line.c_str(), "%d:[f%d<%f] yes=%d,no=%d,missing=%d", &nid, &fid, &sp_value, &lch_id,
@@ -66,7 +82,7 @@ int main(int argc, char **argv) {
                 node.lch_index = lch_id;
                 node.rch_index = rch_id;
                 node.split_value = sp_value;
-                node.split_feature_id = fid;
+                node.split_feature_id = fid - 1;//keep consistent with save tree
                 node.default_right = (missing_id == lch_id ? false : true);
                 node.is_valid = true;
                 node.is_pruned = false;
@@ -82,5 +98,6 @@ int main(int argc, char **argv) {
         }
     }
     TreeTrainer trainer;
+    LOG(INFO) << "saving trees";
     trainer.save_trees(model_param, trees);
 }

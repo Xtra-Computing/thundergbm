@@ -45,17 +45,31 @@ string Tree::dump(int depth) const {
 }
 
 void Tree::preorder_traversal(int nid, int max_depth, int depth, string &s) const {
+    if(nid == -1)//child of leaf node
+        return;
     const TreeNode &node = nodes.host_data()[nid];
-    if (node.is_valid && !node.is_pruned)
-        s = s + string(static_cast<unsigned long>(depth), '\t') +
-            (node.is_leaf ?
-             string_format("%d:leaf=%.6g\n", node.final_id, node.base_weight) :
-             string_format("%d:[f%d<%.6g] yes=%d,no=%d,missing=%d\n", node.final_id, node.split_feature_id + 1,
-                           node.split_value,
-                           node.lch_index, node.rch_index, node.default_right == 0 ? node.lch_index : node.rch_index));
+    const TreeNode *node_data = nodes.host_data();
+    if (node.is_valid && !node.is_pruned) {
+        s = s + string(static_cast<unsigned long>(depth), '\t');
+
+        if(node.is_leaf){
+            s = s + string_format("%d:leaf=%.6g\n", node.final_id, node.base_weight);
+        }
+        else {
+            int lch_final_id = node_data[node.lch_index].final_id;
+            int rch_final_id = node_data[node.rch_index].final_id;
+            string str_inter_node = string_format("%d:[f%d<%.6g] yes=%d,no=%d,missing=%d\n", node.final_id,
+                                                  node.split_feature_id + 1,
+                                                  node.split_value, lch_final_id, rch_final_id,
+                                                  node.default_right == 0 ? lch_final_id : rch_final_id);
+            s = s + str_inter_node;
+        }
 //             string_format("%d:[f%d<%.6g], weight=%f, gain=%f, dr=%d\n", node.final_id, node.split_feature_id + 1,
 //                           node.split_value,
 //                           node.base_weight, node.gain, node.default_right));
+    }
+    LOG(INFO) << s;
+    LOG(INFO) << "depth=" << depth << "; max_depth=" << max_depth;
     if (depth < max_depth) {
         preorder_traversal(node.lch_index, max_depth, depth + 1, s);
         preorder_traversal(node.rch_index, max_depth, depth + 1, s);
