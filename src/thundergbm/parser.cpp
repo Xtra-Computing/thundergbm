@@ -2,9 +2,9 @@
 // Created by zeyi on 1/10/19.
 //
 
-#include "thundergbm/param_parser.h"
+#include "thundergbm/parser.h"
 
-void ParamParser::parse_param(GBMParam &model_param, int argc, char **argv){
+void Parser::parse_param(GBMParam &model_param, int argc, char **argv){
     model_param.depth = 6;
     model_param.n_trees = 40;
     model_param.n_device = 1;
@@ -86,4 +86,55 @@ void ParamParser::parse_param(GBMParam &model_param, int argc, char **argv){
     for (int i = 0; i < argc; ++i) {
         parse_value(argv[i]);
     }//end parsing parameters
+}
+
+void Parser::load_model(GBMParam &model_param, vector<Tree> &trees){
+    std::ifstream model_file(model_param.in_model_name);
+    std::string line;
+
+    model_param.depth = 6;
+    Tree::TreeNode *nodes;
+    int tid = -1;
+    while (std::getline(model_file, line))
+    {
+        int nid, fid, lch_id, rch_id, missing_id;
+        float_type sp_value, weight;
+        //LOG(INFO) << line;
+        std::size_t found = line.find("leaf");
+        if (found != std::string::npos){
+            //LOG(INFO) << "parsing leaf";
+            sscanf(line.c_str(), "%d:leaf=%f", &nid, &weight);
+            Tree::TreeNode &node = trees[tid].nodes.host_data()[nid];
+            node.final_id = nid;
+            node.base_weight = weight;
+            node.is_valid = true;
+            node.is_pruned = false;
+            node.is_leaf = true;
+            node.lch_index = -1;
+            node.rch_index = -1;
+        }
+        else {
+            int fill_val = sscanf(line.c_str(), "%d:[f%d<%f] yes=%d,no=%d,missing=%d", &nid, &fid, &sp_value, &lch_id,
+                                  &rch_id, &missing_id);
+            //LOG(INFO) << fill_val;
+            if (fill_val == 6) {
+                // LOG(INFO) << "parsing internal";
+                Tree::TreeNode &node = trees[tid].nodes.host_data()[nid];
+                node.final_id = nid;
+                node.lch_index = lch_id;
+                node.rch_index = rch_id;
+                node.split_value = sp_value;
+                node.split_feature_id = fid - 1;//keep consistent with save tree
+                node.default_right = (missing_id == lch_id ? false : true);
+                node.is_valid = true;
+                node.is_pruned = false;
+                node.is_leaf = false;
+            } else {
+                //start a new tree
+                trees.emplace_back();
+                trees.back().nodes.resize(512);
+                tid++;
+            }
+        }
+    }
 }

@@ -5,7 +5,7 @@
 #include "thundergbm/thundergbm.h"
 #include "thundergbm/param.h"
 #include <thundergbm/trainer.h>
-#include "thundergbm/param_parser.h"
+#include "thundergbm/parser.h"
 
 int main(int argc, char **argv) {
     el::Loggers::reconfigureAllLoggers(el::ConfigurationType::Format, "%datetime %level %fbase:%line : %msg");
@@ -15,7 +15,7 @@ int main(int argc, char **argv) {
     el::Loggers::reconfigureAllLoggers(el::Level::Trace, el::ConfigurationType::Enabled, "false");
 
     GBMParam model_param;
-    ParamParser parser;
+    Parser parser;
     parser.parse_param(model_param, argc, argv);
     float_type rmse;
     TreeTrainer trainer;
