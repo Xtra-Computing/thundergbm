@@ -2,31 +2,28 @@
 [![GitHub license](http://dmlc.github.io/img/apache2.svg)](./LICENSE)
 [![GitHub issues](https://img.shields.io/github/issues/zeyiwen/thundergbm.svg)](https://github.com/zeyiwen/thundergbm/issues)
 
-We are upgrading this project. Please frequently visit this repository for new fuctionalities.
+We are upgrading this project. Please frequently visit this repository for new functionalities.
 
 [Documentations](http://thundergbm.readthedocs.io) | [Parameters](https://thundergbm.readthedocs.io/en/latest/parameters.html)
 ## Getting Started
 
 ### Prerequisites
-* cmake 2.8 or above 
-* gcc 4.8 or above for Linux
-* [CUDA](https://developer.nvidia.com/cuda-downloads) 8 or above
+* cmake 2.8 or above | gcc 4.8 or above for Linux | [CUDA](https://developer.nvidia.com/cuda-downloads) 8 or above
 
 ### Download
 ```bash
 git clone https://github.com/zeyiwen/thundergbm.git
 git submodule init cub && git submodule update
 ```
-
-### Build test on Linux
-```bash
-git submodule update --init src/test/googletest
-```
-
 ### Build on Linux 
 ```bash
 cd thundergbm
 mkdir build && cd build && cmake .. && make -j
+```
+
+Build the test cases
+```bash
+git submodule update --init src/test/googletest
 ```
 
 ### Quick Start
@@ -34,7 +31,7 @@ mkdir build && cd build && cmake .. && make -j
 ./bin/thundergbm-train ../dataset/machine.conf
 ./bin/thundergbm-predict ../dataset/machine.conf
 ```
-You will see `RMSE = 0.459703` after successful running.
+You will see `RMSE = 0.489562` after successful running.
 
 ### Installation
 * Add the require binaries to ```$PATH``` (where ```path_to_cuda``` is the home directory of cuda, 

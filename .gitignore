@@ -1,4 +1,7 @@
 .project
+*logs*
+*.pyc
+*.model
 bin
 *.binary
 *.out

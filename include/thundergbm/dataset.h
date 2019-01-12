@@ -12,6 +12,7 @@ class DataSet {
 public:
     ///load dataset from file
     void load_from_file(string file_name);
+    void load_from_sparse(int row_size, float* val, int* row_ptr, int* col_ptr, float* label);
 
     size_t n_features() const;
 

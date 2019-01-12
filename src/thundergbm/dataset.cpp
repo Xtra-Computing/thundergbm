@@ -13,7 +13,7 @@ void DataSet::load_from_file(string file_name) {
     CHECK(ifs.is_open()) << "file " << file_name << " not found";
 
     std::array<char, 4 << 20> buffer{};
-    const int nthread = omp_get_max_threads();
+    const int nthread = 1;//omp_get_max_threads();
 
     auto find_last_line = [](char *ptr, const char *begin) {
         while (ptr != begin && *ptr != '\n' && *ptr != '\r') --ptr;
@@ -104,5 +104,32 @@ size_t DataSet::n_features() const {
 size_t DataSet::n_instances() const {
     return this->y.size();
 }
+
+void DataSet::load_from_sparse(int row_size, float* val, int* row_ptr, int* col_ptr, float* label) {
+    n_features_ = 0;
+    int total_count = 0;
+    for(int i = 0; i < row_size; i++){
+        int ind;
+        if(label != NULL)
+            y.push_back(label[i]);
+        csr_row_ptr.push_back(row_ptr[total_count]);
+        for(int i = row_ptr[total_count]; i < row_ptr[total_count + 1]; i++){
+            ind = col_ptr[i];
+
+            csr_val.push_back(val[i]);
+            csr_col_idx.push_back(ind);
+            //TODO: move to above if want one-based format
+            ind++;			//convert to one-based format
+
+            if(ind > n_features_) n_features_ = ind;
+        }
+        total_count++;
+
+    }
+//    n_features_++;
+    LOG(INFO)<<"#instances = "<<this->n_instances()<<", #features = "<<this->n_features();
+
+}
+
 
 
