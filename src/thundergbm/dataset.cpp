@@ -22,7 +22,7 @@ void DataSet::load_from_file(string file_name, GBMParam param) {
     const int nthread = omp_get_max_threads();
 
     auto find_last_line = [](char *ptr, const char *begin) {
-        while (ptr != begin && *ptr != '\n' && *ptr != '\r') --ptr;
+        while (ptr != begin && *ptr != '\n' && *ptr != '\r' && *ptr != '\0') --ptr;
         return ptr;
     };
 
@@ -42,8 +42,8 @@ void DataSet::load_from_file(string file_name, GBMParam param) {
             //get working area of this thread
             int tid = omp_get_thread_num();
             size_t nstep = (size + nthread - 1) / nthread;
-            size_t sbegin = std::min(tid * nstep, size - 1);
-            size_t send = std::min((tid + 1) * nstep, size - 1);
+            size_t sbegin = std::min(tid * nstep, size);
+            size_t send = std::min((tid + 1) * nstep, size);
             char *pbegin = find_last_line(head + sbegin, head);
             char *pend = find_last_line(head + send, head);
 
@@ -56,10 +56,11 @@ void DataSet::load_from_file(string file_name, GBMParam param) {
             while (lend != pend) {
                 //get one line
                 lend = lbegin + 1;
-                while (lend != pend && *lend != '\n' && *lend != '\r') {
+                while (lend != pend && *lend != '\n' && *lend != '\r' && *lend != '\0') {
                     ++lend;
                 }
                 string line(lbegin, lend);
+                if (line == "\n") continue;
                 std::stringstream ss(line);
 
                 //read label of an instance
