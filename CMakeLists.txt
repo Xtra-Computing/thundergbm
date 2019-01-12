@@ -3,7 +3,6 @@ project(thundergbm)
 
 find_package(CUDA REQUIRED QUIET)
 find_package(OpenMP REQUIRED QUIET)
-#find_package(MPI REQUIRED)
 
 if (NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release)
@@ -22,10 +21,12 @@ if (OPENMP_FOUND)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
 endif ()
 
+# for easylogging++ configuration
 add_definitions("-DELPP_FEATURE_PERFORMANCE_TRACKING")
 add_definitions("-DELPP_THREAD_SAFE")
 add_definitions("-DELPP_STL_LOGGING")
-#set(COMMON_INCLUDES ${PROJECT_SOURCE_DIR}/include ${CMAKE_CURRENT_BINARY_DIR} ${PROJECT_SOURCE_DIR}/cub ${MPI_C_INCLUDE_PATH})
+
+# includes
 set(COMMON_INCLUDES ${PROJECT_SOURCE_DIR}/include ${CMAKE_CURRENT_BINARY_DIR} ${PROJECT_SOURCE_DIR}/cub)
 include_directories(${COMMON_INCLUDES})
 
@@ -35,8 +36,4 @@ add_subdirectory(src/test)
 # configuration file
 set(DATASET_DIR ${PROJECT_SOURCE_DIR}/dataset/)
 configure_file(include/thundergbm/config.h.in config.h)
-
-add_custom_target(runtest ${PROJECT_NAME}-test --gtest_filter='UpdaterTest*')
-add_custom_target(runtest-performance ${PROJECT_NAME}-test --gtest_filter='PerformanceTest*')
-#add_custom_target(runtest-mpi mpiexec -n 2 src/test/${PROJECT_NAME}-test --gtest_filter=PerformanceTest.abalone:PerformanceTest/*.abalone)
 
