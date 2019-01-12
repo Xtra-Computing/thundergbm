@@ -14,10 +14,11 @@ public:
     virtual void
     get_gradient(const SyncArray<float_type> &y, const SyncArray<float_type> &y_p, SyncArray<GHPair> &gh_pair) = 0;
     virtual void
-    predict_transform(SyncArray<float_type> &y) = 0;
+    predict_transform(SyncArray<float_type> &y){};
     virtual void configure(GBMParam param) = 0;
 
     static ObjectiveFunction* create(string name);
+    static bool need_load_group_file(string name);
     virtual ~ObjectiveFunction() = default;
 };
 

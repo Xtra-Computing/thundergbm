@@ -2,13 +2,19 @@
 // Created by jiashuai on 18-1-17.
 //
 #include <omp.h>
+#include <thundergbm/dataset.h>
+#include <thundergbm/objective/objective_function.h>
+
 #include "thundergbm/dataset.h"
 
-void DataSet::load_from_file(string file_name) {
+void DataSet::load_from_file(string file_name, GBMParam param) {
     LOG(INFO) << "loading LIBSVM dataset from file \"" << file_name << "\"";
     y.clear();
     csr_row_ptr.resize(1, 0);
+    csr_col_idx.clear();
+    csr_val.clear();
     n_features_ = 0;
+
     std::ifstream ifs(file_name, std::ifstream::binary);
     CHECK(ifs.is_open()) << "file " << file_name << " not found";
 
@@ -16,7 +22,7 @@ void DataSet::load_from_file(string file_name) {
     const int nthread = 1;//omp_get_max_threads();
 
     auto find_last_line = [](char *ptr, const char *begin) {
-        while (ptr != begin && *ptr != '\n' && *ptr != '\r') --ptr;
+        while (ptr != begin && *ptr != '\n' && *ptr != '\r' && *ptr != '\0') --ptr;
         return ptr;
     };
 
@@ -36,8 +42,8 @@ void DataSet::load_from_file(string file_name) {
             //get working area of this thread
             int tid = omp_get_thread_num();
             size_t nstep = (size + nthread - 1) / nthread;
-            size_t sbegin = std::min(tid * nstep, size - 1);
-            size_t send = std::min((tid + 1) * nstep, size - 1);
+            size_t sbegin = std::min(tid * nstep, size);
+            size_t send = std::min((tid + 1) * nstep, size);
             char *pbegin = find_last_line(head + sbegin, head);
             char *pend = find_last_line(head + send, head);
 
@@ -50,10 +56,11 @@ void DataSet::load_from_file(string file_name) {
             while (lend != pend) {
                 //get one line
                 lend = lbegin + 1;
-                while (lend != pend && *lend != '\n' && *lend != '\r') {
+                while (lend != pend && *lend != '\n' && *lend != '\r' && *lend != '\0') {
                     ++lend;
                 }
                 string line(lbegin, lend);
+                if (line == "\n") continue;
                 std::stringstream ss(line);
 
                 //read label of an instance
@@ -95,6 +102,7 @@ void DataSet::load_from_file(string file_name) {
         }
     }
     LOG(INFO) << "#instances = " << this->n_instances() << ", #features = " << this->n_features();
+    if (ObjectiveFunction::need_load_group_file(param.objective)) load_group_file(file_name + ".group");
 }
 
 size_t DataSet::n_features() const {
@@ -131,5 +139,13 @@ void DataSet::load_from_sparse(int row_size, float* val, int* row_ptr, int* col_
 
 }
 
-
+void DataSet::load_group_file(string file_name) {
+    LOG(INFO) << "loading group info from file \"" << file_name << "\"";
+    group.clear();
+    std::ifstream ifs(file_name, std::ifstream::binary);
+    CHECK(ifs.is_open()) << "file " << file_name << " not found";
+    int group_size;
+    while (ifs>>group_size) group.push_back(group_size);
+    LOG(INFO)<< "#groups = " << group.size();
+}
 

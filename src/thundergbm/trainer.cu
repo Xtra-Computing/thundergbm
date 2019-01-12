@@ -40,7 +40,7 @@ void TreeTrainer::save_trees(GBMParam &param, vector<Tree> &trees){
 
 float_type TreeTrainer::train_exact(GBMParam &param) {
     DataSet dataSet;
-    dataSet.load_from_file(param.path);
+    dataSet.load_from_file(param.path, param);
     int n_instances = dataSet.n_instances();
     vector<Tree> trees;
     trees.resize(param.n_trees);
@@ -66,7 +66,7 @@ float_type TreeTrainer::train_exact(GBMParam &param) {
 
 float_type TreeTrainer::train_hist(GBMParam &param) {
     DataSet dataSet;
-    dataSet.load_from_file(param.path);
+    dataSet.load_from_file(param.path, param);
 
     SyncMem::clear_cache();
 

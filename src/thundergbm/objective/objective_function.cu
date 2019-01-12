@@ -12,3 +12,7 @@ ObjectiveFunction *ObjectiveFunction::create(string name) {
     if (name == "multi:softmax") return new Softmax;
     return nullptr;
 }
+
+bool ObjectiveFunction::need_load_group_file(string name) {
+    return name == "rank:ndcg";
+}

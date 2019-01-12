@@ -23,7 +23,7 @@ int main(int argc, char **argv) {
     parser.load_model(model_param, trees);
     //load data set
     DataSet dataSet;
-    dataSet.load_from_file(model_param.path);
+    dataSet.load_from_file(model_param.path, model_param);
     //predict
     Predictor pred;
     pred.predict(trees, dataSet);
