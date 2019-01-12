@@ -2,13 +2,19 @@
 // Created by jiashuai on 18-1-17.
 //
 #include <omp.h>
+#include <thundergbm/dataset.h>
+#include <thundergbm/objective/objective_function.h>
+
 #include "thundergbm/dataset.h"
 
-void DataSet::load_from_file(string file_name) {
+void DataSet::load_from_file(string file_name, GBMParam param) {
     LOG(INFO) << "loading LIBSVM dataset from file \"" << file_name << "\"";
     y.clear();
     csr_row_ptr.resize(1, 0);
+    csr_col_idx.clear();
+    csr_val.clear();
     n_features_ = 0;
+
     std::ifstream ifs(file_name, std::ifstream::binary);
     CHECK(ifs.is_open()) << "file " << file_name << " not found";
 
@@ -95,6 +101,7 @@ void DataSet::load_from_file(string file_name) {
         }
     }
     LOG(INFO) << "#instances = " << this->n_instances() << ", #features = " << this->n_features();
+    if (ObjectiveFunction::need_load_group_file(param.objective)) load_group_file(file_name + ".group");
 }
 
 size_t DataSet::n_features() const {
@@ -103,6 +110,16 @@ size_t DataSet::n_features() const {
 
 size_t DataSet::n_instances() const {
     return this->y.size();
+}
+
+void DataSet::load_group_file(string file_name) {
+    LOG(INFO) << "loading group info from file \"" << file_name << "\"";
+    group.clear();
+    std::ifstream ifs(file_name, std::ifstream::binary);
+    CHECK(ifs.is_open()) << "file " << file_name << " not found";
+    int group_size;
+    while (ifs>>group_size) group.push_back(group_size);
+    LOG(INFO)<< "#groups = " << group.size();
 }
 
 

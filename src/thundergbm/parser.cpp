@@ -93,7 +93,6 @@ void Parser::load_model(GBMParam &model_param, vector<Tree> &trees){
     std::string line;
 
     model_param.depth = 6;
-    Tree::TreeNode *nodes;
     int tid = -1;
     while (std::getline(model_file, line))
     {

@@ -39,7 +39,7 @@ int main(int argc, char **argv) {
     parser.load_model(model_param, trees);
 
     DataSet dataSet;
-    dataSet.load_from_file(model_param.path);
+    dataSet.load_from_file(model_param.path, model_param);
     int n_instances = dataSet.n_instances();
     int n_feature = dataSet.n_features();
     vector<float_type> predict_val(n_instances);

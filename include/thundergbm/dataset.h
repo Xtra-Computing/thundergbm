@@ -11,7 +11,8 @@
 class DataSet {
 public:
     ///load dataset from file
-    void load_from_file(string file_name);
+    void load_from_file(string file_name, GBMParam param);
+    void load_group_file(string file_name);
 
     size_t n_features() const;
 
@@ -22,8 +23,7 @@ public:
     vector<int> csr_col_idx;
     vector<float_type> y;
     size_t n_features_;
-
-    vector<vector<float_type>> features;
+    vector<int> group;
 };
 
 #endif //THUNDERGBM_DATASET_H
