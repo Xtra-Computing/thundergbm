@@ -40,14 +40,14 @@ SVM_TYPE = ['c_svc', 'nu_svc', 'one_class', 'epsilon_svr', 'nu_svr']
 KERNEL_TYPE = ['linear', 'polynomial', 'rbf', 'sigmoid', 'precomputed']
 
 class TGBMModel(ThundergbmBase, ThundergbmRegressorBase):
-    def __init__(self, depth = 6, n_trees = 40,
+    def __init__(self, depth = 6, num_round = 40,
                  n_device = 1, min_child_weight = 1.0, lambda_tgbm = 1.0, gamma = 1.0, max_num_bin = 255,
                  verbose = 0, column_sampling_rate = 1.0, bagging = 0,
                  n_parallel_trees = 1, learning_rate = 1.0, objective = "reg:linear",
                  num_class = 1, path = "../dataset/test_dataset.txt", out_model_name = "tgbm.model",
                  in_model_name = "tgbm.model"):
         self.depth = depth
-        self.n_trees = n_trees
+        self.n_trees = num_round
         self.n_device = n_device
         self.min_child_weight = min_child_weight
         self.lambda_tgbm = lambda_tgbm
