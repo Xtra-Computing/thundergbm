@@ -29,5 +29,4 @@ int main(int argc, char **argv) {
 //        rmse = trainer.train_exact(model_param);
 //    else
         rmse = trainer.train_hist(model_param);
-    LOG(INFO) << "RMSE is " << rmse;
 }

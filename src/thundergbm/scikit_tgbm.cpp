@@ -48,10 +48,10 @@ extern "C" {
 
         float_type rmse;
         TreeTrainer trainer;
-        bool exact_sp_producer = true;
-        if(exact_sp_producer)
-            rmse = trainer.train_exact(model_param);
-        else
+//        bool exact_sp_producer = true;
+//        if(exact_sp_producer)
+//            rmse = trainer.train_exact(model_param);
+//        else
             rmse = trainer.train_hist(model_param);
         printf("training completed. rmse is %f\n", rmse);
     }//end sparse_model_scikit
