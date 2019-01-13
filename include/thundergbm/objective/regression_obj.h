@@ -33,6 +33,10 @@ public:
     void configure(GBMParam param, const DataSet &dataset) override {}
 
     ~RegressionObj() override = default;
+
+    string default_metric() override {
+        return "rmse";
+    }
 };
 
 template<typename T>

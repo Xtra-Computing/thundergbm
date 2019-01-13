@@ -9,6 +9,7 @@
 #include <thundergbm/updater/hist_updater.h>
 #include <thundergbm/syncmem.h>
 #include <thundergbm/trainer.h>
+#include <thundergbm/metric/metric.h>
 
 float_type TreeTrainer::compute_rmse(const InsStat &stats) {
     TIMED_FUNC(timerObj);
@@ -44,11 +45,14 @@ float_type TreeTrainer::train(GBMParam &param){
         rmse = train_exact(param);
     else if(param.tree_method.compare("hist") == 0)
         rmse = train_hist(param);
-    else if(param.tree_method.compare("auto") == 0){
+    else{
         bool exact_sp_producer = false;
         if(dataSet.n_features() > 20000)//#TODO: use data set density ratio
             exact_sp_producer = true;
-        rmse = exact_sp_producer == true ? train_exact(param) : train_hist(param);
+        if(exact_sp_producer == true)
+            rmse = train_exact(param);
+        else
+            rmse = train_hist(param);
     }
     return rmse;
 }
@@ -77,6 +81,33 @@ float_type TreeTrainer::train_exact(GBMParam &param) {
     }
     return rmse;
 }
+
+///// upgrading
+//float_type TreeTrainer::train_exact(GBMParam &param) {
+//    DataSet dataSet;
+//    dataSet.load_from_file(param.path, param);
+//    int n_instances = dataSet.n_instances();
+//    vector<Tree> trees;
+//    trees.resize(param.n_trees);
+//
+//    ExactUpdater updater(param);
+//    updater.init(dataSet);
+//    int round = 0;
+//    float_type rmse = 0;
+//    SyncMem::clear_cache();
+//    {
+//        TIMED_SCOPE(timerObj, "construct tree");
+//        for (Tree &tree:trees) {
+//            updater.grow(tree);
+//            //next round
+//            round++;
+//            rmse = compute_rmse(updater.shards.front()->stats);
+//            LOG(INFO) << "rmse = " << rmse;
+//        }
+//        save_trees(param, trees);
+//    }
+//    return rmse;
+//}
 
 float_type TreeTrainer::train_hist(GBMParam &param) {
     LOG(INFO) << "using histogram based approach to find split";
@@ -108,6 +139,10 @@ float_type TreeTrainer::train_hist(GBMParam &param) {
 
     SyncMem::clear_cache();
 
+    std::unique_ptr<Metric> metric;
+    metric.reset(Metric::create(shards.front().stats.obj->default_metric()));
+    metric->configure(param, dataSet);
+
     int round = 0;
     float_type rmse = 0;
     {
@@ -135,8 +170,8 @@ float_type TreeTrainer::train_hist(GBMParam &param) {
 
                 //next round
                 round++;
-                rmse = compute_rmse(shards.front().stats);
-                LOG(INFO) << "rmse = " << rmse;
+                float_type score = metric->get_score(shards.front().stats.y_predict);
+                LOG(INFO) << metric->get_name() << " = " << score;
             } else {
                 SyncArray<float_type> prob(all_y.size());
                 prob.copy_from(all_y);

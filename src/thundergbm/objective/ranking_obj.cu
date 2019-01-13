@@ -62,3 +62,5 @@ LambdaRank::get_gradient(const SyncArray<float_type> &y, const SyncArray<float_t
         }
     }
 }
+
+string LambdaRank::default_metric() { return "map"; }

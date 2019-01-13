@@ -19,6 +19,8 @@ public:
 
     void configure(GBMParam param, const DataSet &dataset) override;
 
+    string default_metric() override;
+
     ~LambdaRank() override = default;
 
 private:

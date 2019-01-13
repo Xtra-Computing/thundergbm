@@ -50,7 +50,7 @@ public:
             float_type max = yp_data[i];
             int max_k = 0;
             for (int k = 1; k < num_class; ++k) {
-                if (max > yp_data[k * n_instances + i]){
+                if (max > yp_data[k * n_instances + i]) {
                     max = yp_data[k * n_instances + i];
                     max_k = k;
                 }
@@ -63,12 +63,18 @@ public:
         num_class = param.num_class;
     }
 
+    string default_metric() override {
+        LOG(WARNING)<<"metric not implemented, using rmse as default";
+        return "rmse";
+    }
+
     ~Softmax() override = default;
 
+protected:
     int num_class;
 };
 
-class SoftmaxProb: public Softmax{
+class SoftmaxProb : public Softmax {
 public:
     void predict_transform(SyncArray<float_type> &y) override {
         auto yp_data = y.device_data();
@@ -92,5 +98,7 @@ public:
     }
 
     ~SoftmaxProb() override = default;
+
 };
+
 #endif //THUNDERGBM_MULTICLASS_OBJ_H
