@@ -19,7 +19,7 @@ void DataSet::load_from_file(string file_name, GBMParam param) {
     CHECK(ifs.is_open()) << "file " << file_name << " not found";
 
     std::array<char, 4 << 20> buffer{};
-    const int nthread = 1;//omp_get_max_threads();
+    const int nthread = omp_get_max_threads();
 
     auto find_last_line = [](char *ptr, const char *begin) {
         while (ptr != begin && *ptr != '\n' && *ptr != '\r' && *ptr != '\0') --ptr;
@@ -48,9 +48,15 @@ void DataSet::load_from_file(string file_name, GBMParam param) {
             char *pend = find_last_line(head + send, head);
 
             //move stream start position to the end of last line
-            if (tid == nthread - 1) ifs.seekg(pend - head - send, std::ios_base::cur);
+            if (tid == nthread - 1) {
+                if (ifs.eof())
+                    pend = head + send;
+                else
+                    ifs.seekg(-(head + send - pend), std::ios_base::cur);
+            }
 
             //read instances line by line
+            //TODO optimize parse line
             char *lbegin = pbegin;
             char *lend = lbegin;
             while (lend != pend) {
@@ -60,26 +66,28 @@ void DataSet::load_from_file(string file_name, GBMParam param) {
                     ++lend;
                 }
                 string line(lbegin, lend);
-                if (line == "\n") continue;
-                std::stringstream ss(line);
+                if (line != "\n") {
+                    std::stringstream ss(line);
 
-                //read label of an instance
-                y_[tid].push_back(0);
-                ss >> y_[tid].back();
+                    //read label of an instance
+                    y_[tid].push_back(0);
+                    ss >> y_[tid].back();
 
-                row_len_[tid].push_back(0);
-                string tuple;
-                while (ss >> tuple) {
-                    int i;
-                    float v;
-                    CHECK_EQ(sscanf(tuple.c_str(), "%d:%f", &i, &v), 2) << "read error, using [index]:[value] format";
+                    row_len_[tid].push_back(0);
+                    string tuple;
+                    while (ss >> tuple) {
+                        int i;
+                        float v;
+                        CHECK_EQ(sscanf(tuple.c_str(), "%d:%f", &i, &v), 2)
+                            << "read error, using [index]:[value] format";
 //TODO one-based and zero-based
-                    col_idx_[tid].push_back(i - 1);//one based
-                    val_[tid].push_back(v);
-                    if (i > max_feature[tid]) {
-                        max_feature[tid] = i;
+                        col_idx_[tid].push_back(i - 1);//one based
+                        val_[tid].push_back(v);
+                        if (i > max_feature[tid]) {
+                            max_feature[tid] = i;
+                        }
+                        row_len_[tid].back()++;
                     }
-                    row_len_[tid].back()++;
                 }
                 //read next instance
                 lbegin = lend;
@@ -113,29 +121,29 @@ size_t DataSet::n_instances() const {
     return this->y.size();
 }
 
-void DataSet::load_from_sparse(int row_size, float* val, int* row_ptr, int* col_ptr, float* label) {
+void DataSet::load_from_sparse(int row_size, float *val, int *row_ptr, int *col_ptr, float *label) {
     n_features_ = 0;
     int total_count = 0;
-    for(int i = 0; i < row_size; i++){
+    for (int i = 0; i < row_size; i++) {
         int ind;
-        if(label != NULL)
+        if (label != NULL)
             y.push_back(label[i]);
         csr_row_ptr.push_back(row_ptr[total_count]);
-        for(int i = row_ptr[total_count]; i < row_ptr[total_count + 1]; i++){
+        for (int i = row_ptr[total_count]; i < row_ptr[total_count + 1]; i++) {
             ind = col_ptr[i];
 
             csr_val.push_back(val[i]);
             csr_col_idx.push_back(ind);
             //TODO: move to above if want one-based format
-            ind++;			//convert to one-based format
+            ind++;            //convert to one-based format
 
-            if(ind > n_features_) n_features_ = ind;
+            if (ind > n_features_) n_features_ = ind;
         }
         total_count++;
 
     }
 //    n_features_++;
-    LOG(INFO)<<"#instances = "<<this->n_instances()<<", #features = "<<this->n_features();
+    LOG(INFO) << "#instances = " << this->n_instances() << ", #features = " << this->n_features();
 
 }
 
@@ -145,7 +153,7 @@ void DataSet::load_group_file(string file_name) {
     std::ifstream ifs(file_name, std::ifstream::binary);
     CHECK(ifs.is_open()) << "file " << file_name << " not found";
     int group_size;
-    while (ifs>>group_size) group.push_back(group_size);
-    LOG(INFO)<< "#groups = " << group.size();
+    while (ifs >> group_size) group.push_back(group_size);
+    LOG(INFO) << "#groups = " << group.size();
 }
 
