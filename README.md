@@ -5,9 +5,9 @@
 We are upgrading this project. Please frequently visit this repository for new functionalities.
 
 <div align="center">
-<img src="https://github.com/zeyiwen/thundergbm/tree/master/docs/_static/tgbm-logo.png" width="240" height="220" align=left/>
-<img src="https://github.com/zeyiwen/thundergbm/tree/master/docs/_static/lang-logo-tgbm.png" width="250" height="200" align=left/>
-<img src="https://github.com/zeyiwen/thundergbm/tree/master/docs/_static/overall.png" width="250" height="200" align=left/>
+<img src="https://github.com/zeyiwen/thundergbm/blob/master/docs/_static/tgbm-logo.png" width="240" height="200" align=left/>
+<img src="https://github.com/zeyiwen/thundergbm/blob/master/docs/_static/lang-logo-tgbm.png" width="270" height="200" align=left/>
+<img src="https://github.com/zeyiwen/thundergbm/blob/master/docs/_static/overall.png" width="250" height="200" align=left/>
 </div>
 
 [Documentations](http://thundergbm.readthedocs.io) | [Parameters](https://thundergbm.readthedocs.io/en/latest/parameters.html) | [Python interface](https://github.com/zeyiwen/thundergbm/tree/master/python)
