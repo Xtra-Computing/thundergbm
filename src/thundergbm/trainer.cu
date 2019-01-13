@@ -5,7 +5,6 @@
 #include "thundergbm/thundergbm.h"
 #include "thundergbm/param.h"
 #include <thundergbm/tree.h>
-#include <thundergbm/dataset.h>
 #include <thundergbm/updater/exact_updater.h>
 #include <thundergbm/updater/hist_updater.h>
 #include <thundergbm/syncmem.h>
@@ -38,9 +37,24 @@ void TreeTrainer::save_trees(GBMParam &param, vector<Tree> &trees){
     out.close();
 }
 
-float_type TreeTrainer::train_exact(GBMParam &param) {
-    DataSet dataSet;
+float_type TreeTrainer::train(GBMParam &param){
     dataSet.load_from_file(param.path, param);
+    float_type rmse;
+    if(param.tree_method.compare("exact") == 0)
+        rmse = train_exact(param);
+    else if(param.tree_method.compare("hist") == 0)
+        rmse = train_hist(param);
+    else if(param.tree_method.compare("auto") == 0){
+        bool exact_sp_producer = false;
+        if(dataSet.n_features() > 20000)//#TODO: use data set density ratio
+            exact_sp_producer = true;
+        rmse = exact_sp_producer == true ? train_exact(param) : train_hist(param);
+    }
+    return rmse;
+}
+
+float_type TreeTrainer::train_exact(GBMParam &param) {
+    LOG(INFO) << "using exact split to train the trees";
     int n_instances = dataSet.n_instances();
     vector<Tree> trees;
     trees.resize(param.n_trees);
@@ -65,9 +79,7 @@ float_type TreeTrainer::train_exact(GBMParam &param) {
 }
 
 float_type TreeTrainer::train_hist(GBMParam &param) {
-    DataSet dataSet;
-    dataSet.load_from_file(param.path, param);
-
+    LOG(INFO) << "using histogram based approach to find split";
     SyncMem::clear_cache();
 
     vector<vector<Tree>> trees;

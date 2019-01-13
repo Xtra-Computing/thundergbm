@@ -71,3 +71,11 @@ This page is for parameter specification in ThunderGBM. The parameters used in T
 * ``model_in`` [default="tgbm.model"]
 
     - The file name of the input model. This option is used in prediction.
+    
+* ``tree_method`` [default="auto"]
+
+    - "auto": select the approach of finding best splits using the builtin heuristics.
+    
+    - "exact": find the best split using enumeration on all the possible feature values.
+    
+    - "hist": find the best split using histogram based approach.

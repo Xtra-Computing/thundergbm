@@ -24,6 +24,7 @@ void Parser::parse_param(GBMParam &model_param, int argc, char **argv){
     model_param.path = "../dataset/test_dataset.txt";
     model_param.out_model_name = "tgbm.model";
     model_param.in_model_name =  "tgbm.model";
+    model_param.tree_method = "auto";
 
     if (argc < 2) {
         printf("Usage: <config>\n");
@@ -71,6 +72,8 @@ void Parser::parse_param(GBMParam &model_param, int argc, char **argv){
                 model_param.out_model_name = val;
             else if(str_name.compare("model_in") == 0)
                 model_param.in_model_name = val;
+            else if(str_name.compare("tree_method") == 0)
+                model_param.tree_method = val;
             else
                 LOG(INFO) << "\"" << name << "\" is unknown option!";
         }

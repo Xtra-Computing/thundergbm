@@ -45,7 +45,7 @@ class TGBMModel(ThundergbmBase, ThundergbmRegressorBase):
                  verbose = 0, column_sampling_rate = 1.0, bagging = 0,
                  n_parallel_trees = 1, learning_rate = 1.0, objective = "reg:linear",
                  num_class = 1, path = "../dataset/test_dataset.txt", out_model_name = "tgbm.model",
-                 in_model_name = "tgbm.model"):
+                 in_model_name = "tgbm.model", tree_method = "auto"):
         self.depth = depth
         self.n_trees = num_round
         self.n_device = n_device
@@ -63,6 +63,7 @@ class TGBMModel(ThundergbmBase, ThundergbmRegressorBase):
         self.path = path
         self.out_model_name = out_model_name
         self.in_model_name =  in_model_name
+        self.tree_method = tree_method
 
     #def label_validate(self, y):
         #return column_or_1d(y, warn=True).astype(np.float64)
@@ -106,7 +107,7 @@ class TGBMModel(ThundergbmBase, ThundergbmRegressorBase):
             self.max_num_bin, self.verbose, c_float(self.column_sampling_rate), self.bagging,
             self.n_parallel_trees, c_float(self.learning_rate), self.objective.encode('utf-8'),
             self.num_class, self.path.encode('utf-8'), self.out_model_name.encode('utf-8'),
-            self.in_model_name.encode('utf-8'), self._train_succeed)
+            self.in_model_name.encode('utf-8'), self.tree_method.encode('utf-8'), self._train_succeed)
 
     def predict(self, X, y = None):
         X.data = np.asarray(X.data, dtype=np.float64, order='C')

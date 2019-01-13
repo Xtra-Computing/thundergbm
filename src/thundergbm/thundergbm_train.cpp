@@ -24,10 +24,6 @@ int main(int argc, char **argv) {
     }
     float_type rmse;
     TreeTrainer trainer;
-//    bool exact_sp_producer = true;
-//    if(exact_sp_producer)
-//        rmse = trainer.train_exact(model_param);
-//    else
-        rmse = trainer.train_hist(model_param);
+    rmse = trainer.train(model_param);
     LOG(INFO) << "RMSE is " << rmse;
 }

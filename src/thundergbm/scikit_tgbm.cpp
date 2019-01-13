@@ -14,7 +14,8 @@ extern "C" {
                              int depth, int n_trees, int n_device, float min_child_weight, float lambda,
                              float gamma, int max_num_bin, int verbose, float column_sampling_rate,
                              int bagging, int n_parallel_trees, float learning_rate, char *obj_type,
-                             int num_class, char *path, char *out_model_name, char *in_model_name, int *train_succeed) {
+                             int num_class, char *path, char *out_model_name, char *in_model_name,
+                             char *tree_method, int *train_succeed) {
         train_succeed[0] = 1;
         if (verbose)
             el::Loggers::reconfigureAllLoggers(el::ConfigurationType::Enabled, "true");
@@ -43,16 +44,13 @@ extern "C" {
         model_param.path = path;
         model_param.out_model_name = out_model_name;
         model_param.in_model_name = in_model_name;
+        model_param.tree_method = tree_method;
 
         model_param.rt_eps = 1e-6;
 
         float_type rmse;
         TreeTrainer trainer;
-        bool exact_sp_producer = true;
-        if(exact_sp_producer)
-            rmse = trainer.train_exact(model_param);
-        else
-            rmse = trainer.train_hist(model_param);
+        rmse = trainer.train(model_param);
         printf("training completed. rmse is %f\n", rmse);
     }//end sparse_model_scikit
 

@@ -31,5 +31,6 @@ struct GBMParam {
 
     std::string out_model_name;
     std::string in_model_name;
+    std::string tree_method;
 };
 #endif //THUNDERGBM_PARAM_H
