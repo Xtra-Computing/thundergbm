@@ -17,6 +17,7 @@ struct GBMParam {
     float column_sampling_rate;
     std::string path;
     bool verbose;
+    bool profiling;
     bool bagging;
     int n_parallel_trees;
     float learning_rate;

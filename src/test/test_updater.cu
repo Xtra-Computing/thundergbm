@@ -3,13 +3,9 @@
 //
 #include <thundergbm/tree.h>
 #include <thundergbm/dataset.h>
-#include <thundergbm/updater/exact_updater.h>
-#include <thundergbm/updater/hist_updater.h>
 #include <thundergbm/syncmem.h>
 #include <thundergbm/trainer.h>
 #include "gtest/gtest.h"
-#include "cuda_profiler_api.h"
-//#include "mpi.h"
 
 extern GBMParam global_test_param;
 

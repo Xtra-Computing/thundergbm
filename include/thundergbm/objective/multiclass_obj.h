@@ -59,7 +59,7 @@ public:
         });
     }
 
-    void configure(GBMParam param) override {
+    void configure(GBMParam param, const DataSet &dataset) override {
         num_class = param.num_class;
     }
 

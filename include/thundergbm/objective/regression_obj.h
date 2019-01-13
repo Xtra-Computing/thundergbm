@@ -30,7 +30,7 @@ public:
         });
     }
 
-    void configure(GBMParam param) override {}
+    void configure(GBMParam param, const DataSet &dataset) override {}
 
     ~RegressionObj() override = default;
 };

@@ -70,6 +70,7 @@ void ExactUpdater::init(const DataSet &dataset) {
         shard.stats.resize(n_instances);
         shard.stats.y.copy_from(dataset.y.data(), n_instances);
         shard.stats.obj.reset(ObjectiveFunction::create(param.objective));
+        shard.stats.obj->configure(param, dataset);
     });
     columns.to_multi_devices(v_columns);
     for (int i = 0; i < param.n_device; ++i) {

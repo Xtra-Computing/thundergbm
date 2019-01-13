@@ -88,7 +88,7 @@ float_type TreeTrainer::train_hist(GBMParam &param) {
         shard.stats.resize(n_instances);
         shard.stats.y.copy_from(dataSet.y.data(), n_instances);
         shard.stats.obj.reset(ObjectiveFunction::create(param.objective));
-        shard.stats.obj->configure(param);
+        shard.stats.obj->configure(param, dataSet);
         shard.param = param;
         shard.param.learning_rate /= param.n_parallel_trees;//average trees in one iteration
     });
@@ -113,14 +113,13 @@ float_type TreeTrainer::train_hist(GBMParam &param) {
                 //update gradient
                 HistUpdater::for_each_shard(shards, [&](Shard &shard) {
                     shard.stats.update_gradient();
+                    LOG(DEBUG) << "gh = " << shard.stats.gh_pair;
                     if (updater.param.bagging) {
                         shard.stats.gh_pair_backup.resize(shard.stats.n_instances);
                         shard.stats.gh_pair_backup.copy_from(shard.stats.gh_pair);
                     }
                 });
                 updater.grow(tree, shards);
-
-//                LOG(DEBUG) << string_format("\nbooster[%d]", round) << tree.dump(param.depth);
 
                 //next round
                 round++;
