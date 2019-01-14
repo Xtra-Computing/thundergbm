@@ -19,11 +19,10 @@ int main(int argc, char **argv) {
         el::Loggers::reconfigureAllLoggers(el::Level::Debug, el::ConfigurationType::Enabled, "false");
         el::Loggers::reconfigureAllLoggers(el::Level::Trace, el::ConfigurationType::Enabled, "false");
     }
-    if (!model_param.profiling){
+    if (!model_param.profiling) {
         el::Loggers::reconfigureAllLoggers(el::ConfigurationType::PerformanceTracking, "false");
     }
     float_type rmse;
     TreeTrainer trainer;
     rmse = trainer.train(model_param);
-    LOG(INFO) << "RMSE is " << rmse;
 }

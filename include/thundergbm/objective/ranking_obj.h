@@ -24,19 +24,22 @@ public:
     ~LambdaRank() override = default;
 
 protected:
-    virtual float_type get_delta_z(float_type labelI, float_type labelJ, int rankI, int rankJ);
+    virtual float_type get_delta_z(float_type labelI, float_type labelJ, int rankI, int rankJ, int group_id);
+
     vector<int> gptr;//group start position
     int n_group;
 
     float_type sigma;
 };
 
-class LambdaRankNDCG: public LambdaRank {
-protected:
-    float_type get_delta_z(float_type labelI, float_type labelJ, int rankI, int rankJ) override;
-
+class LambdaRankNDCG : public LambdaRank {
 public:
     void configure(GBMParam param, const DataSet &dataset) override;
+
+    string default_metric() override;
+
+protected:
+    float_type get_delta_z(float_type labelI, float_type labelJ, int rankI, int rankJ, int group_id) override;
 
 private:
     vector<float_type> idcg;

@@ -8,6 +8,7 @@
 Metric *Metric::create(string name) {
     if (name == "map") return new MAP;
     if (name == "rmse") return new RMSE;
+    if (name == "ndcg") return new NDCG;
     LOG(FATAL) << "unknown metric " << name;
     return nullptr;
 }

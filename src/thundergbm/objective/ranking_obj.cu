@@ -2,19 +2,14 @@
 // Created by ss on 19-1-12.
 //
 #include <thundergbm/objective/ranking_obj.h>
-
-#include "thundergbm/objective/ranking_obj.h"
+#include "thundergbm/metric/ranking_metric.h"
 
 void LambdaRank::configure(GBMParam param, const DataSet &dataset) {
     sigma = 1;
 
     //init gptr
     n_group = dataset.group.size();
-    gptr = vector<int>(n_group + 1, 0);
-    for (int i = 1; i < gptr.size(); ++i) {
-        gptr[i] = gptr[i - 1] + dataset.group[i - 1];
-    }
-
+    RankListMetric::configure_gptr(dataset.group, gptr);
 }
 
 void
@@ -42,7 +37,7 @@ LambdaRank::get_gradient(const SyncArray<float_type> &y, const SyncArray<float_t
                 // for every pair Ui > Uj, calculate lambdaIJ, and increase lambdaI, decrease lambdaJ
                 // by it respectively
                 if (label_data[ui] > label_data[uj]) {
-                    float_type abs_delta_z = fabsf(get_delta_z(label_data[ui], label_data[uj], i, j));
+                    float_type abs_delta_z = fabsf(get_delta_z(label_data[ui], label_data[uj], i, j, k));
                     float_type rhoIJ = 1 / (1 + expf(sigma * (score[ui] - score[uj])));
                     float_type lambda = -abs_delta_z * rhoIJ;
                     float_type hessian = fmaxf(sigma * sigma * abs_delta_z * rhoIJ * (1 - rhoIJ), 1e-16f);
@@ -58,27 +53,22 @@ LambdaRank::get_gradient(const SyncArray<float_type> &y, const SyncArray<float_t
 
 string LambdaRank::default_metric() { return "map"; }
 
-float_type LambdaRank::get_delta_z(float_type labelI, float_type labelJ, int rankI, int rankJ) { return 1; }
+float_type
+LambdaRank::get_delta_z(float_type labelI, float_type labelJ, int rankI, int rankJ, int group_id) { return 1; }
 
 
 void LambdaRankNDCG::configure(GBMParam param, const DataSet &dataset) {
     LambdaRank::configure(param, dataset);
-    idcg.resize(n_group);
-    //calculate IDCG
-    for (int k = 0; k < n_group; ++k) {
-        int group_start = gptr[k];
-        int len = gptr[k + 1] - group_start;
-        vector<float_type> sorted_label(len);
-        memcpy(sorted_label.data(), dataset.y.data() + group_start, len * sizeof(float_type));
-        std::sort(sorted_label.begin(), sorted_label.end(), std::greater<float_type>());
-        for (int i = 0; i < sorted_label.size(); ++i) {
-            //assume labels are int
-            idcg[k] += ((1 << (int) sorted_label[i]) - 1) / log2f(i + 1 + 1);
-        }
-    }
+    NDCG::get_IDCG(gptr, dataset.y, idcg);
 }
 
-float_type LambdaRankNDCG::get_delta_z(float_type labelI, float_type labelJ, int rankI, int rankJ) {
-    LOG(FATAL) << "to be implemented";
-    return LambdaRank::get_delta_z(labelI, labelJ, rankI, rankJ);
+float_type LambdaRankNDCG::get_delta_z(float_type labelI, float_type labelJ, int rankI, int rankJ, int group_id) {
+    if (idcg[group_id] == 0) return 0;
+    float_type dgI1 = NDCG::discounted_gain(static_cast<int>(labelI), rankI);
+    float_type dgJ1 = NDCG::discounted_gain(static_cast<int>(labelJ), rankJ);
+    float_type dgI2 = NDCG::discounted_gain(static_cast<int>(labelI), rankJ);
+    float_type dgJ2 = NDCG::discounted_gain(static_cast<int>(labelJ), rankI);
+    return (dgI1 + dgJ1 - dgI2 - dgJ2) / idcg[group_id];
 }
+
+string LambdaRankNDCG::default_metric() { return "ndcg"; }

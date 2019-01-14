@@ -1,7 +1,7 @@
 //
 // Created by ss on 19-1-14.
 //
-#include "thundergbm/metric/ranking_metric.h"
+#include <thundergbm/metric/ranking_metric.h>
 
 float_type RankListMetric::get_score(const SyncArray<float_type> &y_p) const {
     float_type sum_score = 0;
@@ -12,7 +12,7 @@ float_type RankListMetric::get_score(const SyncArray<float_type> &y_p) const {
         SyncArray<float_type> query_yp(len);
         memcpy(query_y.host_data(), y.host_data() + group_start, len * sizeof(float_type));
         memcpy(query_yp.host_data(), y_p.host_data() + group_start, len * sizeof(float_type));
-        sum_score += this->evalQuery(query_y, query_yp);
+        sum_score += this->eval_query_group(query_y, query_yp, k);
     }
     return sum_score / n_group;
 }
@@ -22,16 +22,20 @@ void RankListMetric::configure(const GBMParam &param, const DataSet &dataset) {
 
     //init gptr
     n_group = dataset.group.size();
-    gptr = vector<int>(n_group + 1, 0);
-    for (int i = 1; i < gptr.size(); ++i) {
-        gptr[i] = gptr[i - 1] + dataset.group[i - 1];
-    }
+    configure_gptr(dataset.group, gptr);
 
     //TODO parse from param
     topn = std::numeric_limits<int>::max();
 }
 
-float_type MAP::evalQuery(SyncArray<float_type> &y, SyncArray<float_type> &y_p) const {
+void RankListMetric::configure_gptr(const vector<int> &group, vector<int> &gptr) {
+    gptr = vector<int>(group.size() + 1, 0);
+    for (int i = 1; i < gptr.size(); ++i) {
+        gptr[i] = gptr[i - 1] + group[i - 1];
+    }
+}
+
+float_type MAP::eval_query_group(SyncArray<float_type> &y, SyncArray<float_type> &y_p, int group_id) const {
     auto y_data = y.host_data();
     auto yp_data = y_p.host_data();
     int len = y.size();
@@ -54,4 +58,46 @@ float_type MAP::evalQuery(SyncArray<float_type> &y, SyncArray<float_type> &y_p) 
     if (nhits != 0)
         return sum_ap / nhits;
     else return 0;
+}
+
+void NDCG::configure(const GBMParam &param, const DataSet &dataset) {
+    RankListMetric::configure(param, dataset);
+    get_IDCG(gptr, dataset.y, idcg);
+}
+
+float_type NDCG::eval_query_group(SyncArray<float_type> &y, SyncArray<float_type> &y_p, int group_id) const {
+    CHECK_EQ(y.size(), y_p.size());
+    if (idcg[group_id] == 0) return 1;
+    int len = y.size();
+    vector<int> idx(len);
+    for (int i = 0; i < len; ++i) {
+        idx[i] = i;
+    }
+    auto label = y.host_data();
+    auto score = y_p.host_data();
+    std::sort(idx.begin(), idx.end(), [=](int a, int b) { return score[a] > score[b]; });
+
+    float_type dcg = 0;
+    for (int i = 0; i < len; ++i) {
+        dcg += discounted_gain(static_cast<int>(label[idx[i]]), i);
+    }
+    return dcg / idcg[group_id];
+}
+
+void NDCG::get_IDCG(const vector<int> &gptr, const vector<float_type> &y, vector<float_type> &idcg) {
+    int n_group = gptr.size() - 1;
+    idcg.clear();
+    idcg.resize(n_group);
+    //calculate IDCG
+    for (int k = 0; k < n_group; ++k) {
+        int group_start = gptr[k];
+        int len = gptr[k + 1] - group_start;
+        vector<float_type> sorted_label(len);
+        memcpy(sorted_label.data(), y.data() + group_start, len * sizeof(float_type));
+        std::sort(sorted_label.begin(), sorted_label.end(), std::greater<float_type>());
+        for (int i = 0; i < sorted_label.size(); ++i) {
+            //assume labels are int
+            idcg[k] += NDCG::discounted_gain(static_cast<int>(sorted_label[i]), i);
+        }
+    }
 }
