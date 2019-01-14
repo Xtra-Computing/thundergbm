@@ -151,7 +151,7 @@ void DataSet::load_group_file(string file_name) {
     LOG(INFO) << "loading group info from file \"" << file_name << "\"";
     group.clear();
     std::ifstream ifs(file_name, std::ifstream::binary);
-    CHECK(ifs.is_open()) << "file " << file_name << " not found";
+    CHECK(ifs.is_open()) << "ranking objective needs a group file, but file " << file_name << " not found";
     int group_size;
     while (ifs >> group_size) group.push_back(group_size);
     LOG(INFO) << "#groups = " << group.size();

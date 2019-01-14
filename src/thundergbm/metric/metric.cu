@@ -11,3 +11,8 @@ Metric *Metric::create(string name) {
     LOG(FATAL) << "unknown metric " << name;
     return nullptr;
 }
+
+void Metric::configure(const GBMParam &param, const DataSet &dataset) {
+    y.resize(dataset.y.size());
+    y.copy_from(dataset.y.data(), dataset.n_instances());
+}

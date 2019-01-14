@@ -23,14 +23,24 @@ public:
 
     ~LambdaRank() override = default;
 
-private:
+protected:
+    virtual float_type get_delta_z(float_type labelI, float_type labelJ, int rankI, int rankJ);
     vector<int> gptr;//group start position
-    vector<float_type> idcg;
     int n_group;
 
     float_type sigma;
 };
 
+class LambdaRankNDCG: public LambdaRank {
+protected:
+    float_type get_delta_z(float_type labelI, float_type labelJ, int rankI, int rankJ) override;
+
+public:
+    void configure(GBMParam param, const DataSet &dataset) override;
+
+private:
+    vector<float_type> idcg;
+};
 
 
 #endif //THUNDERGBM_RANKING_OBJ_H

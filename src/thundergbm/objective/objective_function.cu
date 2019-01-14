@@ -11,11 +11,12 @@ ObjectiveFunction *ObjectiveFunction::create(string name) {
     if (name == "reg:logistic") return new RegressionObj<LogisticLoss>;
     if (name == "multi:softprob") return new SoftmaxProb;
     if (name == "multi:softmax") return new Softmax;
-    if (name == "rank:ndcg") return new LambdaRank;
+    if (name == "rank:pairwise") return new LambdaRank;
+    if (name == "rank:ndcg") return new LambdaRankNDCG;
     LOG(FATAL) << "undefined objective " << name;
     return nullptr;
 }
 
 bool ObjectiveFunction::need_load_group_file(string name) {
-    return name == "rank:ndcg";
+    return name == "rank:ndcg" || name == "rank:pairwise";
 }
