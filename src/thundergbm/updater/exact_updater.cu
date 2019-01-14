@@ -2,9 +2,12 @@
 // Created by shijiashuai on 5/7/18.
 //
 #include <thundergbm/updater/exact_updater.h>
-
-#include "thundergbm/updater/exact_updater.h"
 #include "thundergbm/util/cub_wrapper.h"
+#include "thundergbm/util/device_lambda.cuh"
+#include "thrust/iterator/transform_iterator.h"
+#include "thrust/iterator/discard_iterator.h"
+#include "thrust/sequence.h"
+#include "thrust/binary_search.h"
 
 
 void ExactUpdater::grow(Tree &tree) {

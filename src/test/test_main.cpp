@@ -2,9 +2,7 @@
 // Created by jiashuai on 17-9-15.
 //
 #include <thundergbm/parser.h>
-#include "thundergbm/thundergbm.h"
 #include "gtest/gtest.h"
-#include "thundergbm/param.h"
 
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);

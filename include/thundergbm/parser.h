@@ -5,10 +5,7 @@
 #ifndef THUNDERGBM_PARAM_PARSER_H
 #define THUNDERGBM_PARAM_PARSER_H
 
-#include <fstream>
-#include "thundergbm/thundergbm.h"
-#include "thundergbm/param.h"
-#include <thundergbm/trainer.h>
+#include "tree.h"
 
 class Parser{
 public:

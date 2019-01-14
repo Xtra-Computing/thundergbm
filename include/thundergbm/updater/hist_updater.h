@@ -5,8 +5,11 @@
 #ifndef GBM_MIRROR2_HIST_UPDATER_H
 #define GBM_MIRROR2_HIST_UPDATER_H
 
-#include "thundergbm/updater/exact_updater.h"
+#include "thundergbm/common.h"
+#include "thundergbm/shard.h"
 #include "thundergbm/hist_cut.h"
+#include "thundergbm/sparse_columns.h"
+#include "thundergbm/util/multi_device.h"
 
 class HistUpdater {
 public:

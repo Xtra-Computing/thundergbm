@@ -7,6 +7,7 @@
 #include "thundergbm/sparse_columns.h"
 #include "thundergbm/util/device_lambda.cuh"
 #include "cusparse.h"
+#include "thundergbm/util/multi_device.h"
 
 void SparseColumns::from_dataset(const DataSet &dataset) {
     this->column_offset = 0;

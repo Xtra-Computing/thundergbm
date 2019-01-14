@@ -5,7 +5,7 @@
 #ifndef THUNDERGBM_SYNCMEM_H
 #define THUNDERGBM_SYNCMEM_H
 
-#include "thundergbm.h"
+#include "common.h"
 #include "cub/util_allocator.cuh"
 
 using namespace cub;

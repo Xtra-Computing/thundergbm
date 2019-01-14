@@ -1,7 +1,12 @@
 
 #include "thundergbm/updater/hist_updater.h"
 #include "thundergbm/util/cub_wrapper.h"
-#include "cuda_profiler_api.h"
+#include "thundergbm/util/device_lambda.cuh"
+#include "thrust/iterator/counting_iterator.h"
+#include "thrust/iterator/transform_iterator.h"
+#include "thrust/iterator/discard_iterator.h"
+#include "thrust/sequence.h"
+#include "thrust/binary_search.h"
 
 /**
  * brief: grow a tree (or many trees for RF) from scratch

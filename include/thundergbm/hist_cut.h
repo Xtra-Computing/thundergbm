@@ -5,7 +5,7 @@
 #ifndef THUNDERGBM_HIST_CUT_H
 #define THUNDERGBM_HIST_CUT_H
 
-#include "thundergbm/thundergbm.h"
+#include "common.h"
 #include "sparse_columns.h"
 #include "thundergbm/dataset.h"
 #include "thundergbm/tree.h"

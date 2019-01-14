@@ -5,11 +5,8 @@
 #ifndef THUNDERGBM_CUB_UTIL_H
 #define THUNDERGBM_CUB_UTIL_H
 
-#include "thundergbm/thundergbm.h"
-//#include <cub/util_allocator.cuh>
-//#include <cub/device/device_radix_sort.cuh>
-#include "cub/cub.cuh"
 #include <thundergbm/syncarray.h>
+#include "cub/cub.cuh"
 
 template<typename T1, typename T2>
 void cub_sort_by_key(SyncArray<T1> &keys, SyncArray<T2> &values, int size = -1, bool ascending = true,

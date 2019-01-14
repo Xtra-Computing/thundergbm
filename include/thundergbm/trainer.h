@@ -5,8 +5,7 @@
 #ifndef THUNDERGBM_TRAINER_H
 #define THUNDERGBM_TRAINER_H
 
-#include "thundergbm.h"
-#include "param.h"
+#include "common.h"
 #include "tree.h"
 #include "dataset.h"
 

@@ -1,7 +1,6 @@
 //
 // Created by ss on 19-1-2.
 //
-#include "thundergbm/thundergbm.h"
 #include "thundergbm/shard.h"
 #include "thundergbm/util/device_lambda.cuh"
 #include "thrust/reduce.h"

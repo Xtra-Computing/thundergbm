@@ -5,7 +5,7 @@
 #ifndef THUNDERGBM_DATASET_H
 #define THUNDERGBM_DATASET_H
 
-#include "thundergbm.h"
+#include "common.h"
 #include "syncarray.h"
 
 class DataSet {

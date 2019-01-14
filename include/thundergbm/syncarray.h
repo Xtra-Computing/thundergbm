@@ -5,7 +5,7 @@
 #ifndef THUNDERGBM_SYNCDATA_H
 #define THUNDERGBM_SYNCDATA_H
 
-#include "thundergbm.h"
+#include "thundergbm/util/log.h"
 #include "syncmem.h"
 
 /**

@@ -6,7 +6,6 @@
 #define THUNDERGBM_SHARD_H
 
 
-#include "param.h"
 #include "ins_stat.h"
 #include "sparse_columns.h"
 #include "tree.h"

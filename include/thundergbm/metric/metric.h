@@ -7,7 +7,6 @@
 
 #include <thundergbm/syncarray.h>
 #include <thundergbm/dataset.h>
-#include "thundergbm/thundergbm.h"
 
 class Metric {
 public:

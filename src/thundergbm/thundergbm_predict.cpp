@@ -2,8 +2,6 @@
 // Created by zeyi on 1/10/19.
 //
 
-#include "thundergbm/thundergbm.h"
-#include "thundergbm/param.h"
 #include "thundergbm/parser.h"
 #include <thundergbm/dataset.h>
 #include "thundergbm/predictor.h"

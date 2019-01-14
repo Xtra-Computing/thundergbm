@@ -5,7 +5,6 @@
 #ifndef THUNDERGBM_SPARSE_COLUMNS_H
 #define THUNDERGBM_SPARSE_COLUMNS_H
 
-#include "thundergbm.h"
 #include "syncarray.h"
 #include "dataset.h"
 

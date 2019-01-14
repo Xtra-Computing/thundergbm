@@ -5,7 +5,6 @@
 #ifndef THUNDERGBM_TREE_H
 #define THUNDERGBM_TREE_H
 
-#include "thundergbm/thundergbm.h"
 #include "syncarray.h"
 #include "sstream"
 #include "ins_stat.h"
@@ -42,8 +41,6 @@ public:
         }
 
     };
-
-//    explicit Tree(int depth);
 
     Tree() = default;
 

@@ -5,7 +5,7 @@
 #ifndef THUNDERGBM_DEVICE_LAMBDA_H
 #define THUNDERGBM_DEVICE_LAMBDA_H
 
-#include "thundergbm/thundergbm.h"
+#include "thundergbm/common.h"
 
 template<typename L>
 __global__ void lambda_kernel(size_t len, L lambda) {
@@ -67,30 +67,4 @@ __global__ void lambda_2d_sparse_kernel_mod(const int mod_val, const int *len2, 
     }
 }
 
-template<typename L>
-void device_loop_2d_mod(int len1, int mod_val, const int *len2, L lambda, unsigned int NUM_BLOCK = 32 * 56,
-                        unsigned int BLOCK_SIZE = 256) {
-    if (len1 > 0) {
-        lambda_2d_sparse_kernel_mod << < dim3(len1, NUM_BLOCK), BLOCK_SIZE >> > (mod_val, len2, lambda);
-        CUDA_CHECK(cudaPeekAtLastError());
-    }
-}
-
-//template<typename L>
-//__global__ void lambda_2d_sparse_kernel_zero(const int *len2, L lambda) {
-//    int i = blockIdx.x;
-//    int len = len2[i + 1] - len2[i];
-//    for (int j = blockIdx.y * blockDim.x + threadIdx.x; j < len; j += blockDim.x * gridDim.y) {
-//        lambda(i, j);
-//    }
-//}
-//
-//template<typename L>
-//void device_loop_2d_zero(int len1, const int *len2, L lambda, unsigned int NUM_BLOCK = 32 * 56,
-//                    unsigned int BLOCK_SIZE = 256) {
-//    if (len1 > 0) {
-//        lambda_2d_sparse_kernel_zero << < dim3(len1, NUM_BLOCK), BLOCK_SIZE >> > (len2, lambda);
-//        CUDA_CHECK(cudaPeekAtLastError());
-//    }
-//}
 #endif //THUNDERGBM_DEVICE_LAMBDA_H

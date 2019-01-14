@@ -4,7 +4,7 @@
 #ifndef THUNDERGBM_QUANTILE_SKETCH_H
 #define THUNDERGBM_QUANTILE_SKETCH_H
 
-#include "thundergbm/thundergbm.h"
+#include "common.h"
 #include <utility>
 #include <tuple>
 

@@ -3,6 +3,7 @@
 //
 
 #include <thundergbm/syncmem.h>
+#include "thundergbm/util/multi_device.h"
 
 namespace thunder {
     void SyncMem::malloc_host(void **ptr, size_t size) {

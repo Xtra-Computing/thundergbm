@@ -5,7 +5,6 @@
 #ifndef THUNDERGBM_INS_STAT_H
 #define THUNDERGBM_INS_STAT_H
 
-
 #include "syncarray.h"
 #include "thundergbm/objective/objective_function.h"
 

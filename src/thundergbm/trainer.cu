@@ -2,14 +2,13 @@
 // Created by zeyi on 1/9/19.
 //
 #include <fstream>
-#include "thundergbm/thundergbm.h"
-#include "thundergbm/param.h"
 #include <thundergbm/tree.h>
 #include <thundergbm/updater/exact_updater.h>
 #include <thundergbm/updater/hist_updater.h>
-#include <thundergbm/syncmem.h>
 #include <thundergbm/trainer.h>
 #include <thundergbm/metric/metric.h>
+#include "thundergbm/util/device_lambda.cuh"
+#include "thrust/reduce.h"
 
 float_type TreeTrainer::compute_rmse(const InsStat &stats) {
     TIMED_FUNC(timerObj);
