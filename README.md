@@ -12,9 +12,16 @@ We are upgrading this project. Please frequently visit this repository for new f
 
 [Documentations](http://thundergbm.readthedocs.io) | [Parameters](https://thundergbm.readthedocs.io/en/latest/parameters.html) | [Python (scikit-learn) interface](https://github.com/zeyiwen/thundergbm/tree/master/python)
 
-## Applications of GDBTs and Random Forests
+## Overview
+The mission of ThunderGBM is to help users easily and efficiently apply GBM and random forests to solve problems. ThunderGBM exploits GPUs to achieve high efficiency. Key features of ThunderGBM are as follows.
+* Improve the performance of training GBM and random forests over 10x compared with other libraries.
+* Support Python, R and Matlab interfaces.
+* Supported Operating Systems: Linux, Windows and MacOS.
 
-GBDTs and Random Forests (RFs) are often used for creating state-of-the-art data science solutions. We've listed three winning solutions using GBDTs below. Please check out the [XGBoost website](https://github.com/dmlc/xgboost/blob/master/demo/README.md#machine-learning-challenge-winning-solutions) for more winning solutions and use cases.
+**Why accelerate GBDT and Random Forests**: A [survey](https://www.kaggle.com/amberthomas/kaggle-2017-survey-results) conducted by Kaggle in 2017 shows that 46% and 24% of the data mining and machine learning practitioners are users of Random Forests and GBM, respectively. 
+
+
+GBDTs and Random Forests (RFs) are often used for creating state-of-the-art data science solutions. We've listed three winning solutions using GBDTs below. Please check out the [XGBoost website](https://github.com/dmlc/xgboost/blob/master/demo/README.md#machine-learning-challenge-winning-solutions) for more winning solutions and use cases. Here are some example successes of GDBTs and Random Forests:
 
 - Halla Yang, 2nd place, [Recruit Coupon Purchase Prediction Challenge](https://www.kaggle.com/c/coupon-purchase-prediction), [Kaggle interview](http://blog.kaggle.com/2015/10/21/recruit-coupon-purchase-winners-interview-2nd-place-halla-yang/).
 - Owen Zhang, 1st place, [Avito Context Ad Clicks competition](https://www.kaggle.com/c/avito-context-ad-clicks), [Kaggle interview](http://blog.kaggle.com/2015/08/26/avito-winners-interview-1st-place-owen-zhang/).
