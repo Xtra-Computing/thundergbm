@@ -15,7 +15,7 @@ We are upgrading this project. Please frequently visit this repository for new f
 ## Overview
 The mission of ThunderGBM is to help users easily and efficiently apply GBM and random forests to solve problems. ThunderGBM exploits GPUs to achieve high efficiency. Key features of ThunderGBM are as follows.
 * Improve the performance of training GBM and random forests over 10x compared with other libraries.
-* Support Python, R and Matlab interfaces.
+* Support Python, R and Scikit interfaces.
 * Supported Operating Systems: Linux, Windows and MacOS.
 
 **Why accelerate GBDT and Random Forests**: A [survey](https://www.kaggle.com/amberthomas/kaggle-2017-survey-results) conducted by Kaggle in 2017 shows that 46% and 24% of the data mining and machine learning practitioners are users of Random Forests and GBM, respectively. 
