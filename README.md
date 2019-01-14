@@ -10,7 +10,16 @@ We are upgrading this project. Please frequently visit this repository for new f
 <img src="https://github.com/zeyiwen/thundergbm/blob/master/docs/_static/overall.png" width="250" height="200" align=left/>
 </div>
 
-[Documentations](http://thundergbm.readthedocs.io) | [Parameters](https://thundergbm.readthedocs.io/en/latest/parameters.html) | [Python interface](https://github.com/zeyiwen/thundergbm/tree/master/python)
+[Documentations](http://thundergbm.readthedocs.io) | [Parameters](https://thundergbm.readthedocs.io/en/latest/parameters.html) | [Python (scikit-learn) interface](https://github.com/zeyiwen/thundergbm/tree/master/python)
+
+## Applications of GDBTs and Random Forests
+
+GBDTs and Random Forests (RFs) are often used for creating state-of-the-art data science solutions. We've listed three winning solutions using GBDTs below. Please check out the [XGBoost website](https://github.com/dmlc/xgboost/blob/master/demo/README.md#machine-learning-challenge-winning-solutions) for more winning solutions and use cases.
+
+- Halla Yang, 2nd place, [Recruit Coupon Purchase Prediction Challenge](https://www.kaggle.com/c/coupon-purchase-prediction), [Kaggle interview](http://blog.kaggle.com/2015/10/21/recruit-coupon-purchase-winners-interview-2nd-place-halla-yang/).
+- Owen Zhang, 1st place, [Avito Context Ad Clicks competition](https://www.kaggle.com/c/avito-context-ad-clicks), [Kaggle interview](http://blog.kaggle.com/2015/08/26/avito-winners-interview-1st-place-owen-zhang/).
+- Keiichi Kuroyanagi, 2nd place, [Airbnb New User Bookings](https://www.kaggle.com/c/airbnb-recruiting-new-user-bookings), [Kaggle interview](http://blog.kaggle.com/2016/03/17/airbnb-new-user-bookings-winners-interview-2nd-place-keiichi-kuroyanagi-keiku/).
+
 ## Getting Started
 
 ### Prerequisites
@@ -66,6 +75,12 @@ If you use ThunderGBM in your paper, please cite our work.
  year = {2019}
 }
 ```
-
-### Related paper
+### Other related paper
 * Zeyi Wen, Bingsheng He, Kotagiri Ramamohanarao, Shengliang Lu, and Jiashuai Shi. Efficient Gradient Boosted Decision Tree Training on GPUs. The 32nd IEEE International Parallel and Distributed Processing Symposium (IPDPS), pages 234-243, 2018.
+
+## Key members of ThunderGBM
+[Zeyi Wen](https://www.comp.nus.edu.sg/~wenzy/), Jiashuai Shi, [Bingsheng He](https://www.comp.nus.edu.sg/~hebs/), Jian Chen
+
+## Related libraries
+* [ThunderSVM](https://github.com/Xtra-Computing/thundersvm), which is another *Thunder* serier software tool developed by our group.
+* [XGBoost](https://github.com/dmlc/xgboost) | [LightGBM](https://github.com/Microsoft/LightGBM) | [CatBoost](https://github.com/catboost/catboost) | [cuML](https://github.com/rapidsai/cuml)
