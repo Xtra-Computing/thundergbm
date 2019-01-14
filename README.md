@@ -76,10 +76,17 @@ If you use ThunderGBM in your paper, please cite our work.
 }
 ```
 ### Other related paper
-* Zeyi Wen, Bingsheng He, Kotagiri Ramamohanarao, Shengliang Lu, and Jiashuai Shi. Efficient Gradient Boosted Decision Tree Training on GPUs. The 32nd IEEE International Parallel and Distributed Processing Symposium (IPDPS), pages 234-243, 2018.
+* Zeyi Wen, Bingsheng He, Kotagiri Ramamohanarao, Shengliang Lu, and Jiashuai Shi. Efficient Gradient Boosted Decision Tree Training on GPUs. The 32nd IEEE International Parallel and Distributed Processing Symposium (IPDPS), pages 234-243, 2018. [pdf](https://www.comp.nus.edu.sg/~hebs/pub/IPDPS18-GPUGBDT.pdf)
 
 ## Key members of ThunderGBM
-[Zeyi Wen](https://www.comp.nus.edu.sg/~wenzy/), Jiashuai Shi, [Bingsheng He](https://www.comp.nus.edu.sg/~hebs/), Jian Chen
+* [Zeyi Wen](https://www.comp.nus.edu.sg/~wenzy/), NUS
+* Jiashuai Shi, SCUT (a visiting student at NUS)
+* Qinbin Li, NUS
+* Advisor: [Bingsheng He](https://www.comp.nus.edu.sg/~hebs/), NUS
+* Collaborators: Jian Chen (SCUT),  Kotagiri Ramamohanarao (The University of Melbourne)
+
+## Other information
+* This work is supported by a MoE AcRF Tier 2 grant (MOE2017-T2-1-122) and an NUS startup grant in Singapore.
 
 ## Related libraries
 * [ThunderSVM](https://github.com/Xtra-Computing/thundersvm), which is another *Thunder* serier software tool developed by our group.
