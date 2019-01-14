@@ -42,8 +42,8 @@ void DataSet::load_from_file(string file_name, GBMParam param) {
             //get working area of this thread
             int tid = omp_get_thread_num();
             size_t nstep = (size + nthread - 1) / nthread;
-            size_t sbegin = std::min(tid * nstep, size);
-            size_t send = std::min((tid + 1) * nstep, size);
+            size_t sbegin = std::min(tid * nstep, size - 1);
+            size_t send = std::min((tid + 1) * nstep, size - 1);
             char *pbegin = find_last_line(head + sbegin, head);
             char *pend = find_last_line(head + send, head);
 
