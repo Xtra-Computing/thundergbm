@@ -20,6 +20,7 @@ public:
 
     static ObjectiveFunction* create(string name);
     static bool need_load_group_file(string name);
+    static bool need_group_label(string name);
     virtual ~ObjectiveFunction() = default;
 };
 

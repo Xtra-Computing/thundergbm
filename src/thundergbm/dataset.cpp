@@ -111,6 +111,7 @@ void DataSet::load_from_file(string file_name, GBMParam param) {
     }
     LOG(INFO) << "#instances = " << this->n_instances() << ", #features = " << this->n_features();
     if (ObjectiveFunction::need_load_group_file(param.objective)) load_group_file(file_name + ".group");
+    if (ObjectiveFunction::need_group_label(param.objective)) group_label();
 }
 
 size_t DataSet::n_features() const {
@@ -155,5 +156,17 @@ void DataSet::load_group_file(string file_name) {
     int group_size;
     while (ifs >> group_size) group.push_back(group_size);
     LOG(INFO) << "#groups = " << group.size();
+}
+
+void DataSet::group_label() {
+    std::map<float_type, int> label_map;
+    label.clear();
+    for (int i = 0; i < y.size(); ++i) {
+        if(label_map.find(y[i]) == label_map.end()) {
+            label_map[y[i]] = label.size();
+            label.push_back(y[i]);
+        }
+        y[i] = label_map[y[i]];
+    }
 }
 

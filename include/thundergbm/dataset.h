@@ -14,6 +14,7 @@ public:
     void load_from_sparse(int row_size, float* val, int* row_ptr, int* col_ptr, float* label);
     void load_from_file(string file_name, GBMParam param);
     void load_group_file(string file_name);
+    void group_label();
 
     size_t n_features() const;
 
@@ -25,6 +26,7 @@ public:
     vector<float_type> y;
     size_t n_features_;
     vector<int> group;
+    vector<float_type> label;
 };
 
 #endif //THUNDERGBM_DATASET_H

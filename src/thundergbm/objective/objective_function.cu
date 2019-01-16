@@ -20,3 +20,7 @@ ObjectiveFunction *ObjectiveFunction::create(string name) {
 bool ObjectiveFunction::need_load_group_file(string name) {
     return name == "rank:ndcg" || name == "rank:pairwise";
 }
+
+bool ObjectiveFunction::need_group_label(string name) {
+    return name == "multi:softprob" || name == "multi:softmax";
+}

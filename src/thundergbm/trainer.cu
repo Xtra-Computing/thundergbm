@@ -16,7 +16,7 @@ float_type TreeTrainer::compute_rmse(const InsStat &stats) {
     auto sq_err_data = sq_err.device_data();
     const float_type *y_data = stats.y.device_data();
     const float_type *y_predict_data = stats.y_predict.device_data();
-    device_loop(stats.n_instances, [=]__device__(int i) {
+    device_loop(stats.n_instances, [=] __device__(int i) {
         float_type e = y_predict_data[i] - y_data[i];
         sq_err_data[i] = e * e;
     });
@@ -25,7 +25,7 @@ float_type TreeTrainer::compute_rmse(const InsStat &stats) {
     return rmse;
 }
 
-void TreeTrainer::save_trees(GBMParam &param, vector<Tree> &trees){
+void TreeTrainer::save_trees(GBMParam &param, vector<Tree> &trees) {
     std::ofstream out(param.out_model_name);
     int round = 0;
     for (Tree &tree:trees) {
@@ -37,18 +37,18 @@ void TreeTrainer::save_trees(GBMParam &param, vector<Tree> &trees){
     out.close();
 }
 
-float_type TreeTrainer::train(GBMParam &param){
+float_type TreeTrainer::train(GBMParam &param) {
     dataSet.load_from_file(param.path, param);
     float_type rmse;
-    if(param.tree_method.compare("exact") == 0)
+    if (param.tree_method.compare("exact") == 0)
         rmse = train_exact(param);
-    else if(param.tree_method.compare("hist") == 0)
+    else if (param.tree_method.compare("hist") == 0)
         rmse = train_hist(param);
-    else{
+    else {
         bool exact_sp_producer = false;
-        if(dataSet.n_features() > 20000)//#TODO: use data set density ratio
+        if (dataSet.n_features() > 20000)//#TODO: use data set density ratio
             exact_sp_producer = true;
-        if(exact_sp_producer == true)
+        if (exact_sp_producer == true)
             rmse = train_exact(param);
         else
             rmse = train_hist(param);
@@ -143,7 +143,7 @@ float_type TreeTrainer::train_hist(GBMParam &param) {
     metric->configure(param, dataSet);
 
     int round = 0;
-    float_type rmse = 0;
+    float_type score = 0;
     {
         TIMED_SCOPE(timerObj, "construct tree");
         int n_instances = shards.front().stats.n_instances;
@@ -169,48 +169,30 @@ float_type TreeTrainer::train_hist(GBMParam &param) {
 
                 //next round
                 round++;
-                float_type score = metric->get_score(shards.front().stats.y_predict);
-                LOG(INFO) << metric->get_name() << " = " << score;
+                score = metric->get_score(shards.front().stats.y_predict);
             } else {
-                SyncArray<float_type> prob(all_y.size());
-                prob.copy_from(all_y);
-                shards.front().stats.obj->predict_transform(prob);
-                auto yp_data = prob.device_data();
-                auto y_data = shards.front().stats.y.device_data();
-                int num_class = param.num_class;
-                device_loop(n_instances, [=] __device__(int i){
-                    int max_k = 0;
-                    float_type max_p = yp_data[i];
-                    for (int k = 1; k < num_class; ++k) {
-                        if (yp_data[k * n_instances + i] > max_p) {
-                            max_p = yp_data[k * n_instances + i];
-                            max_k = k;
-                        }
-                    }
-                    yp_data[i] = max_k == y_data[i];
-                });
-
-                float acc = thrust::reduce(thrust::cuda::par, yp_data, yp_data + n_instances) / n_instances;
-                LOG(INFO)<<"accuracy = " << acc;
-
                 shards.front().stats.obj->get_gradient(shards.front().stats.y, all_y, all_gh_pair);
                 for (int i = 0; i < param.num_class; ++i) {
                     trees.emplace_back();
                     vector<Tree> &tree = trees.back();
                     tree.resize(param.n_parallel_trees);
-                    HistUpdater::for_each_shard(shards, [&](Shard &shard){
+                    HistUpdater::for_each_shard(shards, [&](Shard &shard) {
                         shard.stats.gh_pair.copy_from(all_gh_pair.device_data() + i * n_instances, n_instances);
                         shard.stats.y_predict.copy_from(all_y.device_data() + i * n_instances, n_instances);
                     });
                     updater.grow(tree, shards);
-                    CUDA_CHECK(cudaMemcpy(all_y.device_data() + i * n_instances, shards.front().stats.y_predict.device_data(),
+                    CUDA_CHECK(cudaMemcpy(all_y.device_data() + i * n_instances,
+                                          shards.front().stats.y_predict.device_data(),
                                           sizeof(float_type) * n_instances, cudaMemcpyDefault));
                 }
+                score = metric->get_score(all_y);
             }
+            LOG(INFO) << metric->get_name() << " = " << score;
         }
+//        LOG(INFO) << trees.back().back().dump(param.depth);
     }
     for (int i = 0; i < param.n_device; ++i) {
         v_columns[i].release();
     }
-    return rmse;
+    return score;
 }
