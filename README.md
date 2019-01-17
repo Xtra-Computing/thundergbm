@@ -2,8 +2,6 @@
 [![GitHub license](http://dmlc.github.io/img/apache2.svg)](./LICENSE)
 [![GitHub issues](https://img.shields.io/github/issues/zeyiwen/thundergbm.svg)](https://github.com/zeyiwen/thundergbm/issues)
 
-We are upgrading this project. Please frequently visit this repository for new functionalities.
-
 <div align="center">
 <img src="https://github.com/zeyiwen/thundergbm/blob/master/docs/_static/tgbm-logo.png" width="240" height="200" align=left/>
 <img src="https://github.com/zeyiwen/thundergbm/blob/master/docs/_static/lang-logo-tgbm.png" width="270" height="200" align=left/>
@@ -13,15 +11,16 @@ We are upgrading this project. Please frequently visit this repository for new f
 [Documentations](http://thundergbm.readthedocs.io) | [Parameters](https://thundergbm.readthedocs.io/en/latest/parameters.html) | [Python (scikit-learn) interface](https://github.com/zeyiwen/thundergbm/tree/master/python)
 
 ## Overview
-The mission of ThunderGBM is to help users easily and efficiently apply GBM and random forests to solve problems. ThunderGBM exploits GPUs to achieve high efficiency. Key features of ThunderGBM are as follows.
-* Improve the performance of training GBM and random forests over 10x compared with other libraries.
+The mission of ThunderGBM is to help users easily and efficiently apply GBDTs and Random Forests to solve problems. ThunderGBM exploits GPUs to achieve high efficiency. Key features of ThunderGBM are as follows.
+* Often by 10x times over other libraries.
 * Support Python (scikit-learn) interfaces.
-* Supported Operating System(s): Linux
+* Supported Operating System(s): Linux.
+* Support classification, regression and ranking.
 
-**Why accelerate GBDT and Random Forests**: A [survey](https://www.kaggle.com/amberthomas/kaggle-2017-survey-results) conducted by Kaggle in 2017 shows that 46% and 24% of the data mining and machine learning practitioners are users of Random Forests and GBM, respectively. 
+**Why accelerate GBDT and Random Forests**: A [survey](https://www.kaggle.com/amberthomas/kaggle-2017-survey-results) conducted by Kaggle in 2017 shows that 50%, 46% and 24% of the data mining and machine learning practitioners are users of Decision Trees, Random Forests and GBMs, respectively. 
 
 
-GBDTs and Random Forests (RFs) are often used for creating state-of-the-art data science solutions. We've listed three winning solutions using GBDTs below. Please check out the [XGBoost website](https://github.com/dmlc/xgboost/blob/master/demo/README.md#machine-learning-challenge-winning-solutions) for more winning solutions and use cases. Here are some example successes of GDBTs and Random Forests:
+GBDTs and Random Forests are often used for creating state-of-the-art data science solutions. We've listed three winning solutions using GBDTs below. Please check out the [XGBoost website](https://github.com/dmlc/xgboost/blob/master/demo/README.md#machine-learning-challenge-winning-solutions) for more winning solutions and use cases. Here are some example successes of GDBTs and Random Forests:
 
 - Halla Yang, 2nd place, [Recruit Coupon Purchase Prediction Challenge](https://www.kaggle.com/c/coupon-purchase-prediction), [Kaggle interview](http://blog.kaggle.com/2015/10/21/recruit-coupon-purchase-winners-interview-2nd-place-halla-yang/).
 - Owen Zhang, 1st place, [Avito Context Ad Clicks competition](https://www.kaggle.com/c/avito-context-ad-clicks), [Kaggle interview](http://blog.kaggle.com/2015/08/26/avito-winners-interview-1st-place-owen-zhang/).
@@ -73,10 +72,10 @@ make runtest-mpi
 ```
 
 ## How to cite ThunderGBM
-If you use ThunderGBM in your paper, please cite our work.
+If you use ThunderGBM in your paper, please cite our work ([preprint](https://www.comp.nus.edu.sg/~wenzy/papers/thundergbm.pdf)).
 ```
 @article{wenthundergbm19,
- author = {Wen, Zeyi and Shi, Jiashuai and He, Bingsheng and Chen, Jian},
+ author = {Wen, Zeyi and Shi, Jiashuai and He, Bingsheng and Chen, Jian and Li, Qinbin},
  title = {{ThunderGBM}: Fast {GBDTs} and Random Forests on {GPUs}},
  journal = {To appear in arXiv},
  year = {2019}
