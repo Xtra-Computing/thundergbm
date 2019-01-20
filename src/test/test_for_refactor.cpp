@@ -68,5 +68,11 @@ TEST_F(TrainTest, covtype_multiclass) {
     param.num_class = 7;
     param.objective = "multi:softprob";
     trainer.train(param);
-//    float_type rmse = trainer.train(param);
+}
+
+TEST_F(TrainTest, mnist_multiclass) {
+    param.path = DATASET_DIR "mnist.scale";
+    param.objective = "multi:softprob";
+    param.num_class = 10;
+    trainer.train(param);
 }

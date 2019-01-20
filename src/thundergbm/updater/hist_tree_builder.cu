@@ -255,8 +255,10 @@ void HistTreeBuilder::InternalShard::find_split(int level) {
                     int nid = nid0 + nid_offset;
                     if (!nodes_data[nid].splittable()) return;
                     int fid = pid % n_column;
-                    GHPair node_gh = hist_data[nid0 * n_bins + cut_row_ptr[fid + 1] - 1];
-                    missing_gh_data[pid] = nodes_data[nid].sum_gh_pair - node_gh;
+                    if (cut_row_ptr[fid + 1] != cut_row_ptr[fid]) {
+                        GHPair node_gh = hist_data[nid0 * n_bins + cut_row_ptr[fid + 1] - 1];
+                        missing_gh_data[pid] = nodes_data[nid].sum_gh_pair - node_gh;
+                    }
                 });
                 LOG(DEBUG) << missing_gh;
             }
