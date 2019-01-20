@@ -8,7 +8,7 @@
 void Tree::init(const InsStat &stats, const GBMParam &param) {
 //    TIMED_FUNC(timerObj);
     int n_max_nodes = static_cast<int>(pow(2, param.depth + 1) - 1);
-    nodes.resize(n_max_nodes);
+    nodes = SyncArray<TreeNode>(n_max_nodes);
     auto node_data = nodes.device_data();
     device_loop(n_max_nodes, [=]__device__(int i) {
         node_data[i].final_id = i;

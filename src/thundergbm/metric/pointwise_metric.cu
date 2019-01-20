@@ -21,10 +21,3 @@ float_type RMSE::get_score(const SyncArray<float_type> &y_p) const {
     return rmse;
 }
 
-float_type Accuracy::get_score(const SyncArray<float_type> &y_p) const {
-    return 0;
-}
-
-string Accuracy::get_name() const {
-    return std::__cxx11::string();
-}

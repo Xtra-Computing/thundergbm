@@ -1,7 +1,7 @@
 //
 // Created by ss on 19-1-2.
 //
-#include "thundergbm/shard.h"
+#include "thundergbm/updater/shard.h"
 #include "thundergbm/util/device_lambda.cuh"
 #include "thrust/reduce.h"
 
@@ -56,8 +56,8 @@ void Shard::update_tree() {
     LOG(DEBUG) << tree.nodes;
 }
 
-void Shard::predict_in_training() {
-    auto y_predict_data = stats.y_predict.device_data();
+void Shard::predict_in_training(int k) {
+    auto y_predict_data = stats.y_predict.device_data() + k * stats.n_instances;
     auto nid_data = stats.nid.device_data();
     const Tree::TreeNode *nodes_data = tree.nodes.device_data();
     auto lr = param.learning_rate;

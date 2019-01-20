@@ -11,7 +11,7 @@ void InsStat::resize(size_t n_instances) {
     gh_pair.resize(n_instances);
     nid.resize(n_instances);
     y.resize(n_instances);
-    y_predict.resize(n_instances);
+//    y_predict.resize(n_instances);
 }
 
 void InsStat::update_gradient() {
@@ -45,7 +45,7 @@ void InsStat::do_bagging() {
         int ins_id = idx_data[i];
         atomicAdd(ins_count_data + ins_id, 1);
     });
-    gh_pair.copy_from(gh_pair_backup);
+//    gh_pair.copy_from(gh_pair_backup);
     auto gh_data = gh_pair.device_data();
     //FIXME synchronize between shards
     device_loop(n_instances, [=]__device__(int i) {

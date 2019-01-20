@@ -16,7 +16,7 @@ public:
     virtual void
     predict_transform(SyncArray<float_type> &y){};
     virtual void configure(GBMParam param, const DataSet &dataset) = 0;
-    virtual string default_metric() = 0;
+    virtual string default_metric_name() = 0;
 
     static ObjectiveFunction* create(string name);
     static bool need_load_group_file(string name);

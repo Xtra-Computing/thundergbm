@@ -57,14 +57,4 @@ void device_loop_2d(int len1, const int *len2, L lambda, unsigned int NUM_BLOCK 
     }
 }
 
-template<typename L>
-__global__ void lambda_2d_sparse_kernel_mod(const int mod_val, const int *len2, L lambda) {
-    int i = blockIdx.x;
-    int begin = len2[i % mod_val];
-    int end = len2[i % mod_val + 1];
-    for (int j = begin + blockIdx.y * blockDim.x + threadIdx.x; j < end; j += blockDim.x * gridDim.y) {
-        lambda(i, j);
-    }
-}
-
 #endif //THUNDERGBM_DEVICE_LAMBDA_H

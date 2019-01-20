@@ -11,12 +11,12 @@ tags
 .settings
 Debug
 Release
-dataset
-gbdt
+dataset*
 *~
 core
 *.DS_Store
 *.o
 *.swp
-2myrun.sh
 *build*
+!*build*.cu
+!*build*.h

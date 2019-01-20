@@ -51,7 +51,7 @@ LambdaRank::get_gradient(const SyncArray<float_type> &y, const SyncArray<float_t
     }
 }
 
-string LambdaRank::default_metric() { return "map"; }
+string LambdaRank::default_metric_name() { return "map"; }
 
 float_type
 LambdaRank::get_delta_z(float_type labelI, float_type labelJ, int rankI, int rankJ, int group_id) { return 1; }
@@ -71,4 +71,4 @@ float_type LambdaRankNDCG::get_delta_z(float_type labelI, float_type labelJ, int
     return (dgI1 + dgJ1 - dgI2 - dgJ2) / idcg[group_id];
 }
 
-string LambdaRankNDCG::default_metric() { return "ndcg"; }
+string LambdaRankNDCG::default_metric_name() { return "ndcg"; }

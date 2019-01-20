@@ -1,5 +1,8 @@
+//
+// Created by ss on 19-1-20.
+//
+#include "thundergbm/updater/hist_tree_builder.h"
 
-#include "thundergbm/updater/hist_updater.h"
 #include "thundergbm/util/cub_wrapper.h"
 #include "thundergbm/util/device_lambda.cuh"
 #include "thrust/iterator/counting_iterator.h"
@@ -8,118 +11,7 @@
 #include "thrust/sequence.h"
 #include "thrust/binary_search.h"
 
-/**
- * brief: grow a tree (or many trees for RF) from scratch
- * @param trees
- * @param shards: a subset of columns (features) with other meta data (e.g., tree, all g&h)
- */
-void HistUpdater::grow(vector<Tree> &trees, vector<ShardT> &shards) {
-    TIMED_FUNC(timerObj);
-    for (Tree &tree:trees) {
-        for_each_shard(shards, [&](InternalShard &shard) {
-            shard.stats.reset_nid();//set nid of all the instances to 0
-            shard.column_sampling();//RF uses this, and may be used by GBDTs
-            if (param.bagging) shard.stats.do_bagging();//obtain a bag of instances
-            shard.tree.init(shard.stats, param);//init root node, reserve memory, etc.
-        });
-        for (int level = 0; level < param.depth; ++level) {
-            for_each_shard(shards, [&](InternalShard &shard) {
-                shard.find_split(level);
-            });
-            split_point_all_reduce(level, shards);
-            {
-                TIMED_SCOPE(timerObj, "apply sp");
-                for_each_shard(shards, [&]( InternalShard &shard) {
-                    shard.update_tree();
-                    shard.update_ins2node_id();
-                });
-                {
-                    LOG(TRACE) << "gathering ins2node id";
-                    //get final result of the reset instance id to node id
-                    bool has_split = false;
-                    for (int d = 0; d < param.n_device; d++) {
-                        has_split |= shards[d].has_split;
-                    }
-                    if (!has_split) {
-                        LOG(INFO) << "no splittable nodes, stop";
-                        break;
-                    }
-                }
-                ins2node_id_all_reduce(shards);
-            }
-        }
-        for_each_shard(shards, [&](Shard &shard) {
-            shard.tree.prune_self(param.gamma);
-            shard.predict_in_training();
-        });
-        tree.nodes.resize(shards.front().tree.nodes.size());
-        tree.nodes.copy_from(shards.front().tree.nodes);
-    }
-}
-
-void HistUpdater::split_point_all_reduce(int depth, vector<ShardT> &shards) {
-    TIMED_FUNC(timerObj);
-    //get global best split of each node
-    int n_nodes_in_level = 1 << depth;//2^i
-    int nid_offset = (1 << depth) - 1;//2^i - 1
-    auto global_sp_data = shards.front().sp.host_data();
-    vector<bool> active_sp(n_nodes_in_level);
-
-    for (int device_id = 0; device_id < param.n_device; device_id++) {
-        auto local_sp_data = shards[device_id].sp.host_data();
-        for (int j = 0; j < shards[device_id].sp.size(); j++) {
-            int sp_nid = local_sp_data[j].nid;
-            if (sp_nid == -1) continue;
-            int global_pos = sp_nid - nid_offset;
-            if (!active_sp[global_pos])
-                global_sp_data[global_pos] = local_sp_data[j];
-            else
-                global_sp_data[global_pos] = (global_sp_data[global_pos].gain >= local_sp_data[j].gain)
-                                             ?
-                                             global_sp_data[global_pos] : local_sp_data[j];
-            active_sp[global_pos] = true;
-        }
-    }
-    //set inactive sp
-    for (int n = 0; n < n_nodes_in_level; n++) {
-        if (!active_sp[n])
-            global_sp_data[n].nid = -1;
-    }
-    for_each_shard(shards, [&](InternalShard &shard) {
-        shard.sp.copy_from(shards.front().sp);
-    });
-    LOG(DEBUG) << "global best split point = " << shards.front().sp;
-}
-
-void HistUpdater::init(vector<ShardT> &shards) {
-    for_each_shard(shards, [&](InternalShard &shard) {
-        shard.ignored_set.resize(shard.columns.n_column);
-        shard.cut.get_cut_points2(shard.columns, shard.stats, param.max_num_bin, shard.stats.n_instances);
-        shard.last_hist.resize((2 << param.depth) * shard.cut.cut_points.size());
-        shard.get_bin_ids(shard.columns);
-    });
-}
-
-void HistUpdater::ins2node_id_all_reduce(vector<ShardT> &shards) {
-    //get global ins2node id
-    {
-        SyncArray<int> local_ins2node_id(shards.front().stats.n_instances);
-        auto local_ins2node_id_data = local_ins2node_id.device_data();
-        auto global_ins2node_id_data = shards.front().stats.nid.device_data();
-        for (int d = 1; d < param.n_device; d++) {
-            local_ins2node_id.copy_from(shards[d].stats.nid);
-            device_loop(shards.front().stats.n_instances, [=]__device__(int i) {
-                global_ins2node_id_data[i] = (global_ins2node_id_data[i] > local_ins2node_id_data[i]) ?
-                                             global_ins2node_id_data[i] : local_ins2node_id_data[i];
-            });
-        }
-    }
-    for_each_shard(shards, [&](InternalShard &shard) {
-        shard.stats.nid.copy_from(shards.front().stats.nid);
-    });
-}
-
-void HistUpdater::InternalShard::get_bin_ids(const SparseColumns &columns) {
+void HistTreeBuilder::InternalShard::get_bin_ids(const SparseColumns &columns) {
     using namespace thrust;
     int n_column = columns.n_column;
     int nnz = columns.nnz;
@@ -129,7 +21,7 @@ void HistUpdater::InternalShard::get_bin_ids(const SparseColumns &columns) {
     SyncArray<unsigned char> bin_id;
     bin_id.resize(columns.nnz);
     auto bin_id_data = bin_id.device_data();
-    int n_block = min((nnz / n_column - 1) / 256 + 1, 4 * 56);
+    int n_block = fminf((nnz / n_column - 1) / 256 + 1, 4 * 56);
     {
         auto lowerBound = [=]__device__(const float_type *search_begin, const float_type *search_end, float_type val) {
             const float_type *left = search_begin;
@@ -166,7 +58,7 @@ void HistUpdater::InternalShard::get_bin_ids(const SparseColumns &columns) {
     }, n_block);
 }
 
-void HistUpdater::InternalShard::find_split(int level) {
+void HistTreeBuilder::InternalShard::find_split(int level) {
     TIMED_FUNC(timerObj);
     int n_nodes_in_level = static_cast<int>(pow(2, level));
     int nid_offset = static_cast<int>(pow(2, level) - 1);
@@ -374,11 +266,11 @@ void HistUpdater::InternalShard::find_split(int level) {
         {
 //            TIMED_SCOPE(timerObj, "calculate gain");
             auto compute_gain = []__device__(GHPair father, GHPair lch, GHPair rch, float_type min_child_weight,
-                                             float_type lambda) -> float_type {
-                if (lch.h >= min_child_weight && rch.h >= min_child_weight)
+                    float_type lambda) -> float_type {
+                    if (lch.h >= min_child_weight && rch.h >= min_child_weight)
                     return (lch.g * lch.g) / (lch.h + lambda) + (rch.g * rch.g) / (rch.h + lambda) -
-                           (father.g * father.g) / (father.h + lambda);
-                else
+            (father.g * father.g) / (father.h + lambda);
+                    else
                     return 0;
             };
 
@@ -478,7 +370,7 @@ void HistUpdater::InternalShard::find_split(int level) {
     LOG(DEBUG) << "split points (gain/fea_id/nid): " << sp;
 }
 
-void HistUpdater::InternalShard::update_ins2node_id() {
+void HistTreeBuilder::InternalShard::update_ins2node_id() {
     TIMED_FUNC(timerObj);
     SyncArray<bool> has_splittable(1);
     //set new node id for each instance
@@ -518,3 +410,145 @@ void HistUpdater::InternalShard::update_ins2node_id() {
     has_split = has_splittable.host_data()[0];
 }
 
+void HistTreeBuilder::split_point_all_reduce(int depth, vector<InternalShard> &shards) {
+    TIMED_FUNC(timerObj);
+    //get global best split of each node
+    int n_nodes_in_level = 1 << depth;//2^i
+    int nid_offset = (1 << depth) - 1;//2^i - 1
+    auto global_sp_data = shards.front().sp.host_data();
+    vector<bool> active_sp(n_nodes_in_level);
+
+    for (int device_id = 0; device_id < param.n_device; device_id++) {
+        auto local_sp_data = shards[device_id].sp.host_data();
+        for (int j = 0; j < shards[device_id].sp.size(); j++) {
+            int sp_nid = local_sp_data[j].nid;
+            if (sp_nid == -1) continue;
+            int global_pos = sp_nid - nid_offset;
+            if (!active_sp[global_pos])
+                global_sp_data[global_pos] = local_sp_data[j];
+            else
+                global_sp_data[global_pos] = (global_sp_data[global_pos].gain >= local_sp_data[j].gain)
+                                             ?
+                                             global_sp_data[global_pos] : local_sp_data[j];
+            active_sp[global_pos] = true;
+        }
+    }
+    //set inactive sp
+    for (int n = 0; n < n_nodes_in_level; n++) {
+        if (!active_sp[n])
+            global_sp_data[n].nid = -1;
+    }
+    for_each_shard(shards, [&](InternalShard &shard) {
+        shard.sp.copy_from(shards.front().sp);
+    });
+    LOG(DEBUG) << "global best split point = " << shards.front().sp;
+}
+
+void HistTreeBuilder::ins2node_id_all_reduce(vector<InternalShard> &shards) {
+    //get global ins2node id
+    {
+        SyncArray<int> local_ins2node_id(shards.front().stats.n_instances);
+        auto local_ins2node_id_data = local_ins2node_id.device_data();
+        auto global_ins2node_id_data = shards.front().stats.nid.device_data();
+        for (int d = 1; d < param.n_device; d++) {
+            local_ins2node_id.copy_from(shards[d].stats.nid);
+            device_loop(shards.front().stats.n_instances, [=]__device__(int i) {
+                global_ins2node_id_data[i] = (global_ins2node_id_data[i] > local_ins2node_id_data[i]) ?
+                                             global_ins2node_id_data[i] : local_ins2node_id_data[i];
+            });
+        }
+    }
+    for_each_shard(shards, [&](InternalShard &shard) {
+        shard.stats.nid.copy_from(shards.front().stats.nid);
+    });
+}
+
+const MSyncArray<float_type>& HistTreeBuilder::get_y_predict() {
+    return y_predict;
+}
+
+vector<Tree> HistTreeBuilder::build_approximate(const MSyncArray<GHPair> &gradients) {
+    vector<Tree> trees(param.num_class);
+    TIMED_FUNC(timerObj);
+    for (int k = 0; k < param.num_class; ++k) {
+        Tree &tree = trees[k];
+        for_each_shard(shards, [&](InternalShard &shard) {
+            shard.stats.gh_pair.set_device_data(const_cast<GHPair *>(gradients[shard.rank].device_data() + k * shard.stats.n_instances));
+            shard.stats.reset_nid();//set nid of all the instances to 0
+            //todo multi-class bagging, column sampling
+            shard.column_sampling();//RF uses this, and may be used by GBDTs
+            if (param.bagging) shard.stats.do_bagging();//obtain a bag of instances
+            shard.tree.init(shard.stats, param);//init root node, reserve memory, etc.
+        });
+        for (int level = 0; level < param.depth; ++level) {
+            for_each_shard(shards, [&](InternalShard &shard) {
+                shard.find_split(level);
+            });
+            split_point_all_reduce(level, shards);
+            {
+                TIMED_SCOPE(timerObj, "apply sp");
+                for_each_shard(shards, [&]( InternalShard &shard) {
+                    shard.update_tree();
+                    shard.update_ins2node_id();
+                });
+                {
+                    LOG(TRACE) << "gathering ins2node id";
+                    //get final result of the reset instance id to node id
+                    bool has_split = false;
+                    for (int d = 0; d < param.n_device; d++) {
+                        has_split |= shards[d].has_split;
+                    }
+                    if (!has_split) {
+                        LOG(INFO) << "no splittable nodes, stop";
+                        break;
+                    }
+                }
+                ins2node_id_all_reduce(shards);
+            }
+        }
+        for_each_shard(shards, [&](Shard &shard) {
+            shard.tree.prune_self(param.gamma);
+            shard.predict_in_training(k);
+        });
+        tree.nodes.resize(shards.front().tree.nodes.size());
+        tree.nodes.copy_from(shards.front().tree.nodes);
+    }
+    return trees;
+}
+
+void HistTreeBuilder::init(const DataSet &dataset, const GBMParam &param) {
+    FunctionBuilder::init(dataset, param);
+    //TODO refactor
+
+    this->param = param;
+    //init shards
+    int n_device = param.n_device;
+    shards = vector<InternalShard>(n_device);
+    vector<std::unique_ptr<SparseColumns>> v_columns(param.n_device);
+    for (int i = 0; i < param.n_device; ++i) {
+        v_columns[i].reset(&shards[i].columns);
+        shards[i].rank = i;
+    }
+    SparseColumns columns;
+    columns.from_dataset(dataset);
+    columns.to_multi_devices(v_columns);
+    y_predict = MSyncArray<float_type>(param.n_device);
+    for_each_shard(shards, [&](InternalShard &shard) {
+        int n_instances = shard.columns.n_row;
+        shard.stats.resize(n_instances);
+        shard.stats.y_predict = SyncArray<float_type>(param.num_class * n_instances);
+        shard.param = param;
+
+        shard.ignored_set.resize(shard.columns.n_column);
+        shard.cut.get_cut_points2(shard.columns, param.max_num_bin, shard.stats.n_instances);
+        shard.last_hist.resize((2 << param.depth) * shard.cut.cut_points.size());
+        shard.get_bin_ids(shard.columns);
+        y_predict[shard.rank] = SyncArray<float_type>(shard.stats.y_predict.size());
+        y_predict[shard.rank].set_device_data(shard.stats.y_predict.device_data());
+    });
+
+    for (int i = 0; i < param.n_device; ++i) {
+        v_columns[i].release();
+    }
+    SyncMem::clear_cache();
+}
