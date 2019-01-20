@@ -63,7 +63,7 @@ struct LogisticLoss<float> {
 
     HOST_DEVICE static float predict_transform(float y) { return sigmoid(y); }
 
-    static float sigmoid(float x) {return 1 / (1 + expf(-x));}
+    HOST_DEVICE static float sigmoid(float x) {return 1 / (1 + expf(-x));}
 };
 
 template<>
@@ -75,7 +75,7 @@ struct LogisticLoss<double> {
 
     HOST_DEVICE static double predict_transform(double x) { return 1 / (1 + exp(-x)); }
 
-    static double sigmoid(double x) {return 1 / (1 + exp(-x));}
+    HOST_DEVICE static double sigmoid(double x) {return 1 / (1 + exp(-x));}
 };
 
 #endif //THUNDERGBM_REGRESSION_OBJ_H

@@ -182,9 +182,9 @@ public:
     MSyncArray() : base_class() {};
 
     //move constructor and assign
-    MSyncArray(MSyncArray<T> &&) noexcept = default;
+    MSyncArray(MSyncArray<T> &&) = default;
 
-    MSyncArray &operator=(MSyncArray<T> &&) noexcept = default;
+    MSyncArray &operator=(MSyncArray<T> &&) = default;
 
     MSyncArray(const MSyncArray<T> &) = delete;
 
