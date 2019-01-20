@@ -125,15 +125,16 @@ public:
     void log(el::base::type::ostream_t &ostream) const override {
         int i;
         ostream << "[";
+        const T *data = host_data();
         for (i = 0; i < size() - 1 && i < el::base::consts::kMaxLogPerContainer - 1; ++i) {
 //    for (i = 0; i < size() - 1; ++i) {
-            ostream << host_data()[i] << ",";
+            ostream << data[i] << ",";
         }
         ostream << host_data()[i];
-        if (size() < el::base::consts::kMaxLogPerContainer - 1) {
+        if (size() <= el::base::consts::kMaxLogPerContainer) {
             ostream << "]";
         } else {
-            ostream << "...";
+            ostream << ", ...(" << size() - el::base::consts::kMaxLogPerContainer << " more)";
         }
     };
 
@@ -141,14 +142,56 @@ public:
         return mem->get_owner_id();
     }
 
+    //move constructor
+    SyncArray(SyncArray<T> &&rhs) noexcept  : mem(rhs.mem), size_(rhs.size_) {
+        rhs.mem = nullptr;
+        rhs.size_ = 0;
+    }
+
+    //move assign
+    SyncArray &operator=(SyncArray<T> &&rhs) noexcept {
+        delete mem;
+        mem = rhs.mem;
+        size_ = rhs.size_;
+
+        rhs.mem = nullptr;
+        rhs.size_ = 0;
+        return *this;
+    }
+
+    SyncArray(const SyncArray<T> &) = delete;
+
+    SyncArray &operator=(const SyncArray<T> &) = delete;
+
 private:
-
-    SyncArray(const SyncArray<T> &);
-
-    SyncArray &operator=(const SyncArray<T> &);
-
     SyncMem *mem;
     size_t size_;
+};
+
+template<typename T>
+class MSyncArray : public vector<SyncArray<T>> {
+public:
+    explicit MSyncArray(size_t n_device) : base_class(n_device) {};
+
+    explicit MSyncArray(size_t n_device, size_t size) : base_class(size) {
+        for (int i = 0; i < n_device; ++i) {
+            this->at(i) = SyncArray<T>(size);
+        }
+    };
+
+    MSyncArray() : base_class() {};
+
+    //move constructor and assign
+    MSyncArray(MSyncArray<T> &&) noexcept = default;
+
+    MSyncArray &operator=(MSyncArray<T> &&) noexcept = default;
+
+    MSyncArray(const MSyncArray<T> &) = delete;
+
+    MSyncArray &operator=(const MSyncArray<T> &) = delete;
+
+private:
+    typedef vector<SyncArray<T>> base_class;
 };
 
 #endif //THUNDERGBM_SYNCDATA_H

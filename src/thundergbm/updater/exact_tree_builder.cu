@@ -1,169 +1,17 @@
 //
-// Created by shijiashuai on 5/7/18.
+// Created by ss on 19-1-20.
 //
-#include <thundergbm/updater/exact_updater.h>
+#include "thundergbm/updater/exact_tree_builder.h"
+
 #include "thundergbm/util/cub_wrapper.h"
 #include "thundergbm/util/device_lambda.cuh"
+#include "thrust/iterator/counting_iterator.h"
 #include "thrust/iterator/transform_iterator.h"
 #include "thrust/iterator/discard_iterator.h"
 #include "thrust/sequence.h"
 #include "thrust/binary_search.h"
 
-
-void ExactUpdater::grow(Tree &tree) {
-    TIMED_FUNC(timerObj);
-    for_each_shard([&](ExactShard &shard) {
-        shard.stats.update_gradient();
-        shard.stats.reset_nid();
-        shard.tree.init(shard.stats, param);
-    });
-    for (int level = 0; level < param.depth; ++level) {
-        for_each_shard([&](ExactShard &shard) {
-            shard.find_split(level);
-        });
-        split_point_all_reduce(level);
-        {
-            TIMED_SCOPE(timerObj, "apply sp");
-            for_each_shard([&](ExactShard &shard) {
-                shard.update_tree();
-                shard.update_ins2node_id();
-            });
-            cudaDeviceSynchronize();
-            {
-                LOG(TRACE) << "gathering ins2node id";
-                //get final result of the reset instance id to node id
-                bool has_split = false;
-                for (int d = 0; d < param.n_device; d++) {
-                    has_split |= shards[d]->has_split;
-                }
-                if (!has_split) {
-                    LOG(INFO) << "no splittable nodes, stop";
-                    break;
-                }
-            }
-            ins2node_id_all_reduce(level);
-        }
-    }
-
-
-    for_each_shard([&](ExactShard &shard) {
-        shard.tree.prune_self(param.gamma);
-        shard.predict_in_training();
-    });
-    tree.nodes.resize(shards.front()->tree.nodes.size());
-    tree.nodes.copy_from(shards.front()->tree.nodes);
-    cudaDeviceSynchronize();
-}
-
-void ExactUpdater::init(const DataSet &dataset) {
-    shards.resize(param.n_device);
-    for (int i = 0; i < param.n_device; ++i) {
-        shards[i].reset(new ExactShard());
-    }
-    SparseColumns columns;
-    columns.from_dataset(dataset);
-    //todo refactor v_columns
-    vector<std::unique_ptr<SparseColumns>> v_columns(param.n_device);
-    for (int i = 0; i < param.n_device; ++i) {
-        v_columns[i].reset(&shards[i]->columns);
-    }
-    for_each_shard([&](ExactShard &shard) {
-        shard.param = param;
-        int n_instances = dataset.n_instances();
-        shard.stats.resize(n_instances);
-        shard.stats.y.copy_from(dataset.y.data(), n_instances);
-        shard.stats.obj.reset(ObjectiveFunction::create(param.objective));
-        shard.stats.obj->configure(param, dataset);
-    });
-    columns.to_multi_devices(v_columns);
-    for (int i = 0; i < param.n_device; ++i) {
-        v_columns[i].release();
-    }
-}
-
-void ExactUpdater::split_point_all_reduce(int depth) {
-    //get global best split of each node
-    int n_nodes_in_level = 1 << depth;//2^i
-    int nid_offset = (1 << depth) - 1;//2^i - 1
-    auto global_sp_data = shards.front()->sp.host_data();
-    vector<bool> active_sp(n_nodes_in_level);
-
-    for (int device_id = 0; device_id < param.n_device; device_id++) {
-        auto local_sp_data = shards[device_id]->sp.host_data();
-        for (int j = 0; j < shards[device_id]->sp.size(); j++) {
-            int sp_nid = local_sp_data[j].nid;
-            if (sp_nid == -1) continue;
-            int global_pos = sp_nid - nid_offset;
-            if (!active_sp[global_pos])
-                global_sp_data[global_pos] = local_sp_data[j];
-            else
-                global_sp_data[global_pos] = (global_sp_data[global_pos].gain >= local_sp_data[j].gain)
-                                             ?
-                                             global_sp_data[global_pos] : local_sp_data[j];
-            active_sp[global_pos] = true;
-        }
-    }
-    //set inactive sp
-    for (int n = 0; n < n_nodes_in_level; n++) {
-        if (!active_sp[n])
-            global_sp_data[n].nid = -1;
-    }
-    for_each_shard([&](ExactShard &shard) {
-        shard.sp.copy_from(shards.front()->sp);
-    });
-    LOG(DEBUG) << "global best split point = " << shards.front()->sp;
-}
-
-void ExactUpdater::ins2node_id_all_reduce(int depth) {
-    //get global ins2node id
-    {
-        SyncArray<int> local_ins2node_id(shards.front()->stats.n_instances);
-        auto local_ins2node_id_data = local_ins2node_id.device_data();
-        auto global_ins2node_id_data = shards.front()->stats.nid.device_data();
-        for (int d = 1; d < param.n_device; d++) {
-            local_ins2node_id.copy_from(shards[d]->stats.nid);
-            device_loop(shards.front()->stats.n_instances, [=]__device__(int i) {
-                global_ins2node_id_data[i] = (global_ins2node_id_data[i] > local_ins2node_id_data[i]) ?
-                                             global_ins2node_id_data[i] : local_ins2node_id_data[i];
-            });
-        }
-    }
-
-    //processing missing value
-    {
-        int n_nodes_in_level = 1 << depth;//2^i
-        int nid_offset = (1 << depth) - 1;//2^i - 1
-//        TIMED_SCOPE(timerObj, "process missing value");
-        LOG(TRACE) << "update ins2node id for each missing fval";
-        auto global_ins2node_id_data = shards.front()->stats.nid.device_data();//essential
-        auto nodes_data = shards.front()->tree.nodes.device_data();//already broadcast above
-        device_loop(shards.front()->stats.n_instances, [=]__device__(int iid) {
-            int nid = global_ins2node_id_data[iid];
-            //if the instance is not on leaf node and not goes down
-            if (nodes_data[nid].splittable() && nid < nid_offset + n_nodes_in_level) {
-                //let the instance goes down
-                const Tree::TreeNode &node = nodes_data[nid];
-                if (node.default_right)
-                    global_ins2node_id_data[iid] = node.rch_index;
-                else
-                    global_ins2node_id_data[iid] = node.lch_index;
-            }
-        });
-        LOG(DEBUG) << "new nid = " << shards.front()->stats.nid;
-    }
-
-    //broadcast ins2node id
-    for_each_shard([&](ExactShard &shard) {
-        shard.stats.nid.copy_from(shards.front()->stats.nid);
-    });
-}
-
-std::ostream &operator<<(std::ostream &os, const int_float &rhs) {
-    os << string_format("%d/%f", thrust::get<0>(rhs), thrust::get<1>(rhs));
-    return os;
-}
-
-void ExactUpdater::ExactShard::find_split(int level) {
+void ExactTreeBuilder::InternalShard::find_split(int level) {
     TIMED_FUNC(timerObj);
     int n_max_nodes_in_level = static_cast<int>(pow(2, level));
     int nid_offset = static_cast<int>(pow(2, level) - 1);
@@ -207,15 +55,15 @@ void ExactUpdater::ExactShard::find_split(int level) {
                         device_loop_2d(
                                 n_column, columns.csc_col_ptr.device_data(),
                                 [=]__device__(int col_id, int fvid) {
-                                    //feature value id -> instance id -> node id
-                                    int nid = nid_data[iid_data[fvid]];
-                                    int pid;
-                                    //if this node is leaf node, move it to the end
-                                    if (nid < nid_offset) pid = INT_MAX;//todo negative
-                                    else pid = col_id * n_max_nodes_in_level + nid - nid_offset;
-                                    fvid2pid_data[fvid] = pid;
-                                },
-                                n_block);
+                            //feature value id -> instance id -> node id
+                            int nid = nid_data[iid_data[fvid]];
+                            int pid;
+                            //if this node is leaf node, move it to the end
+                            if (nid < nid_offset) pid = INT_MAX;//todo negative
+                            else pid = col_id * n_max_nodes_in_level + nid - nid_offset;
+                            fvid2pid_data[fvid] = pid;
+                        },
+                        n_block);
                         cudaDeviceSynchronize();
                         LOG(DEBUG) << "fvid2pid " << fvid2pid;
                     }
@@ -318,37 +166,40 @@ void ExactUpdater::ExactShard::find_split(int level) {
         {
             TIMED_SCOPE(timerObj, "find_split - calculate gain");
             auto compute_gain = []__device__(GHPair father, GHPair lch, GHPair rch, float_type min_child_weight,
-                                             float_type lambda) -> float_type {
-                if (lch.h >= min_child_weight && rch.h >= min_child_weight)
+                    float_type lambda) -> float_type {
+                    if (lch.h >= min_child_weight && rch.h >= min_child_weight)
                     return (lch.g * lch.g) / (lch.h + lambda) + (rch.g * rch.g) / (rch.h + lambda) -
-                           (father.g * father.g) / (father.h + lambda);
-                else
+            (father.g * father.g) / (father.h + lambda);
+                    else
                     return 0;
             };
             const Tree::TreeNode *nodes_data = tree.nodes.device_data();
             GHPair *gh_prefix_sum_data = gh_prefix_sum.device_data();
             float_type *gain_data = gain.device_data();
             const auto missing_gh_data = missing_gh.device_data();
+            auto ignored_set_data = ignored_set.device_data();
             //for lambda expression
             float_type mcw = param.min_child_weight;
             float_type l = param.lambda;
             device_loop(n_split, [=]__device__(int i) {
                 int pid = rle_pid_data[i];
                 int nid0 = pid % n_max_nodes_in_level;
+                int fid = pid / n_max_nodes_in_level;
                 int nid = nid0 + nid_offset;
-                if (pid == INT_MAX) return;
-                GHPair father_gh = nodes_data[nid].sum_gh_pair;
-                GHPair p_missing_gh = missing_gh_data[pid];
-                GHPair rch_gh = gh_prefix_sum_data[i];
-                float_type max_gain = max(0., compute_gain(father_gh, father_gh - rch_gh, rch_gh, mcw, l));
-                if (p_missing_gh.h > 1) {
+                if (pid != INT_MAX && !ignored_set_data[fid]) {
+                    GHPair father_gh = nodes_data[nid].sum_gh_pair;
+                    GHPair p_missing_gh = missing_gh_data[pid];
+                    GHPair rch_gh = gh_prefix_sum_data[i];
+                    float_type default_to_left_gain = max(0.f,
+                                                          compute_gain(father_gh, father_gh - rch_gh, rch_gh, mcw, l));
                     rch_gh = rch_gh + p_missing_gh;
-                    float_type temp_gain = compute_gain(father_gh, father_gh - rch_gh, rch_gh, mcw, l);
-                    if (temp_gain > 0 && temp_gain - max_gain > 0.1) {//FIXME 0.1?
-                        max_gain = -temp_gain;//negative means default split to right
-                    }
-                }
-                gain_data[i] = max_gain;
+                    float_type default_to_right_gain = max(0.f,
+                                                           compute_gain(father_gh, father_gh - rch_gh, rch_gh, mcw, l));
+                    if (default_to_left_gain > default_to_right_gain)
+                        gain_data[i] = default_to_left_gain;
+                    else
+                        gain_data[i] = -default_to_right_gain;//negative means default split to right
+                } else gain_data[i] = 0;
             });
             LOG(DEBUG) << "gain = " << gain;
             cudaDeviceSynchronize();
@@ -437,7 +288,7 @@ void ExactUpdater::ExactShard::find_split(int level) {
     cudaDeviceSynchronize();
 }
 
-void ExactUpdater::ExactShard::update_ins2node_id() {
+void ExactTreeBuilder::InternalShard::update_ins2node_id() {
     SyncArray<bool> has_splittable(1);
     //set new node id for each instance
     {
@@ -458,25 +309,190 @@ void ExactUpdater::ExactShard::update_ins2node_id() {
         LOG(TRACE) << "update ins2node id for each fval";
         device_loop_2d(n_column, col_ptr_data,
                        [=]__device__(int col_id, int fvid) {
-                           //feature value id -> instance id
-                           int iid = iid_data[fvid];
-                           //instance id -> node id
-                           int nid = nid_data[iid];
-                           //node id -> node
-                           const Tree::TreeNode &node = nodes_data[nid];
-                           //if the node splits on this feature
-                           if (node.splittable() && node.split_feature_id == col_id + column_offset) {
-                               h_s_data[0] = true;
-                               if (f_val_data[fvid] < node.split_value)
-                                   //goes to left child
-                                   nid_data[iid] = node.lch_index;
-                               else
-                                   //right child
-                                   nid_data[iid] = node.rch_index;
-                           }
-                       }, n_block);
+            //feature value id -> instance id
+            int iid = iid_data[fvid];
+            //instance id -> node id
+            int nid = nid_data[iid];
+            //node id -> node
+            const Tree::TreeNode &node = nodes_data[nid];
+            //if the node splits on this feature
+            if (node.splittable() && node.split_feature_id == col_id + column_offset) {
+                h_s_data[0] = true;
+                if (f_val_data[fvid] < node.split_value)
+                    //goes to left child
+                    nid_data[iid] = node.lch_index;
+                else
+                    //right child
+                    nid_data[iid] = node.rch_index;
+            }
+        }, n_block);
 
     }
     LOG(DEBUG) << "new tree_id = " << stats.nid;
     has_split = has_splittable.host_data()[0];
+}
+
+void ExactTreeBuilder::split_point_all_reduce(int depth, vector<InternalShard> &shards) {
+    TIMED_FUNC(timerObj);
+    //get global best split of each node
+    int n_nodes_in_level = 1 << depth;//2^i
+    int nid_offset = (1 << depth) - 1;//2^i - 1
+    auto global_sp_data = shards.front().sp.host_data();
+    vector<bool> active_sp(n_nodes_in_level);
+
+    for (int device_id = 0; device_id < param.n_device; device_id++) {
+        auto local_sp_data = shards[device_id].sp.host_data();
+        for (int j = 0; j < shards[device_id].sp.size(); j++) {
+            int sp_nid = local_sp_data[j].nid;
+            if (sp_nid == -1) continue;
+            int global_pos = sp_nid - nid_offset;
+            if (!active_sp[global_pos])
+                global_sp_data[global_pos] = local_sp_data[j];
+            else
+                global_sp_data[global_pos] = (global_sp_data[global_pos].gain >= local_sp_data[j].gain)
+                                             ?
+                                             global_sp_data[global_pos] : local_sp_data[j];
+            active_sp[global_pos] = true;
+        }
+    }
+    //set inactive sp
+    for (int n = 0; n < n_nodes_in_level; n++) {
+        if (!active_sp[n])
+            global_sp_data[n].nid = -1;
+    }
+    for_each_shard(shards, [&](InternalShard &shard) {
+        shard.sp.copy_from(shards.front().sp);
+    });
+    LOG(DEBUG) << "global best split point = " << shards.front().sp;
+}
+
+void ExactTreeBuilder::ins2node_id_all_reduce(vector<InternalShard> &shards, int depth) {
+    //get global ins2node id
+    {
+        SyncArray<int> local_ins2node_id(shards.front().stats.n_instances);
+        auto local_ins2node_id_data = local_ins2node_id.device_data();
+        auto global_ins2node_id_data = shards.front().stats.nid.device_data();
+        for (int d = 1; d < param.n_device; d++) {
+            local_ins2node_id.copy_from(shards[d].stats.nid);
+            device_loop(shards.front().stats.n_instances, [=]__device__(int i) {
+                global_ins2node_id_data[i] = (global_ins2node_id_data[i] > local_ins2node_id_data[i]) ?
+                                             global_ins2node_id_data[i] : local_ins2node_id_data[i];
+            });
+        }
+    }
+
+    //processing missing value
+    {
+        int n_nodes_in_level = 1 << depth;//2^i
+        int nid_offset = (1 << depth) - 1;//2^i - 1
+//        TIMED_SCOPE(timerObj, "process missing value");
+        LOG(TRACE) << "update ins2node id for each missing fval";
+        auto global_ins2node_id_data = shards.front().stats.nid.device_data();//essential
+        auto nodes_data = shards.front().tree.nodes.device_data();//already broadcast above
+        device_loop(shards.front().stats.n_instances, [=]__device__(int iid) {
+            int nid = global_ins2node_id_data[iid];
+            //if the instance is not on leaf node and not goes down
+            if (nodes_data[nid].splittable() && nid < nid_offset + n_nodes_in_level) {
+                //let the instance goes down
+                const Tree::TreeNode &node = nodes_data[nid];
+                if (node.default_right)
+                    global_ins2node_id_data[iid] = node.rch_index;
+                else
+                    global_ins2node_id_data[iid] = node.lch_index;
+            }
+        });
+        LOG(DEBUG) << "new nid = " << shards.front().stats.nid;
+    }
+
+    //broadcast ins2node id
+    for_each_shard(shards, [&](InternalShard &shard) {
+        shard.stats.nid.copy_from(shards.front().stats.nid);
+    });
+}
+
+const MSyncArray<float_type>& ExactTreeBuilder::get_y_predict() {
+    return y_predict;
+}
+
+void ExactTreeBuilder::init(const DataSet &dataset, const GBMParam &param) {
+    FunctionBuilder::init(dataset, param);
+    //TODO refactor
+
+    this->param = param;
+    //init shards
+    int n_device = param.n_device;
+    shards = vector<InternalShard>(n_device);
+    vector<std::unique_ptr<SparseColumns>> v_columns(param.n_device);
+    for (int i = 0; i < param.n_device; ++i) {
+        v_columns[i].reset(&shards[i].columns);
+        shards[i].rank = i;
+    }
+    SparseColumns columns;
+    columns.from_dataset(dataset);
+    columns.to_multi_devices(v_columns);
+    y_predict = MSyncArray<float_type>(param.n_device);
+    for_each_shard(shards, [&](InternalShard &shard) {
+        int n_instances = shard.columns.n_row;
+        shard.stats.resize(n_instances);
+        shard.stats.y_predict = SyncArray<float_type>(param.num_class * n_instances);
+        shard.param = param;
+
+        shard.ignored_set.resize(shard.columns.n_column);
+        y_predict[shard.rank] = SyncArray<float_type>(shard.stats.y_predict.size());
+        y_predict[shard.rank].set_device_data(shard.stats.y_predict.device_data());
+    });
+
+    for (int i = 0; i < param.n_device; ++i) {
+        v_columns[i].release();
+    }
+    SyncMem::clear_cache();
+}
+
+vector<Tree> ExactTreeBuilder::build_approximate(const MSyncArray<GHPair> &gradients) {
+    vector<Tree> trees(param.num_class);
+    TIMED_FUNC(timerObj);
+    for (int k = 0; k < param.num_class; ++k) {
+        Tree &tree = trees[k];
+        for_each_shard(shards, [&](InternalShard &shard) {
+            shard.stats.gh_pair.set_device_data(const_cast<GHPair *>(gradients[shard.rank].device_data() + k * shard.stats.n_instances));
+            shard.stats.reset_nid();//set nid of all the instances to 0
+            //todo multi-class bagging, column sampling
+            shard.column_sampling();//RF uses this, and may be used by GBDTs
+            if (param.bagging) shard.stats.do_bagging();//obtain a bag of instances
+            shard.tree.init(shard.stats, param);//init root node, reserve memory, etc.
+        });
+        for (int level = 0; level < param.depth; ++level) {
+            for_each_shard(shards, [&](InternalShard &shard) {
+                shard.find_split(level);
+            });
+            split_point_all_reduce(level, shards);
+            {
+                TIMED_SCOPE(timerObj, "apply sp");
+                for_each_shard(shards, [&]( InternalShard &shard) {
+                    shard.update_tree();
+                    shard.update_ins2node_id();
+                });
+                {
+                    LOG(TRACE) << "gathering ins2node id";
+                    //get final result of the reset instance id to node id
+                    bool has_split = false;
+                    for (int d = 0; d < param.n_device; d++) {
+                        has_split |= shards[d].has_split;
+                    }
+                    if (!has_split) {
+                        LOG(INFO) << "no splittable nodes, stop";
+                        break;
+                    }
+                }
+                ins2node_id_all_reduce(shards, level);
+            }
+        }
+        for_each_shard(shards, [&](Shard &shard) {
+            shard.tree.prune_self(param.gamma);
+            shard.predict_in_training(k);
+        });
+        tree.nodes.resize(shards.front().tree.nodes.size());
+        tree.nodes.copy_from(shards.front().tree.nodes);
+    }
+    return trees;
 }

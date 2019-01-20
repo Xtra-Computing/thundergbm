@@ -17,7 +17,7 @@ public:
 
     void configure(GBMParam param, const DataSet &dataset) override;
 
-    string default_metric() override { return "macc"; }
+    string default_metric_name() override { return "macc"; }
 
     ~Softmax() override = default;
 

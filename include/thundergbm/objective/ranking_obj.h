@@ -19,7 +19,7 @@ public:
 
     void configure(GBMParam param, const DataSet &dataset) override;
 
-    string default_metric() override;
+    string default_metric_name() override;
 
     ~LambdaRank() override = default;
 
@@ -36,7 +36,7 @@ class LambdaRankNDCG : public LambdaRank {
 public:
     void configure(GBMParam param, const DataSet &dataset) override;
 
-    string default_metric() override;
+    string default_metric_name() override;
 
 protected:
     float_type get_delta_z(float_type labelI, float_type labelJ, int rankI, int rankJ, int group_id) override;

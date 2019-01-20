@@ -20,7 +20,6 @@ int main(int argc, char **argv) {
     if (!model_param.profiling) {
         el::Loggers::reconfigureAllLoggers(el::ConfigurationType::PerformanceTracking, "false");
     }
-    float_type rmse;
     TreeTrainer trainer;
-    rmse = trainer.train(model_param);
+    trainer.train(model_param);
 }

@@ -134,7 +134,7 @@ void HistCut::get_cut_points(SparseColumns &columns, InsStat &stats, int max_num
     });
 }
 
-void HistCut::get_cut_points2(SparseColumns &columns, InsStat &stats, int max_num_bins, int n_instances) {
+void HistCut::get_cut_points2(SparseColumns &columns, int max_num_bins, int n_instances) {
     int n_column = columns.n_column;
     auto csc_val_data = columns.csc_val.host_data();
     auto csc_col_ptr_data = columns.csc_col_ptr.host_data();

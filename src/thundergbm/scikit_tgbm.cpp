@@ -46,10 +46,8 @@ extern "C" {
 
         model_param.rt_eps = 1e-6;
 
-        float_type rmse;
         TreeTrainer trainer;
-        rmse = trainer.train(model_param);
-        printf("training completed. rmse is %f\n", rmse);
+        trainer.train(model_param);
     }//end sparse_model_scikit
 
     void sparse_predict_scikit(int row_size, float *val, int *row_ptr, int *col_ptr, float *label,

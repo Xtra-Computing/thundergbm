@@ -6,9 +6,9 @@
 #define THUNDERGBM_SHARD_H
 
 
-#include "ins_stat.h"
-#include "sparse_columns.h"
-#include "tree.h"
+#include "thundergbm/ins_stat.h"
+#include "thundergbm/sparse_columns.h"
+#include "thundergbm/tree.h"
 
 class SplitPoint;
 
@@ -23,7 +23,7 @@ struct Shard {
 
     void update_tree();
 
-    void predict_in_training();
+    void predict_in_training(int k);
 
     void column_sampling();
 };

@@ -11,11 +11,10 @@
 
 class TreeTrainer{
 public:
-    float_type train(GBMParam &param);
-    float_type train_exact(GBMParam &param);
-    float_type train_hist(GBMParam &param);
-
-    float_type compute_rmse(const InsStat &stats);
+    void train(GBMParam &param);
+//    float_type train(GBMParam &param);
+//    float_type train_exact(GBMParam &param);
+//    float_type train_hist(GBMParam &param);
 
     void save_trees(GBMParam &param, vector<Tree> &trees);
 private:

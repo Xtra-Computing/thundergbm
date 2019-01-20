@@ -31,7 +31,7 @@ public:
     }
 
     void get_cut_points(SparseColumns &columns, InsStat &stats, int max_num_bins, int n_instances);
-    void get_cut_points2(SparseColumns &columns, InsStat &stats, int max_num_bins, int n_instances);
+    void get_cut_points2(SparseColumns &columns, int max_num_bins, int n_instances);
 };
 
 #endif //THUNDERGBM_HIST_CUT_H

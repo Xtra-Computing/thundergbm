@@ -34,7 +34,7 @@ public:
 
     ~RegressionObj() override = default;
 
-    string default_metric() override {
+    string default_metric_name() override {
         return "rmse";
     }
 };
@@ -56,16 +56,26 @@ struct LogisticLoss {
 
 template<>
 struct LogisticLoss<float> {
-    HOST_DEVICE static GHPair gradient(float y, float y_p) { return GHPair(y_p - y, fmaxf(y_p * (1 - y_p), 1e-16f)); }
+    HOST_DEVICE static GHPair gradient(float y, float y_p) {
+        float p = sigmoid(y_p);
+        return GHPair(p - y, fmaxf(p * (1 - p), 1e-16f));
+    }
 
-    HOST_DEVICE static float predict_transform(float x) { return 1 / (1 + expf(-x)); }
+    HOST_DEVICE static float predict_transform(float y) { return sigmoid(y); }
+
+    static float sigmoid(float x) {return 1 / (1 + expf(-x));}
 };
 
 template<>
 struct LogisticLoss<double> {
-    HOST_DEVICE static GHPair gradient(double y, double y_p) { return GHPair(y_p - y, fmax(y_p * (1 - y_p), 1e-16)); }
+    HOST_DEVICE static GHPair gradient(double y, double y_p) {
+        double p = sigmoid(y_p);
+        return GHPair(p - y, fmax(p * (1 - p), 1e-16));
+    }
 
     HOST_DEVICE static double predict_transform(double x) { return 1 / (1 + exp(-x)); }
+
+    static double sigmoid(double x) {return 1 / (1 + exp(-x));}
 };
 
 #endif //THUNDERGBM_REGRESSION_OBJ_H

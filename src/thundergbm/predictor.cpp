@@ -62,6 +62,6 @@ void Predictor::predict(vector<Tree> &trees, DataSet &dataSet){
     stat.y_predict.resize(predict_val.size());
     stat.y_predict.copy_from(predict_val.data(), predict_val.size());
 
-    float_type rmse = trainer.compute_rmse(stat);
-    printf("predicted rmse = %f\n", rmse);
+//    float_type rmse = trainer.compute_rmse(stat);
+//    printf("predicted rmse = %f\n", rmse);
 }
