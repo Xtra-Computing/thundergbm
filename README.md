@@ -2,6 +2,8 @@
 [![GitHub license](http://dmlc.github.io/img/apache2.svg)](./LICENSE)
 [![GitHub issues](https://img.shields.io/github/issues/zeyiwen/thundergbm.svg)](https://github.com/zeyiwen/thundergbm/issues)
 
+We are upgrading this project. Some features are still under testing. You are more than welcome to open issues, or contribute to improving some features.
+
 <div align="center">
 <img src="https://github.com/zeyiwen/thundergbm/blob/master/docs/_static/tgbm-logo.png" width="240" height="200" align=left/>
 <img src="https://github.com/zeyiwen/thundergbm/blob/master/docs/_static/lang-logo-tgbm.png" width="270" height="200" align=left/>
@@ -54,22 +56,6 @@ git submodule update --init src/test/googletest
 ```
 You will see `RMSE = 0.489562` after successful running.
 
-### Installation
-* Add the require binaries to ```$PATH``` (where ```path_to_cuda``` is the home directory of cuda, 
-e.g., ```/usr/local/cuda-9.0/bin/```; ```path_to_mpi``` is the home directory of MPI, e.g., ```/opt/openmpi-gcc/bin/```)
-```
-export PATH="path_to_cuda:$PATH"
-export PATH="path_to_mpi:$PATH"
-```
-* Build ThunderGBM
-```
-cd thundergbm
-mkdir build && cd build && cmake .. && make -j
-```
-* Run ThunderGBM with MPI
-```
-make runtest-mpi
-```
 
 ## How to cite ThunderGBM
 If you use ThunderGBM in your paper, please cite our work ([preprint](https://www.comp.nus.edu.sg/~wenzy/papers/thundergbm.pdf)).
