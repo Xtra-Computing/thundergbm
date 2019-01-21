@@ -6,7 +6,6 @@
 #define THUNDERGBM_RANKING_OBJ_H
 
 #include "objective_function.h"
-#include "thundergbm/util/device_lambda.cuh"
 
 /**
  *

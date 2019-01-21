@@ -76,3 +76,11 @@ TEST_F(TrainTest, mnist_multiclass) {
     param.num_class = 10;
     trainer.train(param);
 }
+
+TEST_F(TrainTest, yahoo_ranking) {
+//    param.path = "dataset/rank.train";
+    param.path = DATASET_DIR "yahoo-ltr-libsvm";
+    param.objective = "rank:ndcg";
+    trainer.train(param);
+//    float_type rmse = trainer.train(param);
+}

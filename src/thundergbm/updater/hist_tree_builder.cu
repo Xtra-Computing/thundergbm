@@ -546,6 +546,7 @@ void HistTreeBuilder::init(const DataSet &dataset, const GBMParam &param) {
         shard.last_hist.resize((2 << param.depth) * shard.cut.cut_points.size());
         shard.get_bin_ids(shard.columns);
         y_predict[shard.rank] = SyncArray<float_type>(shard.stats.y_predict.size());
+        y_predict[shard.rank].set_host_data(shard.stats.y_predict.host_data());
         y_predict[shard.rank].set_device_data(shard.stats.y_predict.device_data());
     });
 

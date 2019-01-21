@@ -3,6 +3,7 @@
 //
 #include <thundergbm/objective/ranking_obj.h>
 #include "thundergbm/metric/ranking_metric.h"
+#include "parallel/algorithm"
 
 void LambdaRank::configure(GBMParam param, const DataSet &dataset) {
     sigma = 1;
@@ -10,25 +11,31 @@ void LambdaRank::configure(GBMParam param, const DataSet &dataset) {
     //init gptr
     n_group = dataset.group.size();
     RankListMetric::configure_gptr(dataset.group, gptr);
+    CHECK_EQ(gptr.back(), dataset.n_instances());
 }
 
 void
 LambdaRank::get_gradient(const SyncArray<float_type> &y, const SyncArray<float_type> &y_p, SyncArray<GHPair> &gh_pair) {
     {
         auto gh_data = gh_pair.host_data();
+#pragma omp parallel for schedule(static)
         for (int i = 0; i < gh_pair.size(); ++i) {
             gh_data[i] = 0;
         }
     }
+    GHPair *gh_data0 = gh_pair.host_data();
+    const float_type *score0 = y_p.host_data();
+    const float_type *label_data0 = y.host_data();
+#pragma omp parallel for schedule(static)
     for (int k = 0; k < n_group; ++k) {
         int group_start = gptr[k];
         int len = gptr[k + 1] - group_start;
-        GHPair *gh_data = gh_pair.host_data() + group_start;
-        const float_type *score = y_p.host_data() + group_start;
-        const float_type *label_data = y.host_data() + group_start;
+        GHPair *gh_data = gh_data0 + group_start;
+        const float_type *score = score0 + group_start;
+        const float_type *label_data = label_data0 + group_start;
         vector<int> idx(len);
         for (int i = 0; i < len; ++i) { idx[i] = i; }
-        std::sort(idx.begin(), idx.end(), [=](int a, int b) { return score[a] > score[b]; });
+        __gnu_parallel::sort(idx.begin(), idx.end(), [=](int a, int b) { return score[a] > score[b]; });
 
         for (int i = 0; i < len; ++i) {
             int ui = idx[i];
@@ -49,6 +56,7 @@ LambdaRank::get_gradient(const SyncArray<float_type> &y, const SyncArray<float_t
             }
         }
     }
+    y_p.to_device();
 }
 
 string LambdaRank::default_metric_name() { return "map"; }
