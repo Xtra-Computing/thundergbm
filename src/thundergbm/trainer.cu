@@ -9,6 +9,7 @@
 #include "thrust/reduce.h"
 #include "time.h"
 #include "thundergbm/booster.h"
+#include "chrono"
 
 void TreeTrainer::save_trees(GBMParam &param, vector<Tree> &trees) {
     std::ofstream out(param.out_model_name);
@@ -34,10 +35,12 @@ void TreeTrainer::train(GBMParam &param) {
     vector<vector<Tree>> boosted_model;
     Booster booster;
     booster.init(dataset, param);
-    clock_t start = clock();
+    std::chrono::high_resolution_clock timer;
+    auto start = timer.now();
     for (int i = 0; i < param.n_trees; ++i) {
         booster.boost(boosted_model);
     }
-    clock_t stop = clock();
-    LOG(INFO) << "training time = " << (double) (stop - start) / CLOCKS_PER_SEC;
+    auto stop = timer.now();
+    std::chrono::duration<float> training_time = stop - start;
+    LOG(INFO) << "training time = " << training_time.count();
 }

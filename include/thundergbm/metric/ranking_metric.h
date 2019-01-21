@@ -16,7 +16,7 @@ public:
     static void configure_gptr(const vector<int> &group, vector<int> &gptr);
 
 protected:
-    virtual float_type eval_query_group(SyncArray<float_type> &y, SyncArray<float_type> &y_p, int group_id) const = 0;
+    virtual float_type eval_query_group(vector<float_type> &y, vector<float_type> &y_p, int group_id) const = 0;
 
     vector<int> gptr;
     int n_group;
@@ -29,7 +29,7 @@ public:
     string get_name() const override { return "MAP"; }
 
 protected:
-    float_type eval_query_group(SyncArray<float_type> &y, SyncArray<float_type> &y_p, int group_id) const override;
+    float_type eval_query_group(vector<float_type> &y, vector<float_type> &y_p, int group_id) const override;
 };
 
 class NDCG : public RankListMetric {
@@ -45,7 +45,7 @@ public:
     static void get_IDCG(const vector<int> &gptr, const vector<float_type> &y, vector<float_type> &idcg);
 
 protected:
-    float_type eval_query_group(SyncArray<float_type> &y, SyncArray<float_type> &y_p, int group_id) const override;
+    float_type eval_query_group(vector<float_type> &y, vector<float_type> &y_p, int group_id) const override;
 
 private:
     vector<float_type> idcg;

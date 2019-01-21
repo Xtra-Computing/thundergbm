@@ -5,15 +5,18 @@
 #include "parallel/algorithm"
 
 float_type RankListMetric::get_score(const SyncArray<float_type> &y_p) const {
+    TIMED_FUNC(obj);
     float_type sum_score = 0;
-#pragma omp parallel for schedule(static)
+    auto y_data0 = y.host_data();
+    auto yp_data0 = y_p.host_data();
+#pragma omp parallel for schedule(static) reduction(+:sum_score)
     for (int k = 0; k < n_group; ++k) {
         int group_start = gptr[k];
         int len = gptr[k + 1] - group_start;
-        SyncArray<float_type> query_y(len);
-        SyncArray<float_type> query_yp(len);
-        memcpy(query_y.host_data(), y.host_data() + group_start, len * sizeof(float_type));
-        memcpy(query_yp.host_data(), y_p.host_data() + group_start, len * sizeof(float_type));
+        vector<float_type> query_y(len);
+        vector<float_type> query_yp(len);
+        memcpy(query_y.data(), y_data0 + group_start, len * sizeof(float_type));
+        memcpy(query_yp.data(), yp_data0 + group_start, len * sizeof(float_type));
         sum_score += this->eval_query_group(query_y, query_yp, k);
     }
     return sum_score / n_group;
@@ -37,9 +40,9 @@ void RankListMetric::configure_gptr(const vector<int> &group, vector<int> &gptr)
     }
 }
 
-float_type MAP::eval_query_group(SyncArray<float_type> &y, SyncArray<float_type> &y_p, int group_id) const {
-    auto y_data = y.host_data();
-    auto yp_data = y_p.host_data();
+float_type MAP::eval_query_group(vector<float_type> &y, vector<float_type> &y_p, int group_id) const {
+    auto y_data = y.data();
+    auto yp_data = y_p.data();
     int len = y.size();
     vector<int> idx(len);
     for (int i = 0; i < len; ++i) {
@@ -67,7 +70,7 @@ void NDCG::configure(const GBMParam &param, const DataSet &dataset) {
     get_IDCG(gptr, dataset.y, idcg);
 }
 
-float_type NDCG::eval_query_group(SyncArray<float_type> &y, SyncArray<float_type> &y_p, int group_id) const {
+float_type NDCG::eval_query_group(vector<float_type> &y, vector<float_type> &y_p, int group_id) const {
     CHECK_EQ(y.size(), y_p.size());
     if (idcg[group_id] == 0) return 1;
     int len = y.size();
@@ -75,8 +78,8 @@ float_type NDCG::eval_query_group(SyncArray<float_type> &y, SyncArray<float_type
     for (int i = 0; i < len; ++i) {
         idx[i] = i;
     }
-    auto label = y.host_data();
-    auto score = y_p.host_data();
+    auto label = y.data();
+    auto score = y_p.data();
     __gnu_parallel::sort(idx.begin(), idx.end(), [=](int a, int b) { return score[a] > score[b]; });
 
     float_type dcg = 0;

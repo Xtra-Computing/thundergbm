@@ -16,6 +16,7 @@ void LambdaRank::configure(GBMParam param, const DataSet &dataset) {
 
 void
 LambdaRank::get_gradient(const SyncArray<float_type> &y, const SyncArray<float_type> &y_p, SyncArray<GHPair> &gh_pair) {
+    TIMED_FUNC(obj);
     {
         auto gh_data = gh_pair.host_data();
 #pragma omp parallel for schedule(static)
