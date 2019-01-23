@@ -9,6 +9,9 @@
 #include "thundergbm/common.h"
 #include "thundergbm/sparse_columns.h"
 
+/**
+ * @brief: support different ways of building the trees
+ */
 class FunctionBuilder {
 public:
     virtual vector<Tree> build_approximate(const MSyncArray<GHPair> &gradients) = 0;

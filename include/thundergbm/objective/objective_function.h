@@ -19,6 +19,8 @@ public:
     virtual string default_metric_name() = 0;
 
     static ObjectiveFunction* create(string name);
+
+    //a file containing the number of instances per query; similar to XGBoost
     static bool need_load_group_file(string name);
     static bool need_group_label(string name);
     virtual ~ObjectiveFunction() = default;

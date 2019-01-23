@@ -168,6 +168,7 @@ private:
     size_t size_;
 };
 
+//SyncArray for multiple devices
 template<typename T>
 class MSyncArray : public vector<SyncArray<T>> {
 public:

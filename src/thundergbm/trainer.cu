@@ -38,6 +38,7 @@ void TreeTrainer::train(GBMParam &param) {
     std::chrono::high_resolution_clock timer;
     auto start = timer.now();
     for (int i = 0; i < param.n_trees; ++i) {
+        //one iteration may produce multiple trees, depending on objectives
         booster.boost(boosted_model);
     }
     auto stop = timer.now();
