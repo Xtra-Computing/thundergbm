@@ -258,6 +258,7 @@ void quanSketch::Init(int maxn, float_type eps){
     while (1) {
         summarySize = ceil(numOfLevel / eps) + 1;
         int n = (1ULL << numOfLevel);
+        //break when summary size is big enough (one cut point candidate has one or zero instances on average.)
         if (n * summarySize >= maxn) break;
         ++numOfLevel;
     }

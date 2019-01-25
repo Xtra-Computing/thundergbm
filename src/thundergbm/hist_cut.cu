@@ -20,6 +20,7 @@ void HistCut::get_cut_points(SparseColumns &columns, InsStat &stats, int max_num
     int n_features = columns.n_column;
 //    std::cout<<"n_featrues:"<<n_features<<std::endl;
     vector<quanSketch> sketchs(n_features);
+    //kFactor times more cut point candidates are considered when building the summary.
     const int kFactor = 8;
     for (int i = 0; i < n_features; i++) {
         sketchs[i].Init(n_instances, 1.0 / (max_num_bins * kFactor));
