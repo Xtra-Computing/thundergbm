@@ -77,6 +77,36 @@ TEST_F(TrainTest, mnist_multiclass) {
     trainer.train(param);
 }
 
+TEST_F(TrainTest, cifar10_multiclass) {
+    param.path = DATASET_DIR "cifar10";
+    param.objective = "multi:softprob";
+    param.num_class = 10;
+    trainer.train(param);
+}
+
+TEST_F(TrainTest, sector_multiclass) {
+    param.path = DATASET_DIR "sector.scale";
+    param.objective = "multi:softprob";
+    param.tree_method = "hist";
+    param.num_class = 105;
+    trainer.train(param);
+}
+
+TEST_F(TrainTest, news20_multiclass) {
+    param.path = DATASET_DIR "news20.scale";
+    param.objective = "multi:softprob";
+    param.num_class = 20;
+    trainer.train(param);
+}
+
+TEST_F(TrainTest, rcv1_multiclass) {
+    param.path = DATASET_DIR "rcv1_train.multiclass";
+    param.objective = "multi:softprob";
+    param.tree_method = "hist";
+    param.num_class = 51;
+    trainer.train(param);
+}
+
 TEST_F(TrainTest, yahoo_ranking) {
 //    param.path = "dataset/rank.train";
     param.path = DATASET_DIR "yahoo-ltr-libsvm";

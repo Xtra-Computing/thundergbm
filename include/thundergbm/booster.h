@@ -50,14 +50,16 @@ void Booster::init(const DataSet &dataSet, const GBMParam &param) {
 }
 
 void Booster::boost(vector<vector<Tree>> &boosted_model) {
+    TIMED_FUNC(timerObj);
     //update gradients
     DO_ON_MULTI_DEVICES(n_devices, [&](int device_id) {
         obj->get_gradient(y[device_id], fbuilder->get_y_predict()[device_id], gradients[device_id]);
     });
-
+    PERFORMANCE_CHECKPOINT(timerObj);
     //build new model/approximate function
     boosted_model.push_back(fbuilder->build_approximate(gradients));
 
+    PERFORMANCE_CHECKPOINT(timerObj);
     //show metric on training set
     LOG(INFO) << metric->get_name() << " = " << metric->get_score(fbuilder->get_y_predict().front());
 }
