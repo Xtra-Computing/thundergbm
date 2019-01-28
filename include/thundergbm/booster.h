@@ -7,9 +7,8 @@
 
 #include <thundergbm/objective/objective_function.h>
 #include <thundergbm/metric/metric.h>
-#include <thundergbm/updater/function_builder.h>
-#include <thundergbm/updater/hist_tree_builder.h>
-#include <thundergbm/updater/exact_tree_builder.h>
+#include <thundergbm/builder/function_builder.h>
+#include <thundergbm/util/multi_device.h>
 #include "thundergbm/common.h"
 #include "syncarray.h"
 #include "tree.h"

@@ -42,6 +42,6 @@ if (BUILD_TESTS)
 endif ()
 
 # configuration file
-set(DATASET_DIR ${PROJECT_SOURCE_DIR}/dataset/)
+set(DATASET_DIR ${PROJECT_SOURCE_DIR}/datasets/)
 configure_file(include/thundergbm/config.h.in config.h)
 
