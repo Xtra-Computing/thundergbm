@@ -109,6 +109,7 @@ void DataSet::load_from_file(string file_name, GBMParam param) {
             this->y.insert(y.end(), y_[i].begin(), y_[i].end());
         }
     }
+    ifs.close();
     LOG(INFO) << "#instances = " << this->n_instances() << ", #features = " << this->n_features();
     if (ObjectiveFunction::need_load_group_file(param.objective)) load_group_file(file_name + ".group");
     if (ObjectiveFunction::need_group_label(param.objective)) group_label();
@@ -141,11 +142,9 @@ void DataSet::load_from_sparse(int row_size, float *val, int *row_ptr, int *col_
             if (ind > n_features_) n_features_ = ind;
         }
         total_count++;
-
     }
 //    n_features_++;
     LOG(INFO) << "#instances = " << this->n_instances() << ", #features = " << this->n_features();
-
 }
 
 void DataSet::load_group_file(string file_name) {
@@ -156,6 +155,7 @@ void DataSet::load_group_file(string file_name) {
     int group_size;
     while (ifs >> group_size) group.push_back(group_size);
     LOG(INFO) << "#groups = " << group.size();
+    ifs.close();
 }
 
 void DataSet::group_label() {

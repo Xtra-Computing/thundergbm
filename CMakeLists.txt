@@ -34,6 +34,6 @@ add_subdirectory(src/thundergbm)
 add_subdirectory(src/test)
 
 # configuration file
-set(DATASET_DIR ${PROJECT_SOURCE_DIR}/dataset/)
+set(DATASET_DIR ${PROJECT_SOURCE_DIR}/datasets/)
 configure_file(include/thundergbm/config.h.in config.h)
 

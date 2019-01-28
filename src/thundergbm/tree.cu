@@ -38,6 +38,39 @@ void Tree::init(const InsStat &stats, const GBMParam &param) {
     });
 }
 
+void Tree::init2(const SyncArray<GHPair> &gradients, const GBMParam &param) {
+//    TIMED_FUNC(timerObj);
+    int n_max_nodes = static_cast<int>(pow(2, param.depth + 1) - 1);
+    nodes = SyncArray<TreeNode>(n_max_nodes);
+    auto node_data = nodes.device_data();
+    device_loop(n_max_nodes, [=]__device__(int i) {
+        node_data[i].final_id = i;
+        node_data[i].split_feature_id = -1;
+        node_data[i].is_valid = false;
+        node_data[i].parent_index = i == 0 ? -1 : (i - 1) / 2;
+        if (i < n_max_nodes / 2) {
+            node_data[i].is_leaf = false;
+            node_data[i].lch_index = i * 2 + 1;
+            node_data[i].rch_index = i * 2 + 2;
+        } else {
+            //leaf nodes
+            node_data[i].is_leaf = true;
+            node_data[i].lch_index = -1;
+            node_data[i].rch_index = -1;
+        }
+    });
+
+    //init root node
+    GHPair sum_gh = thrust::reduce(thrust::cuda::par, gradients.device_data(), gradients.device_end());
+    float_type lambda = param.lambda;
+    device_loop<1, 1>(1, [=]__device__(int i) {
+        Tree::TreeNode &root_node = node_data[0];
+        root_node.sum_gh_pair = sum_gh;
+        root_node.is_valid = true;
+        root_node.calc_weight(lambda);
+    });
+}
+
 string Tree::dump(int depth) const {
     string s("\n");
     preorder_traversal(0, depth, 0, s);

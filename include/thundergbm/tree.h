@@ -57,6 +57,8 @@ public:
 
     void init(const InsStat &stats, const GBMParam &param);
 
+    void init2(const SyncArray<GHPair> &gradients, const GBMParam &param);
+
     string dump(int depth) const;
 
     SyncArray<Tree::TreeNode> nodes;
