@@ -18,5 +18,6 @@ core
 *.o
 *.swp
 *build*
+!builder
 !*build*.cu
 !*build*.h
