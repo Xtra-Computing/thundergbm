@@ -53,18 +53,18 @@ extern "C" {
     void sparse_predict_scikit(int row_size, float *val, int *row_ptr, int *col_ptr, float *label,
                                char *in_model_name){
         //load model
-        vector<Tree> trees;
+        vector<vector<Tree>> boosted_model;
         GBMParam model_param;
         model_param.in_model_name = in_model_name;
         model_param.path = "../dataset/test_dataset.txt";
         Parser parser;
-        parser.load_model(model_param, trees);
+        parser.load_model(model_param, boosted_model);
 
         DataSet dataSet;
         dataSet.load_from_sparse(row_size, val, row_ptr, col_ptr, label);
 
         //predict
         Predictor pred;
-        pred.predict(trees, dataSet);
+        pred.predict(model_param, boosted_model, dataSet);
     }
 }

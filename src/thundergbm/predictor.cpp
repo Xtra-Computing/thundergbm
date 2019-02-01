@@ -3,7 +3,7 @@
 //
 
 #include "thundergbm/predictor.h"
-#include "thundergbm/trainer.h"
+#include <thundergbm/metric/metric.h>
 
 int Predictor::get_next_child(const Tree::TreeNode &node, float_type feaValue)
 {
@@ -20,7 +20,7 @@ int Predictor::get_next_child(const Tree::TreeNode &node, float_type feaValue)
         return node.rch_index;
 }
 
-void Predictor::predict(vector<Tree> &trees, DataSet &dataSet){
+void Predictor::predict(GBMParam& model_param, vector<vector<Tree>> &boosted_model, DataSet &dataSet){
     int n_instances = dataSet.n_instances();
     int n_feature = dataSet.n_features();
     vector<float_type> predict_val(n_instances);
@@ -40,28 +40,34 @@ void Predictor::predict(vector<Tree> &trees, DataSet &dataSet){
 
         //predict
         //LOG(INFO) << ".";
-        for(int t = 0; t < trees.size(); t++) {
-            const Tree::TreeNode *node_data = trees[t].nodes.host_data();
-            Tree::TreeNode curNode = node_data[0];
-            int cur_nid = 0; //node id
-            while (!curNode.is_leaf)
-            {
-                int fid = curNode.split_feature_id;
-                cur_nid = get_next_child(curNode, ins[fid]);
-                curNode = node_data[cur_nid];
+        for(int iter = 0; iter < boosted_model.size(); iter++) {
+            int num_tree = boosted_model[iter].size();
+            float_type ave_val = 0;//average predicted value
+            for(int t = 0; t < num_tree; t++) {//one iteration may have multiple trees (e.g., boosted Random Forests)
+                const Tree::TreeNode *node_data = boosted_model[iter][t].nodes.host_data();
+                Tree::TreeNode curNode = node_data[0];
+                int cur_nid = 0; //node id
+                while (!curNode.is_leaf) {
+                    int fid = curNode.split_feature_id;
+                    cur_nid = get_next_child(curNode, ins[fid]);
+                    curNode = node_data[cur_nid];
+                }
+                ave_val += node_data[cur_nid].base_weight;
             }
-            predict_val[i] += node_data[cur_nid].base_weight;
+            ave_val = ave_val / num_tree;
+            predict_val[i] += ave_val;
         }//end all tree prediction
     }
-    //compute rmse
-    LOG(INFO) << "compute RMSE";
-    TreeTrainer trainer;
-    InsStat stat(n_instances);
-    stat.y.resize(dataSet.y.size());
-    stat.y.copy_from(dataSet.y.data(), dataSet.y.size());
-    stat.y_predict.resize(predict_val.size());
-    stat.y_predict.copy_from(predict_val.data(), predict_val.size());
+    //compute metric
+    SyncArray<float_type> y_predict;
+    y_predict.resize(predict_val.size());
+    y_predict.copy_from(predict_val.data(), predict_val.size());
 
-//    float_type rmse = trainer.compute_rmse(stat);
-//    printf("predicted rmse = %f\n", rmse);
+    std::unique_ptr<Metric> metric;
+    std::unique_ptr<ObjectiveFunction> obj;
+    obj.reset(ObjectiveFunction::create(model_param.objective));
+    obj->configure(model_param, dataSet);
+    metric.reset(Metric::create(obj->default_metric_name()));
+    metric->configure(model_param, dataSet);
+    LOG(INFO) << metric->get_name().c_str() << "=" << metric->get_score(y_predict);
 }

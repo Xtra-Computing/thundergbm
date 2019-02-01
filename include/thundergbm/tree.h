@@ -5,6 +5,9 @@
 #ifndef THUNDERGBM_TREE_H
 #define THUNDERGBM_TREE_H
 
+#include <boost/serialization/string.hpp>
+#include <boost/serialization/version.hpp>
+#include <boost/serialization/split_member.hpp>
 #include "syncarray.h"
 #include "sstream"
 #include "ins_stat.h"
@@ -62,6 +65,65 @@ public:
     SyncArray<Tree::TreeNode> nodes;
 
     void prune_self(float_type gamma);
+
+    //store the tree to file
+private:
+    friend class boost::serialization::access;
+    template<class Archive>
+    void process_nodes(Archive &ar){
+        Tree::TreeNode *node_data = nodes.host_data();
+        for(int nid = 0; nid < nodes.size(); nid++) {
+            ar & node_data[nid].final_id;
+            ar & node_data[nid].lch_index;
+            ar & node_data[nid].rch_index;
+            ar & node_data[nid].parent_index;
+            ar & node_data[nid].gain;
+            ar & node_data[nid].base_weight;
+            ar & node_data[nid].split_feature_id;
+            ar & node_data[nid].split_value;
+            ar & node_data[nid].split_bid;
+            ar & node_data[nid].default_right;
+            ar & node_data[nid].is_leaf;
+            ar & node_data[nid].is_valid;
+            ar & node_data[nid].is_pruned;
+            ar & node_data[nid].sum_gh_pair.g;
+            ar & node_data[nid].sum_gh_pair.h;
+        }
+    }
+    template<class Archive>
+    void save(Archive & ar, const unsigned int version) const
+    {
+        size_t node_size = nodes.size();
+        ar & node_size;
+        const Tree::TreeNode *node_data = nodes.host_data();
+        for(int nid = 0; nid < nodes.size(); nid++) {
+            ar & node_data[nid].final_id;
+            ar & node_data[nid].lch_index;
+            ar & node_data[nid].rch_index;
+            ar & node_data[nid].parent_index;
+            ar & node_data[nid].gain;
+            ar & node_data[nid].base_weight;
+            ar & node_data[nid].split_feature_id;
+            ar & node_data[nid].split_value;
+            ar & node_data[nid].split_bid;
+            ar & node_data[nid].default_right;
+            ar & node_data[nid].is_leaf;
+            ar & node_data[nid].is_valid;
+            ar & node_data[nid].is_pruned;
+            ar & node_data[nid].sum_gh_pair.g;
+            ar & node_data[nid].sum_gh_pair.h;
+        }
+    }
+
+    template<class Archive>
+    void load(Archive & ar, const unsigned int version)
+    {
+        size_t node_size;
+        ar & node_size;
+        nodes.resize(node_size);
+        process_nodes(ar);
+    }
+    BOOST_SERIALIZATION_SPLIT_MEMBER()
 
 private:
     void preorder_traversal(int nid, int max_depth, int depth, string &s) const;

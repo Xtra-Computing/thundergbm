@@ -20,6 +20,7 @@ int main(int argc, char **argv) {
     if (!model_param.profiling) {
         el::Loggers::reconfigureAllLoggers(el::ConfigurationType::PerformanceTracking, "false");
     }
+
     TreeTrainer trainer;
     trainer.train(model_param);
 }

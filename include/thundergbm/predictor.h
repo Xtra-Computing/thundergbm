@@ -10,7 +10,7 @@
 
 class Predictor{
 public:
-    void predict(vector<Tree> &trees, DataSet &dataSet);
+    void predict(GBMParam &model_param, vector<vector<Tree>> &boosted_model, DataSet &dataSet);
 private:
     int get_next_child(const Tree::TreeNode &node, float_type feaValue);
 };

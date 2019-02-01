@@ -10,7 +10,7 @@
 class Parser{
 public:
     void parse_param(GBMParam &model_param, int argc, char **argv);
-    void load_model(GBMParam &model_param, vector<Tree> &trees);
+    void load_model(GBMParam &model_param, vector<vector<Tree>> &boosted_model);
 };
 
 #endif //THUNDERGBM_PARAM_PARSER_H

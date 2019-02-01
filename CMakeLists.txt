@@ -3,6 +3,11 @@ project(thundergbm)
 
 find_package(CUDA REQUIRED QUIET)
 find_package(OpenMP REQUIRED QUIET)
+find_package(Boost REQUIRED)
+
+include_directories(${Boost_INCLUDE_DIR})
+link_directories(${Boost_LIBRARY_DIRS})
+message(${Boost_LIBRARY_DIRS})
 
 if (NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release)
@@ -19,6 +24,11 @@ endif ()
 if (OPENMP_FOUND)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
+endif ()
+
+if (Boost_FOUND)
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -lboost_serialization")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -lboost_serialization")
 endif ()
 
 # for easylogging++ configuration

@@ -2,6 +2,9 @@
 // Created by zeyi on 1/9/19.
 //
 #include <fstream>
+#include <boost/archive/text_oarchive.hpp>
+#include <boost/serialization/vector.hpp>
+
 #include <thundergbm/tree.h>
 #include <thundergbm/trainer.h>
 #include <thundergbm/metric/metric.h>
@@ -11,7 +14,7 @@
 #include "thundergbm/booster.h"
 #include "chrono"
 
-void TreeTrainer::save_trees(GBMParam &param, vector<Tree> &trees) {
+void TreeTrainer::dump_model(GBMParam &param, vector<Tree> &trees) {
     std::ofstream out(param.out_model_name);
     int round = 0;
     for (Tree &tree:trees) {
@@ -23,7 +26,7 @@ void TreeTrainer::save_trees(GBMParam &param, vector<Tree> &trees) {
     out.close();
 }
 
-void TreeTrainer::train(GBMParam &param) {
+vector<vector<Tree>> TreeTrainer::train(GBMParam &param) {
     DataSet dataset;
     dataset.load_from_file(param.path, param);
     if (param.tree_method == "auto")
@@ -44,4 +47,13 @@ void TreeTrainer::train(GBMParam &param) {
     auto stop = timer.now();
     std::chrono::duration<float> training_time = stop - start;
     LOG(INFO) << "training time = " << training_time.count();
+
+    //save model
+    std::ofstream ofs(param.out_model_name);
+    boost::archive::text_oarchive oa(ofs);
+    oa & param.objective;
+    oa & boosted_model;
+    ofs.close();
+
+    return boosted_model;
 }

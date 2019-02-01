@@ -59,7 +59,7 @@ public:
     int summarySize;//max size of the first level summary
     Qitem Qentry;
     vector<summary> summaries;
-    summary t_summary; //for temp
+    summary t_summary; //for process_nodes
     void Init(int maxn, float_type eps);
     void Add(float_type, float_type);
     void GetSummary(summary& dest);

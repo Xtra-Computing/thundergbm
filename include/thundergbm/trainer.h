@@ -11,12 +11,12 @@
 
 class TreeTrainer{
 public:
-    void train(GBMParam &param);
+    vector<vector<Tree>> train(GBMParam &param);
 //    float_type train(GBMParam &param);
 //    float_type train_exact(GBMParam &param);
 //    float_type train_hist(GBMParam &param);
 
-    void save_trees(GBMParam &param, vector<Tree> &trees);
+    void dump_model(GBMParam &param, vector<Tree> &trees);
 private:
     DataSet dataSet;
 };

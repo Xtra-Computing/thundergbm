@@ -16,13 +16,16 @@ int main(int argc, char **argv) {
     GBMParam model_param;
     Parser parser;
     parser.parse_param(model_param, argc, argv);
+
     //load model
-    vector<Tree> trees;
-    parser.load_model(model_param, trees);
+    vector<vector<Tree>> boosted_model;
+    parser.load_model(model_param, boosted_model);
+
     //load data set
     DataSet dataSet;
     dataSet.load_from_file(model_param.path, model_param);
+
     //predict
     Predictor pred;
-    pred.predict(trees, dataSet);
+    pred.predict(model_param, boosted_model, dataSet);
 }
