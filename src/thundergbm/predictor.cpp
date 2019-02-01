@@ -58,15 +58,19 @@ void Predictor::predict(GBMParam& model_param, vector<vector<Tree>> &boosted_mod
             predict_val[i] += ave_val;
         }//end all tree prediction
     }
-    //compute metric
+    //store the predicted values into sync array
     SyncArray<float_type> y_predict;
     y_predict.resize(predict_val.size());
     y_predict.copy_from(predict_val.data(), predict_val.size());
 
-    std::unique_ptr<Metric> metric;
+    //convert the aggregated values to labels, probabilities or ranking scores.
     std::unique_ptr<ObjectiveFunction> obj;
     obj.reset(ObjectiveFunction::create(model_param.objective));
     obj->configure(model_param, dataSet);
+    obj->predict_transform(y_predict);
+
+    //compute metric
+    std::unique_ptr<Metric> metric;
     metric.reset(Metric::create(obj->default_metric_name()));
     metric->configure(model_param, dataSet);
     LOG(INFO) << metric->get_name().c_str() << "=" << metric->get_score(y_predict);

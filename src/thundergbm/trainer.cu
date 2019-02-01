@@ -35,6 +35,18 @@ vector<vector<Tree>> TreeTrainer::train(GBMParam &param) {
         else
             param.tree_method = "hist";
 
+    //correct the number of classes
+    if(param.objective.find("multi:") != std::string::npos) {
+        int num_class = dataset.label.size();
+        if (param.num_class != num_class) {
+            LOG(INFO) << "updating number of classes from " << param.num_class << " to " << num_class;
+            param.num_class = num_class;
+        }
+    }
+    else if(param.objective.find("reg:") != std::string::npos){
+        param.num_class = 1;
+    }
+
     vector<vector<Tree>> boosted_model;
     Booster booster;
     booster.init(dataset, param);

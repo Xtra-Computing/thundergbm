@@ -13,7 +13,7 @@ class RegressionObj : public ObjectiveFunction {
 public:
     void get_gradient(const SyncArray<float_type> &y, const SyncArray<float_type> &y_p,
                       SyncArray<GHPair> &gh_pair) override {
-        CHECK_EQ(y.size(), y_p.size());
+        CHECK_EQ(y.size(), y_p.size())<<y.size() << "!=" << y_p.size();
         CHECK_EQ(y.size(), gh_pair.size());
         auto y_data = y.device_data();
         auto y_p_data = y_p.device_data();
