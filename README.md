@@ -1,8 +1,6 @@
 [![Documentation Status](https://readthedocs.org/projects/thundergbm/badge/?version=latest)](https://thundergbm.readthedocs.org)
 [![GitHub license](http://dmlc.github.io/img/apache2.svg)](./LICENSE)
-[![GitHub issues](https://img.shields.io/github/issues/zeyiwen/thundergbm.svg)](https://github.com/zeyiwen/thundergbm/issues)
-
-We are upgrading this project. Some features are still under testing. You are more than welcome to open issues, or contribute to improving some features.
+[![GitHub issues](https://img.shields.io/github/issues/xtra-computing/thundergbm.svg)](https://github.com/xtra-computing/thundergbm/issues)
 
 <div align="center">
 <img src="https://github.com/zeyiwen/thundergbm/blob/master/docs/_static/tgbm-logo.png" width="240" height="200" align=left/>

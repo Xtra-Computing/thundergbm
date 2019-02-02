@@ -46,7 +46,9 @@ inline void anonymous_kernel(L lambda, size_t smem_size = 0) {
     CUDA_CHECK(cudaPeekAtLastError());
 }
 
-
+/**
+ * @brief: (len1 x NUM_BLOCK) is the total number of blocks; len2 is an array of lengths.
+ */
 template<typename L>
 void device_loop_2d(int len1, const int *len2, L lambda, unsigned int NUM_BLOCK = 4 * 56,
                     unsigned int BLOCK_SIZE = 256) {
