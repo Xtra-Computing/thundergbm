@@ -6,27 +6,27 @@
 #include <thundergbm/metric/metric.h>
 #include "thundergbm/util/device_lambda.cuh"
 
-int Predictor::get_next_child(const Tree::TreeNode &node, float_type feaValue)
-{
-    if(feaValue == 0){//this is a missing value
-        if(node.default_right == false)
-            return node.lch_index;
-        else
-            return node.rch_index;
-    }
-
-    if(feaValue < node.split_value)
-        return node.lch_index;
-    else
-        return node.rch_index;
-}
-
 void Predictor::predict(GBMParam& model_param, vector<vector<Tree>> &boosted_model, DataSet &dataSet){
     int n_instances = dataSet.n_instances();
     int n_feature = dataSet.n_features();
     SyncArray<float_type> y_predict(n_instances);
     y_predict.resize(n_instances);
-    auto predict_data = y_predict.host_data();
+    auto predict_data = y_predict.device_data();
+
+    //the whole model to an array
+    int num_iter = boosted_model.size();
+    int num_tree = boosted_model[0].size();
+    int num_node = boosted_model[0][0].nodes.size();
+    int total_num_node = num_iter * num_tree * num_node;
+    SyncArray<Tree::TreeNode> model(total_num_node);
+    auto model_data = model.host_data();
+    int tree_cnt = 0;
+    for(auto &vtree:boosted_model) {
+        for(auto &t:vtree) {
+            memcpy(model_data + num_node * tree_cnt, t.nodes.host_data(), sizeof(Tree::TreeNode) * num_node);
+            tree_cnt++;
+        }
+    }
 
     int max_num_val = 1024 * 1024 * 1024;//use 4GB memory
     int num_batch = (n_instances * n_feature + max_num_val - 1) / max_num_val;
@@ -63,16 +63,30 @@ void Predictor::predict(GBMParam& model_param, vector<vector<Tree>> &boosted_mod
         cudaDeviceSynchronize();
 
         //prediction
-        auto ins_host_data = batch_ins.host_data();
-        for(int i = 0; i < num_ins_batch; i++) {
-            //get dense instance
-            auto ins = ins_host_data + i * n_feature;
+        auto model_device_data = model.device_data();
+        auto ins_device_data = batch_ins.device_data();
+        device_loop(num_ins_batch, [=]__device__(int i) {
+            //get next child
+            auto get_next_child = [&](Tree::TreeNode &node, float_type feaValue){
+                if(feaValue == 0){//this is a missing value
+                    if(node.default_right == false)
+                        return node.lch_index;
+                    else
+                        return node.rch_index;
+                }
+
+                if(feaValue < node.split_value)
+                    return node.lch_index;
+                else
+                    return node.rch_index;
+            };
+
+            auto ins = ins_device_data + i * n_feature;
             int iid = ave_batch_size * batch_id + i;
-            for (int iter = 0; iter < boosted_model.size(); iter++) {
-                int num_tree = boosted_model[iter].size();
+            for (int iter = 0; iter < num_iter; iter++) {
                 float_type ave_val = 0;//average predicted value
                 for (int t = 0; t < num_tree; t++) {//one iteration may have multiple trees (e.g., boosted R. Forests)
-                    const Tree::TreeNode *node_data = boosted_model[iter][t].nodes.host_data();
+                    const Tree::TreeNode *node_data = model_device_data + iter * num_tree * num_node + t * num_node;
                     Tree::TreeNode curNode = node_data[0];
                     int cur_nid = 0; //node id
                     while (!curNode.is_leaf) {
@@ -85,7 +99,7 @@ void Predictor::predict(GBMParam& model_param, vector<vector<Tree>> &boosted_mod
                 ave_val = ave_val / num_tree;
                 predict_data[iid] += ave_val;
             }//end all tree prediction
-        }
+        });
     }
 
     //convert the aggregated values to labels, probabilities or ranking scores.

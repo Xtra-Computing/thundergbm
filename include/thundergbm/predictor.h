@@ -11,8 +11,6 @@
 class Predictor{
 public:
     void predict(GBMParam &model_param, vector<vector<Tree>> &boosted_model, DataSet &dataSet);
-private:
-    int get_next_child(const Tree::TreeNode &node, float_type feaValue);
 };
 
 #endif //THUNDERGBM_PREDICTOR_H
