@@ -8,7 +8,7 @@
 <img src="https://github.com/zeyiwen/thundergbm/blob/master/docs/_static/overall.png" width="250" height="200" align=left/>
 </div>
 
-[Documentations](http://thundergbm.readthedocs.io) | [Parameters](https://thundergbm.readthedocs.io/en/latest/parameters.html) | [Python (scikit-learn) interface](https://github.com/zeyiwen/thundergbm/tree/master/python)
+[Documentations](http://thundergbm.readthedocs.io) | [Installation](https://thundergbm.readthedocs.io/en/latest/how-to.html#how-to-install-thundergbm) | [Parameters](https://thundergbm.readthedocs.io/en/latest/parameters.html) | [Python (scikit-learn) interface](https://github.com/zeyiwen/thundergbm/tree/master/python)
 
 ## Overview
 The mission of ThunderGBM is to help users easily and efficiently apply GBDTs and Random Forests to solve problems. ThunderGBM exploits GPUs to achieve high efficiency. Key features of ThunderGBM are as follows.
@@ -29,7 +29,7 @@ GBDTs and Random Forests are often used for creating state-of-the-art data scien
 ## Getting Started
 
 ### Prerequisites
-* cmake 2.8 or above | gcc 4.8 or above for Linux | [CUDA](https://developer.nvidia.com/cuda-downloads) 8 or above
+* cmake 2.8 or above | gcc 4.8 or above for Linux | [C++ boost](https://www.boost.org/) | [CUDA](https://developer.nvidia.com/cuda-downloads) 8 or above
 
 ### Download
 ```bash

@@ -28,7 +28,7 @@ void Predictor::predict(GBMParam& model_param, vector<vector<Tree>> &boosted_mod
     y_predict.resize(n_instances);
     auto predict_data = y_predict.host_data();
 
-    int max_num_val = 1024;//use 4GB memory
+    int max_num_val = 1024 * 1024 * 1024;//use 4GB memory
     int num_batch = (n_instances * n_feature + max_num_val - 1) / max_num_val;
     int ave_batch_size = n_instances / num_batch;
     for(int batch_id = 0; batch_id < num_batch; batch_id++) {
@@ -68,9 +68,6 @@ void Predictor::predict(GBMParam& model_param, vector<vector<Tree>> &boosted_mod
             //get dense instance
             auto ins = ins_host_data + i * n_feature;
             int iid = ave_batch_size * batch_id + i;
-
-            //predict
-            //LOG(INFO) << ".";
             for (int iter = 0; iter < boosted_model.size(); iter++) {
                 int num_tree = boosted_model[iter].size();
                 float_type ave_val = 0;//average predicted value
@@ -91,32 +88,6 @@ void Predictor::predict(GBMParam& model_param, vector<vector<Tree>> &boosted_mod
         }
     }
 
-//#pragma omp parallel for num_threads(10)
-//    auto ins_host_data = batch_ins.host_data();
-//    for(int i = 0; i < n_instances; i++){
-//        //get dense instance
-//        auto ins = ins_host_data + i * n_feature;
-//
-//        //predict
-//        //LOG(INFO) << ".";
-//        for(int iter = 0; iter < boosted_model.size(); iter++) {
-//            int num_tree = boosted_model[iter].size();
-//            float_type ave_val = 0;//average predicted value
-//            for(int t = 0; t < num_tree; t++) {//one iteration may have multiple trees (e.g., boosted Random Forests)
-//                const Tree::TreeNode *node_data = boosted_model[iter][t].nodes.host_data();
-//                Tree::TreeNode curNode = node_data[0];
-//                int cur_nid = 0; //node id
-//                while (!curNode.is_leaf) {
-//                    int fid = curNode.split_feature_id;
-//                    cur_nid = get_next_child(curNode, ins[fid]);
-//                    curNode = node_data[cur_nid];
-//                }
-//                ave_val += node_data[cur_nid].base_weight;
-//            }
-//            ave_val = ave_val / num_tree;
-//            predict_data[i] += ave_val;
-//        }//end all tree prediction
-//    }
     //convert the aggregated values to labels, probabilities or ranking scores.
     std::unique_ptr<ObjectiveFunction> obj;
     obj.reset(ObjectiveFunction::create(model_param.objective));
