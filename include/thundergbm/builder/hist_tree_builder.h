@@ -19,7 +19,7 @@ public:
 
 //    struct InternalShard: public Shard {
 
-        void get_bin_ids(const SparseColumns &columns);
+        void get_bin_ids();
 
         void find_split(int level, int device_id) override;
 

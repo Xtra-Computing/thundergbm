@@ -10,55 +10,71 @@
 #include "thrust/iterator/discard_iterator.h"
 #include "thrust/sequence.h"
 #include "thrust/binary_search.h"
+#include "thundergbm/util/multi_device.h"
 
-void HistTreeBuilder::get_bin_ids(const SparseColumns &columns) {
-    using namespace thrust;
-    int n_column = columns.n_column;
-    int nnz = columns.nnz;
-    auto cut_row_ptr = cut.cut_row_ptr.device_data();
-    auto cut_points_ptr = cut.cut_points_val.device_data();
-    auto csc_val_data = columns.csc_val.device_data();
-    SyncArray<unsigned char> bin_id;
-    bin_id.resize(columns.nnz);
-    auto bin_id_data = bin_id.device_data();
-    int n_block = fminf((nnz / n_column - 1) / 256 + 1, 4 * 56);
-    {
-        auto lowerBound = [=]__device__(const float_type *search_begin, const float_type *search_end, float_type val) {
-            const float_type *left = search_begin;
-            const float_type *right = search_end;
+void HistTreeBuilder::get_bin_ids() {
+    DO_ON_MULTI_DEVICES(param.n_device, [&](int device_id){
+        SparseColumns &columns = shards[device_id].columns;
+        HistCut &cut = this->cut[device_id];
+        auto &dense_bin_id = this->dense_bin_id[device_id];
+        using namespace thrust;
+        int n_column = columns.n_column;
+        int nnz = columns.nnz;
+        auto cut_row_ptr = cut.cut_row_ptr.device_data();
+        auto cut_points_ptr = cut.cut_points_val.device_data();
+        auto csc_val_data = columns.csc_val.device_data();
+        SyncArray<unsigned char> bin_id;
+        bin_id.resize(columns.nnz);
+        auto bin_id_data = bin_id.device_data();
+        int n_block = fminf((nnz / n_column - 1) / 256 + 1, 4 * 56);
+        {
+            auto lowerBound = [=]__device__(const float_type *search_begin, const float_type *search_end, float_type val) {
+                const float_type *left = search_begin;
+                const float_type *right = search_end;
 
-            while (left != right) {
-                const float_type *mid = left + (right - left) / 2;
-                if (*mid <= val)
-                    right = mid;
-                else left = mid + 1;
-            }
-            return left;
-        };
-        TIMED_SCOPE(timerObj, "binning");
-        device_loop_2d(n_column, columns.csc_col_ptr.device_data(), [=]__device__(int cid, int i) {
-            auto search_begin = cut_points_ptr + cut_row_ptr[cid];
-            auto search_end = cut_points_ptr + cut_row_ptr[cid + 1];
-            auto val = csc_val_data[i];
-            bin_id_data[i] = lowerBound(search_begin, search_end, val) - search_begin;
-        }, n_block);
-    }
+                while (left != right) {
+                    const float_type *mid = left + (right - left) / 2;
+                    if (*mid <= val)
+                        right = mid;
+                    else left = mid + 1;
+                }
+                return left;
+            };
+            TIMED_SCOPE(timerObj, "binning");
+            device_loop_2d(n_column, columns.csc_col_ptr.device_data(), [=]__device__(int cid, int i) {
+                auto search_begin = cut_points_ptr + cut_row_ptr[cid];
+                auto search_end = cut_points_ptr + cut_row_ptr[cid + 1];
+                auto val = csc_val_data[i];
+                bin_id_data[i] = lowerBound(search_begin, search_end, val) - search_begin;
+            }, n_block);
+        }
 
-    auto max_num_bin = param.max_num_bin;
-    dense_bin_id.resize(stats.n_instances * n_column);
-    auto dense_bin_id_data = dense_bin_id.device_data();
-    auto csc_row_idx_data = columns.csc_row_idx.device_data();
-    device_loop(stats.n_instances * n_column, [=]__device__(int i) {
+        auto max_num_bin = param.max_num_bin;
+        dense_bin_id.resize(n_instances * n_column);
+        auto dense_bin_id_data = dense_bin_id.device_data();
+        auto csc_row_idx_data = columns.csc_row_idx.device_data();
+        device_loop(n_instances * n_column, [=]__device__(int i) {
         dense_bin_id_data[i] = max_num_bin;
     });
-    device_loop_2d(n_column, columns.csc_col_ptr.device_data(), [=]__device__(int fid, int i) {
+        device_loop_2d(n_column, columns.csc_col_ptr.device_data(), [=]__device__(int fid, int i) {
         int row = csc_row_idx_data[i];
         unsigned char bid = bin_id_data[i];
         dense_bin_id_data[row * n_column + fid] = bid;
     }, n_block);
+    });
 }
 
 void HistTreeBuilder::find_split(int level, int device_id) {
+    const SparseColumns &columns = shards[device_id].columns;
+    SyncArray<int> &nid = ins2node_id[device_id];
+    SyncArray<GHPair> &gh_pair = gradients[device_id];
+    Tree &tree = trees[device_id];
+    SyncArray<SplitPoint> &sp = this->sp[device_id];
+    SyncArray<bool> &ignored_set = shards[device_id].ignored_set;
+    HistCut &cut = this->cut[device_id];
+    auto &dense_bin_id = this->dense_bin_id[device_id];
+    auto &last_hist = this->last_hist[device_id];
+
     TIMED_FUNC(timerObj);
     int n_nodes_in_level = static_cast<int>(pow(2, level));
     int nid_offset = static_cast<int>(pow(2, level) - 1);
@@ -92,12 +108,12 @@ void HistTreeBuilder::find_split(int level, int device_id) {
                         //root
                         auto hist_data = hist.device_data();
                         auto cut_row_ptr_data = cut.cut_row_ptr.device_data();
-                        auto gh_data = stats.gh_pair.device_data();
+                        auto gh_data = gh_pair.device_data();
                         auto dense_bin_id_data = dense_bin_id.device_data();
                         auto max_num_bin = param.max_num_bin;
-                        auto n_instances = stats.n_instances;
+                        auto n_instances = this->n_instances;
                         if (smem_size > 48 * 1024) {
-                            device_loop(stats.n_instances * n_column, [=]__device__(int i) {
+                            device_loop(n_instances * n_column, [=]__device__(int i) {
                                 int iid = i / n_column;
                                 int fid = i % n_column;
                                 unsigned char bid = dense_bin_id_data[iid * n_column + fid];
@@ -140,12 +156,12 @@ void HistTreeBuilder::find_split(int level, int device_id) {
                         }
                     } else {
                         //otherwise
-                        SyncArray<int> node_idx(stats.n_instances);
+                        SyncArray<int> node_idx(n_instances);
                         SyncArray<int> node_ptr(n_nodes_in_level + 1);
                         {
                             TIMED_SCOPE(timerObj, "data partitioning");
-                            SyncArray<int> nid4sort(stats.n_instances);
-                            nid4sort.copy_from(stats.nid);
+                            SyncArray<int> nid4sort(n_instances);
+                            nid4sort.copy_from(ins2node_id[device_id]);
                             sequence(cuda::par, node_idx.device_data(), node_idx.device_end(), 0);
                             cub_sort_by_key(nid4sort, node_idx);
                             auto counting_iter = make_counting_iterator < int > (nid_offset);
@@ -177,7 +193,7 @@ void HistTreeBuilder::find_split(int level, int device_id) {
                                 auto node_idx_data = node_idx.device_data();
                                 auto hist_data = hist.device_data() + nid0 * n_bins;
                                 auto cut_row_ptr_data = cut.cut_row_ptr.device_data();
-                                auto gh_data = stats.gh_pair.device_data();
+                                auto gh_data = gh_pair.device_data();
                                 auto dense_bin_id_data = dense_bin_id.device_data();
                                 auto max_num_bin = param.max_num_bin;
                                 if (smem_size > 48 * 1024) {
@@ -374,42 +390,45 @@ void HistTreeBuilder::find_split(int level, int device_id) {
 
 void HistTreeBuilder::update_ins2node_id() {
     TIMED_FUNC(timerObj);
-    SyncArray<bool> has_splittable(1);
-    //set new node id for each instance
-    {
+    DO_ON_MULTI_DEVICES(param.n_device, [&](int device_id){
+        SyncArray<bool> has_splittable(1);
+        auto &columns = shards[device_id].columns;
+        //set new node id for each instance
+        {
 //        TIMED_SCOPE(timerObj, "get new node id");
-        auto nid_data = stats.nid.device_data();
-        const Tree::TreeNode *nodes_data = tree.nodes.device_data();
-        has_splittable.host_data()[0] = false;
-        bool *h_s_data = has_splittable.device_data();
-        int column_offset = columns.column_offset;
+            auto nid_data = ins2node_id[device_id].device_data();
+            const Tree::TreeNode *nodes_data = trees[device_id].nodes.device_data();
+            has_splittable.host_data()[0] = false;
+            bool *h_s_data = has_splittable.device_data();
+            int column_offset = columns.column_offset;
 
-        int n_column = columns.n_column;
-        auto dense_bin_id_data = dense_bin_id.device_data();
-        int max_num_bin = param.max_num_bin;
-        device_loop(stats.n_instances, [=]__device__(int iid) {
-            int nid = nid_data[iid];
-            const Tree::TreeNode &node = nodes_data[nid];
-            int split_fid = node.split_feature_id;
-            if (node.splittable() && ((split_fid - column_offset < n_column) && (split_fid >= column_offset))) {
-                h_s_data[0] = true;
-                unsigned char split_bid = node.split_bid;
-                unsigned char bid = dense_bin_id_data[iid * n_column + split_fid - column_offset];
-                bool to_left = true;
-                if ((bid == max_num_bin && node.default_right) || (bid <= split_bid))
-                    to_left = false;
-                if (to_left) {
-                    //goes to left child
-                    nid_data[iid] = node.lch_index;
-                } else {
-                    //right child
-                    nid_data[iid] = node.rch_index;
+            int n_column = columns.n_column;
+            auto dense_bin_id_data = dense_bin_id[device_id].device_data();
+            int max_num_bin = param.max_num_bin;
+            device_loop(n_instances, [=]__device__(int iid) {
+                int nid = nid_data[iid];
+                const Tree::TreeNode &node = nodes_data[nid];
+                int split_fid = node.split_feature_id;
+                if (node.splittable() && ((split_fid - column_offset < n_column) && (split_fid >= column_offset))) {
+                    h_s_data[0] = true;
+                    unsigned char split_bid = node.split_bid;
+                    unsigned char bid = dense_bin_id_data[iid * n_column + split_fid - column_offset];
+                    bool to_left = true;
+                    if ((bid == max_num_bin && node.default_right) || (bid <= split_bid))
+                        to_left = false;
+                    if (to_left) {
+                        //goes to left child
+                        nid_data[iid] = node.lch_index;
+                    } else {
+                        //right child
+                        nid_data[iid] = node.rch_index;
+                    }
                 }
-            }
-        });
-    }
-    LOG(DEBUG) << "new tree_id = " << stats.nid;
-    has_split = has_splittable.host_data()[0];
+            });
+        }
+        LOG(DEBUG) << "new tree_id = " << ins2node_id[device_id];
+        has_split[device_id] = has_splittable.host_data()[0];
+    });
 }
 
 vector<Tree> HistTreeBuilder::build_approximate(const MSyncArray<GHPair> &gradients) {
@@ -417,82 +436,77 @@ vector<Tree> HistTreeBuilder::build_approximate(const MSyncArray<GHPair> &gradie
     TIMED_FUNC(timerObj);
     for (int k = 0; k < param.num_class; ++k) {
         Tree &tree = trees[k];
-        for_each_shard(shards, [&](InternalShard &shard) {
-            shard.stats.gh_pair.set_device_data(const_cast<GHPair *>(gradients[shard.rank].device_data() + k * shard.stats.n_instances));
-            shard.stats.reset_nid();//set nid of all the instances to 0
-            //todo multi-class bagging, column sampling
-            shard.column_sampling();//RF uses this, and may be used by GBDTs
-            if (param.bagging) shard.stats.do_bagging();//obtain a bag of instances
-            shard.tree.init(shard.stats, param);//init root node, reserve memory, etc.
+//        for_each_shard(shards, [&](InternalShard &shard) {
+//            shard.stats.gh_pair.set_device_data(const_cast<GHPair *>(gradients[shard.rank].device_data() + k * shard.stats.n_instances));
+//            shard.stats.reset_nid();//set nid of all the instances to 0
+//            //todo multi-class bagging, column sampling
+//            shard.column_sampling();//RF uses this, and may be used by GBDTs
+//            if (param.bagging) shard.stats.do_bagging();//obtain a bag of instances
+//            shard.tree.init(shard.stats, param);//init root node, reserve memory, etc.
+//        });
+
+        ins2node_id = MSyncArray<int>(param.n_device, n_instances);
+        DO_ON_MULTI_DEVICES(param.n_device, [&](int device_id){
+            this->gradients[device_id].set_device_data(const_cast<GHPair *>(gradients[device_id].device_data() + k * n_instances));
+            this->trees[device_id].init2(this->gradients[device_id], param);
         });
+
         for (int level = 0; level < param.depth; ++level) {
-            for_each_shard(shards, [&](InternalShard &shard) {
-                shard.find_split(level);
+            DO_ON_MULTI_DEVICES(param.n_device, [&](int device_id){
+                find_split(level, device_id);
             });
-            split_point_all_reduce(level, shards);
+            split_point_all_reduce(level);
             {
                 TIMED_SCOPE(timerObj, "apply sp");
-                for_each_shard(shards, [&]( InternalShard &shard) {
-                    shard.update_tree();
-                    shard.update_ins2node_id();
-                });
+                update_tree();
+                update_ins2node_id();
                 {
                     LOG(TRACE) << "gathering ins2node id";
                     //get final result of the reset instance id to node id
                     bool has_split = false;
                     for (int d = 0; d < param.n_device; d++) {
-                        has_split |= shards[d].has_split;
+                        has_split |= this->has_split[d];
                     }
                     if (!has_split) {
                         LOG(INFO) << "no splittable nodes, stop";
                         break;
                     }
                 }
-                ins2node_id_all_reduce(shards);
+                ins2node_id_all_reduce(level);
             }
         }
-        for_each_shard(shards, [&](Shard &shard) {
-            shard.tree.prune_self(param.gamma);
-            shard.predict_in_training(k);
+        DO_ON_MULTI_DEVICES(param.n_device, [&](int device_id){
+            this->trees[device_id].prune_self(param.gamma);
+            predict_in_training(k);
         });
-        tree.nodes.resize(shards.front().tree.nodes.size());
-        tree.nodes.copy_from(shards.front().tree.nodes);
+        tree.nodes.resize(this->trees.front().nodes.size());
+        tree.nodes.copy_from(this->trees.front().nodes);
     }
     return trees;
 }
 
 void HistTreeBuilder::init(const DataSet &dataset, const GBMParam &param) {
-    FunctionBuilder::init(dataset, param);
+    TreeBuilder::init(dataset, param);
     //TODO refactor
-
-    this->param = param;
     //init shards
     int n_device = param.n_device;
-    shards = vector<InternalShard>(n_device);
+    shards = vector<Shard>(n_device);
     vector<std::unique_ptr<SparseColumns>> v_columns(param.n_device);
     for (int i = 0; i < param.n_device; ++i) {
         v_columns[i].reset(&shards[i].columns);
-        shards[i].rank = i;
+        shards[i].ignored_set = SyncArray<bool>(n_instances);
     }
     SparseColumns columns;
     columns.from_dataset(dataset);
     columns.to_multi_devices(v_columns);
-    y_predict = MSyncArray<float_type>(param.n_device);
-    for_each_shard(shards, [&](InternalShard &shard) {
-        int n_instances = shard.columns.n_row;
-        shard.stats.resize(n_instances);
-        shard.stats.y_predict = SyncArray<float_type>(param.num_class * n_instances);
-        shard.param = param;
-
-        shard.ignored_set.resize(shard.columns.n_column);
-        shard.cut.get_cut_points2(shard.columns, param.max_num_bin, shard.stats.n_instances);
-        shard.last_hist.resize((2 << param.depth) * shard.cut.cut_points.size());
-        shard.get_bin_ids(shard.columns);
-        y_predict[shard.rank] = SyncArray<float_type>(shard.stats.y_predict.size());
-        y_predict[shard.rank].set_host_data(shard.stats.y_predict.host_data());
-        y_predict[shard.rank].set_device_data(shard.stats.y_predict.device_data());
+    cut = vector<HistCut>(param.n_device);
+    dense_bin_id = MSyncArray<unsigned char>(param.n_device);
+    last_hist = MSyncArray<GHPair>(param.n_device);
+    DO_ON_MULTI_DEVICES(param.n_device, [&](int device_id){
+        cut[device_id].get_cut_points2(shards[device_id].columns, param.max_num_bin, n_instances);
+        last_hist[device_id].resize((2 << param.depth) * cut[device_id].cut_points.size());
     });
-
+    get_bin_ids();
     for (int i = 0; i < param.n_device; ++i) {
         v_columns[i].release();
     }
