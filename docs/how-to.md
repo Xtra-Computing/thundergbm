@@ -11,6 +11,8 @@ First of all, you need to install the prerequisite libraries and tools. Then you
 ### Download
 ```bash
 git clone https://github.com/zeyiwen/thundergbm.git
+cd thundergbm
+#under the directory of thundergbm
 git submodule init cub && git submodule update
 ```
 ### Build on Linux 
@@ -27,11 +29,16 @@ mkdir build && cd build && cmake .. && make -j
 You will see `RMSE = 0.489562` after successful running.
 
 ## How to build test for ThunderGBM
-When you obtain the submodules, we also need to obtain ``googletest`` using the following command.
+For building test cases, you also need to obtain ``googletest`` using the following command.
 ```bash
+#under the thundergbm directory
 git submodule update --init src/test/googletest
 ```
-The remaining steps are similar to the normal usage of ThunderGBM.
+After obtaining the ``googletest`` submodule, you can build the test cases by the following commands.
+```bash
+cd thundergbm
+mkdir build && cd build && cmake -DBUILD_TETS=ON .. && make -j
+```
 
 ## How to use ThunderGBM for ranking
 

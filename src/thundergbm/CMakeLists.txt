@@ -7,7 +7,8 @@ list(REMOVE_ITEM SRC "${CMAKE_CURRENT_LIST_DIR}/thundergbm_train.cpp")
 list(REMOVE_ITEM SRC "${CMAKE_CURRENT_LIST_DIR}/thundergbm_predict.cpp")
 
 cuda_add_library(${PROJECT_NAME} SHARED ${SRC})
-target_link_libraries(${PROJECT_NAME} ${CUDA_cusparse_LIBRARY})
+target_link_libraries(${PROJECT_NAME} ${CUDA_cusparse_LIBRARY} ${Boost_LIBRARIES})
+message(${Boost_LIBRARIES})
 
 cuda_add_executable(${PROJECT_NAME}-train thundergbm_train.cpp)
 target_link_libraries(${PROJECT_NAME}-train ${PROJECT_NAME})

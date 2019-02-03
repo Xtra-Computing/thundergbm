@@ -3,11 +3,10 @@ project(thundergbm)
 
 find_package(CUDA REQUIRED QUIET)
 find_package(OpenMP REQUIRED QUIET)
-find_package(Boost REQUIRED)
+find_package(Boost COMPONENTS serialization REQUIRED)
 
 include_directories(${Boost_INCLUDE_DIR})
 link_directories(${Boost_LIBRARY_DIRS})
-message(${Boost_LIBRARY_DIRS})
 
 if (NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release)
@@ -26,11 +25,6 @@ if (OPENMP_FOUND)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
 endif ()
 
-if (Boost_FOUND)
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -lboost_serialization")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -lboost_serialization")
-endif ()
-
 # for easylogging++ configuration
 add_definitions("-DELPP_FEATURE_PERFORMANCE_TRACKING")
 add_definitions("-DELPP_THREAD_SAFE")
@@ -41,7 +35,11 @@ set(COMMON_INCLUDES ${PROJECT_SOURCE_DIR}/include ${CMAKE_CURRENT_BINARY_DIR} ${
 include_directories(${COMMON_INCLUDES})
 
 add_subdirectory(src/thundergbm)
-add_subdirectory(src/test)
+
+set(BUILD_TESTS OFF CACHE BOOL "Build Tests")
+if (BUILD_TESTS)
+    add_subdirectory(src/test)
+endif ()
 
 # configuration file
 set(DATASET_DIR ${PROJECT_SOURCE_DIR}/dataset/)

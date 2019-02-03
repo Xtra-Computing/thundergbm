@@ -34,17 +34,14 @@ GBDTs and Random Forests are often used for creating state-of-the-art data scien
 ### Download
 ```bash
 git clone https://github.com/zeyiwen/thundergbm.git
+cd thundergbm
+#under the directory of thundergbm
 git submodule init cub && git submodule update
 ```
 ### Build on Linux 
 ```bash
 cd thundergbm
 mkdir build && cd build && cmake .. && make -j
-```
-
-Build the test cases
-```bash
-git submodule update --init src/test/googletest
 ```
 
 ### Quick Start
