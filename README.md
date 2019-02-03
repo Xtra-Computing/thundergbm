@@ -40,7 +40,7 @@ git submodule init cub && git submodule update
 ```
 ### Build on Linux 
 ```bash
-cd thundergbm
+#under the directory of thundergbm
 mkdir build && cd build && cmake .. && make -j
 ```
 
@@ -56,7 +56,7 @@ You will see `RMSE = 0.489562` after successful running.
 If you use ThunderGBM in your paper, please cite our work ([preprint](https://www.comp.nus.edu.sg/~wenzy/papers/thundergbm.pdf)).
 ```
 @article{wenthundergbm19,
- author = {Wen, Zeyi and Shi, Jiashuai and He, Bingsheng and Chen, Jian and Li, Qinbin},
+ author = {Wen, Zeyi and Shi, Jiashuai and He, Bingsheng and Li, Qinbin and Chen, Jian},
  title = {{ThunderGBM}: Fast {GBDTs} and Random Forests on {GPUs}},
  journal = {To appear in arXiv},
  year = {2019}
