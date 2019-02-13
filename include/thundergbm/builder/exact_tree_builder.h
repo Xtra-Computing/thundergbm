@@ -12,7 +12,6 @@
 
 class ExactTreeBuilder : public TreeBuilder {
 public:
-    vector<Tree> build_approximate(const MSyncArray<GHPair> &gradients) override;
 
     void init(const DataSet &dataset, const GBMParam &param) override;
 

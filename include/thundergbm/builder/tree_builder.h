@@ -11,10 +11,13 @@
 #include "function_builder.h"
 
 
-class TreeBuilder : public FunctionBuilder{
+class TreeBuilder : public FunctionBuilder {
 public:
     virtual void find_split(int level, int device_id) = 0;
+
     virtual void update_ins2node_id() = 0;
+
+    vector<Tree> build_approximate(const MSyncArray<GHPair> &gradients) override;
 
     void init(const DataSet &dataset, const GBMParam &param) override;
 

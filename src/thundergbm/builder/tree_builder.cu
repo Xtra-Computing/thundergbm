@@ -139,3 +139,48 @@ void TreeBuilder::split_point_all_reduce(int depth) {
     });
     LOG(DEBUG) << "global best split point = " << sp.front();
 }
+
+vector<Tree> TreeBuilder::build_approximate(const MSyncArray<GHPair> &gradients) {
+    vector<Tree> trees(param.num_class);
+    TIMED_FUNC(timerObj);
+    for (int k = 0; k < param.num_class; ++k) {
+        Tree &tree = trees[k];
+        ins2node_id = MSyncArray<int>(param.n_device, n_instances);
+        DO_ON_MULTI_DEVICES(param.n_device, [&](int device_id){
+            this->gradients[device_id].set_device_data(const_cast<GHPair *>(gradients[device_id].device_data() + k * n_instances));
+            this->trees[device_id].init2(this->gradients[device_id], param);
+        });
+
+        for (int level = 0; level < param.depth; ++level) {
+            DO_ON_MULTI_DEVICES(param.n_device, [&](int device_id){
+                find_split(level, device_id);
+            });
+            split_point_all_reduce(level);
+            {
+                TIMED_SCOPE(timerObj, "apply sp");
+                update_tree();
+                update_ins2node_id();
+                {
+                    LOG(TRACE) << "gathering ins2node id";
+                    //get final result of the reset instance id to node id
+                    bool has_split = false;
+                    for (int d = 0; d < param.n_device; d++) {
+                        has_split |= this->has_split[d];
+                    }
+                    if (!has_split) {
+                        LOG(INFO) << "no splittable nodes, stop";
+                        break;
+                    }
+                }
+                ins2node_id_all_reduce(level);
+            }
+        }
+        DO_ON_MULTI_DEVICES(param.n_device, [&](int device_id){
+            this->trees[device_id].prune_self(param.gamma);
+            predict_in_training(k);
+        });
+        tree.nodes.resize(this->trees.front().nodes.size());
+        tree.nodes.copy_from(this->trees.front().nodes);
+    }
+    return trees;
+}

@@ -14,18 +14,9 @@ class SplitPoint;
 
 struct Shard {
     GBMParam param;
-    InsStat stats;
-    Tree tree;
     SparseColumns columns;//a subset of columns (or features)
     SyncArray<bool> ignored_set;//for column sampling
-    SyncArray<SplitPoint> sp;//local best split points for all the tree nodes
-    bool has_split;
 
-    void update_tree();
-
-    void predict_in_training(int k);
-
-    void column_sampling();
 };
 
 

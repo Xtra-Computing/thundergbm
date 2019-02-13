@@ -5,7 +5,6 @@ find_package(CUDA REQUIRED QUIET)
 find_package(OpenMP REQUIRED QUIET)
 find_package(Boost COMPONENTS serialization REQUIRED)
 
-include_directories(${Boost_INCLUDE_DIR})
 link_directories(${Boost_LIBRARY_DIRS})
 
 if (NOT CMAKE_BUILD_TYPE)
@@ -31,7 +30,7 @@ add_definitions("-DELPP_THREAD_SAFE")
 add_definitions("-DELPP_STL_LOGGING")
 
 # includes
-set(COMMON_INCLUDES ${PROJECT_SOURCE_DIR}/include ${CMAKE_CURRENT_BINARY_DIR} ${PROJECT_SOURCE_DIR}/cub)
+set(COMMON_INCLUDES ${PROJECT_SOURCE_DIR}/include ${CMAKE_CURRENT_BINARY_DIR} ${PROJECT_SOURCE_DIR}/cub ${Boost_INCLUDE_DIR})
 include_directories(${COMMON_INCLUDES})
 
 add_subdirectory(src/thundergbm)

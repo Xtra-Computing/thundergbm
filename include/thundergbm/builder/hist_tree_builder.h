@@ -13,24 +13,16 @@
 
 class HistTreeBuilder : public TreeBuilder {
 public:
-    vector<Tree> build_approximate(const MSyncArray<GHPair> &gradients) override;
 
     void init(const DataSet &dataset, const GBMParam &param) override;
 
-//    struct InternalShard: public Shard {
+    void get_bin_ids();
 
-        void get_bin_ids();
+    void find_split(int level, int device_id) override;
 
-        void find_split(int level, int device_id) override;
-
-        void update_ins2node_id() override;
-//    };
+    void update_ins2node_id() override;
 
     vector<Shard> shards;
-
-//    void split_point_all_reduce(int depth);
-
-//    void ins2node_id_all_reduce(int depth);
 
 private:
     vector<HistCut> cut;
