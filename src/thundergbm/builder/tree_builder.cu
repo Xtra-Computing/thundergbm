@@ -177,8 +177,8 @@ vector<Tree> TreeBuilder::build_approximate(const MSyncArray<GHPair> &gradients)
         }
         DO_ON_MULTI_DEVICES(param.n_device, [&](int device_id){
             this->trees[device_id].prune_self(param.gamma);
-            predict_in_training(k);
         });
+        predict_in_training(k);
         tree.nodes.resize(this->trees.front().nodes.size());
         tree.nodes.copy_from(this->trees.front().nodes);
     }
