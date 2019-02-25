@@ -4,6 +4,7 @@
 #include <thundergbm/objective/ranking_obj.h>
 #include "thundergbm/metric/ranking_metric.h"
 #include "parallel/algorithm"
+#include <random>
 
 void LambdaRank::configure(GBMParam param, const DataSet &dataset) {
     sigma = 1;
