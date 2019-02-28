@@ -10,7 +10,6 @@
 #include <boost/serialization/split_member.hpp>
 #include "syncarray.h"
 #include "sstream"
-#include "ins_stat.h"
 
 
 class Tree {
@@ -57,8 +56,6 @@ public:
         nodes.copy_from(tree.nodes);
         return *this;
     }
-
-    void init(const InsStat &stats, const GBMParam &param);
 
     void init2(const SyncArray<GHPair> &gradients, const GBMParam &param);
 

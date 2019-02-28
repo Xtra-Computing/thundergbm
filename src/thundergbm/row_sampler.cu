@@ -1,37 +1,17 @@
 //
-// Created by shijiashuai on 5/7/18.
+// Created by shijiashuai on 2019-02-15.
 //
-#include "thundergbm/ins_stat.h"
-//#include "thrust/reduce.h"
-#include "thrust/random.h"
+#include <thundergbm/row_sampler.h>
+#include "thundergbm/util/multi_device.h"
 #include "thundergbm/util/device_lambda.cuh"
+#include "thrust/random.h"
 
-void InsStat::resize(size_t n_instances) {
-    this->n_instances = n_instances;
-    gh_pair.resize(n_instances);
-    nid.resize(n_instances);
-    y.resize(n_instances);
-//    y_predict.resize(n_instances);
-}
-
-void InsStat::update_gradient() {
-    LOG(DEBUG) << y_predict;
-    obj->get_gradient(y, y_predict, gh_pair);
-}
-
-void InsStat::reset_nid() {
-    auto nid_data = nid.device_data();
-    device_loop(n_instances, [=]__device__(int i) {
-        nid_data[i] = 0;
-    });
-}
-
-void InsStat::do_bagging() {
+void RowSampler::do_bagging(MSyncArray<GHPair> &gradients) {
     LOG(TRACE) << "do bagging";
     using namespace thrust;
+    int n_instances = gradients.front().size();
     SyncArray<int> idx(n_instances);
     auto idx_data = idx.device_data();
-    int n_instances = this->n_instances;
     int seed = std::rand();//TODO add a global random generator class
     device_loop(n_instances, [=]__device__(int i) {
         default_random_engine rng(seed);
@@ -46,7 +26,7 @@ void InsStat::do_bagging() {
         atomicAdd(ins_count_data + ins_id, 1);
     });
 //    gh_pair.copy_from(gh_pair_backup);
-    auto gh_data = gh_pair.device_data();
+    auto gh_data = gradients.front().device_data();
     //FIXME synchronize between shards
     device_loop(n_instances, [=]__device__(int i) {
         gh_data[i].g = gh_data[i].g * ins_count_data[i];

@@ -6,7 +6,6 @@
 #define THUNDERGBM_SHARD_H
 
 
-#include "thundergbm/ins_stat.h"
 #include "thundergbm/sparse_columns.h"
 #include "thundergbm/tree.h"
 

@@ -9,6 +9,7 @@
 #include "sparse_columns.h"
 #include "thundergbm/dataset.h"
 #include "thundergbm/tree.h"
+#include "ins_stat.h"
 
 class HistCut {
 public:
@@ -30,7 +31,6 @@ public:
         cut_row_ptr.copy_from(cut.cut_row_ptr);
     }
 
-    void get_cut_points(SparseColumns &columns, InsStat &stats, int max_num_bins, int n_instances);
     void get_cut_points2(SparseColumns &columns, int max_num_bins, int n_instances);
 };
 

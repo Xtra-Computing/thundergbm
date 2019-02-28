@@ -5,6 +5,7 @@
 #include "thundergbm/predictor.h"
 #include <thundergbm/metric/metric.h>
 #include "thundergbm/util/device_lambda.cuh"
+#include "thundergbm/objective/objective_function.h"
 
 void Predictor::predict(GBMParam& model_param, vector<vector<Tree>> &boosted_model, DataSet &dataSet){
     int n_instances = dataSet.n_instances();
