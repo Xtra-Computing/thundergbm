@@ -47,7 +47,7 @@ void Parser::parse_param(GBMParam &model_param, int argc, char **argv){
             else if(str_name.compare("verbosity") == 0)
                 model_param.verbose = atoi(val);
             else if(str_name.compare("profiling") == 0)
-                model_param.verbose = atoi(val);
+                model_param.profiling = atoi(val);
             else if(str_name.compare("data") == 0)
                 model_param.path = val;
             else if(str_name.compare("max_bin") == 0)
