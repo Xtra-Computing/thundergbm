@@ -145,8 +145,8 @@ vector<Tree> TreeBuilder::build_approximate(const MSyncArray<GHPair> &gradients)
     TIMED_FUNC(timerObj);
     for (int k = 0; k < param.num_class; ++k) {
         Tree &tree = trees[k];
-        ins2node_id = MSyncArray<int>(param.n_device, n_instances);
         DO_ON_MULTI_DEVICES(param.n_device, [&](int device_id){
+            this->ins2node_id[device_id].resize(n_instances);
             this->gradients[device_id].set_device_data(const_cast<GHPair *>(gradients[device_id].device_data() + k * n_instances));
             this->trees[device_id].init2(this->gradients[device_id], param);
         });
