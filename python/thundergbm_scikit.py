@@ -44,7 +44,7 @@ class TGBMModel(ThundergbmBase, ThundergbmRegressorBase):
                  n_device = 1, min_child_weight = 1.0, lambda_tgbm = 1.0, gamma = 1.0, max_num_bin = 255,
                  verbose = 0, column_sampling_rate = 1.0, bagging = 0,
                  n_parallel_trees = 1, learning_rate = 1.0, objective = "reg:linear",
-                 num_class = 1, path = "../dataset/test_dataset.txt", out_model_name = "tgbm.model",
+                 num_class = 1, out_model_name = "tgbm.model",
                  in_model_name = "tgbm.model", tree_method = "auto"):
         self.depth = depth
         self.n_trees = num_round
@@ -82,9 +82,9 @@ class TGBMModel(ThundergbmBase, ThundergbmRegressorBase):
             print("dense matrix not supported yet")
             exit(-1)
         fit(X, y)
-        if self._train_succeed[0] == -1:
-            print ("Training failed!")
-            return
+        # if self._train_succeed[0] == -1:
+        #     print ("Training failed!")
+        #     return
 
         return self
 
@@ -101,13 +101,14 @@ class TGBMModel(ThundergbmBase, ThundergbmRegressorBase):
         label = (c_float * y.size)()
         label[:] = y
 
-        self._train_succeed = (c_int * 1)()
+        # self._train_succeed = (c_int * 1)()
         thundergbm.sparse_train_scikit(X.shape[0], data, indptr, indices, label, self.depth, self.n_trees,
             self.n_device, c_float(self.min_child_weight), c_float(self.lambda_tgbm), c_float(self.gamma),
             self.max_num_bin, self.verbose, c_float(self.column_sampling_rate), self.bagging,
             self.n_parallel_trees, c_float(self.learning_rate), self.objective.encode('utf-8'),
-            self.num_class, self.path.encode('utf-8'), self.out_model_name.encode('utf-8'),
-            self.in_model_name.encode('utf-8'), self.tree_method.encode('utf-8'), self._train_succeed)
+            self.num_class, self.out_model_name.encode('utf-8'),
+            # self.in_model_name.encode('utf-8'), self.tree_method.encode('utf-8'), self._train_succeed)
+                                       self.in_model_name.encode('utf-8'), self.tree_method.encode('utf-8'))
 
     def predict(self, X, y = None):
         X.data = np.asarray(X.data, dtype=np.float64, order='C')

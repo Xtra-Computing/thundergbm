@@ -26,9 +26,7 @@ void TreeTrainer::dump_model(GBMParam &param, vector<Tree> &trees) {
     out.close();
 }
 
-vector<vector<Tree>> TreeTrainer::train(GBMParam &param) {
-    DataSet dataset;
-    dataset.load_from_file(param.path, param);
+vector<vector<Tree>> TreeTrainer::train(GBMParam &param, const DataSet &dataset) {
     if (param.tree_method == "auto")
         if (dataset.n_features() > 20000)
             param.tree_method = "exact";

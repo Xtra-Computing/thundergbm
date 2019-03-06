@@ -123,27 +123,26 @@ size_t DataSet::n_instances() const {
     return this->y.size();
 }
 
-void DataSet::load_from_sparse(int row_size, float *val, int *row_ptr, int *col_ptr, float *label) {
+void DataSet::load_from_sparse(int n_instances, float *csr_val, int *csr_row_ptr, int *csr_col_idx, float *y) {
     n_features_ = 0;
-    int total_count = 0;
-    for (int i = 0; i < row_size; i++) {
-        int ind;
-        if (label != NULL)
-            y.push_back(label[i]);
-        csr_row_ptr.push_back(row_ptr[total_count]);
-        for (int i = row_ptr[total_count]; i < row_ptr[total_count + 1]; i++) {
-            ind = col_ptr[i];
-
-            csr_val.push_back(val[i]);
-            csr_col_idx.push_back(ind);
-            //TODO: move to above if want one-based format
-            ind++;            //convert to one-based format
-
-            if (ind > n_features_) n_features_ = ind;
-        }
-        total_count++;
+    this->y.clear();
+    this->csr_val.clear();
+    this->csr_row_ptr.clear();
+    this->csr_col_idx.clear();
+    int nnz = csr_row_ptr[n_instances];
+    this->y.resize(n_instances);
+    this->csr_val.resize(nnz);
+    this->csr_row_ptr.resize(n_instances + 1);
+    this->csr_col_idx.resize(nnz);
+    //TODO move instead of copy?
+    memcpy(this->y.data(), y, sizeof(float) * n_instances);
+    memcpy(this->csr_val.data(), csr_val, sizeof(float) * nnz);
+    memcpy(this->csr_col_idx.data(), csr_col_idx, sizeof(int) * nnz);
+    memcpy(this->csr_row_ptr.data(), csr_row_ptr, sizeof(int) * (n_instances + 1));
+    for (int i = 0; i < nnz; ++i) {
+        if (csr_col_idx[i] > n_features_) n_features_ = csr_col_idx[i];
     }
-//    n_features_++;
+    n_features_++;//convert from zero-based
     LOG(INFO) << "#instances = " << this->n_instances() << ", #features = " << this->n_features();
 }
 

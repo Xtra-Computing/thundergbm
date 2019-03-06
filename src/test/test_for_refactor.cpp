@@ -47,7 +47,7 @@ protected:
 
 TEST_F(TrainTest, news20) {
     param.path = DATASET_DIR "news20.scale";
-    trainer.train(param);
+//    trainer.train(param, <#initializer#>);
 //    float_type rmse = trainer.train(param);
 //    EXPECT_NEAR(rmse, 2.55274, 1e-5);
 }
@@ -55,11 +55,11 @@ TEST_F(TrainTest, news20) {
 TEST_F(TrainTest, covtype) {
     param.path = DATASET_DIR "covtype";
 //    float_type rmse = trainer.train2(param);
-    trainer.train(param);
+//    trainer.train(param, <#initializer#>);
     param.bagging = true;
-    trainer.train(param);
+//    trainer.train(param, <#initializer#>);
     param.column_sampling_rate = 0.5;
-    trainer.train(param);
+//    trainer.train(param, <#initializer#>);
 //    EXPECT_NEAR(rmse, 0.730795, 1e-5);
 }
 
@@ -67,21 +67,21 @@ TEST_F(TrainTest, covtype_multiclass) {
     param.path = DATASET_DIR "covtype";
     param.num_class = 7;
     param.objective = "multi:softprob";
-    trainer.train(param);
+//    trainer.train(param, <#initializer#>);
 }
 
 TEST_F(TrainTest, mnist_multiclass) {
     param.path = DATASET_DIR "mnist.scale";
     param.objective = "multi:softprob";
     param.num_class = 10;
-    trainer.train(param);
+//    trainer.train(param, <#initializer#>);
 }
 
 TEST_F(TrainTest, cifar10_multiclass) {
     param.path = DATASET_DIR "cifar10";
     param.objective = "multi:softprob";
     param.num_class = 10;
-    trainer.train(param);
+//    trainer.train(param, <#initializer#>);
 }
 
 TEST_F(TrainTest, sector_multiclass) {
@@ -89,14 +89,14 @@ TEST_F(TrainTest, sector_multiclass) {
     param.objective = "multi:softprob";
     param.tree_method = "hist";
     param.num_class = 105;
-    trainer.train(param);
+//    trainer.train(param, <#initializer#>);
 }
 
 TEST_F(TrainTest, news20_multiclass) {
     param.path = DATASET_DIR "news20.scale";
     param.objective = "multi:softprob";
     param.num_class = 20;
-    trainer.train(param);
+//    trainer.train(param, <#initializer#>);
 }
 
 TEST_F(TrainTest, rcv1_multiclass) {
@@ -104,13 +104,13 @@ TEST_F(TrainTest, rcv1_multiclass) {
     param.objective = "multi:softprob";
     param.tree_method = "hist";
     param.num_class = 51;
-    trainer.train(param);
+//    trainer.train(param, <#initializer#>);
 }
 
 TEST_F(TrainTest, yahoo_ranking) {
 //    param.path = "dataset/rank.train";
     param.path = DATASET_DIR "yahoo-ltr-libsvm";
     param.objective = "rank:ndcg";
-    trainer.train(param);
+//    trainer.train(param, <#initializer#>);
 //    float_type rmse = trainer.train(param);
 }

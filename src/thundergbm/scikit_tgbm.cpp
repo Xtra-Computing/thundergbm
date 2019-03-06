@@ -12,17 +12,9 @@ extern "C" {
                              int depth, int n_trees, int n_device, float min_child_weight, float lambda,
                              float gamma, int max_num_bin, int verbose, float column_sampling_rate,
                              int bagging, int n_parallel_trees, float learning_rate, char *obj_type,
-                             int num_class, char *path, char *out_model_name, char *in_model_name,
-                             char *tree_method, int *train_succeed) {
-        train_succeed[0] = 1;
-        if (verbose)
-            el::Loggers::reconfigureAllLoggers(el::ConfigurationType::Enabled, "true");
-        else
-            el::Loggers::reconfigureAllLoggers(el::ConfigurationType::Enabled, "false");
-
-
-        DataSet train_dataset;
-        train_dataset.load_from_sparse(row_size, val, row_ptr, col_ptr, label);
+                             int num_class, char *out_model_name, char *in_model_name,
+                             char *tree_method) {
+//        train_succeed[0] = 1;
         //init model_param
         GBMParam model_param;
         model_param.depth = depth;
@@ -39,15 +31,22 @@ extern "C" {
         model_param.learning_rate = learning_rate;
         model_param.objective = obj_type;
         model_param.num_class = num_class;
-        model_param.path = path;
+//        model_param.path = path;
         model_param.out_model_name = out_model_name;
         model_param.in_model_name = in_model_name;
         model_param.tree_method = tree_method;
 
         model_param.rt_eps = 1e-6;
 
+        if (!verbose) {
+            el::Loggers::reconfigureAllLoggers(el::Level::Debug, el::ConfigurationType::Enabled, "false");
+            el::Loggers::reconfigureAllLoggers(el::Level::Trace, el::ConfigurationType::Enabled, "false");
+        }
+        el::Loggers::reconfigureAllLoggers(el::ConfigurationType::PerformanceTracking, "false");
+        DataSet train_dataset;
+        train_dataset.load_from_sparse(row_size, val, row_ptr, col_ptr, label);
         TreeTrainer trainer;
-        trainer.train(model_param);
+        trainer.train(model_param, train_dataset);
     }//end sparse_model_scikit
 
     void sparse_predict_scikit(int row_size, float *val, int *row_ptr, int *col_ptr, float *label,
