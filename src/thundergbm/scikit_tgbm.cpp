@@ -50,7 +50,7 @@ extern "C" {
     }//end sparse_model_scikit
 
     void sparse_predict_scikit(int row_size, float *val, int *row_ptr, int *col_ptr, float *label,
-                               char *in_model_name){
+                               char *in_model_name, float *y_pred){
         //load model
         vector<vector<Tree>> boosted_model;
         GBMParam model_param;
@@ -62,8 +62,11 @@ extern "C" {
         DataSet dataSet;
         dataSet.load_from_sparse(row_size, val, row_ptr, col_ptr, label);
 
+
         //predict
         Predictor pred;
-        pred.predict(model_param, boosted_model, dataSet);
+        vector<float_type > y_pred_vec = pred.predict(model_param, boosted_model, dataSet);
+        for(int i = 0; i < y_pred_vec.size(); i++)
+            y_pred[i] = y_pred_vec[i];
     }
 }

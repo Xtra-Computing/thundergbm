@@ -121,6 +121,10 @@ class TGBMModel(ThundergbmBase, ThundergbmRegressorBase):
         indptr[:] = X.indptr
         label = (c_float * y.size)()
         label[:] = y
-
+        self.predict_label_ptr = (c_float * X.shape[0])()
         thundergbm.sparse_predict_scikit(X.shape[0], data, indptr, indices, label,
-                                         self.in_model_name.encode('utf-8'))
+                                         self.in_model_name.encode('utf-8'),  self.predict_label_ptr)
+
+        predict_label = [self.predict_label_ptr[index] for index in range(0, X.shape[0])]
+        self.predict_label = np.asarray(predict_label)
+        return self.predict_label

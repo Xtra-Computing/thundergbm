@@ -7,7 +7,7 @@
 #include "thundergbm/util/device_lambda.cuh"
 #include "thundergbm/objective/objective_function.h"
 
-void Predictor::predict(GBMParam& model_param, vector<vector<Tree>> &boosted_model, DataSet &dataSet){
+vector<float_type> Predictor::predict(GBMParam& model_param, vector<vector<Tree>> &boosted_model, DataSet &dataSet){
     int n_instances = dataSet.n_instances();
     int n_feature = dataSet.n_features();
     SyncArray<float_type> y_predict(n_instances);
@@ -114,4 +114,8 @@ void Predictor::predict(GBMParam& model_param, vector<vector<Tree>> &boosted_mod
     metric.reset(Metric::create(obj->default_metric_name()));
     metric->configure(model_param, dataSet);
     LOG(INFO) << metric->get_name().c_str() << "=" << metric->get_score(y_predict);
+
+    vector<float_type> y_pred_vec(y_predict.size());
+    memcpy(y_pred_vec.data(), y_predict.host_data(), sizeof(float_type) * y_predict.size());
+    return y_pred_vec;
 }
