@@ -19,7 +19,6 @@ void TreeBuilder::update_tree() {
         float_type rt_eps = param.rt_eps;
         float_type lambda = param.lambda;
 
-//    LOG(DEBUG) << n_nodes_in_level;
         device_loop(n_nodes_in_level, [=]__device__(int i) {
             float_type best_split_gain = sp_data[i].gain;
             if (best_split_gain > rt_eps) {
@@ -55,7 +54,6 @@ void TreeBuilder::update_tree() {
                 nodes_data[node.lch_index].is_valid = false;
                 nodes_data[node.rch_index].is_valid = false;
             }
-//    }
         });
         LOG(DEBUG) << tree.nodes;
     });
@@ -143,6 +141,10 @@ void TreeBuilder::split_point_all_reduce(int depth) {
 vector<Tree> TreeBuilder::build_approximate(const MSyncArray<GHPair> &gradients) {
     vector<Tree> trees(param.num_class);
     TIMED_FUNC(timerObj);
+    DO_ON_MULTI_DEVICES(param.n_device, [&](int device_id){
+        this->shards[device_id].column_sampling(param.column_sampling_rate);
+    });
+
     for (int k = 0; k < param.num_class; ++k) {
         Tree &tree = trees[k];
         DO_ON_MULTI_DEVICES(param.n_device, [&](int device_id){
