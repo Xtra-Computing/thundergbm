@@ -4,7 +4,9 @@
 
 #include <thundergbm/trainer.h>
 #include "thundergbm/parser.h"
-
+#ifdef _WIN32
+    INITIALIZE_EASYLOGGINGPP
+#endif
 int main(int argc, char **argv) {
     el::Loggers::reconfigureAllLoggers(el::ConfigurationType::Format, "%datetime %level %fbase:%line : %msg");
     el::Loggers::addFlag(el::LoggingFlag::ColoredTerminalOutput);

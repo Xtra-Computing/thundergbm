@@ -3,7 +3,9 @@
 //
 #include <thundergbm/objective/ranking_obj.h>
 #include "thundergbm/metric/ranking_metric.h"
-#include "parallel/algorithm"
+#ifndef _WIN32
+#include <parallel/algorithm>
+#endif
 #include <random>
 
 void LambdaRank::configure(GBMParam param, const DataSet &dataset) {
@@ -90,8 +92,9 @@ LambdaRank::get_gradient(const SyncArray<float_type> &y, const SyncArray<float_t
 
 string LambdaRank::default_metric_name() { return "map"; }
 
-inline float_type
-LambdaRank::get_delta_z(float_type labelI, float_type labelJ, int rankI, int rankJ, int group_id) { return 1; }
+//inline functions should be defined in the header file
+//inline float_type
+//LambdaRank::get_delta_z(float_type labelI, float_type labelJ, int rankI, int rankJ, int group_id) { return 1; }
 
 
 void LambdaRankNDCG::configure(GBMParam param, const DataSet &dataset) {
@@ -99,7 +102,7 @@ void LambdaRankNDCG::configure(GBMParam param, const DataSet &dataset) {
     NDCG::get_IDCG(gptr, dataset.y, idcg);
 }
 
-inline float_type
+float_type
 LambdaRankNDCG::get_delta_z(float_type labelI, float_type labelJ, int rankI, int rankJ, int group_id) {
     if (idcg[group_id] == 0) return 0;
     float_type dgI1 = NDCG::discounted_gain(static_cast<int>(labelI), rankI);

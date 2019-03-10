@@ -2,7 +2,9 @@
 // Created by ss on 19-1-14.
 //
 #include <thundergbm/metric/ranking_metric.h>
+#ifndef _WIN32
 #include "parallel/algorithm"
+#endif
 
 float_type RankListMetric::get_score(const SyncArray<float_type> &y_p) const {
     TIMED_FUNC(obj);
@@ -30,7 +32,7 @@ void RankListMetric::configure(const GBMParam &param, const DataSet &dataset) {
     configure_gptr(dataset.group, gptr);
 
     //TODO parse from param
-    topn = std::numeric_limits<int>::max();
+    topn = (std::numeric_limits<int>::max)();
 }
 
 void RankListMetric::configure_gptr(const vector<int> &group, vector<int> &gptr) {
@@ -48,7 +50,11 @@ float_type MAP::eval_query_group(vector<float_type> &y, vector<float_type> &y_p,
     for (int i = 0; i < len; ++i) {
         idx[i] = i;
     }
+#ifdef _WIN32
+	std::sort(idx.begin(), idx.end(), [=](int a, int b) { return yp_data[a] > yp_data[b]; });
+#else
     __gnu_parallel::sort(idx.begin(), idx.end(), [=](int a, int b) { return yp_data[a] > yp_data[b]; });
+#endif
     int nhits = 0;
     double sum_ap = 0;
     for (int i = 0; i < len; ++i) {
@@ -80,7 +86,11 @@ float_type NDCG::eval_query_group(vector<float_type> &y, vector<float_type> &y_p
     }
     auto label = y.data();
     auto score = y_p.data();
+#ifdef _WIN32
+	std::sort(idx.begin(), idx.end(), [=](int a, int b) { return score[a] > score[b]; });
+#else
     __gnu_parallel::sort(idx.begin(), idx.end(), [=](int a, int b) { return score[a] > score[b]; });
+#endif
 
     float_type dcg = 0;
     for (int i = 0; i < len; ++i) {
@@ -100,7 +110,11 @@ void NDCG::get_IDCG(const vector<int> &gptr, const vector<float_type> &y, vector
         int len = gptr[k + 1] - group_start;
         vector<float_type> sorted_label(len);
         memcpy(sorted_label.data(), y.data() + group_start, len * sizeof(float_type));
+#ifdef _WIN32
+		std::sort(sorted_label.begin(), sorted_label.end(), std::greater<float_type>());
+#else
         __gnu_parallel::sort(sorted_label.begin(), sorted_label.end(), std::greater<float_type>());
+#endif
         for (int i = 0; i < sorted_label.size(); ++i) {
             //assume labels are int
             idcg[k] += NDCG::discounted_gain(static_cast<int>(sorted_label[i]), i);

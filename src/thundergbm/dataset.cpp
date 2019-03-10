@@ -4,7 +4,7 @@
 #include <omp.h>
 #include <thundergbm/dataset.h>
 #include <thundergbm/objective/objective_function.h>
-
+//#include <array>
 #include "thundergbm/dataset.h"
 
 void DataSet::load_from_file(string file_name, GBMParam param) {
@@ -18,7 +18,10 @@ void DataSet::load_from_file(string file_name, GBMParam param) {
     std::ifstream ifs(file_name, std::ifstream::binary);
     CHECK(ifs.is_open()) << "file " << file_name << " not found";
 
-    std::array<char, 4 << 20> buffer{};
+	int buffer_size = 4 << 20;
+	char *buffer = (char *)malloc(buffer_size);
+    //array may cause stack overflow in windows
+	//std::array<char, 4> buffer{};
     const int nthread = omp_get_max_threads();
 
     auto find_last_line = [](char *ptr, const char *begin) {
@@ -27,8 +30,10 @@ void DataSet::load_from_file(string file_name, GBMParam param) {
     };
 
     while (ifs) {
-        ifs.read(buffer.data(), buffer.size());
-        char *head = buffer.data();
+		ifs.read(buffer, buffer_size);
+		char *head = buffer;
+		//ifs.read(buffer.data(), buffer.size());
+        //char *head = buffer.data();
         size_t size = ifs.gcount();
         vector<vector<float_type>> y_(nthread);
         vector<vector<int>> col_idx_(nthread);
@@ -42,8 +47,8 @@ void DataSet::load_from_file(string file_name, GBMParam param) {
             //get working area of this thread
             int tid = omp_get_thread_num();
             size_t nstep = (size + nthread - 1) / nthread;
-            size_t sbegin = std::min(tid * nstep, size - 1);
-            size_t send = std::min((tid + 1) * nstep, size - 1);
+            size_t sbegin = (std::min)(tid * nstep, size - 1);
+            size_t send = (std::min)((tid + 1) * nstep, size - 1);
             char *pbegin = find_last_line(head + sbegin, head);
             char *pend = find_last_line(head + send, head);
 
@@ -110,6 +115,7 @@ void DataSet::load_from_file(string file_name, GBMParam param) {
         }
     }
     ifs.close();
+	free(buffer);
     LOG(INFO) << "#instances = " << this->n_instances() << ", #features = " << this->n_features();
     if (ObjectiveFunction::need_load_group_file(param.objective)) load_group_file(file_name + ".group");
     if (ObjectiveFunction::need_group_label(param.objective)) group_label();
