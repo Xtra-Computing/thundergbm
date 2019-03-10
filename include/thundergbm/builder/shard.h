@@ -12,11 +12,12 @@
 class SplitPoint;
 
 struct Shard {
-    GBMParam param;
     SparseColumns columns;//a subset of columns (or features)
     SyncArray<bool> ignored_set;//for column sampling
 
+    void column_sampling(float rate);
 };
+
 
 
 class SplitPoint {

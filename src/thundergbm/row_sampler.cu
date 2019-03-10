@@ -25,12 +25,12 @@ void RowSampler::do_bagging(MSyncArray<GHPair> &gradients) {
         int ins_id = idx_data[i];
         atomicAdd(ins_count_data + ins_id, 1);
     });
-//    gh_pair.copy_from(gh_pair_backup);
-    auto gh_data = gradients.front().device_data();
-    //FIXME synchronize between shards
-    device_loop(n_instances, [=]__device__(int i) {
-        gh_data[i].g = gh_data[i].g * ins_count_data[i];
-        gh_data[i].h = gh_data[i].h * ins_count_data[i];
+    DO_ON_MULTI_DEVICES(gradients.size(), [&](int device_id){
+        auto gh_data = gradients[device_id].device_data();
+        device_loop(n_instances, [=]__device__(int i) {
+            gh_data[i].g = gh_data[i].g * ins_count_data[i];
+            gh_data[i].h = gh_data[i].h * ins_count_data[i];
+        });
     });
 }
 

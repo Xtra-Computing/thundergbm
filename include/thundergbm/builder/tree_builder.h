@@ -29,10 +29,8 @@ public:
 
     virtual void ins2node_id_all_reduce(int depth);
 
-
-//    void column_sampling();
-
 protected:
+    vector<Shard> shards;
     int n_instances;
     vector<Tree> trees;
     MSyncArray<int> ins2node_id;

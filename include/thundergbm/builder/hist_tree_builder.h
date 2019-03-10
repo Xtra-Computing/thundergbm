@@ -22,7 +22,6 @@ public:
 
     void update_ins2node_id() override;
 
-    vector<Shard> shards;
 
 private:
     vector<HistCut> cut;
