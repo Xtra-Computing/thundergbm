@@ -44,7 +44,7 @@ extern "C" {
         }
         el::Loggers::reconfigureAllLoggers(el::ConfigurationType::PerformanceTracking, "false");
         DataSet train_dataset;
-        train_dataset.load_from_sparse(row_size, val, row_ptr, col_ptr, label);
+        train_dataset.load_from_sparse(row_size, val, row_ptr, col_ptr, label, model_param);
         TreeTrainer trainer;
         trainer.train(model_param, train_dataset);
     }//end sparse_model_scikit
@@ -60,7 +60,7 @@ extern "C" {
         parser.load_model(model_param, boosted_model);
 
         DataSet dataSet;
-        dataSet.load_from_sparse(row_size, val, row_ptr, col_ptr, label);
+        dataSet.load_from_sparse(row_size, val, row_ptr, col_ptr, label, model_param);
 
 
         //predict
