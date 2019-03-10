@@ -28,6 +28,15 @@ mkdir build && cd build && cmake .. && make -j
 ```
 You will see `RMSE = 0.489562` after successful running.
 
+### Build on Windows
+```bash
+cd thundergbm
+mkdir build
+cd build
+cmake .. -DBOOST_ROOT=[path_to_boost] -DCMAKE_WINDOWS_EXPORT_ALL_SYMBOLS=TRUE -DBUILD_SHARED_LIBS=TRUE -G "Visual Studio 15 2017 Win64"
+```
+[path_to_boost] is the installation prefix of Boost (e.g., C:\boost). You need to change the Visual Studio version if you are using a different version of Visual Studio. Visual Studio can be downloaded from [this link](https://www.visualstudio.com/vs/). The above commands generate some Visual Studio project files, open the Visual Studio project to build ThunderGBM. Please note that CMake should be 3.4 or above for Windows. Furthermore, you should add the path of the boost library directory (e.g., C:\boost\lib) to the system variable "Path".
+
 ## How to build test for ThunderGBM
 For building test cases, you also need to obtain ``googletest`` using the following command.
 ```bash
