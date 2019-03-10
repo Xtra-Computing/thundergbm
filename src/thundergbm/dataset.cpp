@@ -112,6 +112,7 @@ void DataSet::load_from_file(string file_name, GBMParam param) {
         }
         for (int i = 0; i < nthread; i++) {
             this->y.insert(y.end(), y_[i].begin(), y_[i].end());
+            this->label.insert(label.end(), y_[i].begin(), y_[i].end());
         }
     }
     ifs.close();
@@ -129,18 +130,33 @@ size_t DataSet::n_instances() const {
     return this->y.size();
 }
 
-void DataSet::load_from_sparse(int n_instances, float *csr_val, int *csr_row_ptr, int *csr_col_idx, float *y) {
+void DataSet::load_from_sparse(int n_instances, float *csr_val, int *csr_row_ptr, int *csr_col_idx, float *y, const GBMParam &param) {
     n_features_ = 0;
     this->y.clear();
+    this->label.clear();
     this->csr_val.clear();
     this->csr_row_ptr.clear();
     this->csr_col_idx.clear();
     int nnz = csr_row_ptr[n_instances];
     this->y.resize(n_instances);
+    this->label.resize(n_instances);
     this->csr_val.resize(nnz);
     this->csr_row_ptr.resize(n_instances + 1);
     this->csr_col_idx.resize(nnz);
-    //TODO move instead of copy?
+
+    CHECK_EQ(sizeof(float_type), sizeof(float));
+//    if(sizeof(float_type) == float) {
+//        memcpy(this->y.data(), y, sizeof(float) * n_instances);
+//        memcpy(this->csr_val.data(), csr_val, sizeof(float) * nnz);
+//    }
+//    else{//move instead of copy for converting float to double
+//        for(int i = 0; i < n_instances; i++) {
+//            this->y.data()[i] = y[i];
+//            this->label.data()[i] = y[i];
+//        }
+//        for(int e = 0; e < nnz; e++)
+//            this->csr_val.data()[e] = csr_val[e];
+//    }
     memcpy(this->y.data(), y, sizeof(float) * n_instances);
     memcpy(this->csr_val.data(), csr_val, sizeof(float) * nnz);
     memcpy(this->csr_col_idx.data(), csr_col_idx, sizeof(int) * nnz);
@@ -150,6 +166,7 @@ void DataSet::load_from_sparse(int n_instances, float *csr_val, int *csr_row_ptr
     }
     n_features_++;//convert from zero-based
     LOG(INFO) << "#instances = " << this->n_instances() << ", #features = " << this->n_features();
+    if (ObjectiveFunction::need_group_label(param.objective)) group_label();
 }
 
 void DataSet::load_group_file(string file_name) {
