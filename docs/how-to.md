@@ -29,6 +29,14 @@ mkdir build && cd build && cmake .. && make -j
 You will see `RMSE = 0.489562` after successful running.
 
 ### Build on Windows
+Use the following commands to build the boost library under the Boost directory:
+```bash
+.\bootstrap.bat
+.\b2 --toolset=[msvc version] --build-type=complete --prefix="C:\boost" install
+```
+[msvc version] is the version of compiler in the Visual Studio (e.g., msvc-14.1). You can specify other paths you like to replace "C:\boost".
+
+Then, you can build the ThunderGBM library as follows:
 ```bash
 cd thundergbm
 mkdir build
