@@ -5,7 +5,9 @@ This page is for key instructions of intalling, using and contributing to Thunde
 ## How to install ThunderGBM
 First of all, you need to install the prerequisite libraries and tools. Then you can download and install ThunderGBM. 
 ### Prerequisites
-* cmake 2.8 or above | gcc 4.8 or above for Linux | [C++ boost](https://www.boost.org/) | [CUDA](https://developer.nvidia.com/cuda-downloads) 8 or above
+* cmake 2.8 or above | [C++ boost](https://www.boost.org/) 
+    * gcc 4.8 or above for Linux | [CUDA](https://developer.nvidia.com/cuda-downloads) 8 or above
+    * Visual C++ for Windows | CUDA 10
 
 
 ### Download
