@@ -14,7 +14,7 @@
 The mission of ThunderGBM is to help users easily and efficiently apply GBDTs and Random Forests to solve problems. ThunderGBM exploits GPUs to achieve high efficiency. Key features of ThunderGBM are as follows.
 * Often by 10x times over other libraries.
 * Support Python (scikit-learn) interfaces.
-* Supported Operating System(s): Linux.
+* Supported Operating System(s): Linux and Windows.
 * Support classification, regression and ranking.
 
 **Why accelerate GBDT and Random Forests**: A [survey](https://www.kaggle.com/amberthomas/kaggle-2017-survey-results) conducted by Kaggle in 2017 shows that 50%, 46% and 24% of the data mining and machine learning practitioners are users of Decision Trees, Random Forests and GBMs, respectively. 
@@ -29,7 +29,9 @@ GBDTs and Random Forests are often used for creating state-of-the-art data scien
 ## Getting Started
 
 ### Prerequisites
-* cmake 2.8 or above | gcc 4.8 or above for Linux | [C++ boost](https://www.boost.org/) | [CUDA](https://developer.nvidia.com/cuda-downloads) 8 or above
+* cmake 2.8 or above | [C++ boost](https://www.boost.org/) 
+    * gcc 4.8 or above for Linux | [CUDA](https://developer.nvidia.com/cuda-downloads) 8 or above
+    * Visual C++ for Windows | CUDA 10
 
 ### Download
 ```bash
@@ -38,7 +40,7 @@ cd thundergbm
 #under the directory of thundergbm
 git submodule init cub && git submodule update
 ```
-### Build on Linux 
+### Build on Linux (build instructions for [Windows](https://thundergbm.readthedocs.io/en/latest/how-to.html#build-on-windows))
 ```bash
 #under the directory of thundergbm
 mkdir build && cd build && cmake .. && make -j
