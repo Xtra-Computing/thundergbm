@@ -11,8 +11,8 @@
 class DataSet {
 public:
     ///load dataset from file
-    void load_from_sparse(int n_instances, float *csr_val, int *csr_row_ptr, int *csr_col_idx, float *y, const GBMParam &param);
-    void load_from_file(string file_name, GBMParam param);
+    void load_from_sparse(int n_instances, float *csr_val, int *csr_row_ptr, int *csr_col_idx, float *y, GBMParam &param);
+    void load_from_file(string file_name, GBMParam &param);
     void load_group_file(string file_name);
     void group_label();
 

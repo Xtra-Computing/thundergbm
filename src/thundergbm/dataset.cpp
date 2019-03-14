@@ -7,7 +7,7 @@
 //#include <array>
 #include "thundergbm/dataset.h"
 
-void DataSet::load_from_file(string file_name, GBMParam param) {
+void DataSet::load_from_file(string file_name, GBMParam &param) {
     LOG(INFO) << "loading LIBSVM dataset from file \"" << file_name << "\"";
     y.clear();
     csr_row_ptr.resize(1, 0);
@@ -119,7 +119,10 @@ void DataSet::load_from_file(string file_name, GBMParam param) {
 	free(buffer);
     LOG(INFO) << "#instances = " << this->n_instances() << ", #features = " << this->n_features();
     if (ObjectiveFunction::need_load_group_file(param.objective)) load_group_file(file_name + ".group");
-    if (ObjectiveFunction::need_group_label(param.objective)) group_label();
+    if (ObjectiveFunction::need_group_label(param.objective)) {
+        group_label();
+        param.num_class = label.size();
+    }
 }
 
 size_t DataSet::n_features() const {
@@ -130,7 +133,7 @@ size_t DataSet::n_instances() const {
     return this->y.size();
 }
 
-void DataSet::load_from_sparse(int n_instances, float *csr_val, int *csr_row_ptr, int *csr_col_idx, float *y, const GBMParam &param) {
+void DataSet::load_from_sparse(int n_instances, float *csr_val, int *csr_row_ptr, int *csr_col_idx, float *y, GBMParam &param) {
     n_features_ = 0;
     this->y.clear();
     this->label.clear();
@@ -166,7 +169,10 @@ void DataSet::load_from_sparse(int n_instances, float *csr_val, int *csr_row_ptr
     }
     n_features_++;//convert from zero-based
     LOG(INFO) << "#instances = " << this->n_instances() << ", #features = " << this->n_features();
-    if (ObjectiveFunction::need_group_label(param.objective)) group_label();
+    if (ObjectiveFunction::need_group_label(param.objective)){
+        group_label();
+        param.num_class = label.size();
+    }
 }
 
 void DataSet::load_group_file(string file_name) {
