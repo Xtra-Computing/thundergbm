@@ -7,18 +7,18 @@
 #include "thundergbm/util/device_lambda.cuh"
 #include "thundergbm/objective/objective_function.h"
 
-vector<float_type> Predictor::predict(GBMParam& model_param, vector<vector<Tree>> &boosted_model, DataSet &dataSet){
+vector<float_type> Predictor::predict(const GBMParam &model_param, const vector<vector<Tree>> &boosted_model,
+                                      const DataSet &dataSet){
     int n_instances = dataSet.n_instances();
     int n_feature = dataSet.n_features();
-    SyncArray<float_type> y_predict(n_instances);
-    y_predict.resize(n_instances);
-    auto predict_data = y_predict.device_data();
-
     //the whole model to an array
     int num_iter = boosted_model.size();
-    int num_tree = boosted_model[0].size();
+//    int num_tree = boosted_model[0].size();
+    int num_class = boosted_model.front().size();
     int num_node = boosted_model[0][0].nodes.size();
-    int total_num_node = num_iter * num_tree * num_node;
+    int total_num_node = num_iter * num_class * num_node;
+    SyncArray<float_type> y_predict(n_instances * num_class);
+
     SyncArray<Tree::TreeNode> model(total_num_node);
     auto model_data = model.host_data();
     int tree_cnt = 0;
@@ -66,14 +66,16 @@ vector<float_type> Predictor::predict(GBMParam& model_param, vector<vector<Tree>
         //prediction
         auto model_device_data = model.device_data();
         auto ins_device_data = batch_ins.device_data();
+        auto predict_data = y_predict.device_data();
+        auto lr = model_param.learning_rate;
         device_loop(num_ins_batch, [=]__device__(int i) {
             //get next child
-            auto get_next_child = [&](Tree::TreeNode &node, float_type feaValue){
+            auto get_next_child = [&](Tree::TreeNode node, float_type feaValue){
                 if(feaValue == 0){//this is a missing value
-                    if(node.default_right == false)
-                        return node.lch_index;
-                    else
+                    if (node.default_right)
                         return node.rch_index;
+                    else
+                        return node.lch_index;
                 }
 
                 if(feaValue < node.split_value)
@@ -85,9 +87,9 @@ vector<float_type> Predictor::predict(GBMParam& model_param, vector<vector<Tree>
             auto ins = ins_device_data + i * n_feature;
             int iid = ave_batch_size * batch_id + i;
             for (int iter = 0; iter < num_iter; iter++) {
-                float_type ave_val = 0;//average predicted value
-                for (int t = 0; t < num_tree; t++) {//one iteration may have multiple trees (e.g., boosted R. Forests)
-                    const Tree::TreeNode *node_data = model_device_data + iter * num_tree * num_node + t * num_node;
+                for (int t = 0; t < num_class; t++) {
+                    auto predict_data_class = predict_data + t * n_instances;
+                    const Tree::TreeNode *node_data = model_device_data + iter * num_class * num_node + t * num_node;
                     Tree::TreeNode curNode = node_data[0];
                     int cur_nid = 0; //node id
                     while (!curNode.is_leaf) {
@@ -95,10 +97,8 @@ vector<float_type> Predictor::predict(GBMParam& model_param, vector<vector<Tree>
                         cur_nid = get_next_child(curNode, ins[fid]);
                         curNode = node_data[cur_nid];
                     }
-                    ave_val += node_data[cur_nid].base_weight;
+                    predict_data_class[iid] += lr * node_data[cur_nid].base_weight;
                 }
-                ave_val = ave_val / num_tree;
-                predict_data[iid] += ave_val;
             }//end all tree prediction
         });
     }
@@ -107,14 +107,14 @@ vector<float_type> Predictor::predict(GBMParam& model_param, vector<vector<Tree>
     std::unique_ptr<ObjectiveFunction> obj;
     obj.reset(ObjectiveFunction::create(model_param.objective));
     obj->configure(model_param, dataSet);
-    obj->predict_transform(y_predict);
 
     //compute metric
     std::unique_ptr<Metric> metric;
     metric.reset(Metric::create(obj->default_metric_name()));
     metric->configure(model_param, dataSet);
-    LOG(INFO) << metric->get_name().c_str() << "=" << metric->get_score(y_predict);
+    LOG(INFO) << metric->get_name().c_str() << " = " << metric->get_score(y_predict);
 
+    obj->predict_transform(y_predict);
     vector<float_type> y_pred_vec(y_predict.size());
     memcpy(y_pred_vec.data(), y_predict.host_data(), sizeof(float_type) * y_predict.size());
     return y_pred_vec;

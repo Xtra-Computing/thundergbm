@@ -42,6 +42,7 @@ void Softmax::configure(GBMParam param, const DataSet &dataset) {
 }
 
 void Softmax::predict_transform(SyncArray<float_type> &y) {
+    //this method transform y(#class * #instances) into y(#instances)
     auto yp_data = y.device_data();
     auto label_data = label.device_data();
     int num_class = this->num_class;
@@ -57,6 +58,11 @@ void Softmax::predict_transform(SyncArray<float_type> &y) {
         }
         yp_data[i] = label_data[max_k];
     });
+    //TODO not to make a temp_y?
+    SyncArray<float_type> temp_y(n_instances);
+    temp_y.copy_from(y.device_data(), n_instances);
+    y.resize(n_instances);
+    y.copy_from(temp_y);
 }
 
 

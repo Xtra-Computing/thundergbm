@@ -10,7 +10,7 @@
 
 class Predictor{
 public:
-    vector<float_type> predict(GBMParam &model_param, vector<vector<Tree>> &boosted_model, DataSet &dataSet);
+    vector<float_type> predict(const GBMParam &model_param, const vector<vector<Tree>> &boosted_model, const DataSet &dataSet);
 };
 
 #endif //THUNDERGBM_PREDICTOR_H
