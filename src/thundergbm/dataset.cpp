@@ -169,7 +169,8 @@ void DataSet::load_from_sparse(int n_instances, float *csr_val, int *csr_row_ptr
     }
     n_features_++;//convert from zero-based
     LOG(INFO) << "#instances = " << this->n_instances() << ", #features = " << this->n_features();
-    if (ObjectiveFunction::need_group_label(param.objective)){
+
+    if (y && ObjectiveFunction::need_group_label(param.objective)){
         group_label();
         param.num_class = label.size();
     }

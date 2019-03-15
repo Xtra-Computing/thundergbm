@@ -96,13 +96,14 @@ void Parser::parse_param(GBMParam &model_param, int argc, char **argv){
     }//end parsing parameters
 }
 
-void Parser::load_model(GBMParam &model_param, vector<vector<Tree>> &boosted_model) {
+void Parser::load_model(GBMParam &model_param, vector<vector<Tree>> &boosted_model, DataSet &dataset) {
     std::ifstream ifs(model_param.in_model_name);
     CHECK_EQ(ifs.is_open(), true);
     boost::archive::text_iarchive ia(ifs);
     ia & model_param.objective;
     ia & model_param.learning_rate;
     ia & model_param.num_class;
+    ia & dataset.label;
     //ia & model_param;
     ia & boosted_model;
     ifs.close();

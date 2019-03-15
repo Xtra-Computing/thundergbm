@@ -58,11 +58,11 @@ extern "C" {
         GBMParam model_param;
         model_param.in_model_name = in_model_name;
         model_param.path = "../dataset/test_dataset.txt";
-        Parser parser;
-        parser.load_model(model_param, boosted_model);
-
         DataSet dataSet;
         dataSet.load_from_sparse(row_size, val, row_ptr, col_ptr, NULL, model_param);
+        Parser parser;
+        parser.load_model(model_param, boosted_model, dataSet);
+
 
         //predict
         Predictor pred;
