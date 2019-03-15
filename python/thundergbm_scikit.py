@@ -71,16 +71,15 @@ class TGBMModel(ThundergbmBase, ThundergbmRegressorBase):
     def fit(self, X, y):
         sparse = sp.isspmatrix(X)
         self._sparse = sparse
+
+        if self._sparse == False:
+            X = sp.csr_matrix(X)
         X, y = check_X_y(X, y, dtype=np.float64, order='C', accept_sparse='csr')
         #y = self.label_validate(y)
 
         #solver_type = SVM_TYPE.index(self._impl)
-
-
         fit = self._sparse_fit
-        if self._sparse == False:
-            print("dense matrix not supported yet")
-            exit(-1)
+
         fit(X, y)
         # if self._train_succeed[0] == -1:
         #     print ("Training failed!")
@@ -111,6 +110,8 @@ class TGBMModel(ThundergbmBase, ThundergbmRegressorBase):
                                        self.in_model_name.encode('utf-8'), self.tree_method.encode('utf-8'))
 
     def predict(self, X):
+        if self._sparse == False:
+            X = sp.csr_matrix(X)
         X.data = np.asarray(X.data, dtype=np.float64, order='C')
         X.sort_indices()
         data = (c_float * X.data.size)()
