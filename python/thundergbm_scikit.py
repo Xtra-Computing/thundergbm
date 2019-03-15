@@ -110,7 +110,7 @@ class TGBMModel(ThundergbmBase, ThundergbmRegressorBase):
             # self.in_model_name.encode('utf-8'), self.tree_method.encode('utf-8'), self._train_succeed)
                                        self.in_model_name.encode('utf-8'), self.tree_method.encode('utf-8'))
 
-    def predict(self, X, y = None):
+    def predict(self, X):
         X.data = np.asarray(X.data, dtype=np.float64, order='C')
         X.sort_indices()
         data = (c_float * X.data.size)()
@@ -119,10 +119,8 @@ class TGBMModel(ThundergbmBase, ThundergbmRegressorBase):
         indices[:] = X.indices
         indptr = (c_int * X.indptr.size)()
         indptr[:] = X.indptr
-        label = (c_float * y.size)()
-        label[:] = y
         self.predict_label_ptr = (c_float * X.shape[0])()
-        thundergbm.sparse_predict_scikit(X.shape[0], data, indptr, indices, label,
+        thundergbm.sparse_predict_scikit(X.shape[0], data, indptr, indices,
                                          self.in_model_name.encode('utf-8'),  self.predict_label_ptr)
 
         predict_label = [self.predict_label_ptr[index] for index in range(0, X.shape[0])]

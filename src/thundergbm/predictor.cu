@@ -9,15 +9,36 @@
 
 vector<float_type> Predictor::predict(const GBMParam &model_param, const vector<vector<Tree>> &boosted_model,
                                       const DataSet &dataSet){
+    SyncArray<float_type> y_predict;
+    predict_raw(model_param, boosted_model, dataSet, y_predict);
+    //convert the aggregated values to labels, probabilities or ranking scores.
+    std::unique_ptr<ObjectiveFunction> obj;
+    obj.reset(ObjectiveFunction::create(model_param.objective));
+    obj->configure(model_param, dataSet);
+
+    //compute metric
+    std::unique_ptr<Metric> metric;
+    metric.reset(Metric::create(obj->default_metric_name()));
+    metric->configure(model_param, dataSet);
+    LOG(INFO) << metric->get_name().c_str() << " = " << metric->get_score(y_predict);
+
+    obj->predict_transform(y_predict);
+    vector<float_type> y_pred_vec(y_predict.size());
+    memcpy(y_pred_vec.data(), y_predict.host_data(), sizeof(float_type) * y_predict.size());
+    return y_pred_vec;
+}
+void Predictor::predict_raw(const GBMParam &model_param, const vector<vector<Tree>> &boosted_model,
+        const DataSet &dataSet, SyncArray<float_type> &y_predict){
     int n_instances = dataSet.n_instances();
     int n_feature = dataSet.n_features();
+
     //the whole model to an array
     int num_iter = boosted_model.size();
 //    int num_tree = boosted_model[0].size();
     int num_class = boosted_model.front().size();
     int num_node = boosted_model[0][0].nodes.size();
     int total_num_node = num_iter * num_class * num_node;
-    SyncArray<float_type> y_predict(n_instances * num_class);
+    y_predict.resize(n_instances * num_class);
 
     SyncArray<Tree::TreeNode> model(total_num_node);
     auto model_data = model.host_data();
@@ -102,20 +123,4 @@ vector<float_type> Predictor::predict(const GBMParam &model_param, const vector<
             }//end all tree prediction
         });
     }
-
-    //convert the aggregated values to labels, probabilities or ranking scores.
-    std::unique_ptr<ObjectiveFunction> obj;
-    obj.reset(ObjectiveFunction::create(model_param.objective));
-    obj->configure(model_param, dataSet);
-
-    //compute metric
-    std::unique_ptr<Metric> metric;
-    metric.reset(Metric::create(obj->default_metric_name()));
-    metric->configure(model_param, dataSet);
-    LOG(INFO) << metric->get_name().c_str() << " = " << metric->get_score(y_predict);
-
-    obj->predict_transform(y_predict);
-    vector<float_type> y_pred_vec(y_predict.size());
-    memcpy(y_pred_vec.data(), y_predict.host_data(), sizeof(float_type) * y_predict.size());
-    return y_pred_vec;
 }

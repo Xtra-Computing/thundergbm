@@ -7,7 +7,7 @@
 
 
 float_type MulticlassAccuracy::get_score(const SyncArray<float_type> &y_p) const {
-    CHECK_EQ(num_class * y.size(), y_p.size()) << num_class * y.size() << " != " << y_p.size();
+    CHECK_EQ(num_class * y.size(), y_p.size()) << num_class << " * " << y.size() << " != " << y_p.size();
     int n_instances = y.size();
     auto y_data = y.device_data();
     auto yp_data = y_p.device_data();

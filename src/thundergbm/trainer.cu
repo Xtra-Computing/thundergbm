@@ -62,6 +62,9 @@ vector<vector<Tree>> TreeTrainer::train(GBMParam &param, const DataSet &dataset)
     std::ofstream ofs(param.out_model_name);
     boost::archive::text_oarchive oa(ofs);
     oa & param.objective;
+    oa & param.learning_rate;
+    oa & param.num_class;
+    //oa & param;
     oa & boosted_model;
     ofs.close();
 

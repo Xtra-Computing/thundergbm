@@ -100,8 +100,10 @@ void Parser::load_model(GBMParam &model_param, vector<vector<Tree>> &boosted_mod
     std::ifstream ifs(model_param.in_model_name);
     CHECK_EQ(ifs.is_open(), true);
     boost::archive::text_iarchive ia(ifs);
-    string obj;
     ia & model_param.objective;
+    ia & model_param.learning_rate;
+    ia & model_param.num_class;
+    //ia & model_param;
     ia & boosted_model;
     ifs.close();
 }

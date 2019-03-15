@@ -29,5 +29,7 @@ int main(int argc, char **argv) {
 
     //predict
     Predictor pred;
-    pred.predict(model_param, boosted_model, dataSet);
+    vector<float_type> y_pred_vec = pred.predict(model_param, boosted_model, dataSet);
+
+    //users can use y_pred_vec for their own purpose.
 }

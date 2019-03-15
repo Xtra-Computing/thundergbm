@@ -6,6 +6,8 @@
 #include "thundergbm/parser.h"
 #include <thundergbm/dataset.h>
 #include "thundergbm/predictor.h"
+#include "thundergbm/objective/objective_function.h"
+#include <thundergbm/metric/metric.h>
 
 extern "C" {
     void sparse_train_scikit(int row_size, float *val, int *row_ptr, int *col_ptr, float *label,
@@ -49,7 +51,7 @@ extern "C" {
         trainer.train(model_param, train_dataset);
     }//end sparse_model_scikit
 
-    void sparse_predict_scikit(int row_size, float *val, int *row_ptr, int *col_ptr, float *label,
+    void sparse_predict_scikit(int row_size, float *val, int *row_ptr, int *col_ptr,
                                char *in_model_name, float *y_pred){
         //load model
         vector<vector<Tree>> boosted_model;
@@ -60,13 +62,27 @@ extern "C" {
         parser.load_model(model_param, boosted_model);
 
         DataSet dataSet;
-        dataSet.load_from_sparse(row_size, val, row_ptr, col_ptr, label, model_param);
-
+        dataSet.load_from_sparse(row_size, val, row_ptr, col_ptr, NULL, model_param);
 
         //predict
         Predictor pred;
-        vector<float_type > y_pred_vec = pred.predict(model_param, boosted_model, dataSet);
-        for(int i = 0; i < y_pred_vec.size(); i++)
+        SyncArray<float_type> y_predict;
+        pred.predict_raw(model_param, boosted_model, dataSet, y_predict);
+
+        //convert the aggregated values to labels, probabilities or ranking scores.
+        std::unique_ptr<ObjectiveFunction> obj;
+        obj.reset(ObjectiveFunction::create(model_param.objective));
+        obj->configure(model_param, dataSet);
+
+        std::unique_ptr<Metric> metric;
+        metric.reset(Metric::create(obj->default_metric_name()));
+        metric->configure(model_param, dataSet);
+        LOG(INFO) << metric->get_name().c_str() << " = " << metric->get_score(y_predict);
+
+        obj->predict_transform(y_predict);
+        vector<float_type> y_pred_vec(y_predict.size());
+        memcpy(y_pred_vec.data(), y_predict.host_data(), sizeof(float_type) * y_predict.size());
+        for(int i = 0; i < y_pred_vec.size(); i++)//float_type may be double/float, so convert to float for both cases.
             y_pred[i] = y_pred_vec[i];
     }
 }
