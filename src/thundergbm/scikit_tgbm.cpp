@@ -63,7 +63,6 @@ extern "C" {
         Parser parser;
         parser.load_model(model_param, boosted_model, dataSet);
 
-
         //predict
         Predictor pred;
         SyncArray<float_type> y_predict;
@@ -73,11 +72,6 @@ extern "C" {
         std::unique_ptr<ObjectiveFunction> obj;
         obj.reset(ObjectiveFunction::create(model_param.objective));
         obj->configure(model_param, dataSet);
-
-        std::unique_ptr<Metric> metric;
-        metric.reset(Metric::create(obj->default_metric_name()));
-        metric->configure(model_param, dataSet);
-        LOG(INFO) << metric->get_name().c_str() << " = " << metric->get_score(y_predict);
 
         obj->predict_transform(y_predict);
         vector<float_type> y_pred_vec(y_predict.size());

@@ -48,11 +48,11 @@ void Softmax::predict_transform(SyncArray<float_type> &y) {
     int num_class = this->num_class;
     int n_instances = y.size() / num_class;
     device_loop(n_instances, [=]__device__(int i) {
-        float_type max = yp_data[i];
         int max_k = 0;
+        float_type max_p = yp_data[i];
         for (int k = 1; k < num_class; ++k) {
-            if (max > yp_data[k * n_instances + i]) {
-                max = yp_data[k * n_instances + i];
+            if (max_p < yp_data[k * n_instances + i]) {
+                max_p = yp_data[k * n_instances + i];
                 max_k = k;
             }
         }
