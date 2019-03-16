@@ -6,11 +6,12 @@
 #define THUNDERGBM_PARAM_PARSER_H
 
 #include "tree.h"
+#include "dataset.h"
 
 class Parser{
 public:
     void parse_param(GBMParam &model_param, int argc, char **argv);
-    void load_model(GBMParam &model_param, vector<vector<Tree>> &boosted_model);
+    void load_model(GBMParam &model_param, vector<vector<Tree>> &boosted_model, DataSet &dataset);
 };
 
 #endif //THUNDERGBM_PARAM_PARSER_H

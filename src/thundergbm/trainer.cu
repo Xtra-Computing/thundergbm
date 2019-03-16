@@ -15,19 +15,7 @@
 #include "thundergbm/booster.h"
 #include "chrono"
 
-void TreeTrainer::dump_model(GBMParam &param, vector<Tree> &trees) {
-    std::ofstream out(param.out_model_name);
-    int round = 0;
-    for (Tree &tree:trees) {
-        string str_tree = string_format("booster[%d]:", round) + tree.dump(param.depth);
-        //LOG(INFO) << "\n" << str_tree;
-        out << str_tree;
-        round++;
-    }
-    out.close();
-}
-
-vector<vector<Tree> > TreeTrainer::train(GBMParam &param, const DataSet &dataset) {
+vector<vector<Tree>> TreeTrainer::train(GBMParam &param, const DataSet &dataset) {
     if (param.tree_method == "auto")
         if (dataset.n_features() > 20000)
             param.tree_method = "exact";
@@ -66,6 +54,7 @@ vector<vector<Tree> > TreeTrainer::train(GBMParam &param, const DataSet &dataset
     oa & param.objective;
     oa & param.learning_rate;
     oa & param.num_class;
+    oa & dataset.label;
     //oa & param;
     oa & boosted_model;
     ofs.close();

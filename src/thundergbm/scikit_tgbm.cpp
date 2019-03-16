@@ -69,11 +69,10 @@ extern "C" {
         GBMParam model_param;
         model_param.in_model_name = in_model_name;
         model_param.path = "../dataset/test_dataset.txt";
-        Parser parser;
-        parser.load_model(model_param, boosted_model);
-
         DataSet dataSet;
         dataSet.load_from_sparse(row_size, val, row_ptr, col_ptr, NULL, model_param);
+        Parser parser;
+        parser.load_model(model_param, boosted_model, dataSet);
 
         //predict
         Predictor pred;
@@ -84,11 +83,6 @@ extern "C" {
         std::unique_ptr<ObjectiveFunction> obj;
         obj.reset(ObjectiveFunction::create(model_param.objective));
         obj->configure(model_param, dataSet);
-
-        std::unique_ptr<Metric> metric;
-        metric.reset(Metric::create(obj->default_metric_name()));
-        metric->configure(model_param, dataSet);
-        LOG(INFO) << metric->get_name().c_str() << " = " << metric->get_score(y_predict);
 
         obj->predict_transform(y_predict);
         vector<float_type> y_pred_vec(y_predict.size());

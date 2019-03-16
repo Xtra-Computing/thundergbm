@@ -142,7 +142,7 @@ void DataSet::load_from_sparse(int n_instances, float *csr_val, int *csr_row_ptr
     this->csr_col_idx.clear();
     int nnz = csr_row_ptr[n_instances];
     this->y.resize(n_instances);
-    this->label.resize(n_instances);
+    //this->label.resize(n_instances);
     this->csr_val.resize(nnz);
     this->csr_row_ptr.resize(n_instances + 1);
     this->csr_col_idx.resize(nnz);
@@ -160,7 +160,8 @@ void DataSet::load_from_sparse(int n_instances, float *csr_val, int *csr_row_ptr
 //        for(int e = 0; e < nnz; e++)
 //            this->csr_val.data()[e] = csr_val[e];
 //    }
-    memcpy(this->y.data(), y, sizeof(float) * n_instances);
+    if(y != NULL)
+        memcpy(this->y.data(), y, sizeof(float) * n_instances);
     memcpy(this->csr_val.data(), csr_val, sizeof(float) * nnz);
     memcpy(this->csr_col_idx.data(), csr_col_idx, sizeof(int) * nnz);
     memcpy(this->csr_row_ptr.data(), csr_row_ptr, sizeof(int) * (n_instances + 1));
@@ -169,7 +170,8 @@ void DataSet::load_from_sparse(int n_instances, float *csr_val, int *csr_row_ptr
     }
     n_features_++;//convert from zero-based
     LOG(INFO) << "#instances = " << this->n_instances() << ", #features = " << this->n_features();
-    if (ObjectiveFunction::need_group_label(param.objective)){
+
+    if (y != NULL && ObjectiveFunction::need_group_label(param.objective)){
         group_label();
         param.num_class = label.size();
     }

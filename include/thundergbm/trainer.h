@@ -16,9 +16,6 @@ public:
 //    float_type train_exact(GBMParam &param);
 //    float_type train_hist(GBMParam &param);
 
-    void dump_model(GBMParam &param, vector<Tree> &trees);
-private:
-    DataSet dataSet;
 };
 
 #endif //THUNDERGBM_TRAINER_H

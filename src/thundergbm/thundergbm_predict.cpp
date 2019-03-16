@@ -19,13 +19,13 @@ int main(int argc, char **argv) {
     Parser parser;
     parser.parse_param(model_param, argc, argv);
 
-    //load model
-    vector<vector<Tree>> boosted_model;
-    parser.load_model(model_param, boosted_model);
-
     //load data set
     DataSet dataSet;
+    //load model
+    vector<vector<Tree>> boosted_model;
+    parser.load_model(model_param, boosted_model, dataSet);
     dataSet.load_from_file(model_param.path, model_param);
+
 
     //predict
     Predictor pred;
