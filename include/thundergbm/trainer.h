@@ -11,7 +11,7 @@
 
 class TreeTrainer{
 public:
-    vector<vector<Tree>> train(GBMParam &param, const DataSet &dataset);
+    vector<vector<Tree> > train(GBMParam &param, const DataSet &dataset);
 //    float_type train(GBMParam &param);
 //    float_type train_exact(GBMParam &param);
 //    float_type train_hist(GBMParam &param);

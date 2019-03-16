@@ -2,6 +2,7 @@
 // Created by zeyi on 1/9/19.
 //
 #include <fstream>
+#include "cuda_runtime_api.h"
 #include <boost/archive/text_oarchive.hpp>
 #include <boost/serialization/vector.hpp>
 
@@ -26,7 +27,7 @@ void TreeTrainer::dump_model(GBMParam &param, vector<Tree> &trees) {
     out.close();
 }
 
-vector<vector<Tree>> TreeTrainer::train(GBMParam &param, const DataSet &dataset) {
+vector<vector<Tree> > TreeTrainer::train(GBMParam &param, const DataSet &dataset) {
     if (param.tree_method == "auto")
         if (dataset.n_features() > 20000)
             param.tree_method = "exact";
@@ -59,7 +60,8 @@ vector<vector<Tree>> TreeTrainer::train(GBMParam &param, const DataSet &dataset)
     LOG(INFO) << "training time = " << training_time.count();
 
     //save model
-    std::ofstream ofs(param.out_model_name);
+    std::ofstream ofs;
+	ofs.open(param.out_model_name, std::ofstream::trunc);
     boost::archive::text_oarchive oa(ofs);
     oa & param.objective;
     oa & param.learning_rate;
@@ -67,6 +69,6 @@ vector<vector<Tree>> TreeTrainer::train(GBMParam &param, const DataSet &dataset)
     //oa & param;
     oa & boosted_model;
     ofs.close();
-
-    return boosted_model;
+	SyncMem::clear_cache();
+	return boosted_model;
 }

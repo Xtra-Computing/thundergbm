@@ -15,7 +15,7 @@ extern "C" {
                              float gamma, int max_num_bin, int verbose, float column_sampling_rate,
                              int bagging, int n_parallel_trees, float learning_rate, char *obj_type,
                              int num_class, char *out_model_name, char *in_model_name,
-                             char *tree_method) {
+                             char *tree_method, void** model) {
 //        train_succeed[0] = 1;
         //init model_param
         GBMParam model_param;
@@ -48,7 +48,18 @@ extern "C" {
         DataSet train_dataset;
         train_dataset.load_from_sparse(row_size, val, row_ptr, col_ptr, label, model_param);
         TreeTrainer trainer;
-        trainer.train(model_param, train_dataset);
+        vector<vector<Tree> > boosted_model = trainer.train(model_param, train_dataset);
+		int n_booster = boosted_model.size();
+		int n_trees_per_iter = boosted_model[0].size();
+		Tree **booster_yp = (new Tree*[n_booster]);
+		for(int i = 0; i < n_trees_per_iter; i++)
+		{
+			booster_yp[i] = new Tree[n_trees_per_iter];
+			for(int j = 0; j < n_trees_per_iter; j++){
+				booster_yp[i][j] = boosted_model[i][j];
+			}
+		}
+		model = (void**)booster_yp;
     }//end sparse_model_scikit
 
     void sparse_predict_scikit(int row_size, float *val, int *row_ptr, int *col_ptr,
