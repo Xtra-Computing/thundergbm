@@ -15,7 +15,7 @@ extern "C" {
                              float gamma, int max_num_bin, int verbose, float column_sampling_rate,
                              int bagging, int n_parallel_trees, float learning_rate, char *obj_type,
                              int num_class, char *out_model_name, char *in_model_name,
-                             char *tree_method, void** model) {
+                             char *tree_method, Tree *&model, int *tree_per_iter) {
 //        train_succeed[0] = 1;
         //init model_param
         GBMParam model_param;
@@ -49,21 +49,20 @@ extern "C" {
         train_dataset.load_from_sparse(row_size, val, row_ptr, col_ptr, label, model_param);
         TreeTrainer trainer;
         vector<vector<Tree> > boosted_model = trainer.train(model_param, train_dataset);
-		int n_booster = boosted_model.size();
-		int n_trees_per_iter = boosted_model[0].size();
-		Tree **booster_yp = (new Tree*[n_booster]);
-		for(int i = 0; i < n_trees_per_iter; i++)
+        *tree_per_iter =  (int)(boosted_model[0].size());
+        //TODO: memory leakage
+        model = new Tree[n_trees * (*tree_per_iter)];
+		CHECK_EQ(n_trees, boosted_model.size()) << n_trees << " v.s. " << boosted_model.size();
+		for(int i = 0; i < n_trees; i++)
 		{
-			booster_yp[i] = new Tree[n_trees_per_iter];
-			for(int j = 0; j < n_trees_per_iter; j++){
-				booster_yp[i][j] = boosted_model[i][j];
+			for(int j = 0; j < *tree_per_iter; j++){
+                model[i * (*tree_per_iter) + j] = boosted_model[i][j];
 			}
 		}
-		model = (void**)booster_yp;
     }//end sparse_model_scikit
 
     void sparse_predict_scikit(int row_size, float *val, int *row_ptr, int *col_ptr,
-                               char *in_model_name, float *y_pred){
+                               char *in_model_name, float *y_pred, Tree *&model, int n_trees, int trees_per_iter){
         //load model
         vector<vector<Tree>> boosted_model;
         GBMParam model_param;
@@ -71,13 +70,22 @@ extern "C" {
         model_param.path = "../dataset/test_dataset.txt";
         DataSet dataSet;
         dataSet.load_from_sparse(row_size, val, row_ptr, col_ptr, NULL, model_param);
+        //TODO: get ride of reading param and model
         Parser parser;
         parser.load_model(model_param, boosted_model, dataSet);
 
         //predict
         Predictor pred;
         SyncArray<float_type> y_predict;
-        pred.predict_raw(model_param, boosted_model, dataSet, y_predict);
+		vector<vector<Tree>> boosted_model_in_mem;
+		for(int i = 0; i < n_trees; i++){
+			boosted_model_in_mem.push_back(vector<Tree>());
+			CHECK_NE(model, NULL) << "model is null!";
+			for(int j = 0; j < trees_per_iter; j++) {
+                boosted_model_in_mem[i].push_back(model[i * trees_per_iter + j]);
+            }
+		}
+        pred.predict_raw(model_param, boosted_model_in_mem, dataSet, y_predict);
 
         //convert the aggregated values to labels, probabilities or ranking scores.
         std::unique_ptr<ObjectiveFunction> obj;

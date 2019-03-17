@@ -65,6 +65,7 @@ class TGBMModel(ThundergbmBase, ThundergbmRegressorBase):
         self.in_model_name =  in_model_name
         self.tree_method = tree_method
         self.model = None
+        self.tree_per_iter = -1
 
     #def label_validate(self, y):
         #return column_or_1d(y, warn=True).astype(np.float64)
@@ -101,6 +102,8 @@ class TGBMModel(ThundergbmBase, ThundergbmRegressorBase):
         label = (c_float * y.size)()
         label[:] = y
 
+        tree_per_iter_ptr = (c_int * 1)()
+        self.model = (c_long * 1)()
         # self._train_succeed = (c_int * 1)()
         thundergbm.sparse_train_scikit(X.shape[0], data, indptr, indices, label, self.depth, self.n_trees,
             self.n_device, c_float(self.min_child_weight), c_float(self.lambda_tgbm), c_float(self.gamma),
@@ -108,7 +111,12 @@ class TGBMModel(ThundergbmBase, ThundergbmRegressorBase):
             self.n_parallel_trees, c_float(self.learning_rate), self.objective.encode('utf-8'),
             self.num_class, self.out_model_name.encode('utf-8'),
             # self.in_model_name.encode('utf-8'), self.tree_method.encode('utf-8'), self._train_succeed)
-                                       self.in_model_name.encode('utf-8'), self.tree_method.encode('utf-8'), c_void_p(self.model))
+                                       self.in_model_name.encode('utf-8'), self.tree_method.encode('utf-8'),
+                                       byref(self.model), tree_per_iter_ptr)
+        self.tree_per_iter = tree_per_iter_ptr[0]
+        if self.model == None:
+            print("The model returned is empty!")
+            exit()
 
     def predict(self, X):
         if self._sparse == False:
@@ -123,7 +131,8 @@ class TGBMModel(ThundergbmBase, ThundergbmRegressorBase):
         indptr[:] = X.indptr
         self.predict_label_ptr = (c_float * X.shape[0])()
         thundergbm.sparse_predict_scikit(X.shape[0], data, indptr, indices,
-                                         self.in_model_name.encode('utf-8'),  self.predict_label_ptr)
+                                         self.in_model_name.encode('utf-8'),  self.predict_label_ptr, 
+										 byref(self.model), self.n_trees, self.tree_per_iter)
 
         predict_label = [self.predict_label_ptr[index] for index in range(0, X.shape[0])]
         self.predict_label = np.asarray(predict_label)
