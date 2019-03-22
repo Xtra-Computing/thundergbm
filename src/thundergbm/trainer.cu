@@ -14,6 +14,7 @@
 #include "time.h"
 #include "thundergbm/booster.h"
 #include "chrono"
+using namespace std;
 
 vector<vector<Tree>> TreeTrainer::train(GBMParam &param, const DataSet &dataset) {
     if (param.tree_method == "auto")
@@ -48,16 +49,28 @@ vector<vector<Tree>> TreeTrainer::train(GBMParam &param, const DataSet &dataset)
     LOG(INFO) << "training time = " << training_time.count();
 
     //save model
-    std::ofstream ofs;
-	ofs.open(param.out_model_name, std::ofstream::trunc);
-    boost::archive::text_oarchive oa(ofs);
-    oa & param.objective;
-    oa & param.learning_rate;
-    oa & param.num_class;
-    oa & dataset.label;
-    //oa & param;
-    oa & boosted_model;
-    ofs.close();
+    ofstream out_model_file(param.out_model_name, ios::binary);
+    assert(out_model_file.is_open());
+    int length = param.objective.length();
+    out_model_file.write((char*)&length, sizeof(length));
+    out_model_file.write(param.objective.c_str(), param.objective.length());
+    out_model_file.write((char*)&param.learning_rate, sizeof(param.learning_rate));
+    out_model_file.write((char*)&param.num_class, sizeof(param.num_class));
+    int label_size = dataset.label.size();
+    out_model_file.write((char*)&label_size, sizeof(label_size));
+    out_model_file.write((char*)&dataset.label[0], dataset.label.size() * sizeof(float_type));
+    int boosted_model_size = boosted_model.size();
+    out_model_file.write((char*)&boosted_model_size, sizeof(boosted_model_size));
+    for (int j = 0; j < boosted_model.size(); ++j) {
+        int boosted_model_j_size = boosted_model[j].size();
+        out_model_file.write((char*)&boosted_model_j_size, sizeof(boosted_model_j_size));
+        for (int i = 0; i < boosted_model_j_size; ++i) {
+            size_t syn_node_size = boosted_model[j][i].nodes.size();
+            out_model_file.write((char*)&syn_node_size, sizeof(syn_node_size));
+            out_model_file.write((char*)boosted_model[j][i].nodes.host_data(), syn_node_size * sizeof(Tree::TreeNode));
+        }
+    }
+    out_model_file.close();
 	SyncMem::clear_cache();
 	return boosted_model;
 }

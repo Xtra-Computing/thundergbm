@@ -5,6 +5,8 @@
 #include <boost/archive/text_iarchive.hpp>
 #include <boost/serialization/vector.hpp>
 #include "thundergbm/parser.h"
+#include <cstring>
+using namespace std;
 
 void Parser::parse_param(GBMParam &model_param, int argc, char **argv){
     model_param.depth = 6;
@@ -97,14 +99,45 @@ void Parser::parse_param(GBMParam &model_param, int argc, char **argv){
 }
 
 void Parser::load_model(GBMParam &model_param, vector<vector<Tree>> &boosted_model, DataSet &dataset) {
-    std::ifstream ifs(model_param.in_model_name);
+    std::ifstream ifs(model_param.in_model_name, ios::binary);
     CHECK_EQ(ifs.is_open(), true);
-    boost::archive::text_iarchive ia(ifs);
-    ia & model_param.objective;
-    ia & model_param.learning_rate;
-    ia & model_param.num_class;
-    ia & dataset.label;
-    //ia & model_param;
-    ia & boosted_model;
+    int length;
+    ifs.read((char*)&length, sizeof(length));
+    char * temp = new char[length+1];
+    temp[length] = '\0';
+    // read param.objective
+    ifs.read(temp, length);
+    string str(temp);
+    model_param.objective = str;
+    ifs.read((char*)&model_param.learning_rate, sizeof(model_param.learning_rate));
+    ifs.read((char*)&model_param.num_class, sizeof(model_param.num_class));
+    // read dataset.label
+    int label_size;
+    ifs.read((char*)&label_size, sizeof(label_size));
+    float_type f;
+    for (int i = 0; i < label_size; ++i) {
+        ifs.read((char*)&f, sizeof(float_type));
+        dataset.label.push_back(f);
+    }
+//     read boosted_model
+    int boosted_model_size;
+    ifs.read((char*)&boosted_model_size, sizeof(boosted_model_size));
+    Tree t;
+    vector<Tree> v;
+    for (int i = 0; i < boosted_model_size; ++i) {
+        int boost_model_i_size;
+        ifs.read((char*)&boost_model_i_size, sizeof(boost_model_i_size));
+        for (int j = 0; j < boost_model_i_size; ++j) {
+            size_t syn_node_size;
+            ifs.read((char*)&syn_node_size, sizeof(syn_node_size));
+            SyncArray<Tree::TreeNode> tmp(syn_node_size);
+            ifs.read((char*)tmp.host_data(), sizeof(Tree::TreeNode) * syn_node_size);
+            t.nodes.resize(tmp.size());
+            t.nodes.copy_from(tmp);
+            v.push_back(t);
+        }
+        boosted_model.push_back(v);
+        v.clear();
+    }
     ifs.close();
 }
