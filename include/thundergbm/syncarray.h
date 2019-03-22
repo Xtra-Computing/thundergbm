@@ -105,10 +105,23 @@ public:
      * @param count
      */
     void resize(size_t count) {
-        delete mem;
+        if(mem != nullptr || mem != NULL) {
+            delete mem;
+        }
         mem = new SyncMem(sizeof(T) * count);
         this->size_ = count;
     };
+
+    /*
+     * resize to a new size. This will not clear the origin data.
+     * @param count
+     */
+    void resize_without_delete(size_t count) {
+//        delete mem;
+        mem = new SyncMem(sizeof(T) * count);
+        this->size_ = count;
+    };
+
 
     size_t mem_size() const {//number of bytes
         return mem->size();
