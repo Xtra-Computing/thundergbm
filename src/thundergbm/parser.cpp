@@ -2,8 +2,6 @@
 // Created by zeyi on 1/10/19.
 //
 
-#include <boost/archive/text_iarchive.hpp>
-#include <boost/serialization/vector.hpp>
 #include "thundergbm/parser.h"
 #include <cstring>
 using namespace std;

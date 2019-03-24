@@ -29,7 +29,7 @@ GBDTs and Random Forests are often used for creating state-of-the-art data scien
 ## Getting Started
 
 ### Prerequisites
-* cmake 2.8 or above | [C++ boost](https://www.boost.org/) 
+* cmake 2.8 or above 
     * gcc 4.8 or above for Linux | [CUDA](https://developer.nvidia.com/cuda-downloads) 8 or above
     * Visual C++ for Windows | CUDA 10
 

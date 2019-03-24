@@ -3,8 +3,6 @@
 //
 #include <fstream>
 #include "cuda_runtime_api.h"
-#include <boost/archive/text_oarchive.hpp>
-#include <boost/serialization/vector.hpp>
 
 #include <thundergbm/tree.h>
 #include <thundergbm/trainer.h>
@@ -48,6 +46,7 @@ vector<vector<Tree>> TreeTrainer::train(GBMParam &param, const DataSet &dataset)
     std::chrono::duration<float> training_time = stop - start;
     LOG(INFO) << "training time = " << training_time.count();
 
+    //TODO: move to model_loader
     //save model
     ofstream out_model_file(param.out_model_name, ios::binary);
     assert(out_model_file.is_open());
