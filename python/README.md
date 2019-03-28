@@ -2,7 +2,16 @@ We provide a scikit-learn wrapper interface. Before you use the Python interface
 
 ## Instructions for building ThunderGBM
 * Please refer to [Installation](http://thundergbm.readthedocs.io/en/latest/how-to.html) for building ThunderGBM.
+* Then, if you want to install the Python package, go to the project root directory and run:
+```bash
+cd python && python setup.py install
+```
+* After you have successfully installed ThunderGBM, you can import TGBMModel:
+```python
+from thundergbm_scikit import TGBMModel                                                                                                                                              
+clf = TGBMModel()                                                                                                                                                                    
 
+``` 
 ## Prerequisites
 * numpy | scipy | sklearn
 
