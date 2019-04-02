@@ -34,10 +34,15 @@ GBDTs and Random Forests are often used for creating state-of-the-art data scien
     * Visual C++ for Windows | CUDA 10
 
 ### Quick Install
+* For Linux
 ```bash
 pip3 install thundergbm
 ```
-* Currently only support python3 on Linux
+* For Windows(64bit)
+```bash
+pip install thundergbm_win
+```
+* Currently only support python3
 * After you have installed thundergbm, you can import it:
 ```python
 from thundergbm import thundergbm_scikit
