@@ -38,6 +38,12 @@ GBDTs and Random Forests are often used for creating state-of-the-art data scien
 pip3 install thundergbm
 ```
 * Currently only support python3 on Linux
+* After you have installed thundergbm, you can import it:
+```python
+from thudergbm import thundergbm_scikit
+clf = thundergbm_scikit.TGBMModel()
+
+```
 
 ### Download
 ```bash
