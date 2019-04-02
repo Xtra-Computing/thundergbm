@@ -33,6 +33,12 @@ GBDTs and Random Forests are often used for creating state-of-the-art data scien
     * gcc 4.8 or above for Linux | [CUDA](https://developer.nvidia.com/cuda-downloads) 9 or above
     * Visual C++ for Windows | CUDA 10
 
+### Quick Start
+```bash
+pip3 install thundergbm
+```
+* Currently only support python3
+
 ### Download
 ```bash
 git clone https://github.com/zeyiwen/thundergbm.git
