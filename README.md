@@ -38,7 +38,7 @@ GBDTs and Random Forests are often used for creating state-of-the-art data scien
 ```bash
 pip3 install thundergbm
 ```
-* For Windows(64bit)
+* For Windows (64bit)
 ```bash
 pip install thundergbm_win
 ```
