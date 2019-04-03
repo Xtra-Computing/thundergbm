@@ -1,7 +1,7 @@
 if(MSVC)
     cmake_minimum_required(VERSION 3.4)
 else()
-    cmake_minimum_required(VERSION 3.1)
+    cmake_minimum_required(VERSION 2.8)
 endif()
 project(thundergbm)
 if(MSVC)
