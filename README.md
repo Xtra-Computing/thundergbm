@@ -45,11 +45,9 @@ pip install thundergbm_win
 * Currently only support python3
 * After you have installed thundergbm, you can import it:
 ```python
-from thundergbm import thundergbm_scikit
-clf = thundergbm_scikit.TGBMModel()
-
+from thundergbm import TGBMModel
+clf = TGBMModel()
 ```
-
 ### Download
 ```bash
 git clone https://github.com/zeyiwen/thundergbm.git
