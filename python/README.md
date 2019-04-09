@@ -17,14 +17,18 @@ clf = TGBMModel()
 
 ## Example
 
-* Step 1: go to the Python interface.
+* Step 1: Install thundergbm.
+### via pip
 ```bash
-# in thundersvm root directory
-cd python
+pip install thundergbm
 ```
-* Step 2: create a file called ```tgbm_test.py``` which has the following content.
+### via source
+follow the [instruction](https://github.com/Xtra-Computing/thundergbm#download)
+
+
+* Step 2: Create a file called ```tgbm_test.py``` which has the following content.
 ```python
-from thundergbm_scikit import *
+from thundergbm import *
 from sklearn.datasets import *
 from sklearn.metrics import mean_squared_error
 from math import sqrt
@@ -40,7 +44,7 @@ rms = sqrt(mean_squared_error(y2, y_predict))
 print(rms)
 
 ```
-* Step 3: run the python script.
+* Step 3: Run the python script.
 ```bash
 python tgbm_test.py
 ```

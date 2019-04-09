@@ -15,24 +15,21 @@ elif platform == "darwin":
 else :
 	print ("OS not supported!")
 	exit()
-if not path.exists(path.join(dirname, path.basename(lib_path))):
-	copyfile(lib_path, path.join(dirname, path.basename(lib_path)))
-
-
+if not path.exists(path.join(dirname, "thundergbm", path.basename(lib_path))):
+	copyfile(lib_path, path.join(dirname, "thundergbm", path.basename(lib_path)))
 setuptools.setup(name="thundergbm",
-			     version="github-master",
+			     version="0.0.6",
+				 packages=["thundergbm"],
+				 package_dir={"python": "thundergbm"},
 			     description="A Fast GBM Library on GPUs and CPUs",
-			     long_description="""The mission of ThunderGBM is to help users easily and efficiently
-			     apply GBDTs and Random Forests to solve problems. ThunderGBM exploits GPUs and multi-core CPUs to achieve
-			     high efficiency""",
+			     long_description="""The mission of ThunderGBM is to help users easily and efficiently apply GBDTs and Random Forests to solve problems. ThunderGBM exploits GPUs and multi-core CPUs to achieve high efficiency""",
 			     long_description_content_type="text/plain",
 			     url="https://github.com/zeyiwen/thundergbm",
-			     py_modules=["thundergbm_scikit"],
-			     data_files = [('', [path.basename(lib_path)])],
+			     package_data = {"thundergbm": [path.basename(lib_path)]},
 			     install_requires=['numpy','scipy','scikit-learn'],
-			     classifiers=(
+			     classifiers=[
 			                  "Programming Language :: Python :: 3",
 			                  "License :: OSI Approved :: Apache Software License",
-			                  "Operating System :: OS Independent",
-			    ),
+			    ],
+				 python_requires=">=3"
 )

@@ -28,7 +28,7 @@ if path.exists(path.abspath(path.join(dirname, shared_library_name))):
     lib_path = path.abspath(path.join(dirname, shared_library_name))
 else:
     if platform == "linux" or platform == "linux2":
-        lib_path = path.join(dirname, '../build/lib/', shared_library_name)
+        lib_path = path.join(dirname, shared_library_name)
 
 if path.exists(lib_path):
     thundergbm = CDLL(lib_path)
