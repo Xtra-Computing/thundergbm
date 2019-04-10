@@ -18,7 +18,7 @@ else :
 if not path.exists(path.join(dirname, "thundergbm", path.basename(lib_path))):
 	copyfile(lib_path, path.join(dirname, "thundergbm", path.basename(lib_path)))
 setuptools.setup(name="thundergbm",
-			     version="0.0.6",
+			     version="0.0.7",
 				 packages=["thundergbm"],
 				 package_dir={"python": "thundergbm"},
 			     description="A Fast GBM Library on GPUs and CPUs",

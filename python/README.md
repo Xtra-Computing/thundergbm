@@ -2,31 +2,36 @@ We provide a scikit-learn wrapper interface. Before you use the Python interface
 
 ## Instructions for building ThunderGBM
 * Please refer to [Installation](http://thundergbm.readthedocs.io/en/latest/how-to.html) for building ThunderGBM.
-* Then, if you want to install the Python package, go to the project root directory and run:
+
+* Then, if you want to install the Python package from source, go to the project root directory and run:
 ```bash
 cd python && python setup.py install
 ```
+Or you can install via pip
+```bash
+pip3 install -U thundergbm
+```
 * After you have successfully installed ThunderGBM, you can import TGBMModel:
 ```python
-from thundergbm_scikit import TGBMModel                                                                                                                                              
+from thundergbm import TGBMModel                                                                                                                                              
 clf = TGBMModel()                                                                                                                                                                    
-
+clf.fit(x, y)
+clf.save_model(model_path)
 ``` 
+* Load model
+```python
+from thundergbm import TGBMModel
+clf = TGBMModel(objective="your-objective") 
+# You should specific objective here as in training stage
+clf.load_model(model_path)
+y_pred = clf.predict(x)
+```
 ## Prerequisites
 * numpy | scipy | sklearn
 
 ## Example
 
-* Step 1: Install thundergbm.
-### via pip
-```bash
-pip install thundergbm
-```
-### via source
-follow the [instruction](https://github.com/Xtra-Computing/thundergbm#download)
-
-
-* Step 2: Create a file called ```tgbm_test.py``` which has the following content.
+* Step 1: Create a file called ```tgbm_test.py``` which has the following content.
 ```python
 from thundergbm import *
 from sklearn.datasets import *
@@ -44,7 +49,7 @@ rms = sqrt(mean_squared_error(y2, y_predict))
 print(rms)
 
 ```
-* Step 3: Run the python script.
+* Step 2: Run the python script.
 ```bash
 python tgbm_test.py
 ```
