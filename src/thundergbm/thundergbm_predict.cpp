@@ -23,10 +23,8 @@ int main(int argc, char **argv) {
     DataSet dataSet;
     //load model
     vector<vector<Tree>> boosted_model;
-    parser.load_model(model_param, boosted_model, dataSet);
+    parser.load_model("tgbm.model", model_param, boosted_model, dataSet);
     dataSet.load_from_file(model_param.path, model_param);
-
-
     //predict
     Predictor pred;
     vector<float_type> y_pred_vec = pred.predict(model_param, boosted_model, dataSet);

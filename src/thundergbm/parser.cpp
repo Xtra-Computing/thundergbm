@@ -24,8 +24,6 @@ void Parser::parse_param(GBMParam &model_param, int argc, char **argv){
     model_param.objective = "reg:linear";
     model_param.num_class = 1;
     model_param.path = "../dataset/test_dataset.txt";
-    model_param.out_model_name = "tgbm.model";
-    model_param.in_model_name =  "tgbm.model";
     model_param.tree_method = "auto";
 
     if (argc < 2) {
@@ -70,10 +68,6 @@ void Parser::parse_param(GBMParam &model_param, int argc, char **argv){
                 model_param.lambda = atof(val);
             else if(str_name.compare("gamma") == 0 || str_name.compare("min_split_loss") == 0)
                 model_param.gamma = atof(val);
-            else if(str_name.compare("model_out") == 0)
-                model_param.out_model_name = val;
-            else if(str_name.compare("model_in") == 0)
-                model_param.in_model_name = val;
             else if(str_name.compare("tree_method") == 0)
                 model_param.tree_method = val;
             else
@@ -96,8 +90,8 @@ void Parser::parse_param(GBMParam &model_param, int argc, char **argv){
     }//end parsing parameters
 }
 
-void Parser::load_model(GBMParam &model_param, vector<vector<Tree>> &boosted_model, DataSet &dataset) {
-    std::ifstream ifs(model_param.in_model_name, ios::binary);
+void Parser::load_model(string model_path, GBMParam &model_param, vector<vector<Tree>> &boosted_model, DataSet & dataset) {
+    std::ifstream ifs(model_path, ios::binary);
     CHECK_EQ(ifs.is_open(), true);
     int length;
     ifs.read((char*)&length, sizeof(length));
@@ -109,15 +103,15 @@ void Parser::load_model(GBMParam &model_param, vector<vector<Tree>> &boosted_mod
     model_param.objective = str;
     ifs.read((char*)&model_param.learning_rate, sizeof(model_param.learning_rate));
     ifs.read((char*)&model_param.num_class, sizeof(model_param.num_class));
-    // read dataset.label
+    ifs.read((char*)&model_param.n_trees, sizeof(model_param.n_trees));
     int label_size;
     ifs.read((char*)&label_size, sizeof(label_size));
     float_type f;
+    dataset.label.clear();
     for (int i = 0; i < label_size; ++i) {
         ifs.read((char*)&f, sizeof(float_type));
         dataset.label.push_back(f);
     }
-//     read boosted_model
     int boosted_model_size;
     ifs.read((char*)&boosted_model_size, sizeof(boosted_model_size));
     Tree t;
@@ -138,4 +132,29 @@ void Parser::load_model(GBMParam &model_param, vector<vector<Tree>> &boosted_mod
         v.clear();
     }
     ifs.close();
+}
+void Parser::save_model(string model_path, GBMParam &model_param, vector<vector<Tree>> &boosted_model, DataSet &dataset) {
+    ofstream out_model_file(model_path, ios::binary);
+    CHECK_EQ(out_model_file.is_open(), true);
+    int length = model_param.objective.length();
+    out_model_file.write((char*)&length, sizeof(length));
+    out_model_file.write(model_param.objective.c_str(), model_param.objective.length());
+    out_model_file.write((char*)&model_param.learning_rate, sizeof(model_param.learning_rate));
+    out_model_file.write((char*)&model_param.num_class, sizeof(model_param.num_class));
+    out_model_file.write((char*)&model_param.n_trees, sizeof(model_param.n_trees));
+    int label_size = dataset.label.size();
+    out_model_file.write((char*)&label_size, sizeof(label_size));
+    out_model_file.write((char*)&dataset.label[0], dataset.label.size() * sizeof(float_type));
+    int boosted_model_size = boosted_model.size();
+    out_model_file.write((char*)&boosted_model_size, sizeof(boosted_model_size));
+    for(int j = 0; j < boosted_model.size(); ++j) {
+        int boosted_model_j_size = boosted_model[j].size();
+        out_model_file.write((char*)&boosted_model_j_size, sizeof(boosted_model_j_size));
+        for (int i = 0; i < boosted_model_j_size; ++i) {
+            size_t syn_node_size = boosted_model[j][i].nodes.size();
+            out_model_file.write((char*)&syn_node_size, sizeof(syn_node_size));
+            out_model_file.write((char*)boosted_model[j][i].nodes.host_data(), syn_node_size * sizeof(Tree::TreeNode));
+        }
+    }
+    out_model_file.close();
 }

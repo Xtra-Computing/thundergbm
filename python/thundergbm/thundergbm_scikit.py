@@ -36,16 +36,15 @@ else :
     print ("Please build the library first!")
     exit()
 
-SVM_TYPE = ['c_svc', 'nu_svc', 'one_class', 'epsilon_svr', 'nu_svr']
+SVM_TYPE = ['c_svc', 'nu_svc', '', 'epsilon_svr', 'nu_svr']
 KERNEL_TYPE = ['linear', 'polynomial', 'rbf', 'sigmoid', 'precomputed']
 
 class TGBMModel(ThundergbmBase, ThundergbmRegressorBase):
     def __init__(self, depth = 6, num_round = 40,
                  n_device = 1, min_child_weight = 1.0, lambda_tgbm = 1.0, gamma = 1.0, max_num_bin = 255,
                  verbose = 0, column_sampling_rate = 1.0, bagging = 0,
-                 n_parallel_trees = 1, learning_rate = 1.0, objective = "reg:linear",
-                 num_class = 1, out_model_name = "tgbm.model",
-                 in_model_name = "tgbm.model", tree_method = "auto"):
+                 n_parallel_trees = 1, learning_rate = 0.9, objective = "reg:linear",
+                 num_class = 1, tree_method = "auto"):
         self.depth = depth
         self.n_trees = num_round
         self.n_device = n_device
@@ -61,32 +60,20 @@ class TGBMModel(ThundergbmBase, ThundergbmRegressorBase):
         self.objective = objective
         self.num_class = num_class
         self.path = path
-        self.out_model_name = out_model_name
-        self.in_model_name =  in_model_name
         self.tree_method = tree_method
         self.model = None
         self.tree_per_iter = -1
-
-    #def label_validate(self, y):
-        #return column_or_1d(y, warn=True).astype(np.float64)
+        self.group_label = None
 
     def fit(self, X, y):
         sparse = sp.isspmatrix(X)
-        self._sparse = sparse
-
-        if self._sparse == False:
+        if sparse is False:
             X = sp.csr_matrix(X)
         X, y = check_X_y(X, y, dtype=np.float64, order='C', accept_sparse='csr')
-        #y = self.label_validate(y)
 
-        #solver_type = SVM_TYPE.index(self._impl)
         fit = self._sparse_fit
 
         fit(X, y)
-        # if self._train_succeed[0] == -1:
-        #     print ("Training failed!")
-        #     return
-
         return self
 
     def _sparse_fit(self, X, y):
@@ -101,7 +88,10 @@ class TGBMModel(ThundergbmBase, ThundergbmRegressorBase):
         indptr[:] = X.indptr
         label = (c_float * y.size)()
         label[:] = y
-
+        #self.group_label
+        group_label = (c_float * len(set(y)))()
+        n_class = (c_int * 1)()
+        n_class[0] = self.num_class
         tree_per_iter_ptr = (c_int * 1)()
         self.model = (c_long * 1)()
         # self._train_succeed = (c_int * 1)()
@@ -109,17 +99,21 @@ class TGBMModel(ThundergbmBase, ThundergbmRegressorBase):
             self.n_device, c_float(self.min_child_weight), c_float(self.lambda_tgbm), c_float(self.gamma),
             self.max_num_bin, self.verbose, c_float(self.column_sampling_rate), self.bagging,
             self.n_parallel_trees, c_float(self.learning_rate), self.objective.encode('utf-8'),
-            self.num_class, self.out_model_name.encode('utf-8'),
-            # self.in_model_name.encode('utf-8'), self.tree_method.encode('utf-8'), self._train_succeed)
-                                       self.in_model_name.encode('utf-8'), self.tree_method.encode('utf-8'),
-                                       byref(self.model), tree_per_iter_ptr)
+            n_class, self.tree_method.encode('utf-8'), byref(self.model), tree_per_iter_ptr, group_label)
+        self.num_class = n_class[0]
         self.tree_per_iter = tree_per_iter_ptr[0]
+        self.group_label = [group_label[idx] for idx in range(len(set(y)))]
         if self.model == None:
             print("The model returned is empty!")
             exit()
 
+
     def predict(self, X):
-        if self._sparse == False:
+        if self.model is None:
+            print("Please train the model first or load model from file!")
+            raise ValueError
+        sparse = sp.isspmatrix(X)
+        if sparse is False:
             X = sp.csr_matrix(X)
         X.data = np.asarray(X.data, dtype=np.float64, order='C')
         X.sort_indices()
@@ -130,10 +124,72 @@ class TGBMModel(ThundergbmBase, ThundergbmRegressorBase):
         indptr = (c_int * X.indptr.size)()
         indptr[:] = X.indptr
         self.predict_label_ptr = (c_float * X.shape[0])()
-        thundergbm.sparse_predict_scikit(X.shape[0], data, indptr, indices,
-                                         self.in_model_name.encode('utf-8'),  self.predict_label_ptr, 
-										 byref(self.model), self.n_trees, self.tree_per_iter)
-
+        if self.group_label is not None:
+            group_label = (c_float * len(self.group_label))()
+            group_label[:] = self.group_label
+        else:
+            group_label = None
+        thundergbm.sparse_predict_scikit(
+            X.shape[0],
+            data,
+            indptr,
+            indices,
+            self.predict_label_ptr,
+            byref(self.model),
+            self.n_trees,
+            self.tree_per_iter,
+            self.objective.encode('utf-8'),
+            self.num_class,
+            c_float(self.learning_rate),
+            group_label
+        )
         predict_label = [self.predict_label_ptr[index] for index in range(0, X.shape[0])]
         self.predict_label = np.asarray(predict_label)
         return self.predict_label
+
+
+    def save_model(self, model_path):
+        if self.model is None:
+            print("Please train the model first or load model from file!")
+            raise ValueError
+        if self.group_label is not None:
+            group_label = (c_float * len(self.group_label))()
+            group_label[:] = self.group_label
+        thundergbm.save(
+            model_path.encode('utf-8'),
+            self.objective.encode('utf-8'),
+            c_float(self.learning_rate),
+            self.num_class,
+            self.n_trees,
+            self.tree_per_iter,
+            byref(self.model),
+            group_label
+        )
+
+
+    def load_model(self, model_path):
+        self.model = (c_long * 1)()
+        learning_rate = (c_float * 1)()
+        n_class = (c_int * 1)()
+        n_trees = (c_int * 1)()
+        tree_per_iter = (c_int * 1)()
+        thundergbm.load_model(
+            model_path.encode('utf-8'),
+            learning_rate,
+            n_class,
+            n_trees,
+            tree_per_iter,
+            byref(self.model)
+        )
+        if self.model is None:
+            raise ValueError("Model is None.")
+        self.learning_rate = learning_rate[0]
+        self.num_class = n_class[0]
+        self.n_trees = n_trees[0]
+        self.tree_per_iter = tree_per_iter[0]
+        group_label = (c_float * self.num_class)()
+        thundergbm.load_config(
+            model_path.encode('utf-8'),
+            group_label
+        )
+        self.group_label = [group_label[idx] for idx in range(self.num_class)]

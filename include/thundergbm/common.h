@@ -104,8 +104,6 @@ struct GBMParam {
 
     int n_device;
 
-    std::string out_model_name;
-    std::string in_model_name;
     std::string tree_method;
 };
 #endif //THUNDERGBM_COMMON_H

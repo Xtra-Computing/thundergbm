@@ -24,7 +24,10 @@ int main(int argc, char **argv) {
     }
 
     DataSet dataset;
+    vector<vector<Tree>> boosted_model;
+
     dataset.load_from_file(model_param.path, model_param);
     TreeTrainer trainer;
-    trainer.train(model_param, dataset);
+    boosted_model = trainer.train(model_param, dataset);
+    parser.save_model("tgbm.model", model_param, boosted_model, dataset);
 }

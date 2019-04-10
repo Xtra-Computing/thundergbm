@@ -29,8 +29,6 @@ protected:
         param.objective = "reg:linear";
         param.num_class = 1;
         param.path = "../dataset/test_dataset.txt";
-        param.out_model_name = "tgbm.model";
-        param.in_model_name = "tgbm.model";
         param.tree_method = "auto";
         if (!param.verbose) {
             el::Loggers::reconfigureAllLoggers(el::Level::Debug, el::ConfigurationType::Enabled, "false");

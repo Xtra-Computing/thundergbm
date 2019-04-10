@@ -36,8 +36,8 @@ Softmax::get_gradient(const SyncArray<float_type> &y, const SyncArray<float_type
 
 void Softmax::configure(GBMParam param, const DataSet &dataset) {
     num_class = param.num_class;
-    CHECK_EQ(dataset.label.size(), num_class)<<dataset.label.size() << "!=" << num_class;
     label.resize(num_class);
+    CHECK_EQ(dataset.label.size(), num_class)<<dataset.label.size() << "!=" << num_class;
     label.copy_from(dataset.label.data(), num_class);
 }
 
