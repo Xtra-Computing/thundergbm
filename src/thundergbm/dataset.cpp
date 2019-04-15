@@ -41,6 +41,7 @@ void DataSet::load_from_file(string file_name, GBMParam &param) {
         vector<vector<float_type>> val_(nthread);
 
         vector<int> max_feature(nthread, 0);
+        bool is_zeor_base = false;
 
 #pragma omp parallel num_threads(nthread)
         {
@@ -87,6 +88,10 @@ void DataSet::load_from_file(string file_name, GBMParam &param) {
                             << "read error, using [index]:[value] format";
 //TODO one-based and zero-based
                         col_idx_[tid].push_back(i - 1);//one based
+                        if(i - 1 == -1){
+                            is_zeor_base = true;
+                        }
+                        CHECK_GE(i - 1, -1) << "dataset format error";
                         val_[tid].push_back(v);
                         if (i > max_feature[tid]) {
                             max_feature[tid] = i;
@@ -105,6 +110,11 @@ void DataSet::load_from_file(string file_name, GBMParam &param) {
         }
         for (int tid = 0; tid < nthread; tid++) {
             csr_val.insert(csr_val.end(), val_[tid].begin(), val_[tid].end());
+            if(is_zeor_base){
+                for (int i = 0; i < col_idx_[tid].size(); ++i) {
+                    col_idx_[tid][i]++;
+                }
+            }
             csr_col_idx.insert(csr_col_idx.end(), col_idx_[tid].begin(), col_idx_[tid].end());
             for (int row_len : row_len_[tid]) {
                 csr_row_ptr.push_back(csr_row_ptr.back() + row_len);

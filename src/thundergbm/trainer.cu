@@ -46,11 +46,6 @@ vector<vector<Tree>> TreeTrainer::train(GBMParam &param, const DataSet &dataset)
     auto stop = timer.now();
     std::chrono::duration<float> training_time = stop - start;
     LOG(INFO) << "training time = " << training_time.count();
-
-//    //TODO: move to model_loader
-//    //save model
-//    Parser parser;
-//    parser.save_model(param, boosted_model);
 	SyncMem::clear_cache();
 	return boosted_model;
 }
