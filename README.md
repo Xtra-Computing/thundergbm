@@ -34,13 +34,17 @@ GBDTs and Random Forests are often used for creating state-of-the-art data scien
     * Visual C++ for Windows | CUDA 10
 
 ### Quick Install
+Download the Python wheel file (for Python3 or above)
 * For Linux
-```bash
-pip3 install thundergbm
-```
+
+    * [CUDA 9.0 - linux_x86_64](https://www.comp.nus.edu.sg/~wenzy/pip-pack/gbm/thundergbm-cu90-0.2.0-py3-none-linux_x86_64.whl)
 * For Windows (64bit)
+
+    * [CUDA 10.0 - Win64](https://www.comp.nus.edu.sg/~wenzy/pip-pack/gbm/thundergbm-cu10-0.2.0-py3-none-win_amd64.whl)
+
+Install the Python wheel file
 ```bash
-pip install thundergbm_win
+pip install thundergbm-cu90-0.2.0-py3-none-linux_x86_64.whl
 ```
 * Currently only support python3
 * After you have installed thundergbm, you can import it:
