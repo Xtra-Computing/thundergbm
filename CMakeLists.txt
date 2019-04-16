@@ -33,7 +33,9 @@ endif ()
 add_definitions("-DELPP_FEATURE_PERFORMANCE_TRACKING")
 add_definitions("-DELPP_THREAD_SAFE")
 add_definitions("-DELPP_STL_LOGGING")
-
+if (!MSVC)
+    add_definitions("-DELPP_NO_DEFAULT_LOG_FILE")
+endif ()
 # includes
 set(COMMON_INCLUDES ${PROJECT_SOURCE_DIR}/include ${CMAKE_CURRENT_BINARY_DIR} ${PROJECT_SOURCE_DIR}/cub)
 include_directories(${COMMON_INCLUDES})
