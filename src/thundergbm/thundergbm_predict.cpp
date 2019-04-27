@@ -19,6 +19,14 @@ int main(int argc, char **argv) {
     Parser parser;
     parser.parse_param(model_param, argc, argv);
 
+    if (!model_param.verbose) {
+        el::Loggers::reconfigureAllLoggers(el::Level::Debug, el::ConfigurationType::Enabled, "false");
+        el::Loggers::reconfigureAllLoggers(el::Level::Trace, el::ConfigurationType::Enabled, "false");
+    }
+    if (!model_param.profiling) {
+        el::Loggers::reconfigureAllLoggers(el::ConfigurationType::PerformanceTracking, "false");
+    }
+
     //load data set
     DataSet dataSet;
     //load model

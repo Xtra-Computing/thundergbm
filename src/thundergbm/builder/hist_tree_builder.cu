@@ -30,7 +30,7 @@ void HistTreeBuilder::get_bin_ids() {
         {
             auto lowerBound = [=]__device__(const float_type *search_begin, const float_type *search_end, float_type val) {
                 const float_type *left = search_begin;
-                const float_type *right = search_end;
+                const float_type *right = search_end - 1;
 
                 while (left != right) {
                     const float_type *mid = left + (right - left) / 2;

@@ -39,8 +39,8 @@ inline void device_loop(int len, L lambda) {
     }
 }
 
-template<int NUM_BLOCK = 32 * 56, int BLOCK_SIZE = 256, typename L>
-inline void anonymous_kernel(L lambda, size_t smem_size = 0) {
+template<typename L>
+inline void anonymous_kernel(L lambda, size_t smem_size = 0, int NUM_BLOCK = 32 * 56, int BLOCK_SIZE = 256) {
     anonymous_kernel_k<< < NUM_BLOCK, BLOCK_SIZE, smem_size >> > (lambda);
     cudaDeviceSynchronize();
     CUDA_CHECK(cudaPeekAtLastError());

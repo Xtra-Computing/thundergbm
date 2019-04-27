@@ -7,8 +7,9 @@
 #include "thundergbm/util/device_lambda.cuh"
 #include "thundergbm/objective/objective_function.h"
 
+
 vector<float_type> Predictor::predict(const GBMParam &model_param, const vector<vector<Tree>> &boosted_model,
-                                      const DataSet &dataSet){
+                                      const DataSet &dataSet) {
     SyncArray<float_type> y_predict;
     predict_raw(model_param, boosted_model, dataSet, y_predict);
     //convert the aggregated values to labels, probabilities or ranking scores.
@@ -27,14 +28,15 @@ vector<float_type> Predictor::predict(const GBMParam &model_param, const vector<
     memcpy(y_pred_vec.data(), y_predict.host_data(), sizeof(float_type) * y_predict.size());
     return y_pred_vec;
 }
+
 void Predictor::predict_raw(const GBMParam &model_param, const vector<vector<Tree>> &boosted_model,
-        const DataSet &dataSet, SyncArray<float_type> &y_predict){
+                            const DataSet &dataSet, SyncArray<float_type> &y_predict) {
+    TIMED_SCOPE(timerObj, "predict");
     int n_instances = dataSet.n_instances();
-    int n_feature = dataSet.n_features();
+    int n_features = dataSet.n_features();
 
     //the whole model to an array
     int num_iter = boosted_model.size();
-//    int num_tree = boosted_model[0].size();
     int num_class = boosted_model.front().size();
     int num_node = boosted_model[0][0].nodes.size();
     int total_num_node = num_iter * num_class * num_node;
@@ -43,70 +45,110 @@ void Predictor::predict_raw(const GBMParam &model_param, const vector<vector<Tre
     SyncArray<Tree::TreeNode> model(total_num_node);
     auto model_data = model.host_data();
     int tree_cnt = 0;
-    for(auto &vtree:boosted_model) {
-        for(auto &t:vtree) {
+    for (auto &vtree:boosted_model) {
+        for (auto &t:vtree) {
             memcpy(model_data + num_node * tree_cnt, t.nodes.host_data(), sizeof(Tree::TreeNode) * num_node);
             tree_cnt++;
         }
     }
 
-    int max_num_val = 1024 * 1024 * 1024;//use 4GB memory
-    int num_batch = (n_instances * n_feature + max_num_val - 1) / max_num_val;
-    int ave_batch_size = n_instances / num_batch;
-    for(int batch_id = 0; batch_id < num_batch; batch_id++) {
-        //fill dense
-        int row_start_pos = dataSet.csr_row_ptr[batch_id * ave_batch_size];
-        int row_end_pos;
-        int num_ins_batch = ave_batch_size;
-        if(batch_id == num_batch - 1){//last batch
-            row_end_pos = dataSet.csr_val.size();
-            num_ins_batch = n_instances - ave_batch_size * (num_batch - 1);
-        }
-        else {
-            row_end_pos = dataSet.csr_row_ptr[(batch_id + 1) * ave_batch_size];
-        }
-        int batch_num_val = row_end_pos - row_start_pos;
-        SyncArray<float_type> batch_ins(n_feature * num_ins_batch);
-        SyncArray<int> batch_col_idx(batch_num_val);
-        SyncArray<float_type> batch_val(batch_num_val);
-        SyncArray<int> batch_row_ptr(num_ins_batch + 1);
-        batch_col_idx.copy_from(dataSet.csr_col_idx.data() + row_start_pos, batch_num_val);
-        batch_val.copy_from(dataSet.csr_val.data() + row_start_pos, batch_num_val);
-        batch_row_ptr.copy_from(dataSet.csr_row_ptr.data() + batch_id * ave_batch_size, num_ins_batch + 1);
-        auto ins_data = batch_ins.device_data();
-        auto col_idx_data = batch_col_idx.device_data();
-        auto val_data = batch_val.device_data();
-        auto row_ptr_data = batch_row_ptr.device_data();
-        //a GPU block for an instance
-        device_loop_2d(num_ins_batch, row_ptr_data, [=] __device__(int iid, int vid) {
-            int fid = col_idx_data[vid - row_start_pos];
-            ins_data[iid * n_feature + fid] = val_data[vid - row_start_pos];
-        });
-        cudaDeviceSynchronize();
+    PERFORMANCE_CHECKPOINT_WITH_ID(timerObj, "init trees");
+    //copy instances from to GPU
+    SyncArray<int> csr_col_idx(dataSet.csr_col_idx.size());
+    SyncArray<float_type> csr_val(dataSet.csr_val.size());
+    SyncArray<int> csr_row_ptr(dataSet.csr_row_ptr.size());
+    csr_col_idx.copy_from(dataSet.csr_col_idx.data(), dataSet.csr_col_idx.size());
+    csr_val.copy_from(dataSet.csr_val.data(), dataSet.csr_val.size());
+    csr_row_ptr.copy_from(dataSet.csr_row_ptr.data(), dataSet.csr_row_ptr.size());
 
-        //prediction
-        auto model_device_data = model.device_data();
-        auto ins_device_data = batch_ins.device_data();
-        auto predict_data = y_predict.device_data();
-        auto lr = model_param.learning_rate;
-        device_loop(num_ins_batch, [=]__device__(int i) {
-            //get next child
-            auto get_next_child = [&](Tree::TreeNode node, float_type feaValue){
-                if(feaValue == 0){//this is a missing value
-                    if (node.default_right)
-                        return node.rch_index;
-                    else
-                        return node.lch_index;
-                }
+    //do prediction
+    auto model_device_data = model.device_data();
+    auto predict_data = y_predict.device_data();
+    auto csr_col_idx_data = csr_col_idx.device_data();
+    auto csr_val_data = csr_val.device_data();
+    auto csr_row_ptr_data = csr_row_ptr.device_data();
+    auto lr = model_param.learning_rate;
+    PERFORMANCE_CHECKPOINT_WITH_ID(timerObj, "copy data");
+    cudaDeviceSynchronize();
 
-                if(feaValue < node.split_value)
-                    return node.lch_index;
-                else
-                    return node.rch_index;
+    //predict BLOCK_SIZE instances in a block, 1 thread for 1 instance
+    int BLOCK_SIZE = 128;
+    //determine whether we can use shared memory
+    int smem_size = n_features * BLOCK_SIZE * sizeof(float_type);
+    int NUM_BLOCK = (n_instances - 1) / BLOCK_SIZE + 1;
+
+    if (smem_size <= 48 * 1024) {//48KB shared memory for P100
+        LOG(INFO) << "use shared memory to predict";
+        //use shared memory to store dense instances
+        anonymous_kernel([=]__device__() {
+            auto get_next_child = [&](Tree::TreeNode node, float_type feaValue) {
+                return feaValue < node.split_value ? node.lch_index : node.rch_index;
             };
+            extern __shared__ float_type dense_data[];
+            int iid = blockIdx.x * blockDim.x + threadIdx.x;
+            float_type *thread_ins = dense_data + threadIdx.x * n_features;
+            for (int i = 0; i < n_features; ++i) {
+                thread_ins[i] = INFINITY;//mark as missing;
+            }
+            __syncthreads();
+            //init dense data
+            int *col_idx = csr_col_idx_data + csr_row_ptr_data[iid];
+            float_type *row_val = csr_val_data + csr_row_ptr_data[iid];
+            int row_len = csr_row_ptr_data[iid + 1] - csr_row_ptr_data[iid];
+            for (int i = 0; i < row_len; ++i) {
+                thread_ins[col_idx[i]] = row_val[i];
+            }
+            __syncthreads();
+            double sum = 0;
+            for (int iter = 0; iter < num_iter; iter++) {
+                const Tree::TreeNode *node_data =
+                        model_device_data + iter * num_node;
+                Tree::TreeNode curNode = node_data[0];
+                int cur_nid = 0; //node id
+                while (!curNode.is_leaf) {
+                    int fid = curNode.split_feature_id;
+                    float_type fval = thread_ins[fid];
+                    if (fval < INFINITY)
+                        cur_nid = get_next_child(curNode, fval);
+                    else if (curNode.default_right)
+                        cur_nid = curNode.rch_index;
+                    else
+                        cur_nid = curNode.lch_index;
+                    curNode = node_data[cur_nid];
+                }
+                sum += lr * node_data[cur_nid].base_weight;
+            }//end all tree prediction
+            predict_data[iid] += sum;
 
-            auto ins = ins_device_data + i * n_feature;
-            int iid = ave_batch_size * batch_id + i;
+        }, smem_size, NUM_BLOCK, BLOCK_SIZE);
+    } else {
+        //use sparse format and binary search
+        device_loop(n_instances, [=]__device__(int iid) {
+            auto get_next_child = [&](Tree::TreeNode node, float_type feaValue) {
+                return feaValue < node.split_value ? node.lch_index : node.rch_index;
+            };
+            auto get_val = [&](const int *row_idx, const float_type *row_val, int row_len, int idx,
+                               bool *is_missing) -> float_type {
+                //binary search to get feature value
+                const int *left = row_idx;
+                const int *right = row_idx + row_len;
+
+                while (left != right) {
+                    const int *mid = left + (right - left) / 2;
+                    if (*mid == idx) {
+                        *is_missing = false;
+                        return row_val[mid - row_idx];
+                    }
+                    if (*mid > idx)
+                        right = mid;
+                    else left = mid + 1;
+                }
+                *is_missing = true;
+                return 0;
+            };
+            int *col_idx = csr_col_idx_data + csr_row_ptr_data[iid];
+            float_type *row_val = csr_val_data + csr_row_ptr_data[iid];
+            int row_len = csr_row_ptr_data[iid + 1] - csr_row_ptr_data[iid];
             for (int iter = 0; iter < num_iter; iter++) {
                 for (int t = 0; t < num_class; t++) {
                     auto predict_data_class = predict_data + t * n_instances;
@@ -115,7 +157,14 @@ void Predictor::predict_raw(const GBMParam &model_param, const vector<vector<Tre
                     int cur_nid = 0; //node id
                     while (!curNode.is_leaf) {
                         int fid = curNode.split_feature_id;
-                        cur_nid = get_next_child(curNode, ins[fid]);
+                        bool is_missing;
+                        float_type fval = get_val(col_idx, row_val, row_len, fid, &is_missing);
+                        if (!is_missing)
+                            cur_nid = get_next_child(curNode, fval);
+                        else if (curNode.default_right)
+                            cur_nid = curNode.rch_index;
+                        else
+                            cur_nid = curNode.lch_index;
                         curNode = node_data[cur_nid];
                     }
                     predict_data_class[iid] += lr * node_data[cur_nid].base_weight;
