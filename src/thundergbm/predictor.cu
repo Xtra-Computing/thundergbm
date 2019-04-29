@@ -74,10 +74,10 @@ void Predictor::predict_raw(const GBMParam &model_param, const vector<vector<Tre
     //predict BLOCK_SIZE instances in a block, 1 thread for 1 instance
     int BLOCK_SIZE = 128;
     //determine whether we can use shared memory
-    int smem_size = n_features * BLOCK_SIZE * sizeof(float_type);
+    size_t smem_size = n_features * BLOCK_SIZE * sizeof(float_type);
     int NUM_BLOCK = (n_instances - 1) / BLOCK_SIZE + 1;
 
-    if (smem_size <= 48 * 1024) {//48KB shared memory for P100
+    if (smem_size <= 48 * 1024L) {//48KB shared memory for P100
         LOG(INFO) << "use shared memory to predict";
         //use shared memory to store dense instances
         anonymous_kernel([=]__device__() {
