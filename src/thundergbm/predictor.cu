@@ -99,27 +99,28 @@ void Predictor::predict_raw(const GBMParam &model_param, const vector<vector<Tre
                 thread_ins[col_idx[i]] = row_val[i];
             }
             __syncthreads();
-            double sum = 0;
-            for (int iter = 0; iter < num_iter; iter++) {
-                const Tree::TreeNode *node_data =
-                        model_device_data + iter * num_node;
-                Tree::TreeNode curNode = node_data[0];
-                int cur_nid = 0; //node id
-                while (!curNode.is_leaf) {
-                    int fid = curNode.split_feature_id;
-                    float_type fval = thread_ins[fid];
-                    if (fval < INFINITY)
-                        cur_nid = get_next_child(curNode, fval);
-                    else if (curNode.default_right)
-                        cur_nid = curNode.rch_index;
-                    else
-                        cur_nid = curNode.lch_index;
-                    curNode = node_data[cur_nid];
+            for (int t = 0; t < num_class; t++) {
+                double sum = 0;
+                auto predict_data_class = predict_data + t * n_instances;
+                for (int iter = 0; iter < num_iter; iter++) {
+                    const Tree::TreeNode *node_data = model_device_data + iter * num_class * num_node + t * num_node;
+                    Tree::TreeNode curNode = node_data[0];
+                    int cur_nid = 0; //node id
+                    while (!curNode.is_leaf) {
+                        int fid = curNode.split_feature_id;
+                        float_type fval = thread_ins[fid];
+                        if (fval < INFINITY)
+                            cur_nid = get_next_child(curNode, fval);
+                        else if (curNode.default_right)
+                            cur_nid = curNode.rch_index;
+                        else
+                            cur_nid = curNode.lch_index;
+                        curNode = node_data[cur_nid];
+                    }
+                    sum += lr * node_data[cur_nid].base_weight;
                 }
-                sum += lr * node_data[cur_nid].base_weight;
-            }//end all tree prediction
-            predict_data[iid] += sum;
-
+                predict_data_class[iid] += sum;
+            }
         }, smem_size, NUM_BLOCK, BLOCK_SIZE);
     } else {
         //use sparse format and binary search
@@ -149,9 +150,10 @@ void Predictor::predict_raw(const GBMParam &model_param, const vector<vector<Tre
             int *col_idx = csr_col_idx_data + csr_row_ptr_data[iid];
             float_type *row_val = csr_val_data + csr_row_ptr_data[iid];
             int row_len = csr_row_ptr_data[iid + 1] - csr_row_ptr_data[iid];
-            for (int iter = 0; iter < num_iter; iter++) {
-                for (int t = 0; t < num_class; t++) {
-                    auto predict_data_class = predict_data + t * n_instances;
+            for (int t = 0; t < num_class; t++) {
+                auto predict_data_class = predict_data + t * n_instances;
+                float_type sum = 0;
+                for (int iter = 0; iter < num_iter; iter++) {
                     const Tree::TreeNode *node_data = model_device_data + iter * num_class * num_node + t * num_node;
                     Tree::TreeNode curNode = node_data[0];
                     int cur_nid = 0; //node id
@@ -167,8 +169,9 @@ void Predictor::predict_raw(const GBMParam &model_param, const vector<vector<Tre
                             cur_nid = curNode.lch_index;
                         curNode = node_data[cur_nid];
                     }
-                    predict_data_class[iid] += lr * node_data[cur_nid].base_weight;
+                    sum += lr * node_data[cur_nid].base_weight;
                 }
+                predict_data_class[iid] += sum;
             }//end all tree prediction
         });
     }
