@@ -9,7 +9,7 @@ cd python && python setup.py install
 ```
 Or you can install via pip
 ```bash
-pip3 install -U thundergbm
+pip3 install thundergbm
 ```
 * After you have successfully installed ThunderGBM, you can import TGBMModel:
 ```python

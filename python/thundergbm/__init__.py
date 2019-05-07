@@ -9,4 +9,4 @@
  * Description :
 """
 name = "thundergbm"
-from .thundergbm_scikit import *
+from .thundergbm import *
