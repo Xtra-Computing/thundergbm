@@ -1,6 +1,7 @@
 [![Documentation Status](https://readthedocs.org/projects/thundergbm/badge/?version=latest)](https://thundergbm.readthedocs.org)
 [![GitHub license](http://dmlc.github.io/img/apache2.svg)](./LICENSE)
 [![GitHub issues](https://img.shields.io/github/issues/xtra-computing/thundergbm.svg)](https://github.com/xtra-computing/thundergbm/issues)
+[![PyPI version](https://badge.fury.io/py/thundergbm.svg)](https://badge.fury.io/py/thundergbm)
 
 <div align="center">
 <img src="https://github.com/zeyiwen/thundergbm/blob/master/docs/_static/tgbm-logo.png" width="240" height="200" align=left/>
