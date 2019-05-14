@@ -45,7 +45,7 @@ GBDTs and Random Forests are often used for creating state-of-the-art data scien
 
     - Install the Python wheel file
     
-        * `pip install thundergbm-cu90-0.2.0-py3-none-linux_x86_64.whl`
+        * `pip install thundergbm-cu10-0.2.0-py3-none-win_amd64.whl`
 * Currently only support python3
 * After you have installed thundergbm, you can import it:
 ```python
