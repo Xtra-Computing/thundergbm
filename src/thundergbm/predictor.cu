@@ -92,13 +92,18 @@ void Predictor::predict_raw(const GBMParam &model_param, const vector<vector<Tre
             }
             __syncthreads();
             //init dense data
-            int *col_idx = csr_col_idx_data + csr_row_ptr_data[iid];
-            float_type *row_val = csr_val_data + csr_row_ptr_data[iid];
-            int row_len = csr_row_ptr_data[iid + 1] - csr_row_ptr_data[iid];
-            for (int i = 0; i < row_len; ++i) {
-                thread_ins[col_idx[i]] = row_val[i];
+            if (iid < n_instances) { //prevent out of bounds
+                int *col_idx = csr_col_idx_data + csr_row_ptr_data[iid];
+                float_type *row_val = csr_val_data + csr_row_ptr_data[iid];
+                int row_len = csr_row_ptr_data[iid + 1] - csr_row_ptr_data[iid];
+                for (int i = 0; i < row_len; ++i) {
+                    thread_ins[col_idx[i]] = row_val[i];
+                }
             }
             __syncthreads();
+            if(iid >= n_instances){ //prevent out of bounds
+                return;
+            }
             for (int t = 0; t < num_class; t++) {
                 double sum = 0;
                 auto predict_data_class = predict_data + t * n_instances;
