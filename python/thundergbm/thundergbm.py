@@ -40,13 +40,13 @@ OBJECTIVE_TYPE = ['reg:linear', 'reg:logistic', 'multi:softprob', 'multi:softmax
 
 
 class TGBMModel(ThundergbmBase, ThundergbmRegressorBase):
-    def __init__(self, depth=6, num_round=40,
+    def __init__(self, depth=6, n_trees=40,
                  n_device=1, min_child_weight=1.0, lambda_tgbm=1.0, gamma=1.0, max_num_bin=255,
                  verbose=0, column_sampling_rate=1.0, bagging=0,
                  n_parallel_trees=1, learning_rate=0.9, objective="reg:linear",
                  num_class=1, tree_method="auto"):
         self.depth = depth
-        self.n_trees = num_round
+        self.n_trees = n_trees
         self.n_device = n_device
         self.min_child_weight = min_child_weight
         self.lambda_tgbm = lambda_tgbm
