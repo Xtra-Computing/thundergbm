@@ -59,3 +59,30 @@ There are two key steps to use ThunderGBM for ranking.
 * Second, you need to have a file called ``[train_file_name].group`` to specify the number of instances in each query.
 
 The remaining part is the same as classification and regression. Please refer to [Parameters](parameters.md) for more information about setting the parameters.
+
+#### Build python wheel file
+You have to ensure the repository is identical to the latest one.
+* Clone ThunderGBM repository
+```bash
+git clone https://github.com/zeyiwen/thundergbm.git
+cd thundergbm
+#under the directory of thundergbm
+git submodule init cub && git submodule update
+```
+* Build the binary
+```base
+mkdir build && cd build && cmake .. && make -j
+```
+* Build the python wheel file
+    - change directory to python
+    `cd ../python`
+    - update the version you are going to release in [setup.py](https://github.com/Xtra-Computing/thundergbm/blob/c89d6da6008f945c09aae521c95cfe5b8bdd8db5/python/setup.py#L20)
+```bash
+python3 setup.py bdist_wheel
+```
+* Upload the wheel file to [Pypi.org](https://pypi.org)
+```sybase
+twine upload dist/* --verbose
+```
+* [Recommended] Draw a new release on [Release](https://github.com/Xtra-Computing/thundergbm/releases)
+    * state the bug fixed or new functions.
