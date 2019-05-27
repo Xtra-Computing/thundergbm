@@ -39,12 +39,12 @@ else:
 OBJECTIVE_TYPE = ['reg:linear', 'reg:logistic', 'multi:softprob', 'multi:softmax', 'rank:pairwise', 'rank:ndcg']
 
 
-class TGBMModel(ThundergbmBase, ThundergbmRegressorBase):
-    def __init__(self, depth=6, n_trees=40,
-                 n_device=1, min_child_weight=1.0, lambda_tgbm=1.0, gamma=1.0, max_num_bin=255,
-                 verbose=0, column_sampling_rate=1.0, bagging=0,
-                 n_parallel_trees=1, learning_rate=0.9, objective="reg:linear",
-                 num_class=1, tree_method="auto"):
+class TGBMModel(ThundergbmBase):
+    def __init__(self, depth, n_trees,
+                 n_device, min_child_weight, lambda_tgbm, gamma, max_num_bin,
+                 verbose, column_sampling_rate, bagging,
+                 n_parallel_trees, learning_rate, objective,
+                 num_class, tree_method):
         self.depth = depth
         self.n_trees = n_trees
         self.n_device = n_device
@@ -193,3 +193,31 @@ class TGBMModel(ThundergbmBase, ThundergbmRegressorBase):
             group_label
         )
         self.group_label = [group_label[idx] for idx in range(self.num_class)]
+
+
+class TGBMClassifier(TGBMModel, ThundergbmClassifierBase):
+    def __init__(self, depth=6, n_trees=40,
+                 n_device=1, min_child_weight=1.0, lambda_tgbm=1.0, gamma=1.0, max_num_bin=255,
+                 verbose=0, column_sampling_rate=1.0, bagging=0,
+                 n_parallel_trees=1, learning_rate=0.9, objective="multi:softmax",
+                 num_class=1, tree_method="auto"):
+        super().__init__(depth=depth, n_trees=n_trees,
+                         n_device=n_device, min_child_weight=min_child_weight, lambda_tgbm=lambda_tgbm, gamma=gamma,
+                         max_num_bin=max_num_bin,
+                         verbose=verbose, column_sampling_rate=column_sampling_rate, bagging=bagging,
+                         n_parallel_trees=n_parallel_trees, learning_rate=learning_rate, objective=objective,
+                         num_class=num_class, tree_method=tree_method)
+
+
+class TGBMRegressor(TGBMModel, ThundergbmRegressorBase):
+    def __init__(self, depth=6, n_trees=40,
+                 n_device=1, min_child_weight=1.0, lambda_tgbm=1.0, gamma=1.0, max_num_bin=255,
+                 verbose=0, column_sampling_rate=1.0, bagging=0,
+                 n_parallel_trees=1, learning_rate=0.9, objective="reg:linear",
+                 num_class=1, tree_method="auto"):
+        super().__init__(depth=depth, n_trees=n_trees,
+                         n_device=n_device, min_child_weight=min_child_weight, lambda_tgbm=lambda_tgbm, gamma=gamma,
+                         max_num_bin=max_num_bin,
+                         verbose=verbose, column_sampling_rate=column_sampling_rate, bagging=bagging,
+                         n_parallel_trees=n_parallel_trees, learning_rate=learning_rate, objective=objective,
+                         num_class=num_class, tree_method=tree_method)
