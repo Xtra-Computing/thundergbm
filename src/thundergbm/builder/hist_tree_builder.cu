@@ -440,7 +440,7 @@ void HistTreeBuilder::init(const DataSet &dataset, const GBMParam &param) {
     vector<std::unique_ptr<SparseColumns>> v_columns(param.n_device);
     for (int i = 0; i < param.n_device; ++i) {
         v_columns[i].reset(&shards[i].columns);
-        shards[i].ignored_set = SyncArray<bool>(n_instances);
+        shards[i].ignored_set = SyncArray<bool>(dataset.n_features());
     }
     SparseColumns columns;
     columns.from_dataset(dataset);
