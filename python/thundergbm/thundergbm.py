@@ -1,10 +1,6 @@
 from sklearn.base import BaseEstimator
 from sklearn.base import RegressorMixin, ClassifierMixin
 
-ThundergbmBase = BaseEstimator
-ThundergbmRegressorBase = RegressorMixin
-ThundergbmClassifierBase = ClassifierMixin
-
 import numpy as np
 import scipy.sparse as sp
 
@@ -13,7 +9,6 @@ from sklearn.utils import check_X_y
 from ctypes import *
 from os import path
 from sys import platform
-
 dirname = path.dirname(path.abspath(__file__))
 
 if platform == "linux" or platform == "linux2":
@@ -37,6 +32,9 @@ else:
     raise RuntimeError("Please build the library first!")
 
 OBJECTIVE_TYPE = ['reg:linear', 'reg:logistic', 'multi:softprob', 'multi:softmax', 'rank:pairwise', 'rank:ndcg']
+ThundergbmBase = BaseEstimator
+ThundergbmRegressorBase = RegressorMixin
+ThundergbmClassifierBase = ClassifierMixin
 
 
 class TGBMModel(ThundergbmBase):
@@ -77,24 +75,18 @@ class TGBMModel(ThundergbmBase):
         return self
 
     def _sparse_fit(self, X, y):
-        X.data = np.asarray(X.data, dtype=np.float64, order='C')
+        X.data = np.asarray(X.data, dtype=np.float32, order='C')
         X.sort_indices()
-
-        data = (c_float * X.data.size)()
-        data[:] = X.data
-        indices = (c_int * X.indices.size)()
-        indices[:] = X.indices
-        indptr = (c_int * X.indptr.size)()
-        indptr[:] = X.indptr
-        label = (c_float * y.size)()
-        label[:] = y
-        # self.group_label
+        data = X.data.ctypes.data_as(POINTER(c_float))
+        indices = X.indices.ctypes.data_as(POINTER(c_int32))
+        indptr = X.indptr.ctypes.data_as(POINTER(c_int32))
+        y = np.asarray(y, dtype=np.float32, order='C')
+        label = y.ctypes.data_as(POINTER(c_float))
         group_label = (c_float * len(set(y)))()
         n_class = (c_int * 1)()
         n_class[0] = self.num_class
         tree_per_iter_ptr = (c_int * 1)()
         self.model = (c_long * 1)()
-        # self._train_succeed = (c_int * 1)()
         thundergbm.sparse_train_scikit(X.shape[0], data, indptr, indices, label, self.depth, self.n_trees,
                                        self.n_device, c_float(self.min_child_weight), c_float(self.lambda_tgbm),
                                        c_float(self.gamma),
