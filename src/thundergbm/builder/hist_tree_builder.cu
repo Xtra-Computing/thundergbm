@@ -80,7 +80,7 @@ void HistTreeBuilder::find_split(int level, int device_id) {
     int nid_offset = static_cast<int>(pow(2, level) - 1);
     int n_column = columns.n_column;
     int n_partition = n_column * n_nodes_in_level;
-    int n_bins = cut.cut_points.size();
+    int n_bins = cut.cut_points_val.size();
     int n_max_nodes = 2 << param.depth;
     int n_max_splits = n_max_nodes * n_bins;
     int n_split = n_nodes_in_level * n_bins;
@@ -450,7 +450,7 @@ void HistTreeBuilder::init(const DataSet &dataset, const GBMParam &param) {
     last_hist = MSyncArray<GHPair>(param.n_device);
     DO_ON_MULTI_DEVICES(param.n_device, [&](int device_id){
         cut[device_id].get_cut_points2(shards[device_id].columns, param.max_num_bin, n_instances);
-        last_hist[device_id].resize((2 << param.depth) * cut[device_id].cut_points.size());
+        last_hist[device_id].resize((2 << param.depth) * cut[device_id].cut_points_val.size());
     });
     get_bin_ids();
     for (int i = 0; i < param.n_device; ++i) {
