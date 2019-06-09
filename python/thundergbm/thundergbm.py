@@ -9,6 +9,7 @@ from sklearn.utils import check_X_y
 from ctypes import *
 from os import path
 from sys import platform
+
 dirname = path.dirname(path.abspath(__file__))
 
 if platform == "linux" or platform == "linux2":
@@ -109,14 +110,11 @@ class TGBMModel(ThundergbmBase):
         sparse = sp.isspmatrix(X)
         if sparse is False:
             X = sp.csr_matrix(X)
-        X.data = np.asarray(X.data, dtype=np.float64, order='C')
+        X.data = np.asarray(X.data, dtype=np.float32, order='C')
         X.sort_indices()
-        data = (c_float * X.data.size)()
-        data[:] = X.data
-        indices = (c_int * X.indices.size)()
-        indices[:] = X.indices
-        indptr = (c_int * X.indptr.size)()
-        indptr[:] = X.indptr
+        data = X.data.ctypes.data_as(POINTER(c_float))
+        indices = X.indices.ctypes.data_as(POINTER(c_int32))
+        indptr = X.indptr.ctypes.data_as(POINTER(c_int32))
         self.predict_label_ptr = (c_float * X.shape[0])()
         if self.group_label is not None:
             group_label = (c_float * len(self.group_label))()
@@ -191,7 +189,7 @@ class TGBMClassifier(TGBMModel, ThundergbmClassifierBase):
     def __init__(self, depth=6, n_trees=40,
                  n_device=1, min_child_weight=1.0, lambda_tgbm=1.0, gamma=1.0, max_num_bin=255,
                  verbose=0, column_sampling_rate=1.0, bagging=0,
-                 n_parallel_trees=1, learning_rate=0.9, objective="multi:softmax",
+                 n_parallel_trees=1, learning_rate=1.0, objective="multi:softmax",
                  num_class=1, tree_method="auto"):
         super().__init__(depth=depth, n_trees=n_trees,
                          n_device=n_device, min_child_weight=min_child_weight, lambda_tgbm=lambda_tgbm, gamma=gamma,
@@ -205,7 +203,7 @@ class TGBMRegressor(TGBMModel, ThundergbmRegressorBase):
     def __init__(self, depth=6, n_trees=40,
                  n_device=1, min_child_weight=1.0, lambda_tgbm=1.0, gamma=1.0, max_num_bin=255,
                  verbose=0, column_sampling_rate=1.0, bagging=0,
-                 n_parallel_trees=1, learning_rate=0.9, objective="reg:linear",
+                 n_parallel_trees=1, learning_rate=1.0, objective="reg:linear",
                  num_class=1, tree_method="auto"):
         super().__init__(depth=depth, n_trees=n_trees,
                          n_device=n_device, min_child_weight=min_child_weight, lambda_tgbm=lambda_tgbm, gamma=gamma,
