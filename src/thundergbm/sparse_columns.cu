@@ -12,6 +12,7 @@
 void SparseColumns::from_dataset(const DataSet &dataset) {
     LOG(INFO) << "copy csr matrix to GPU";
     //three arrays (on GPU/CPU) for csr representation
+    this->column_offset = 0;
     SyncArray<float_type> val;
     SyncArray<int> col_idx;
     SyncArray<int> row_ptr;
