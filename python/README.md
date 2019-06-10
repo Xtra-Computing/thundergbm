@@ -14,8 +14,10 @@ pip3 install thundergbm
 * After you have successfully installed ThunderGBM, you can import TGBMModel:
 ```python
 from thundergbm import TGBMClassifier
+from sklearn import datasets
 clf = TGBMClassifier()
-clf.fit(x, y)
+X, y = datasets.load_digits()
+clf.fit(X, y)
 clf.save_model(model_path)
 ``` 
 * Load model
@@ -24,7 +26,7 @@ from thundergbm import TGBMClassifier
 clf = TGBMClassifier(objective="your-objective") 
 # You should specific objective here as in training stage
 clf.load_model(model_path)
-y_pred = clf.predict(x)
+y_pred = clf.predict(X)
 ```
 ## Prerequisites
 * numpy | scipy | sklearn
