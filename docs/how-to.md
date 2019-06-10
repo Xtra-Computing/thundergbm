@@ -60,7 +60,7 @@ There are two key steps to use ThunderGBM for ranking.
 
 The remaining part is the same as classification and regression. Please refer to [Parameters](parameters.md) for more information about setting the parameters.
 
-#### Build python wheel file
+## How to build the Python wheel file
 You have to ensure the repository is identical to the latest one.
 * Clone ThunderGBM repository
 ```bash
@@ -74,13 +74,15 @@ git submodule init cub && git submodule update
 mkdir build && cd build && cmake .. && make -j
 ```
 * Build the python wheel file
-    - change directory to python
-    `cd ../python`
+    - change directory to python by `cd ../python`
     - update the version you are going to release in [setup.py](https://github.com/Xtra-Computing/thundergbm/blob/c89d6da6008f945c09aae521c95cfe5b8bdd8db5/python/setup.py#L20)
+    - you may need to install the `wheel` dependency by ``pip3 install wheel``
 ```bash
 python3 setup.py bdist_wheel
 ```
 * Upload the wheel file to [Pypi.org](https://pypi.org)
+    - you may need to install the `twine` dependency by ``pip3 install twine``
+    - you need to use ``python3 -m twine upload dist/*`` if ``twine`` is not included in ``PATH``
 ```sybase
 twine upload dist/* --verbose
 ```
