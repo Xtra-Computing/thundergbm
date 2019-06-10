@@ -47,10 +47,11 @@ GBDTs and Random Forests are often used for creating state-of-the-art data scien
     
         * `pip install thundergbm-cu10-0.2.0-py3-none-win_amd64.whl`
 * Currently only support python3
-* After you have installed thundergbm, you can import it:
+* After you have installed thundergbm, you can import and use the classifier (similarly for regressor) by:
 ```python
-from thundergbm import TGBMModel
-clf = TGBMModel()
+from thundergbm import TGBClassifier
+clf = TGBClassifier()
+clf.fit(x, y)
 ```
 ### Build from source
 ```bash
@@ -72,6 +73,7 @@ mkdir build && cd build && cmake .. && make -j
 ```
 You will see `RMSE = 0.489562` after successful running.
 
+MacOS is not supported, as Apple has [suspended support](https://www.forbes.com/sites/marcochiappetta/2018/12/11/apple-turns-its-back-on-customers-and-nvidia-with-macos-mojave/#5b8d3c7137e9) for some NVIDIA GPUs. We will consider supporting MacOS based on our user community feedbacks. Please stay tuned.
 
 ## How to cite ThunderGBM
 If you use ThunderGBM in your paper, please cite our work ([preprint](https://www.comp.nus.edu.sg/~wenzy/papers/thundergbm.pdf)).

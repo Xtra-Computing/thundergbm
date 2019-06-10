@@ -13,18 +13,20 @@ pip3 install thundergbm
 ```
 * After you have successfully installed ThunderGBM, you can import TGBMModel:
 ```python
-from thundergbm import TGBMModel                                                                                                                                              
-clf = TGBMModel()                                                                                                                                                                    
-clf.fit(x, y)
+from thundergbm import TGBMClassifier
+from sklearn import datasets
+clf = TGBMClassifier()
+X, y = datasets.load_digits()
+clf.fit(X, y)
 clf.save_model(model_path)
 ``` 
 * Load model
 ```python
-from thundergbm import TGBMModel
-clf = TGBMModel(objective="your-objective") 
+from thundergbm import TGBMClassifier
+clf = TGBMClassifier(objective="your-objective") 
 # You should specific objective here as in training stage
 clf.load_model(model_path)
-y_pred = clf.predict(x)
+y_pred = clf.predict(X)
 ```
 ## Prerequisites
 * numpy | scipy | sklearn
@@ -39,7 +41,7 @@ from sklearn.metrics import mean_squared_error
 from math import sqrt
 
 x,y = load_svmlight_file("../dataset/test_dataset.txt")
-clf = TGBMModel()
+clf = TGBMRegressor()
 clf.fit(x,y)
 
 x2,y2=load_svmlight_file("../dataset/test_dataset.txt")
@@ -56,6 +58,8 @@ python tgbm_test.py
 
 ## ThunderGBM class
 *class TGBMModel(depth = 6, num_round = 40, n_device = 1, min_child_weight = 1.0, lambda_tgbm = 1.0, gamma = 1.0, max_num_bin = 255, verbose = 0, column_sampling_rate = 1.0, bagging = 0, n_parallel_trees = 1, learning_rate = 1.0, objective = "reg:linear", num_class = 1, path = "../dataset/test_dataset.txt"))*
+
+Please note that ``TGBMClassifier`` and ``TGBMRegressor`` are wrappers of ``TGBMModel``, and their constructors have the same parameters to ``TGBMModel``.
 
 ### Parametes
 Please refer to [parameter page](https://github.com/zeyiwen/thundergbm/blob/master/docs/parameters.md) in ThunderGBM documentations.
