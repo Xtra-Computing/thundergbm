@@ -73,6 +73,7 @@ mkdir build && cd build && cmake .. && make -j
 ```
 You will see `RMSE = 0.489562` after successful running.
 
+MacOS is not supported, as Apple has [suspended support](https://www.forbes.com/sites/marcochiappetta/2018/12/11/apple-turns-its-back-on-customers-and-nvidia-with-macos-mojave/#5b8d3c7137e9) for some NVIDIA GPUs. We will consider supporting MacOS based on our user community feedbacks. Please stay tuned.
 
 ## How to cite ThunderGBM
 If you use ThunderGBM in your paper, please cite our work ([preprint](https://www.comp.nus.edu.sg/~wenzy/papers/thundergbm.pdf)).
