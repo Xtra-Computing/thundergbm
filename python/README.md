@@ -16,7 +16,7 @@ pip3 install thundergbm
 from thundergbm import TGBMClassifier
 from sklearn import datasets
 clf = TGBMClassifier()
-X, y = datasets.load_digits()
+X, y = datasets.load_digits(return_X_y=True)
 clf.fit(X, y)
 clf.save_model(model_path)
 ``` 
