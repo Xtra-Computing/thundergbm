@@ -33,6 +33,7 @@ void SparseColumns::from_dataset(const DataSet &dataset) {
     cusparseSetMatType(descr, CUSPARSE_MATRIX_TYPE_GENERAL);
 
     n_column = dataset.n_features_;
+    n_row = dataset.n_instances();
     nnz = dataset.csr_val.size();
     csc_val.resize(nnz);
     csc_row_idx.resize(nnz);
