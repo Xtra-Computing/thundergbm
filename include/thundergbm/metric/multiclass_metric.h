@@ -30,5 +30,11 @@ public:
     string get_name() const override { return "multi-class accuracy"; }
 };
 
+class BinaryClassMetric: public MulticlassAccuracy{
+public:
+    float_type get_score(const SyncArray<float_type> &y_p) const override;
+    string get_name() const override { return "test error";}
+};
+
 
 #endif //THUNDERGBM_MULTICLASS_METRIC_H

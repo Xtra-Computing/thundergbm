@@ -11,6 +11,7 @@ Metric *Metric::create(string name) {
     if (name == "rmse") return new RMSE;
     if (name == "ndcg") return new NDCG;
     if (name == "macc") return new MulticlassAccuracy;
+    if (name == "error") return new BinaryClassMetric;
     LOG(FATAL) << "unknown metric " << name;
     return nullptr;
 }
