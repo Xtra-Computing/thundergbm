@@ -9,7 +9,7 @@
 <img src="https://github.com/zeyiwen/thundergbm/blob/master/docs/_static/overall.png" width="250" height="200" align=left/>
 </div>
 
-[Documentations](http://thundergbm.readthedocs.io) | [Installation](https://thundergbm.readthedocs.io/en/latest/how-to.html#how-to-install-thundergbm) | [Parameters](https://thundergbm.readthedocs.io/en/latest/parameters.html) | [Python (scikit-learn) interface](https://github.com/zeyiwen/thundergbm/tree/master/python)
+[Documentations](docs/index.md) | [Installation](docs/how-to.md#how-to-install-thundergbm) | [Parameters](docs/parameters.md) | [Python (scikit-learn) interface](python/README.md)
 
 ## Overview
 The mission of ThunderGBM is to help users easily and efficiently apply GBDTs and Random Forests to solve problems. ThunderGBM exploits GPUs to achieve high efficiency. Key features of ThunderGBM are as follows.
@@ -60,7 +60,7 @@ cd thundergbm
 #under the directory of thundergbm
 git submodule init cub && git submodule update
 ```
-### Build on Linux (build instructions for [Windows](https://thundergbm.readthedocs.io/en/latest/how-to.html#build-on-windows))
+### Build on Linux (build instructions for [Windows](docs/how-to.md#build-on-windows))
 ```bash
 #under the directory of thundergbm
 mkdir build && cd build && cmake .. && make -j
