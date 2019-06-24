@@ -46,7 +46,7 @@ This page is for parameter specification in ThunderGBM. The parameters used in T
 * ``objective`` [default="reg:linear"]
     
     - valid options include ``reg:linear``, ``reg:logistic``, ``multi:softprob``,  ``multi:softmax``, ``rank:pairwise`` and ``rank:ndcg``.
-    - ``reg:linear`` is for regression, ``reg:logistic`` is for binary classification.
+    - ``reg:linear`` is for regression, ``reg:logistic`` and ``binary:logistic`` are for binary classification.
     - ``multi:softprob`` and ``multi:softmax`` are for multi-class classification. ``multi:softprob`` outputs probability for each class, and ``multi:softmax`` outputs the label only.
     - ``rank:pairwise`` and ``rank:ndcg`` are for ranking problems.
     

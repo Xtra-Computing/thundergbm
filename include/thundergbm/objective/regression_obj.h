@@ -39,6 +39,23 @@ public:
     }
 };
 
+template<template<typename> class Loss>
+class LogClsObj: public RegressionObj<Loss>{
+public:
+    void get_gradient(const SyncArray<float_type> &y, const SyncArray<float_type> &y_p,
+                      SyncArray<GHPair> &gh_pair) override {
+        auto y_data = y.device_data();
+        auto y_p_data = y_p.device_data();
+        auto gh_pair_data = gh_pair.device_data();
+        device_loop(y.size(), [=]__device__(int i) {
+            gh_pair_data[i] = Loss<float_type>::gradient(y_data[i], y_p_data[i]);
+        });
+    }
+    string default_metric_name() override{
+        return "error";
+    }
+};
+
 template<typename T>
 struct SquareLoss {
     HOST_DEVICE static GHPair gradient(T y, T y_p) { return GHPair(y_p - y, 1); }

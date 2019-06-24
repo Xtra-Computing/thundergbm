@@ -23,7 +23,7 @@ vector<vector<Tree>> TreeTrainer::train(GBMParam &param, const DataSet &dataset)
             param.tree_method = "hist";
 
     //correct the number of classes
-    if(param.objective.find("multi:") != std::string::npos) {
+    if(param.objective.find("multi:") != std::string::npos || param.objective.find("binary:") != std::string::npos) {
         int num_class = dataset.label.size();
         if (param.num_class != num_class) {
             LOG(INFO) << "updating number of classes from " << param.num_class << " to " << num_class;
