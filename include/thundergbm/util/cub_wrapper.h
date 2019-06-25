@@ -99,4 +99,64 @@ void cub_seg_sort_by_key(SyncArray<T1> &keys, SyncArray<T2> &values, const SyncA
                           cudaMemcpyDeviceToDevice));
 };
 
+template<typename T>
+void sort_array(SyncArray<T> &in_arr, bool ascending = true) {
+    CHECK_GT(in_arr.size(), 0) << "The size of target array must greater than 0. ";
+
+    int num_items = in_arr.size();
+    SyncArray<T> out_arr(num_items);
+    cub::DoubleBuffer<T> d_keys(in_arr.device_data(), out_arr.device_data());
+
+    size_t temp_storage_bytes = 0;
+    SyncArray<char> temp_storage;
+    if (ascending)
+        cub::DeviceRadixSort::SortKeys(NULL, temp_storage_bytes, d_keys, num_items);
+    else
+        cub::DeviceRadixSort::SortKeysDescending(NULL, temp_storage_bytes, d_keys, num_items);
+    temp_storage.resize(temp_storage_bytes);
+    if (ascending)
+        cub::DeviceRadixSort::SortKeys(NULL, temp_storage_bytes, d_keys, num_items);
+    else
+        cub::DeviceRadixSort::SortKeysDescending(temp_storage.device_data(), temp_storage_bytes, d_keys, num_items);
+    CUDA_CHECK(
+            cudaMemcpy(in_arr.device_data(), reinterpret_cast<const void *>(d_keys.Current()), sizeof(T) * num_items,
+                       cudaMemcpyDeviceToDevice));
+}
+
+template<typename T>
+T max_elements(SyncArray<T> &target_arr) {
+    CHECK_GT(target_arr.size(), 0) << "The size of target array must greater than 0. ";
+
+    int num_items = target_arr.size();
+    size_t temp_storage_bytes = 0;
+    SyncArray<char> temp_storage;
+    SyncArray<T> max_result(1);
+    cub::DeviceReduce::Max(NULL, temp_storage_bytes, target_arr.device_data(), max_result.device_data(), num_items);
+    temp_storage.resize(temp_storage_bytes);
+    cub::DeviceReduce::Max(temp_storage.device_data(), temp_storage_bytes, target_arr.device_data(), max_result.device_data(), num_items);
+
+    return *max_result.host_data();
+}
+
+template<typename T>
+void cub_select(SyncArray<T> &in_arr, const SyncArray<int> &flags) {
+    CHECK_EQ(in_arr.size(), flags.size()) << "Size of in_array must equals to flags array. ";
+
+    int num_items = in_arr.size();
+    SyncArray<T> out_arr(num_items);
+    SyncArray<int> num_selected(1);
+    SyncArray<char> temp_storage;
+    size_t temp_storage_bytes = 0;
+
+    cub::DeviceSelect::Flagged(NULL, temp_storage_bytes, in_arr.device_data(), flags.device_data(),
+                               out_arr.device_data(), num_selected.device_data(), num_items);
+    temp_storage.resize(temp_storage_bytes);
+    cub::DeviceSelect::Flagged(temp_storage.device_data(), temp_storage_bytes, in_arr.device_data(), flags.device_data(),
+                               out_arr.device_data(), num_selected.device_data(), num_items);
+
+    int new_size = *num_selected.host_data();
+    in_arr.resize(new_size);
+    in_arr.copy_from(out_arr.device_data(), new_size);
+}
+
 #endif //THUNDERGBM_CUB_UTIL_H

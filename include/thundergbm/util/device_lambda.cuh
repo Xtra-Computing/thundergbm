@@ -29,6 +29,17 @@ __global__ void lambda_2d_sparse_kernel(const int *len2, L lambda) {
     }
 }
 
+template<typename L>
+__global__ void lambda_2d_maximum_sparse_kernel(const int *len2, const int maximum, L lambda) {
+    int i = blockIdx.x;
+    int begin = len2[i];
+    int end = len2[i + 1];
+    int interval = (end - begin) / maximum;
+    for (int j = begin + blockIdx.y * blockDim.x + threadIdx.x; j < end; j += blockDim.x * gridDim.y) {
+        lambda(i, j, interval);
+    }
+}
+
 ///p100 has 56 MPs, using 32*56 thread blocks
 template<int NUM_BLOCK = 32 * 56, int BLOCK_SIZE = 256, typename L>
 inline void device_loop(int len, L lambda) {
@@ -54,6 +65,20 @@ void device_loop_2d(int len1, const int *len2, L lambda, unsigned int NUM_BLOCK 
                     unsigned int BLOCK_SIZE = 256) {
     if (len1 > 0) {
         lambda_2d_sparse_kernel << < dim3(len1, NUM_BLOCK), BLOCK_SIZE >> > (len2, lambda);
+        cudaDeviceSynchronize();
+        CUDA_CHECK(cudaPeekAtLastError());
+    }
+}
+
+/**
+ * @brief: (len1 x NUM_BLOCK) is the total number of blocks; len2 is an array of lengths.
+ */
+template<typename L>
+void device_loop_2d_with_maximum(int len1, const int *len2, const int maximum, L lambda,
+                                 unsigned int NUM_BLOCK = 4 * 56,
+                                 unsigned int BLOCK_SIZE = 256) {
+    if (len1 > 0) {
+        lambda_2d_maximum_sparse_kernel << < dim3(len1, NUM_BLOCK), BLOCK_SIZE >> > (len2, maximum, lambda);
         cudaDeviceSynchronize();
         CUDA_CHECK(cudaPeekAtLastError());
     }
