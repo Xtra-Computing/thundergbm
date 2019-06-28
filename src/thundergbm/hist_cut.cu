@@ -94,7 +94,7 @@ void unique_by_flag(SyncArray<float> &target_arr, SyncArray<int> &flags, int n_c
     using namespace thrust::placeholders;
 
     float max_elem = max_elements(target_arr);
-    LOG(INFO) << "################>>>: " << max_elem;
+    LOG(DEBUG) << "max feature value: " << max_elem;
     CHECK_LT(max_elem + n_columns*(max_elem + 1),INT_MAX) << "Max_values is too large to be transformed";
 
     // 1. transform data into unique ranges
@@ -123,9 +123,6 @@ void unique_by_flag(SyncArray<float> &target_arr, SyncArray<int> &flags, int n_c
 }
 
 void HistCut::get_cut_points3(SparseColumns &columns, int max_num_bins, int n_instances) {
-    std::chrono::high_resolution_clock timer;
-    auto time_1 = timer.now();
-
     LOG(INFO) << "Getting cut points... ";
     int n_column = columns.n_column;
 
@@ -168,14 +165,9 @@ void HistCut::get_cut_points3(SparseColumns &columns, int max_num_bins, int n_in
     });
     thrust::inclusive_scan(thrust::device, cut_row_ptr_data, cut_row_ptr_data + cut_row_ptr.size(), cut_row_ptr_data);
 
-
-    auto time_5 = timer.now();
-    std::chrono::duration<double> total_time = time_5 - time_1;
-    LOG(INFO) << "  ----------------->>> Last LOOP: " << total_time.count();
-
-    LOG(INFO) << "--->>>>  cut points value: " << cut_points_val;
-    LOG(INFO) << "--->>>> cut row ptr: " << cut_row_ptr;
-    LOG(INFO) << "--->>>> cut fid: " << cut_fid;
-    LOG(INFO) << "TOTAL CP:" << cut_fid.size();
-    LOG(INFO) << "NNZ: " << columns.csc_val.size();
+    LOG(DEBUG) << "--->>>>  cut points value: " << cut_points_val;
+    LOG(DEBUG) << "--->>>> cut row ptr: " << cut_row_ptr;
+    LOG(DEBUG) << "--->>>> cut fid: " << cut_fid;
+    LOG(DEBUG) << "TOTAL CP:" << cut_fid.size();
+    LOG(DEBUG) << "NNZ: " << columns.csc_val.size();
 }
