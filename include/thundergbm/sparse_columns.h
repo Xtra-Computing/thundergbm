@@ -18,8 +18,8 @@ public:
     int column_offset;
     int nnz;
 
-    void from_dataset(const DataSet &dataSet);
-
+    void csr2csc_gpu(const DataSet &dataSet, vector<std::unique_ptr<SparseColumns>> &);
+    void csr2csc_cpu(const DataSet &dataset, vector<std::unique_ptr<SparseColumns>> &);
     void to_multi_devices(vector<std::unique_ptr<SparseColumns>> &) const;
 
 };

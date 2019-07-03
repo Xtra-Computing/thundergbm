@@ -7,6 +7,7 @@
 
 #include <thundergbm/syncarray.h>
 #include "cub/cub.cuh"
+#include "thrust/sort.h"
 
 template<typename T1, typename T2>
 void cub_sort_by_key(SyncArray<T1> &keys, SyncArray<T2> &values, int size = -1, bool ascending = true,
@@ -58,7 +59,7 @@ void cub_sort_by_key(SyncArray<T1> &keys, SyncArray<T2> &values, int size = -1, 
 
 template<typename T1, typename T2>
 void cub_seg_sort_by_key(SyncArray<T1> &keys, SyncArray<T2> &values, const SyncArray<int> &ptr, bool ascending = true) {
-    CHECK_EQ(values.size(), values.size()) << "keys and values must have equal size";
+    CHECK_EQ(keys.size(), values.size()) << "keys and values must have equal size";
     using namespace cub;
     size_t num_items = keys.size();
     size_t num_segments = ptr.size() - 1;
@@ -157,6 +158,23 @@ void cub_select(SyncArray<T> &in_arr, const SyncArray<int> &flags) {
     int new_size = *num_selected.host_data();
     in_arr.resize(new_size);
     in_arr.copy_from(out_arr.device_data(), new_size);
+}
+
+template<typename T1, typename T2>
+void seg_sort_by_key_cpu(SyncArray<T1> &keys, SyncArray<T2> &values, const SyncArray<int> &ptr) {
+    auto keys_data = keys.device_data();
+    auto values_data = values.device_data();
+    auto offset_data = ptr.host_data();
+    LOG(INFO) << ptr;
+#
+    for(int i = 0; i < ptr.size() - 2; i++)
+    {
+        int seg_len = offset_data[i + 1] - offset_data[i];
+        auto key_start = keys_data + offset_data[i];
+        auto key_end = key_start + seg_len;
+        auto value_start = values_data + offset_data[i];
+        thrust::sort_by_key(thrust::device, key_start, key_end, value_start, thrust::greater<T1>());
+    }
 }
 
 #endif //THUNDERGBM_CUB_UTIL_H

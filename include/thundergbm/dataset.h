@@ -13,6 +13,7 @@ public:
     ///load dataset from file
     void load_from_sparse(int n_instances, float *csr_val, int *csr_row_ptr, int *csr_col_idx, float *y, GBMParam &param);
     void load_from_file(string file_name, GBMParam &param);
+    void load_csc_from_file(string file_name, GBMParam &param);
     void load_group_file(string file_name);
     void group_label();
 
@@ -27,6 +28,9 @@ public:
     size_t n_features_;
     vector<int> group;
     vector<float_type> label;
+
+    // whether the dataset is to big
+    int use_cpu = false;
 };
 
 #endif //THUNDERGBM_DATASET_H
