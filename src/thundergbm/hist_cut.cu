@@ -15,9 +15,11 @@
 #include "thundergbm/util/device_lambda.cuh"
 #include "thrust/unique.h"
 
-
+/**
+ * not fast but need less memory
+ */
 void HistCut::get_cut_points2(SparseColumns &columns, int max_num_bins, int n_instances) {
-    LOG(INFO) << "Getting cut points... ";
+    LOG(INFO) << "Getting cut points...";
     int n_column = columns.n_column;
     SyncArray<float> unique_vals(n_column * n_instances);
     SyncArray<int> tmp_row_ptr(n_column + 1);
@@ -89,7 +91,6 @@ void syncarray_resize(SyncArray<T> &buf_array, int new_size) {
     buf_array.copy_from(tmp_array);
 }
 
-
 void unique_by_flag(SyncArray<float> &target_arr, SyncArray<int> &flags, int n_columns) {
     using namespace thrust::placeholders;
 
@@ -122,8 +123,11 @@ void unique_by_flag(SyncArray<float> &target_arr, SyncArray<int> &flags, int n_c
     cub_sort_by_key(flags, target_arr);
 }
 
+/**
+ * fast but cost more memory
+ */
 void HistCut::get_cut_points3(SparseColumns &columns, int max_num_bins, int n_instances) {
-    LOG(INFO) << "Getting cut points... ";
+    LOG(INFO) << "Fast getting cut points...";
     int n_column = columns.n_column;
 
     cut_points_val.resize(columns.csc_val.size());

@@ -351,17 +351,10 @@ void ExactTreeBuilder::init(const DataSet &dataset, const GBMParam &param) {
         shards[i].ignored_set = SyncArray<bool>(dataset.n_features());
     }
     SparseColumns columns;
-    columns.from_dataset(dataset);
-    columns.to_multi_devices(v_columns);
-//    for_each_shard(shards, [&](InternalShard &shard) {
-//        shard.stats.resize(n_instances);
-//        shard.stats.y_predict = SyncArray<float_type>(param.num_class * n_instances);
-//        shard.param = param;
-//
-//        shard.ignored_set.resize(shard.columns.n_column);
-//        y_predict[shard.rank] = SyncArray<float_type>(shard.stats.y_predict.size());
-//        y_predict[shard.rank].set_device_data(shard.stats.y_predict.device_data());
-//    });
+    if(dataset.use_cpu)
+        columns.csr2csc_cpu(dataset, v_columns);
+    else
+        columns.csr2csc_gpu(dataset, v_columns);
 
     for (int i = 0; i < param.n_device; ++i) {
         v_columns[i].release();

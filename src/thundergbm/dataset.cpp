@@ -82,11 +82,8 @@ void DataSet::group_label() {
     }
 }
 
-
 /**
  * return true if a character is related to digit
- * @param c
- * @return
  */
 inline bool isdigitchars(char c) {
     return (c >= '0' && c <= '9') ||
@@ -96,15 +93,7 @@ inline bool isdigitchars(char c) {
 }
 
 /**
- * for
- * @tparam T1
- * @tparam T2
- * @param begin
- * @param end
- * @param endptr
- * @param v1
- * @param v2
- * @return
+ * for converting string to T(int or float)
  */
 template<typename T1, typename T2>
 inline int parse_pair(const char * begin, const char *end, const char **endptr, T1 &v1, T2 &v2) {
@@ -137,6 +126,9 @@ inline int parse_pair(const char * begin, const char *end, const char **endptr, 
     return 2;
 }
 
+/**
+ * skip the comment and blank
+ */
 template <char kSymbol = '#'>
 std::ptrdiff_t ignore_comment_and_blank(char const* beg,
                                         char const* line_end) {
@@ -155,8 +147,6 @@ std::ptrdiff_t ignore_comment_and_blank(char const* beg,
     // advance to line end, `ParsePair' will return empty line.
     return length;
 }
-
-
 
 void DataSet::load_from_file(string file_name, GBMParam &param) {
     LOG(INFO) << "loading LIBSVM dataset from file ## " << file_name << " ##";
@@ -293,5 +283,13 @@ void DataSet::load_from_file(string file_name, GBMParam &param) {
         group_label();
         param.num_class = label.size();
     }
-}
 
+    // TODO Estimate the required memory
+    int nnz = this->csr_val.size();
+    double mem_size = (double)nnz / 1024;
+    mem_size /= 1024;
+    mem_size /= 1024;
+    mem_size *= 12;
+    if(mem_size > (5 * param.n_device))
+        this->use_cpu = true;
+}
