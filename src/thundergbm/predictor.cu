@@ -40,6 +40,7 @@ void Predictor::predict_raw(const GBMParam &model_param, const vector<vector<Tre
     int num_class = boosted_model.front().size();
     int num_node = boosted_model[0][0].nodes.size();
     int total_num_node = num_iter * num_class * num_node;
+    //TODO: reduce the output size for binary classification
     y_predict.resize(n_instances * num_class);
 
     SyncArray<Tree::TreeNode> model(total_num_node);

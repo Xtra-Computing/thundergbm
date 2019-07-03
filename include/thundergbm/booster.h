@@ -32,6 +32,10 @@ private:
 };
 
 void Booster::init(const DataSet &dataSet, const GBMParam &param) {
+    int n_available_device;
+    cudaGetDeviceCount(&n_available_device);
+    CHECK_GE(n_available_device, param.n_device) << "only " << n_available_device
+                                            << " GPUs available; please set correct number of GPUs to use";
     this->param = param;
     fbuilder.reset(FunctionBuilder::create(param.tree_method));
     fbuilder->init(dataSet, param);

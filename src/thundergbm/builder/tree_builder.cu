@@ -74,6 +74,10 @@ void TreeBuilder::predict_in_training(int k) {
 }
 
 void TreeBuilder::init(const DataSet &dataset, const GBMParam &param) {
+    int n_available_device;
+    cudaGetDeviceCount(&n_available_device);
+    CHECK_GE(n_available_device, param.n_device) << "only " << n_available_device
+                                                 << " GPUs available; please set correct number of GPUs to use";
     FunctionBuilder::init(dataset, param);
     this->n_instances = dataset.n_instances();
     trees = vector<Tree>(param.n_device);

@@ -46,7 +46,7 @@ extern "C" {
         TreeTrainer trainer;
         vector<vector<Tree> > boosted_model = trainer.train(model_param, train_dataset);
         *tree_per_iter =  (int)(boosted_model[0].size());
-        //TODO: memory leakage
+        //TODO: track potential memory leakage
         model = new Tree[n_trees * (*tree_per_iter)];
 		CHECK_EQ(n_trees, boosted_model.size()) << n_trees << " v.s. " << boosted_model.size();
 		for(int i = 0; i < n_trees; i++)
@@ -70,7 +70,6 @@ extern "C" {
         model_param.num_class = num_class;
         DataSet dataSet;
         dataSet.load_from_sparse(row_size, val, row_ptr, col_ptr, NULL, model_param);
-
         dataSet.label.clear();
         for (int i = 0; i < num_class; ++i) {
             dataSet.label.emplace_back(group_label[i]);
@@ -98,7 +97,6 @@ extern "C" {
         for(int i = 0; i < y_pred_vec.size(); i++){
             y_pred[i] = y_pred_vec[i];
         }//float_type may be double/float, so convert to float for both cases.
-
     }
 
     void save(char *model_path, char *objective, float learning_rate, int num_class, int n_trees,

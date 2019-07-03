@@ -51,9 +51,35 @@ public:
             gh_pair_data[i] = Loss<float_type>::gradient(y_data[i], y_p_data[i]);
         });
     }
+    void predict_transform(SyncArray<float_type> &y) {
+        //this method transform y(#class * #instances) into y(#instances)
+        auto yp_data = y.device_data();
+        auto label_data = label.device_data();
+        int num_class = this->num_class;
+        int n_instances = y.size() / num_class;
+        device_loop(n_instances, [=]__device__(int i) {
+            //yp_data[i] = Loss<float_type>::predict_transform(yp_data[i]);
+            int max_k = (yp_data[i] > 0) ? 1 : 0;
+            yp_data[i] = label_data[max_k];
+        });
+        //TODO not to make a temp_y?
+        SyncArray < float_type > temp_y(n_instances);
+        temp_y.copy_from(y.device_data(), n_instances);
+        y.resize(n_instances);
+        y.copy_from(temp_y);
+    }
     string default_metric_name() override{
         return "error";
     }
+    void configure(GBMParam param, const DataSet &dataset) {
+        num_class = param.num_class;
+        label.resize(num_class);
+        CHECK_EQ(dataset.label.size(), num_class)<<dataset.label.size() << "!=" << num_class;
+        label.copy_from(dataset.label.data(), num_class);
+    }
+protected:
+    int num_class;
+    SyncArray<float_type> label;
 };
 
 template<typename T>

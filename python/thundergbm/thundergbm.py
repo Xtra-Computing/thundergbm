@@ -31,7 +31,8 @@ if path.exists(lib_path):
 else:
     raise RuntimeError("Please build the library first!")
 
-OBJECTIVE_TYPE = ['reg:linear', 'reg:logistic', 'multi:softprob', 'multi:softmax', 'rank:pairwise', 'rank:ndcg']
+OBJECTIVE_TYPE = ['reg:linear', 'reg:logistic', 'binary:logistic',
+                  'multi:softprob', 'multi:softmax', 'rank:pairwise', 'rank:ndcg']
 ThundergbmBase = BaseEstimator
 ThundergbmRegressorBase = RegressorMixin
 ThundergbmClassifierBase = ClassifierMixin
@@ -39,13 +40,13 @@ ThundergbmClassifierBase = ClassifierMixin
 
 class TGBMModel(ThundergbmBase):
     def __init__(self, depth, n_trees,
-                 n_device, min_child_weight, lambda_tgbm, gamma, max_num_bin,
+                 n_gpus, min_child_weight, lambda_tgbm, gamma, max_num_bin,
                  verbose, column_sampling_rate, bagging,
                  n_parallel_trees, learning_rate, objective,
                  num_class, tree_method):
         self.depth = depth
         self.n_trees = n_trees
-        self.n_device = n_device
+        self.n_gpus = n_gpus
         self.min_child_weight = min_child_weight
         self.lambda_tgbm = lambda_tgbm
         self.gamma = gamma
@@ -88,7 +89,7 @@ class TGBMModel(ThundergbmBase):
         tree_per_iter_ptr = (c_int * 1)()
         self.model = (c_long * 1)()
         thundergbm.sparse_train_scikit(X.shape[0], data, indptr, indices, label, self.depth, self.n_trees,
-                                       self.n_device, c_float(self.min_child_weight), c_float(self.lambda_tgbm),
+                                       self.n_gpus, c_float(self.min_child_weight), c_float(self.lambda_tgbm),
                                        c_float(self.gamma),
                                        self.max_num_bin, self.verbose, c_float(self.column_sampling_rate), self.bagging,
                                        self.n_parallel_trees, c_float(self.learning_rate),
@@ -114,7 +115,11 @@ class TGBMModel(ThundergbmBase):
         data = X.data.ctypes.data_as(POINTER(c_float))
         indices = X.indices.ctypes.data_as(POINTER(c_int32))
         indptr = X.indptr.ctypes.data_as(POINTER(c_int32))
-        self.predict_label_ptr = (c_float * X.shape[0])()
+        if(self.objective != 'multi:softprob'):
+            self.predict_label_ptr = (c_float * X.shape[0])()
+        else:
+            temp_size = X.shape[0] * self.num_class
+            self.predict_label_ptr = (c_float * temp_size)()
         if self.group_label is not None:
             group_label = (c_float * len(self.group_label))()
             group_label[:] = self.group_label
@@ -186,12 +191,12 @@ class TGBMModel(ThundergbmBase):
 
 class TGBMClassifier(TGBMModel, ThundergbmClassifierBase):
     def __init__(self, depth=6, n_trees=40,
-                 n_device=1, min_child_weight=1.0, lambda_tgbm=1.0, gamma=1.0, max_num_bin=255,
+                 n_gpus=1, min_child_weight=1.0, lambda_tgbm=1.0, gamma=1.0, max_num_bin=255,
                  verbose=0, column_sampling_rate=1.0, bagging=0,
                  n_parallel_trees=1, learning_rate=1.0, objective="multi:softmax",
-                 num_class=1, tree_method="auto"):
+                 num_class=2, tree_method="auto"):
         super().__init__(depth=depth, n_trees=n_trees,
-                         n_device=n_device, min_child_weight=min_child_weight, lambda_tgbm=lambda_tgbm, gamma=gamma,
+                         n_gpus=n_gpus, min_child_weight=min_child_weight, lambda_tgbm=lambda_tgbm, gamma=gamma,
                          max_num_bin=max_num_bin,
                          verbose=verbose, column_sampling_rate=column_sampling_rate, bagging=bagging,
                          n_parallel_trees=n_parallel_trees, learning_rate=learning_rate, objective=objective,
@@ -200,12 +205,12 @@ class TGBMClassifier(TGBMModel, ThundergbmClassifierBase):
 
 class TGBMRegressor(TGBMModel, ThundergbmRegressorBase):
     def __init__(self, depth=6, n_trees=40,
-                 n_device=1, min_child_weight=1.0, lambda_tgbm=1.0, gamma=1.0, max_num_bin=255,
+                 n_gpus=1, min_child_weight=1.0, lambda_tgbm=1.0, gamma=1.0, max_num_bin=255,
                  verbose=0, column_sampling_rate=1.0, bagging=0,
                  n_parallel_trees=1, learning_rate=1.0, objective="reg:linear",
                  num_class=1, tree_method="auto"):
         super().__init__(depth=depth, n_trees=n_trees,
-                         n_device=n_device, min_child_weight=min_child_weight, lambda_tgbm=lambda_tgbm, gamma=gamma,
+                         n_gpus=n_gpus, min_child_weight=min_child_weight, lambda_tgbm=lambda_tgbm, gamma=gamma,
                          max_num_bin=max_num_bin,
                          verbose=verbose, column_sampling_rate=column_sampling_rate, bagging=bagging,
                          n_parallel_trees=n_parallel_trees, learning_rate=learning_rate, objective=objective,

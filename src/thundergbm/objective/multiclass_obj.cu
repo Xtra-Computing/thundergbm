@@ -63,6 +63,7 @@ void Softmax::predict_transform(SyncArray<float_type> &y) {
     temp_y.copy_from(y.device_data(), n_instances);
     y.resize(n_instances);
     y.copy_from(temp_y);
+    LOG(INFO) << "Done y transform size is " << y.size();
 }
 
 

@@ -36,4 +36,5 @@ public:
 };
 
 
+
 #endif //THUNDERGBM_MULTICLASS_OBJ_H
