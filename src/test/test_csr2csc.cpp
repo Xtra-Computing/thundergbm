@@ -7,7 +7,9 @@
 #include "gtest/gtest.h"
 #include "thundergbm/common.h"
 #include "thundergbm/sparse_columns.h"
-
+#include "thundergbm/builder/shard.h"
+#include "cusparse.h"
+#include "thundergbm/dataset.h"
 
 class CSR2CSCTest : public ::testing::Test {
 public:
@@ -16,6 +18,10 @@ public:
     SyncArray<float_type> csc_val;
     SyncArray<int> csc_row_idx;
     SyncArray<int> csc_col_ptr;
+
+    SyncArray<float_type> csc_val2;
+    SyncArray<int> csc_row_idx2;
+    SyncArray<int> csc_col_ptr2;
     int n_column;
     int n_row;
     int column_offset;
@@ -87,237 +93,274 @@ protected:
             last = next_last;
         }
     }
-};
 
+    void csr2csc_gpu(const DataSet &dataset) {
+        LOG(INFO) << "convert csr to csc using gpu...";
+        //three arrays (on GPU/CPU) for csr representation
+        SyncArray<float_type> val;
+        SyncArray<int> col_idx;
+        SyncArray<int> row_ptr;
+        val.resize(dataset.csr_val.size());
+        col_idx.resize(dataset.csr_col_idx.size());
+        row_ptr.resize(dataset.csr_row_ptr.size());
+
+        //copy data to the three arrays
+        val.copy_from(dataset.csr_val.data(), val.size());
+        col_idx.copy_from(dataset.csr_col_idx.data(), col_idx.size());
+        row_ptr.copy_from(dataset.csr_row_ptr.data(), row_ptr.size());
+        cusparseHandle_t handle;
+        cusparseMatDescr_t descr;
+        cusparseCreate(&handle);
+        cusparseCreateMatDescr(&descr);
+        cusparseSetMatIndexBase(descr, CUSPARSE_INDEX_BASE_ZERO);
+        cusparseSetMatType(descr, CUSPARSE_MATRIX_TYPE_GENERAL);
+
+        n_column = dataset.n_features_;
+        n_row = dataset.n_instances();
+        nnz = dataset.csr_val.size();
+        csc_val2.resize(nnz);
+        csc_row_idx2.resize(nnz);
+        csc_col_ptr2.resize(n_column + 1);
+
+        cusparseScsr2csc(handle, dataset.n_instances(), n_column, nnz, val.device_data(), row_ptr.device_data(),
+                         col_idx.device_data(), csc_val2.device_data(), csc_row_idx2.device_data(), csc_col_ptr2.device_data(),
+                         CUSPARSE_ACTION_NUMERIC, CUSPARSE_INDEX_BASE_ZERO);
+        cudaDeviceSynchronize();
+        cusparseDestroy(handle);
+        cusparseDestroyMatDescr(descr);
+    }
+
+};
 
 
 TEST_F(CSR2CSCTest, covtype) {
     param.path = "../dataset/covtype";
     DataSet dataset;
     dataset.load_from_file(param.path, param);
-    SparseColumns columns;
-    columns.from_dataset(dataset);
+
     printf("### Dataset: %s, num_instances: %d, num_features: %d, csr2csc finished. ###\n",
             param.path.c_str(),
             dataset.n_instances(),
             dataset.n_features());
 
     this->csr2csc(dataset);
+    this->csr2csc_gpu(dataset);
 
-    EXPECT_EQ(columns.n_column, this->n_column);
-    EXPECT_EQ(columns.n_row, this->n_row);
 
     // --- test csc_val
-    auto gpu_csc_val_data = columns.csc_val.host_data();
+    auto gpu_csc_val_data = this->csc_val2.host_data();
     auto cpu_csc_val_data = this->csc_val.host_data();
-    for(int i = 0; i < columns.csc_val.size(); i++) {
+    for(int i = 0; i < this->csc_val2.size(); i++) {
         EXPECT_EQ(gpu_csc_val_data[i], cpu_csc_val_data[i]);
     }
 
     // --- test csc_row_idx
-    auto gpu_csc_row_idx = columns.csc_row_idx.host_data();
+    auto gpu_csc_row_idx = this->csc_row_idx2.host_data();
     auto cpu_csc_row_idx = this->csc_row_idx.host_data();
-    for(int i = 0; i < columns.csc_row_idx.size(); i++) {
+    for(int i = 0; i < this->csc_row_idx2.size(); i++) {
         EXPECT_EQ(gpu_csc_row_idx[i], cpu_csc_row_idx[i]);
     }
 
     // --- test csc_col_ptr
-    auto gpu_csc_col_ptr = columns.csc_col_ptr.host_data();
+    auto gpu_csc_col_ptr = this->csc_col_ptr2.host_data();
     auto cpu_csc_col_ptr = this->csc_col_ptr.host_data();
-    for(int i = 0; i < columns.csc_col_ptr.size(); i++) {
+    for(int i = 0; i < this->csc_col_ptr2.size(); i++) {
         EXPECT_EQ(gpu_csc_col_ptr[i], cpu_csc_col_ptr[i]);
     }
 }
 
+//TEST_F(CSR2CSCTest, e2006) {
+//    param.path = "../dataset/E2006";
+//    DataSet dataset;
+//    dataset.load_from_file(param.path, param);
+//    SparseColumns columns;
+//    vector<std::unique_ptr<SparseColumns>> v_columns(1);
+//    columns.csr2csc_gpu(dataset, v_columns);
+//    printf("### Dataset: %s, num_instances: %d, num_features: %d, csr2csc finished. ###\n",
+//           param.path.c_str(),
+//           dataset.n_instances(),
+//           dataset.n_features());
+//
+//    this->csr2csc(dataset);
+//
+//    EXPECT_EQ(columns.n_column, this->n_column);
+//    EXPECT_EQ(columns.n_row, this->n_row);
+//
+//    // --- test csc_val
+//    auto gpu_csc_val_data = columns.csc_val.host_data();
+//    auto cpu_csc_val_data = this->csc_val.host_data();
+//    for(int i = 0; i < columns.csc_val.size(); i++) {
+//        EXPECT_EQ(gpu_csc_val_data[i], cpu_csc_val_data[i]);
+//    }
+//
+//    // --- test csc_row_idx
+//    auto gpu_csc_row_idx = columns.csc_row_idx.host_data();
+//    auto cpu_csc_row_idx = this->csc_row_idx.host_data();
+//    for(int i = 0; i < columns.csc_row_idx.size(); i++) {
+//        EXPECT_EQ(gpu_csc_row_idx[i], cpu_csc_row_idx[i]);
+//    }
+//
+//    // --- test csc_col_ptr
+//    auto gpu_csc_col_ptr = columns.csc_col_ptr.host_data();
+//    auto cpu_csc_col_ptr = this->csc_col_ptr.host_data();
+//    for(int i = 0; i < columns.csc_col_ptr.size(); i++) {
+//        EXPECT_EQ(gpu_csc_col_ptr[i], cpu_csc_col_ptr[i]);
+//    }
+//}
+//
+//TEST_F(CSR2CSCTest, higgs) {
+//    param.path = "../dataset/HIGGS";
+//    DataSet dataset;
+//    dataset.load_from_file(param.path, param);
+//    SparseColumns columns;
+//    vector<std::unique_ptr<SparseColumns>> v_columns(1);
+//    columns.csr2csc_gpu(dataset, v_columns);
+//    printf("### Dataset: %s, num_instances: %d, num_features: %d, csr2csc finished. ###\n",
+//           param.path.c_str(),
+//           dataset.n_instances(),
+//           dataset.n_features());
+//
+//    this->csr2csc(dataset);
+//
+//    EXPECT_EQ(columns.n_column, this->n_column);
+//    EXPECT_EQ(columns.n_row, this->n_row);
+//
+//    // --- test csc_val
+//    auto gpu_csc_val_data = columns.csc_val.host_data();
+//    auto cpu_csc_val_data = this->csc_val.host_data();
+//    for(int i = 0; i < columns.csc_val.size(); i++) {
+//        EXPECT_EQ(gpu_csc_val_data[i], cpu_csc_val_data[i]);
+//    }
+//
+//    // --- test csc_row_idx
+//    auto gpu_csc_row_idx = columns.csc_row_idx.host_data();
+//    auto cpu_csc_row_idx = this->csc_row_idx.host_data();
+//    for(int i = 0; i < columns.csc_row_idx.size(); i++) {
+//        EXPECT_EQ(gpu_csc_row_idx[i], cpu_csc_row_idx[i]);
+//    }
+//
+//    // --- test csc_col_ptr
+//    auto gpu_csc_col_ptr = columns.csc_col_ptr.host_data();
+//    auto cpu_csc_col_ptr = this->csc_col_ptr.host_data();
+//    for(int i = 0; i < columns.csc_col_ptr.size(); i++) {
+//        EXPECT_EQ(gpu_csc_col_ptr[i], cpu_csc_col_ptr[i]);
+//    }
+//}
+//
+//TEST_F(CSR2CSCTest, real_sim) {
+//    param.path = "../dataset/real-sim";
+//    DataSet dataset;
+//    dataset.load_from_file(param.path, param);
+//    SparseColumns columns;
+//    vector<std::unique_ptr<SparseColumns>> v_columns(1);
+//    columns.csr2csc_gpu(dataset, v_columns);
+//    printf("### Dataset: %s, num_instances: %d, num_features: %d, csr2csc finished. ###\n",
+//           param.path.c_str(),
+//           dataset.n_instances(),
+//           dataset.n_features());
+//
+//    this->csr2csc(dataset);
+//
+//    EXPECT_EQ(columns.n_column, this->n_column);
+//    EXPECT_EQ(columns.n_row, this->n_row);
+//
+//    // --- test csc_val
+//    auto gpu_csc_val_data = columns.csc_val.host_data();
+//    auto cpu_csc_val_data = this->csc_val.host_data();
+//    for(int i = 0; i < columns.csc_val.size(); i++) {
+//        EXPECT_EQ(gpu_csc_val_data[i], cpu_csc_val_data[i]);
+//    }
+//
+//    // --- test csc_row_idx
+//    auto gpu_csc_row_idx = columns.csc_row_idx.host_data();
+//    auto cpu_csc_row_idx = this->csc_row_idx.host_data();
+//    for(int i = 0; i < columns.csc_row_idx.size(); i++) {
+//        EXPECT_EQ(gpu_csc_row_idx[i], cpu_csc_row_idx[i]);
+//    }
+//
+//    // --- test csc_col_ptr
+//    auto gpu_csc_col_ptr = columns.csc_col_ptr.host_data();
+//    auto cpu_csc_col_ptr = this->csc_col_ptr.host_data();
+//    for(int i = 0; i < columns.csc_col_ptr.size(); i++) {
+//        EXPECT_EQ(gpu_csc_col_ptr[i], cpu_csc_col_ptr[i]);
+//    }
+//}
+
+//TEST_F(CSR2CSCTest, susy) {
+//    param.path = "../dataset/SUSY";
+//    DataSet dataset;
+//    dataset.load_from_file(param.path, param);
+//    SparseColumns columns;
+//    vector<std::unique_ptr<SparseColumns>> v_columns(1);
+//    columns.csr2csc_gpu(dataset, v_columns);
+//    printf("### Dataset: %s, num_instances: %d, num_features: %d, csr2csc finished. ###\n",
+//           param.path.c_str(),
+//           dataset.n_instances(),
+//           dataset.n_features());
+//
+//    this->csr2csc(dataset);
+//
+//    EXPECT_EQ(columns.n_column, this->n_column);
+//    EXPECT_EQ(columns.n_row, this->n_row);
+//
+//    // --- test csc_val
+//    auto gpu_csc_val_data = columns.csc_val.host_data();
+//    auto cpu_csc_val_data = this->csc_val.host_data();
+//    for(int i = 0; i < columns.csc_val.size(); i++) {
+//        EXPECT_EQ(gpu_csc_val_data[i], cpu_csc_val_data[i]);
+//    }
+//
+//    // --- test csc_row_idx
+//    auto gpu_csc_row_idx = columns.csc_row_idx.host_data();
+//    auto cpu_csc_row_idx = this->csc_row_idx.host_data();
+//    for(int i = 0; i < columns.csc_row_idx.size(); i++) {
+//        EXPECT_EQ(gpu_csc_row_idx[i], cpu_csc_row_idx[i]);
+//    }
+//
+//    // --- test csc_col_ptr
+//    auto gpu_csc_col_ptr = columns.csc_col_ptr.host_data();
+//    auto cpu_csc_col_ptr = this->csc_col_ptr.host_data();
+//    for(int i = 0; i < columns.csc_col_ptr.size(); i++) {
+//        EXPECT_EQ(gpu_csc_col_ptr[i], cpu_csc_col_ptr[i]);
+//    }
+//}
 
 
-TEST_F(CSR2CSCTest, e2006) {
-    param.path = "../dataset/E2006";
-    DataSet dataset;
-    dataset.load_from_file(param.path, param);
-    SparseColumns columns;
-    columns.from_dataset(dataset);
-    printf("### Dataset: %s, num_instances: %d, num_features: %d, csr2csc finished. ###\n",
-           param.path.c_str(),
-           dataset.n_instances(),
-           dataset.n_features());
-
-    this->csr2csc(dataset);
-
-    EXPECT_EQ(columns.n_column, this->n_column);
-    EXPECT_EQ(columns.n_row, this->n_row);
-
-    // --- test csc_val
-    auto gpu_csc_val_data = columns.csc_val.host_data();
-    auto cpu_csc_val_data = this->csc_val.host_data();
-    for(int i = 0; i < columns.csc_val.size(); i++) {
-        EXPECT_EQ(gpu_csc_val_data[i], cpu_csc_val_data[i]);
-    }
-
-    // --- test csc_row_idx
-    auto gpu_csc_row_idx = columns.csc_row_idx.host_data();
-    auto cpu_csc_row_idx = this->csc_row_idx.host_data();
-    for(int i = 0; i < columns.csc_row_idx.size(); i++) {
-        EXPECT_EQ(gpu_csc_row_idx[i], cpu_csc_row_idx[i]);
-    }
-
-    // --- test csc_col_ptr
-    auto gpu_csc_col_ptr = columns.csc_col_ptr.host_data();
-    auto cpu_csc_col_ptr = this->csc_col_ptr.host_data();
-    for(int i = 0; i < columns.csc_col_ptr.size(); i++) {
-        EXPECT_EQ(gpu_csc_col_ptr[i], cpu_csc_col_ptr[i]);
-    }
-}
-
-TEST_F(CSR2CSCTest, higgs) {
-    param.path = "../dataset/HIGGS";
-    DataSet dataset;
-    dataset.load_from_file(param.path, param);
-    SparseColumns columns;
-    columns.from_dataset(dataset);
-    printf("### Dataset: %s, num_instances: %d, num_features: %d, csr2csc finished. ###\n",
-           param.path.c_str(),
-           dataset.n_instances(),
-           dataset.n_features());
-
-    this->csr2csc(dataset);
-
-    EXPECT_EQ(columns.n_column, this->n_column);
-    EXPECT_EQ(columns.n_row, this->n_row);
-
-    // --- test csc_val
-    auto gpu_csc_val_data = columns.csc_val.host_data();
-    auto cpu_csc_val_data = this->csc_val.host_data();
-    for(int i = 0; i < columns.csc_val.size(); i++) {
-        EXPECT_EQ(gpu_csc_val_data[i], cpu_csc_val_data[i]);
-    }
-
-    // --- test csc_row_idx
-    auto gpu_csc_row_idx = columns.csc_row_idx.host_data();
-    auto cpu_csc_row_idx = this->csc_row_idx.host_data();
-    for(int i = 0; i < columns.csc_row_idx.size(); i++) {
-        EXPECT_EQ(gpu_csc_row_idx[i], cpu_csc_row_idx[i]);
-    }
-
-    // --- test csc_col_ptr
-    auto gpu_csc_col_ptr = columns.csc_col_ptr.host_data();
-    auto cpu_csc_col_ptr = this->csc_col_ptr.host_data();
-    for(int i = 0; i < columns.csc_col_ptr.size(); i++) {
-        EXPECT_EQ(gpu_csc_col_ptr[i], cpu_csc_col_ptr[i]);
-    }
-}
-
-TEST_F(CSR2CSCTest, real_sim) {
-    param.path = "../dataset/real-sim";
-    DataSet dataset;
-    dataset.load_from_file(param.path, param);
-    SparseColumns columns;
-    columns.from_dataset(dataset);
-    printf("### Dataset: %s, num_instances: %d, num_features: %d, csr2csc finished. ###\n",
-           param.path.c_str(),
-           dataset.n_instances(),
-           dataset.n_features());
-
-    this->csr2csc(dataset);
-
-    EXPECT_EQ(columns.n_column, this->n_column);
-    EXPECT_EQ(columns.n_row, this->n_row);
-
-    // --- test csc_val
-    auto gpu_csc_val_data = columns.csc_val.host_data();
-    auto cpu_csc_val_data = this->csc_val.host_data();
-    for(int i = 0; i < columns.csc_val.size(); i++) {
-        EXPECT_EQ(gpu_csc_val_data[i], cpu_csc_val_data[i]);
-    }
-
-    // --- test csc_row_idx
-    auto gpu_csc_row_idx = columns.csc_row_idx.host_data();
-    auto cpu_csc_row_idx = this->csc_row_idx.host_data();
-    for(int i = 0; i < columns.csc_row_idx.size(); i++) {
-        EXPECT_EQ(gpu_csc_row_idx[i], cpu_csc_row_idx[i]);
-    }
-
-    // --- test csc_col_ptr
-    auto gpu_csc_col_ptr = columns.csc_col_ptr.host_data();
-    auto cpu_csc_col_ptr = this->csc_col_ptr.host_data();
-    for(int i = 0; i < columns.csc_col_ptr.size(); i++) {
-        EXPECT_EQ(gpu_csc_col_ptr[i], cpu_csc_col_ptr[i]);
-    }
-}
-
-TEST_F(CSR2CSCTest, susy) {
-    param.path = "../dataset/SUSY";
-    DataSet dataset;
-    dataset.load_from_file(param.path, param);
-    SparseColumns columns;
-    columns.from_dataset(dataset);
-    printf("### Dataset: %s, num_instances: %d, num_features: %d, csr2csc finished. ###\n",
-           param.path.c_str(),
-           dataset.n_instances(),
-           dataset.n_features());
-
-    this->csr2csc(dataset);
-
-    EXPECT_EQ(columns.n_column, this->n_column);
-    EXPECT_EQ(columns.n_row, this->n_row);
-
-    // --- test csc_val
-    auto gpu_csc_val_data = columns.csc_val.host_data();
-    auto cpu_csc_val_data = this->csc_val.host_data();
-    for(int i = 0; i < columns.csc_val.size(); i++) {
-        EXPECT_EQ(gpu_csc_val_data[i], cpu_csc_val_data[i]);
-    }
-
-    // --- test csc_row_idx
-    auto gpu_csc_row_idx = columns.csc_row_idx.host_data();
-    auto cpu_csc_row_idx = this->csc_row_idx.host_data();
-    for(int i = 0; i < columns.csc_row_idx.size(); i++) {
-        EXPECT_EQ(gpu_csc_row_idx[i], cpu_csc_row_idx[i]);
-    }
-
-    // --- test csc_col_ptr
-    auto gpu_csc_col_ptr = columns.csc_col_ptr.host_data();
-    auto cpu_csc_col_ptr = this->csc_col_ptr.host_data();
-    for(int i = 0; i < columns.csc_col_ptr.size(); i++) {
-        EXPECT_EQ(gpu_csc_col_ptr[i], cpu_csc_col_ptr[i]);
-    }
-}
-
-
-TEST_F(CSR2CSCTest, log1p) {
-    param.path = "../dataset/log1p";
-    DataSet dataset;
-    dataset.load_from_file(param.path, param);
-    SparseColumns columns;
-    columns.from_dataset(dataset);
-    printf("### Dataset: %s, num_instances: %d, num_features: %d, csr2csc finished. ###\n",
-           param.path.c_str(),
-           dataset.n_instances(),
-           dataset.n_features());
-
-    this->csr2csc(dataset);
-
-    EXPECT_EQ(columns.n_column, this->n_column);
-    EXPECT_EQ(columns.n_row, this->n_row);
-
-    // --- test csc_val
-    auto gpu_csc_val_data = columns.csc_val.host_data();
-    auto cpu_csc_val_data = this->csc_val.host_data();
-    for(int i = 0; i < columns.csc_val.size(); i++) {
-        EXPECT_EQ(gpu_csc_val_data[i], cpu_csc_val_data[i]);
-    }
-
-    // --- test csc_row_idx
-    auto gpu_csc_row_idx = columns.csc_row_idx.host_data();
-    auto cpu_csc_row_idx = this->csc_row_idx.host_data();
-    for(int i = 0; i < columns.csc_row_idx.size(); i++) {
-        EXPECT_EQ(gpu_csc_row_idx[i], cpu_csc_row_idx[i]);
-    }
-
-    // --- test csc_col_ptr
-    auto gpu_csc_col_ptr = columns.csc_col_ptr.host_data();
-    auto cpu_csc_col_ptr = this->csc_col_ptr.host_data();
-    for(int i = 0; i < columns.csc_col_ptr.size(); i++) {
-        EXPECT_EQ(gpu_csc_col_ptr[i], cpu_csc_col_ptr[i]);
-    }
-}
+//TEST_F(CSR2CSCTest, log1p) {
+//    param.path = "../dataset/log1p";
+//    DataSet dataset;
+//    dataset.load_from_file(param.path, param);
+//    SparseColumns columns;
+//    vector<std::unique_ptr<SparseColumns>> v_columns(1);
+//    columns.csr2csc_gpu(dataset, v_columns);
+//    printf("### Dataset: %s, num_instances: %d, num_features: %d, csr2csc finished. ###\n",
+//           param.path.c_str(),
+//           dataset.n_instances(),
+//           dataset.n_features());
+//
+//    this->csr2csc(dataset);
+//
+//    EXPECT_EQ(columns.n_column, this->n_column);
+//    EXPECT_EQ(columns.n_row, this->n_row);
+//
+//    // --- test csc_val
+//    auto gpu_csc_val_data = columns.csc_val.host_data();
+//    auto cpu_csc_val_data = this->csc_val.host_data();
+//    for(int i = 0; i < columns.csc_val.size(); i++) {
+//        EXPECT_EQ(gpu_csc_val_data[i], cpu_csc_val_data[i]);
+//    }
+//
+//    // --- test csc_row_idx
+//    auto gpu_csc_row_idx = columns.csc_row_idx.host_data();
+//    auto cpu_csc_row_idx = this->csc_row_idx.host_data();
+//    for(int i = 0; i < columns.csc_row_idx.size(); i++) {
+//        EXPECT_EQ(gpu_csc_row_idx[i], cpu_csc_row_idx[i]);
+//    }
+//
+//    // --- test csc_col_ptr
+//    auto gpu_csc_col_ptr = columns.csc_col_ptr.host_data();
+//    auto cpu_csc_col_ptr = this->csc_col_ptr.host_data();
+//    for(int i = 0; i < columns.csc_col_ptr.size(); i++) {
+//        EXPECT_EQ(gpu_csc_col_ptr[i], cpu_csc_col_ptr[i]);
+//    }
+//}
