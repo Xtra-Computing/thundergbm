@@ -155,4 +155,9 @@ extern "C" {
             group_label[i] = dataset.label[i];
         }
     }
+    void model_free(Tree* &model){
+        if(model){
+            delete []model;
+        }
+    }
 }
