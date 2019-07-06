@@ -1,8 +1,10 @@
 from sklearn.base import BaseEstimator
 from sklearn.base import RegressorMixin, ClassifierMixin
+from sklearn.metrics import mean_squared_error, accuracy_score
 
 import numpy as np
 import scipy.sparse as sp
+import statistics
 
 from sklearn.utils import check_X_y
 
@@ -33,6 +35,9 @@ else:
 
 OBJECTIVE_TYPE = ['reg:linear', 'reg:logistic', 'binary:logistic',
                   'multi:softprob', 'multi:softmax', 'rank:pairwise', 'rank:ndcg']
+
+ESTIMATOR_TYPE = ['classifier', 'regressor']
+
 ThundergbmBase = BaseEstimator
 ThundergbmRegressorBase = RegressorMixin
 ThundergbmClassifierBase = ClassifierMixin
@@ -64,7 +69,16 @@ class TGBMModel(ThundergbmBase):
         self.tree_per_iter = -1
         self.group_label = None
 
+
+    def __del__(self):
+        if self.model is not None:
+            thundergbm.model_free(byref(self.model))
+
+
     def fit(self, X, y):
+        if self.model is not None:
+            thundergbm.model_free(byref(self.model))
+            self.model = None
         sparse = sp.isspmatrix(X)
         if sparse is False:
             X = sp.csr_matrix(X)
@@ -189,7 +203,70 @@ class TGBMModel(ThundergbmBase):
         self.group_label = [group_label[idx] for idx in range(self.num_class)]
 
 
+    def cv(self, X, y, folds=None, nfold=5, shuffle=True, seed=0):
+        sparse = sp.isspmatrix(X)
+        if sparse is False:
+            X = sp.csr_matrix(X)
+        X, y = check_X_y(X, y, dtype=np.float64, order='C', accept_sparse='csr')
+        y = np.asarray(y, dtype=np.float32, order='C')
+        n_instances = X.shape[0]
+        if folds is not None:
+            #use specified validation set
+            train_idset = [x[0] for x in folds]
+            test_idset = [x[1] for x in folds]
+        else:
+            if shuffle:
+                randidx = np.random.RandomState(seed).permutation(n_instances)
+            else:
+                randidx = np.arange(n_instances)
+            kstep = int(n_instances / nfold)
+            test_idset = [randidx[i: i + kstep] for i in range(0, n_instances, kstep)]
+            train_idset = [np.concatenate([test_idset[i] for i in range(nfold) if k != i]) for k in range(nfold)]
+        # to be optimized: get score in fit; early stopping; more metrics;
+        train_score_list = []
+        test_score_list = []
+        for k in range(nfold):
+            # score_list.push([])
+            X_train = X[train_idset[k],:]
+            X_test = X[test_idset[k],:]
+            y_train = y[train_idset[k]]
+            y_test = y[test_idset[k]]
+            self.fit(X_train, y_train)
+            y_train_pred = self.predict(X_train)
+            y_test_pred = self.predict(X_test)
+            if self._impl == 'classifier':
+                train_score = accuracy_score(y_train, y_train_pred)
+                test_score = accuracy_score(y_test,y_test_pred)
+                train_score_list.append(train_score)
+                test_score_list.append(test_score)
+            elif self._impl == 'regressor':
+                train_score = mean_squared_error(y_train,y_train_pred)
+                test_score = mean_squared_error(y_test, y_test_pred)
+                train_score_list.append(train_score)
+                test_score_list.append(test_score)
+        self.eval_res = {}
+        if self._impl == 'classifier':
+            self.eval_res['train-accuracy-mean']= statistics.mean(train_score_list)
+            self.eval_res['train-accuracy-std']= statistics.stdev(train_score_list)
+            self.eval_res['test-accuracy-mean'] = statistics.mean(test_score_list)
+            self.eval_res['test-accuracy-std'] = statistics.stdev(test_score_list)
+            print("mean train accuracy:%.6f+%.6f" %(statistics.mean(train_score_list), statistics.stdev(train_score_list)))
+            print("mean test accuracy:%.6f+%.6f" %(statistics.mean(test_score_list), statistics.stdev(test_score_list)))
+        elif self._impl == 'regressor':
+            self.eval_res['train-RMSE-mean']= statistics.mean(train_score_list)
+            self.eval_res['train-RMSE-std']= statistics.stdev(train_score_list)
+            self.eval_res['test-RMSE-mean'] = statistics.mean(test_score_list)
+            self.eval_res['test-RMSE-std'] = statistics.stdev(test_score_list)
+            print("mean train RMSE:%.6f+%.6f" %(statistics.mean(train_score_list), statistics.stdev(train_score_list)))
+            print("mean test RMSE:%.6f+%.6f" %(statistics.mean(test_score_list), statistics.stdev(test_score_list)))
+        return self.eval_res
+
+
+
+
+
 class TGBMClassifier(TGBMModel, ThundergbmClassifierBase):
+    _impl = 'classifier'
     def __init__(self, depth=6, n_trees=40,
                  n_gpus=1, min_child_weight=1.0, lambda_tgbm=1.0, gamma=1.0, max_num_bin=255,
                  verbose=0, column_sampling_rate=1.0, bagging=0,
@@ -204,6 +281,7 @@ class TGBMClassifier(TGBMModel, ThundergbmClassifierBase):
 
 
 class TGBMRegressor(TGBMModel, ThundergbmRegressorBase):
+    _impl = 'regressor'
     def __init__(self, depth=6, n_trees=40,
                  n_gpus=1, min_child_weight=1.0, lambda_tgbm=1.0, gamma=1.0, max_num_bin=255,
                  verbose=0, column_sampling_rate=1.0, bagging=0,
