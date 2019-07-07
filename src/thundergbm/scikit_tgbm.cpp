@@ -155,6 +155,72 @@ extern "C" {
             group_label[i] = dataset.label[i];
         }
     }
+
+    void get_n_nodes(Tree* &model, int *n_nodes, int n_trees, int tree_per_iter){
+        for(int i = 0; i < n_trees; i++){
+            for(int j = 0; j < tree_per_iter; j++){
+                n_nodes[i] = model[i * tree_per_iter + j].nodes.size();
+//                if(model[i * tree_per_iter + j].final_n_nodes != 0) {
+//                    n_nodes[i] = model[i * tree_per_iter + j].final_n_nodes;
+//                    std::cout<<"final n nodes:"<<model[i * tree_per_iter + j].final_n_nodes;
+//                }
+//                else
+//                    n_nodes[i] = model[i * tree_per_iter + j].nodes.size();
+            }
+        }
+    }
+
+    void get_a_tree(Tree* &model, int tree_id, int n_nodes, int* children_left, int* children_right, int* children_default,
+            int* features, float* thresholds, float* values, float* node_sample_weights){
+        Tree& tree = model[tree_id];
+        CHECK(n_nodes == tree.nodes.size());
+        for(int i = 0; i < n_nodes; i++){
+            Tree::TreeNode node = tree.nodes.host_data()[i];
+            children_left[i] = node.lch_index;
+            children_right[i] = node.rch_index;
+            if(node.default_right)
+                children_default[i] = node.rch_index;
+            else
+                children_default[i] = node.lch_index;
+            if(node.is_leaf){
+                children_left[i] = -1;
+                children_right[i] = -1;
+                children_default[i] = -1;
+                values[i] = node.base_weight;
+            }
+            else{
+                values[i] = 0;
+            }
+            features[i] = node.split_feature_id;
+            thresholds[i] = node.split_value;
+            node_sample_weights[i] = node.sum_gh_pair.h;
+        }
+//        for(int i = 0; i < n_nodes; i++){
+//            Tree::TreeNode node = tree.nodes.host_data()[i];
+//            if (node.is_valid && !node.is_pruned){
+//                int node_id = node.final_id;
+//                children_left[node_id] = tree.nodes.host_data()[node.lch_index].final_id;
+//                children_right[node_id] = tree.nodes.host_data()[node.rch_index].final_id;
+//                if(node.default_right)
+//                    children_default[node_id] = tree.nodes.host_data()[node.rch_index].final_id;
+//                else
+//                    children_default[node_id] = tree.nodes.host_data()[node.lch_index].final_id;
+//                if(node.is_leaf){
+//                    children_left[node_id] = -1;
+//                    children_right[node_id] = -1;
+//                    children_default[node_id] = -1;
+//                    values[node_id] = node.base_weight;
+//                } else{
+//                    values[node_id] = 0;
+//                }
+//                features[node_id] = node.split_feature_id;
+//                thresholds[node_id] = node.split_value;
+//                node_sample_weights[node_id] = node.sum_gh_pair.h;
+//            }
+//        }
+
+    }
+
     void model_free(Tree* &model){
         if(model){
             delete []model;

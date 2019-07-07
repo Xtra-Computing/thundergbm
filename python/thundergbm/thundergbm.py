@@ -226,7 +226,6 @@ class TGBMModel(ThundergbmBase):
         train_score_list = []
         test_score_list = []
         for k in range(nfold):
-            # score_list.push([])
             X_train = X[train_idset[k],:]
             X_test = X[test_idset[k],:]
             y_train = y[train_idset[k]]
@@ -261,6 +260,68 @@ class TGBMModel(ThundergbmBase):
             print("mean test RMSE:%.6f+%.6f" %(statistics.mean(test_score_list), statistics.stdev(test_score_list)))
         return self.eval_res
 
+    def get_shap_trees(self):
+        if self.tree_per_iter != 1:
+            raise RuntimeError("not supported yet!")
+        trees = []
+        n_nodes_list = (c_int * (self.n_trees * self.tree_per_iter))()
+        thundergbm.get_n_nodes(byref(self.model), n_nodes_list, self.n_trees, self.tree_per_iter)
+        for k in range(self.n_trees * self.tree_per_iter):
+            n_nodes = n_nodes_list[k]
+            # print("in round ",k)
+            # print("n_nodes ",n_nodes)
+            # children_left = np.empty(n_nodes,dtype=np.int32)
+            # children_right = np.empty(n_nodes,dtype=np.int32)
+            # children_default = np.empty(n_nodes,dtype=np.int32)
+            # features = np.empty(n_nodes,dtype=np.int32)
+            # thresholds = np.empty(n_nodes,dtype=np.float32)
+            # values = np.empty(n_nodes,dtype=np.float32)
+            # node_sample_weight = np.empty(n_nodes,dtype=np.float32)
+
+            trees.append({})
+            trees[-1]['children_left'] = np.empty(n_nodes,dtype=np.int32)
+            trees[-1]['children_right'] = np.empty(n_nodes,dtype=np.int32)
+            trees[-1]['children_default'] = np.empty(n_nodes,dtype=np.int32)
+            trees[-1]['feature'] = np.empty(n_nodes,dtype=np.int32)
+            trees[-1]['threshold'] = np.empty(n_nodes,dtype=np.float32)
+            trees[-1]['value'] = np.empty(n_nodes,dtype=np.float32)
+            trees[-1]['node_sample_weight'] = np.empty(n_nodes,dtype=np.float32)
+
+            # children_left = (c_int * n_nodes)()
+            # children_right = (c_int * n_nodes)()
+            # children_default = (c_int * n_nodes)()
+            # features = (c_int * n_nodes)()
+            # thresholds = (c_float * n_nodes)()
+            # values = (c_float * n_nodes)()
+            # node_sample_weight = (c_float * n_nodes)()
+            thundergbm.get_a_tree(byref(self.model), k, n_nodes, trees[-1]['children_left'].ctypes.data_as(POINTER(c_int32)),
+                                  trees[-1]['children_right'].ctypes.data_as(POINTER(c_int32)),
+                                  trees[-1]['children_default'].ctypes.data_as(POINTER(c_int32)),
+                                  trees[-1]['feature'].ctypes.data_as(POINTER(c_int32)),
+                                  trees[-1]['threshold'].ctypes.data_as(POINTER(c_float)),
+                                  trees[-1]['value'].ctypes.data_as(POINTER(c_float)),
+                                  trees[-1]['node_sample_weight'].ctypes.data_as(POINTER(c_float)))
+            # thundergbm.get_a_tree(byref(self.model), k, n_nodes, children_left, children_right, children_default,
+            #                       features, thresholds, values, node_sample_weight)
+
+            # print(children_left)
+            # trees[-1]['children_left']=np.copy(children_left)
+            # trees[-1]['children_right']=np.copy(children_right)
+            # trees[-1]['children_default']=np.copy(children_default)
+            # trees[-1]['feature']=np.copy(features)
+            # trees[-1]['threshold']=np.copy(thresholds)
+            # trees[-1]['value']=np.copy(values).reshape(-1,1)
+            # trees[-1]['node_sample_weight']=np.copy(node_sample_weight)
+
+            trees[-1]['value']=trees[-1]['value'].reshape(-1,1)
+
+        # print(len(trees))
+        import shap.explainers.tree as shap_tree
+        shap_trees = []
+        for k in range(self.n_trees * self.tree_per_iter):
+            shap_trees.append(shap_tree.Tree(trees[k]))
+
+        return shap_trees
 
 
 
