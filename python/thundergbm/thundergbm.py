@@ -261,12 +261,13 @@ class TGBMModel(ThundergbmBase):
         return self.eval_res
 
     def get_shap_trees(self):
-        if self.tree_per_iter != 1:
+        if self.objective != 'binary:logistic' and self.tree_per_iter != 1:
             raise RuntimeError("not supported yet!")
+        n_tree_per_iter = 1
         trees = []
-        n_nodes_list = (c_int * (self.n_trees * self.tree_per_iter))()
-        thundergbm.get_n_nodes(byref(self.model), n_nodes_list, self.n_trees, self.tree_per_iter)
-        for k in range(self.n_trees * self.tree_per_iter):
+        n_nodes_list = (c_int * (self.n_trees * n_tree_per_iter))()
+        thundergbm.get_n_nodes(byref(self.model), n_nodes_list, self.n_trees, n_tree_per_iter)
+        for k in range(self.n_trees * n_tree_per_iter):
             n_nodes = n_nodes_list[k]
             # print("in round ",k)
             # print("n_nodes ",n_nodes)
@@ -318,7 +319,7 @@ class TGBMModel(ThundergbmBase):
         # print(len(trees))
         import shap.explainers.tree as shap_tree
         shap_trees = []
-        for k in range(self.n_trees * self.tree_per_iter):
+        for k in range(self.n_trees * n_tree_per_iter):
             shap_trees.append(shap_tree.Tree(trees[k]))
 
         return shap_trees
