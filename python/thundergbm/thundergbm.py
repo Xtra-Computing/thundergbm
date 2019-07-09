@@ -265,10 +265,11 @@ class TGBMModel(ThundergbmBase):
             raise RuntimeError("not supported yet!")
         n_tree_per_iter = 1
         trees = []
-        n_nodes_list = (c_int * (self.n_trees * n_tree_per_iter))()
+        n_nodes_list = (c_int * (self.n_trees * self.tree_per_iter))()
         thundergbm.get_n_nodes(byref(self.model), n_nodes_list, self.n_trees, n_tree_per_iter)
-        for k in range(self.n_trees * n_tree_per_iter):
-            n_nodes = n_nodes_list[k]
+        for k in range(self.n_trees):
+            tree_id = k * n_tree_per_iter
+            n_nodes = n_nodes_list[tree_id]
             # print("in round ",k)
             # print("n_nodes ",n_nodes)
             # children_left = np.empty(n_nodes,dtype=np.int32)
@@ -295,7 +296,7 @@ class TGBMModel(ThundergbmBase):
             # thresholds = (c_float * n_nodes)()
             # values = (c_float * n_nodes)()
             # node_sample_weight = (c_float * n_nodes)()
-            thundergbm.get_a_tree(byref(self.model), k, n_nodes, trees[-1]['children_left'].ctypes.data_as(POINTER(c_int32)),
+            thundergbm.get_a_tree(byref(self.model), tree_id, n_nodes, trees[-1]['children_left'].ctypes.data_as(POINTER(c_int32)),
                                   trees[-1]['children_right'].ctypes.data_as(POINTER(c_int32)),
                                   trees[-1]['children_default'].ctypes.data_as(POINTER(c_int32)),
                                   trees[-1]['feature'].ctypes.data_as(POINTER(c_int32)),
