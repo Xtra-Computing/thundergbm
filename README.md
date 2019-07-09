@@ -49,8 +49,8 @@ GBDTs and Random Forests are often used for creating state-of-the-art data scien
 * Currently only support python3
 * After you have installed thundergbm, you can import and use the classifier (similarly for regressor) by:
 ```python
-from thundergbm import TGBClassifier
-clf = TGBClassifier()
+from thundergbm import TGBMClassifier
+clf = TGBMClassifier()
 clf.fit(x, y)
 ```
 ### Build from source
