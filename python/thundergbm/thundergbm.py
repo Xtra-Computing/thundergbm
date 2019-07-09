@@ -268,7 +268,7 @@ class TGBMModel(ThundergbmBase):
         n_nodes_list = (c_int * (self.n_trees * self.tree_per_iter))()
         thundergbm.get_n_nodes(byref(self.model), n_nodes_list, self.n_trees, n_tree_per_iter)
         for k in range(self.n_trees):
-            tree_id = k * n_tree_per_iter
+            tree_id = k * self.tree_per_iter
             n_nodes = n_nodes_list[tree_id]
             # print("in round ",k)
             # print("n_nodes ",n_nodes)
