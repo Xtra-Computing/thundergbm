@@ -265,7 +265,8 @@ class TGBMModel(ThundergbmBase):
             raise RuntimeError("not supported yet!")
         n_tree_per_iter = 1
         trees = []
-        n_nodes_list = (c_int * (self.n_trees * self.tree_per_iter))()
+        n_total_trees = self.n_trees * self.tree_per_iter
+        n_nodes_list = (c_int * n_total_trees)()
         thundergbm.get_n_nodes(byref(self.model), n_nodes_list, self.n_trees, self.tree_per_iter)
         for k in range(self.n_trees):
             tree_id = k * self.tree_per_iter

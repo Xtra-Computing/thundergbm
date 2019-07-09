@@ -159,7 +159,8 @@ extern "C" {
     void get_n_nodes(Tree* &model, int *n_nodes, int n_trees, int tree_per_iter){
         for(int i = 0; i < n_trees; i++){
             for(int j = 0; j < tree_per_iter; j++){
-                n_nodes[i] = model[i * tree_per_iter + j].nodes.size();
+                n_nodes[i * tree_per_iter + j] = model[i * tree_per_iter + j].nodes.size();
+//                std::cout<<n_nodes[i]<<" ";
 //                if(model[i * tree_per_iter + j].final_n_nodes != 0) {
 //                    n_nodes[i] = model[i * tree_per_iter + j].final_n_nodes;
 //                    std::cout<<"final n nodes:"<<model[i * tree_per_iter + j].final_n_nodes;
