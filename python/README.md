@@ -63,3 +63,25 @@ Please note that ``TGBMClassifier`` and ``TGBMRegressor`` are wrappers of ``TGBM
 
 ### Parametes
 Please refer to [parameter page](https://github.com/zeyiwen/thundergbm/blob/master/docs/parameters.md) in ThunderGBM documentations.
+
+### Methods
+*fit(X, y)*:\
+Fit the GBM model according to the given training data.
+
+*predict(X)*:\
+Perform prediction on samples in X.
+
+*save_model(path)*:\
+Save the model to the file path.
+
+*load_model(path)*:\
+Load the model from the file path.
+
+*cv(X, y, folds=None, nfold=5, shuffle=True,seed=0)*:\
+* folds: A length *n* list of tuples. Each tuple is (in,out) where *in* is a list of indices to be used as the training samples for the *n* th fold and *out*
+is a list of indices to be used as the testing samples for the *n* th fold.
+* shuffle (bool): Whether to shuffle data before creating folds.
+* seed (int): Seed used to generate the folds.
+
+*get_shap_trees()*:\
+Return the model that used for the SHAP explainer.
