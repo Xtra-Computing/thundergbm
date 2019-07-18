@@ -65,6 +65,8 @@ void HistTreeBuilder::get_bin_ids() {
 }
 
 void HistTreeBuilder::find_split(int level, int device_id) {
+    std::chrono::high_resolution_clock timer;
+
     const SparseColumns &columns = shards[device_id].columns;
     SyncArray<int> &nid = ins2node_id[device_id];
     SyncArray<GHPair> &gh_pair = gradients[device_id];
@@ -90,6 +92,7 @@ void HistTreeBuilder::find_split(int level, int device_id) {
     //find the best split locally
     {
         using namespace thrust;
+        auto t_build_start = timer.now();
 
         //calculate split information for each split
         SyncArray<GHPair> hist(n_max_splits);
@@ -126,6 +129,7 @@ void HistTreeBuilder::find_split(int level, int device_id) {
                                 }
                             });
                         } else {
+                            int num_fv = n_instances * n_column;
                             anonymous_kernel([=]__device__() {
                                 extern __shared__ GHPair local_hist[];
                                 for (int i = threadIdx.x; i < n_bins; i += blockDim.x) {
@@ -133,7 +137,7 @@ void HistTreeBuilder::find_split(int level, int device_id) {
                                 }
                                 __syncthreads();
                                 for (int i = blockIdx.x * blockDim.x + threadIdx.x;
-                                     i < n_instances * n_column; i += blockDim.x * gridDim.x) {
+                                     i < num_fv; i += blockDim.x * gridDim.x) {
                                     int iid = i / n_column;
                                     int fid = i % n_column;
                                     unsigned char bid = dense_bin_id_data[iid * n_column + fid];
@@ -152,10 +156,11 @@ void HistTreeBuilder::find_split(int level, int device_id) {
                                     atomicAdd(&dest.g, src.g);
                                     atomicAdd(&dest.h, src.h);
                                 }
-                            }, smem_size);
+                            }, num_fv, smem_size);
                         }
                     } else {
                         //otherwise
+                        auto t_dp_begin = timer.now();
                         SyncArray<int> node_idx(n_instances);
                         SyncArray<int> node_ptr(n_nodes_in_level + 1);
                         {
@@ -174,11 +179,21 @@ void HistTreeBuilder::find_split(int level, int device_id) {
                             LOG(DEBUG) << "node ptr = " << node_ptr;
                             cudaDeviceSynchronize();
                         }
+                        auto t_dp_end = timer.now();
+                        std::chrono::duration<double> dp_used_time = t_dp_end - t_dp_begin;
+                        this->total_dp_time += dp_used_time.count();
 
+
+                        auto node_ptr_data = node_ptr.host_data();
+                        auto node_idx_data = node_idx.device_data();
+                        auto cut_row_ptr_data = cut.cut_row_ptr.device_data();
+                        auto gh_data = gh_pair.device_data();
+                        auto dense_bin_id_data = dense_bin_id.device_data();
+                        auto max_num_bin = param.max_num_bin;
                         for (int i = 0; i < n_nodes_in_level / 2; ++i) {
+
                             int nid0_to_compute = i * 2;
                             int nid0_to_substract = i * 2 + 1;
-                            auto node_ptr_data = node_ptr.host_data();
                             int n_ins_left = node_ptr_data[nid0_to_compute + 1] - node_ptr_data[nid0_to_compute];
                             int n_ins_right = node_ptr_data[nid0_to_substract + 1] - node_ptr_data[nid0_to_substract];
                             if (max(n_ins_left, n_ins_right) == 0) continue;
@@ -190,13 +205,11 @@ void HistTreeBuilder::find_split(int level, int device_id) {
                                 int nid0 = nid0_to_compute;
                                 auto idx_begin = node_ptr.host_data()[nid0];
                                 auto idx_end = node_ptr.host_data()[nid0 + 1];
-                                auto node_idx_data = node_idx.device_data();
                                 auto hist_data = hist.device_data() + nid0 * n_bins;
-                                auto cut_row_ptr_data = cut.cut_row_ptr.device_data();
-                                auto gh_data = gh_pair.device_data();
-                                auto dense_bin_id_data = dense_bin_id.device_data();
-                                auto max_num_bin = param.max_num_bin;
+                                this->total_hist_num++;
+
                                 if (smem_size > 48 * 1024) {
+                                    CHECK_EQ(1, 2) << "Unexpected cases";
                                     device_loop((idx_end - idx_begin) * n_column, [=]__device__(int i) {
                                         int iid = node_idx_data[i / n_column + idx_begin];
                                         int fid = i % n_column;
@@ -210,38 +223,46 @@ void HistTreeBuilder::find_split(int level, int device_id) {
                                         }
                                     });
                                 } else {
-                                    anonymous_kernel([=]__device__() {
-                                        extern __shared__ GHPair local_hist[];
-                                        for (int i = threadIdx.x; i < n_bins; i += blockDim.x) {
-                                            local_hist[i] = 0;
-                                        }
-                                        __syncthreads();
-
-                                        for (int i = blockIdx.x * blockDim.x + threadIdx.x;
-                                             i < (idx_end - idx_begin) * n_column; i += blockDim.x * gridDim.x) {
-                                            int iid = node_idx_data[i / n_column + idx_begin];
-                                            int fid = i % n_column;
-                                            unsigned char bid = dense_bin_id_data[iid * n_column + fid];
-                                            if (bid != max_num_bin) {
-                                                int feature_offset = cut_row_ptr_data[fid];
-                                                const GHPair src = gh_data[iid];
-                                                GHPair &dest = local_hist[feature_offset + bid];
-                                                atomicAdd(&dest.g, src.g);
-                                                atomicAdd(&dest.h, src.h);
+                                        int num_fv = (idx_end - idx_begin) * n_column;
+                                        anonymous_kernel([=] __device__() {
+                                            extern __shared__ GHPair local_hist[];
+                                            for (int i = threadIdx.x; i < n_bins; i += blockDim.x) {
+                                                local_hist[i] = 0;
                                             }
-                                        }
-                                        __syncthreads();
-                                        for (int i = threadIdx.x; i < n_bins; i += blockDim.x) {
-                                            GHPair &dest = hist_data[i];
-                                            GHPair src = local_hist[i];
-                                            atomicAdd(&dest.g, src.g);
-                                            atomicAdd(&dest.h, src.h);
-                                        }
-                                    }, smem_size);
+                                            __syncthreads();
+
+                                            for (int i = blockIdx.x * blockDim.x + threadIdx.x;
+                                                 i < num_fv; i += blockDim.x * gridDim.x) {
+                                                int iid = node_idx_data[i / n_column + idx_begin];
+                                                //int fid = i - n_column *( i / n_column);
+                                                int fid = i % n_column;
+                                                unsigned char bid = dense_bin_id_data[iid * n_column + fid];
+                                                if (bid != max_num_bin) {
+                                                    const GHPair src = gh_data[iid];
+                                                    int feature_offset = cut_row_ptr_data[fid];
+                                                    GHPair &dest = local_hist[feature_offset + bid];
+                                                    if(src.h != 0)
+                                                        atomicAdd(&dest.h, src.h);
+                                                    if(src.g != 0)
+                                                        atomicAdd(&dest.g, src.g);
+                                                }
+                                            }
+
+                                            __syncthreads();
+                                            for (int i = threadIdx.x; i < n_bins; i += blockDim.x) {
+                                                GHPair src = local_hist[i];
+                                                GHPair &dest = hist_data[i];
+                                                if(src.h != 0)
+                                                    atomicAdd(&dest.h, src.h);
+                                                if(src.g != 0)
+                                                    atomicAdd(&dest.g, src.g);
+                                            }
+                                        }, num_fv, smem_size);
                                 }
                             }
 
-                            //substract
+                            //subtract
+                            auto t_copy_start = timer.now();
                             {
                                 auto hist_data_computed = hist.device_data() + nid0_to_compute * n_bins;
                                 auto hist_data_to_compute = hist.device_data() + nid0_to_substract * n_bins;
@@ -250,14 +271,29 @@ void HistTreeBuilder::find_split(int level, int device_id) {
                                     hist_data_to_compute[i] = father_hist_data[i] - hist_data_computed[i];
                                 });
                             }
+                            auto t_copy_end = timer.now();
+                            std::chrono::duration<double> cp_used_time = t_copy_end - t_copy_start;
+                            this->total_copy_time += cp_used_time.count();
 //                            PERFORMANCE_CHECKPOINT(timerObj);
-                        }
-                    }
+                        }  // end for each node
+                    }//end # node > 1
                     last_hist.copy_from(hist);
                     cudaDeviceSynchronize();
                 }
+                LOG(DEBUG) << "level: " << level;
                 LOG(DEBUG) << "hist new = " << hist;
-                LOG(DEBUG) << "cutfid = " << cut.cut_fid;
+                auto t_build_hist_end = timer.now();
+                std::chrono::duration<double> bh_used_time = t_build_hist_end - t_build_start;
+                this->build_hist_used_time += bh_used_time.count();
+                this->build_n_hist++;
+                LOG(DEBUG) << "-------------->>> build_hist_used_time: " << bh_used_time.count();
+                LOG(DEBUG) << "-------------->>> build_num_hist: " << this->build_n_hist;
+                LOG(DEBUG) << "-------------->>> total_build_hist_used_time: " << this->build_hist_used_time - this->total_dp_time;
+                LOG(DEBUG) << "-------------->>> n_hist::::: " << this->total_hist_num;
+                LOG(DEBUG) << "-------------->>> dp_time::::: " << this->total_dp_time;
+                LOG(DEBUG) << "-------------->>> cp_time::::: " << this->total_copy_time;
+
+                //LOG(DEBUG) << "cutfid = " << cut.cut_fid;
                 inclusive_scan_by_key(cuda::par, hist_fid, hist_fid + n_split,
                                       hist.device_data(), hist.device_data());
                 LOG(DEBUG) << hist;

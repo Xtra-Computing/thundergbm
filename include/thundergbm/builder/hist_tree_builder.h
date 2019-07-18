@@ -27,6 +27,12 @@ private:
     vector<HistCut> cut;
     MSyncArray<unsigned char> dense_bin_id;
     MSyncArray<GHPair> last_hist;
+
+    double build_hist_used_time=0;
+    int build_n_hist = 0;
+    int total_hist_num = 0;
+    double total_dp_time = 0;
+    double total_copy_time = 0;
 };
 
 
