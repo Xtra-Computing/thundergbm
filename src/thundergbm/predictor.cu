@@ -127,7 +127,7 @@ void Predictor::predict_raw(const GBMParam &model_param, const vector<vector<Tre
                 }
                 predict_data_class[iid] += sum;
             }
-        }, smem_size, NUM_BLOCK, BLOCK_SIZE);
+        },n_instances * n_features, smem_size, NUM_BLOCK, BLOCK_SIZE);
     } else {
         //use sparse format and binary search
         device_loop(n_instances, [=]__device__(int iid) {

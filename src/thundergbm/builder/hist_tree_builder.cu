@@ -124,8 +124,10 @@ void HistTreeBuilder::find_split(int level, int device_id) {
                                     int feature_offset = cut_row_ptr_data[fid];
                                     const GHPair src = gh_data[iid];
                                     GHPair &dest = hist_data[feature_offset + bid];
-                                    atomicAdd(&dest.g, src.g);
-                                    atomicAdd(&dest.h, src.h);
+                                    if(src.g != 0)
+                                        atomicAdd(&dest.g, src.g);
+                                    if(src.h != 0)
+                                        atomicAdd(&dest.h, src.h);
                                 }
                             });
                         } else {
