@@ -14,7 +14,8 @@ extern "C" {
                              int depth, int n_trees, int n_device, float min_child_weight, float lambda,
                              float gamma, int max_num_bin, int verbose, float column_sampling_rate,
                              int bagging, int n_parallel_trees, float learning_rate, char *obj_type,
-                             int *num_class, char *tree_method, Tree *&model, int *tree_per_iter, float *group_label) {
+                             int *num_class, char *tree_method, Tree *&model, int *tree_per_iter, float *group_label,
+                             int *group, int num_group=0) {
 //        train_succeed[0] = 1;
         //init model_param
         GBMParam model_param;
@@ -35,13 +36,16 @@ extern "C" {
         model_param.tree_method = tree_method;
         model_param.rt_eps = 1e-6;
 
+
         if (!verbose) {
             el::Loggers::reconfigureAllLoggers(el::Level::Debug, el::ConfigurationType::Enabled, "false");
             el::Loggers::reconfigureAllLoggers(el::Level::Trace, el::ConfigurationType::Enabled, "false");
         }
         el::Loggers::reconfigureAllLoggers(el::ConfigurationType::PerformanceTracking, "false");
         DataSet train_dataset;
-        train_dataset.load_from_sparse(row_size, val, row_ptr, col_ptr, label, model_param);
+        train_dataset.load_from_sparse(row_size, val, row_ptr, col_ptr, label, group, num_group, model_param);
+        //LOG(INFO) << "!!!!!!!!!!!!---->>>> " << num_group;
+        //LOG(INFO) << "!!!!!!!!!!!!---->>>> " << train_dataset.group;
         *num_class = model_param.num_class;
         TreeTrainer trainer;
         vector<vector<Tree> > boosted_model = trainer.train(model_param, train_dataset);
@@ -58,18 +62,20 @@ extern "C" {
         for (int i = 0; i < train_dataset.label.size(); ++i) {
             group_label[i] = train_dataset.label[i];
         }
+        SyncMem::clear_cache();
     }//end sparse_model_scikit
 
 
     void sparse_predict_scikit(int row_size, float *val, int *row_ptr, int *col_ptr, float *y_pred, Tree *&model,
-            int n_trees, int trees_per_iter, char *objective, int num_class, float learning_rate, float *group_label){
+            int n_trees, int trees_per_iter, char *objective, int num_class, float learning_rate, float *group_label,
+            int *group, int num_group=0){
         //load model
         GBMParam model_param;
         model_param.objective = objective;
         model_param.learning_rate = learning_rate;
         model_param.num_class = num_class;
         DataSet dataSet;
-        dataSet.load_from_sparse(row_size, val, row_ptr, col_ptr, NULL, model_param);
+        dataSet.load_from_sparse(row_size, val, row_ptr, col_ptr, NULL, group, num_group, model_param);
         dataSet.label.clear();
         for (int i = 0; i < num_class; ++i) {
             dataSet.label.emplace_back(group_label[i]);
@@ -152,7 +158,6 @@ extern "C" {
         Parser parser;
         parser.load_model(model_path, model_param, boosted_model, dataset);
         for (int i = 0; i < dataset.label.size(); ++i) {
-            group_label[i] = dataset.label[i];
         }
     }
 

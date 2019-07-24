@@ -27,7 +27,7 @@ if path.exists(path.abspath(path.join(dirname, shared_library_name))):
     lib_path = path.abspath(path.join(dirname, shared_library_name))
 else:
     lib_path = path.join(dirname, "../../build/lib", shared_library_name)
-
+# print(lib_path)
 if path.exists(lib_path):
     thundergbm = CDLL(lib_path)
 else:
@@ -74,8 +74,17 @@ class TGBMModel(ThundergbmBase):
         if self.model is not None:
             thundergbm.model_free(byref(self.model))
 
+    def _construct_groups(self, groups):
+        in_groups = None
+        num_groups = 0
+        if groups is not None:
+            num_groups = len(groups)
+            groups = np.asarray(groups, dtype=np.int32, order='C')
+            in_groups = groups.ctypes.data_as(POINTER(c_int32))
 
-    def fit(self, X, y):
+        return in_groups, num_groups
+
+    def fit(self, X, y, groups=None):
         if self.model is not None:
             thundergbm.model_free(byref(self.model))
             self.model = None
@@ -86,10 +95,10 @@ class TGBMModel(ThundergbmBase):
 
         fit = self._sparse_fit
 
-        fit(X, y)
+        fit(X, y, groups=groups)
         return self
 
-    def _sparse_fit(self, X, y):
+    def _sparse_fit(self, X, y, groups=None):
         X.data = np.asarray(X.data, dtype=np.float32, order='C')
         X.sort_indices()
         data = X.data.ctypes.data_as(POINTER(c_float))
@@ -97,6 +106,7 @@ class TGBMModel(ThundergbmBase):
         indptr = X.indptr.ctypes.data_as(POINTER(c_int32))
         y = np.asarray(y, dtype=np.float32, order='C')
         label = y.ctypes.data_as(POINTER(c_float))
+        in_groups, num_groups = self._construct_groups(groups)
         group_label = (c_float * len(set(y)))()
         n_class = (c_int * 1)()
         n_class[0] = self.num_class
@@ -109,7 +119,8 @@ class TGBMModel(ThundergbmBase):
                                        self.n_parallel_trees, c_float(self.learning_rate),
                                        self.objective.encode('utf-8'),
                                        n_class, self.tree_method.encode('utf-8'), byref(self.model), tree_per_iter_ptr,
-                                       group_label)
+                                       group_label,
+                                       in_groups, num_groups)
         self.num_class = n_class[0]
         self.tree_per_iter = tree_per_iter_ptr[0]
         self.group_label = [group_label[idx] for idx in range(len(set(y)))]
@@ -117,7 +128,7 @@ class TGBMModel(ThundergbmBase):
             print("The model returned is empty!")
             exit()
 
-    def predict(self, X):
+    def predict(self, X, groups=None):
         if self.model is None:
             print("Please train the model first or load model from file!")
             raise ValueError
@@ -139,6 +150,7 @@ class TGBMModel(ThundergbmBase):
             group_label[:] = self.group_label
         else:
             group_label = None
+        in_groups, num_groups = self._construct_groups(groups)
         thundergbm.sparse_predict_scikit(
             X.shape[0],
             data,
@@ -151,7 +163,8 @@ class TGBMModel(ThundergbmBase):
             self.objective.encode('utf-8'),
             self.num_class,
             c_float(self.learning_rate),
-            group_label
+            group_label,
+            in_groups, num_groups
         )
         predict_label = [self.predict_label_ptr[index] for index in range(0, X.shape[0])]
         self.predict_label = np.asarray(predict_label)
@@ -204,6 +217,10 @@ class TGBMModel(ThundergbmBase):
 
 
     def cv(self, X, y, folds=None, nfold=5, shuffle=True, seed=0):
+        if self._impl == 'ranker':
+            print("Cross-validation for ## Ranker ## have not been supported yep..")
+            return
+
         sparse = sp.isspmatrix(X)
         if sparse is False:
             X = sp.csr_matrix(X)
@@ -346,6 +363,21 @@ class TGBMClassifier(TGBMModel, ThundergbmClassifierBase):
 
 class TGBMRegressor(TGBMModel, ThundergbmRegressorBase):
     _impl = 'regressor'
+    def __init__(self, depth=6, n_trees=40,
+                 n_gpus=1, min_child_weight=1.0, lambda_tgbm=1.0, gamma=1.0, max_num_bin=255,
+                 verbose=0, column_sampling_rate=1.0, bagging=0,
+                 n_parallel_trees=1, learning_rate=1.0, objective="reg:linear",
+                 num_class=1, tree_method="auto"):
+        super().__init__(depth=depth, n_trees=n_trees,
+                         n_gpus=n_gpus, min_child_weight=min_child_weight, lambda_tgbm=lambda_tgbm, gamma=gamma,
+                         max_num_bin=max_num_bin,
+                         verbose=verbose, column_sampling_rate=column_sampling_rate, bagging=bagging,
+                         n_parallel_trees=n_parallel_trees, learning_rate=learning_rate, objective=objective,
+                         num_class=num_class, tree_method=tree_method)
+
+
+class TGBMRanker(TGBMModel, ThundergbmRegressorBase):
+    _impl = 'ranker'
     def __init__(self, depth=6, n_trees=40,
                  n_gpus=1, min_child_weight=1.0, lambda_tgbm=1.0, gamma=1.0, max_num_bin=255,
                  verbose=0, column_sampling_rate=1.0, bagging=0,

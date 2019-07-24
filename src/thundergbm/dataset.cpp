@@ -15,7 +15,8 @@ size_t DataSet::n_instances() const {
     return this->y.size();
 }
 
-void DataSet::load_from_sparse(int n_instances, float *csr_val, int *csr_row_ptr, int *csr_col_idx, float *y, GBMParam &param) {
+void DataSet::load_from_sparse(int n_instances, float *csr_val, int *csr_row_ptr, int *csr_col_idx, float *y,
+        int *group, int num_group, GBMParam &param) {
     n_features_ = 0;
     this->y.clear();
     this->label.clear();
@@ -57,6 +58,12 @@ void DataSet::load_from_sparse(int n_instances, float *csr_val, int *csr_row_ptr
         group_label();
         param.num_class = label.size();
     }
+
+    if (ObjectiveFunction::need_load_group_file(param.objective)) {
+        for(int i = 0; i < num_group; i++)
+            this->group.emplace_back(group[i]);
+        LOG(INFO) << "#groups = " << this->group.size();
+    }
 }
 
 void DataSet::load_group_file(string file_name) {
@@ -67,6 +74,7 @@ void DataSet::load_group_file(string file_name) {
     int group_size;
     while (ifs >> group_size) group.push_back(group_size);
     LOG(INFO) << "#groups = " << group.size();
+    LOG(INFO) << group;
     ifs.close();
 }
 
