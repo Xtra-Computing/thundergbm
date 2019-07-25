@@ -96,7 +96,7 @@ There are two key steps to use ThunderGBM for ranking.
 
 The remaining part is the same as classification and regression. Please refer to [Parameters](parameters.md) for more information about setting the parameters.
 
-## How to build the Python wheel file
+## How to build the Python wheel file for Linux
 You have to ensure the repository is identical to the latest one.
 * Clone ThunderGBM repository
 ```bash
@@ -109,6 +109,35 @@ git submodule init cub && git submodule update
 ```base
 mkdir build && cd build && cmake .. && make -j
 ```
+* Build the python wheel file
+    - change directory to python by `cd ../python`
+    - update the version you are going to release in [setup.py](https://github.com/Xtra-Computing/thundergbm/blob/c89d6da6008f945c09aae521c95cfe5b8bdd8db5/python/setup.py#L20)
+    - you may need to install the `wheel` dependency by ``pip3 install wheel``
+```bash
+python3 setup.py bdist_wheel
+```
+## How to build the Python wheel file for Windows
+You have to ensure the repository is identical to the latest one.
+* Requirements
+    - Visual Studio
+    - CUDA 10.0 or above
+    - python3.x
+* Clone ThunderGBM repository
+```bash
+git clone https://github.com/zeyiwen/thundergbm.git
+cd thundergbm
+#under the directory of thundergbm
+git submodule init && git submodule update
+```
+* Cmake using Visual Studio Developer Command Prompt
+```base
+mkdir build && cd build
+cmake .. -DCMAKE_WINDOWS_EXPORT_ALL_SYMBOLS=TRUE -DBUILD_SHARED_LIBS=TRUE -G "Visual Studio 15 2017 Win64"
+```
+   You may need to change the version of Visual Studio if you are using a different version of Visual Studio.
+* Build binary file using Visual Studio
+   - Open the file in path 'thundergbm/build/thundergbm.sln' with Visual Studio
+   - Click 'Build all' in Visual Studio
 * Build the python wheel file
     - change directory to python by `cd ../python`
     - update the version you are going to release in [setup.py](https://github.com/Xtra-Computing/thundergbm/blob/c89d6da6008f945c09aae521c95cfe5b8bdd8db5/python/setup.py#L20)
