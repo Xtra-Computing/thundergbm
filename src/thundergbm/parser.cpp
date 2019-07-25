@@ -73,6 +73,14 @@ void Parser::parse_param(GBMParam &model_param, int argc, char **argv){
             else
                 LOG(INFO) << "\"" << name << "\" is unknown option!";
         }
+        else{
+            string str_name(name);
+            if(str_name.compare("-help") == 0){
+                printf("please refer to \"docs/parameters.md\" in the GitHub repository for more information about setting the options\n");
+                exit(0);
+            }
+        } 
+
     };
 
     //read configuration file
