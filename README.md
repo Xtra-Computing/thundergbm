@@ -1,5 +1,5 @@
 [![Documentation Status](https://readthedocs.org/projects/thundergbm/badge/?version=latest)](https://thundergbm.readthedocs.org)
-[![GitHub license](http://dmlc.github.io/img/apache2.svg)](./LICENSE)
+[![GitHub license](https://img.shields.io/badge/license-apache2-yellowgreen)](./LICENSE)
 [![GitHub issues](https://img.shields.io/github/issues/xtra-computing/thundergbm.svg)](https://github.com/xtra-computing/thundergbm/issues)
 [![PyPI version](https://badge.fury.io/py/thundergbm.svg)](https://badge.fury.io/py/thundergbm)
 
