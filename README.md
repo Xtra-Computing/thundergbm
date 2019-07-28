@@ -41,11 +41,11 @@ GBDTs and Random Forests are often used for creating state-of-the-art data scien
 * For Windows (64bit)
     - Download the Python wheel file (for Python3 or above)
     
-        * [CUDA 10.0 - Win64](https://github.com/Xtra-Computing/thundergbm/blob/master/python/whl/thundergbm-0.3.4-py3-win64.whl)
+        * [CUDA 10.0 - Win64](https://github.com/Xtra-Computing/thundergbm/blob/master/python/dist/thundergbm-0.3.4-py3-none-win_amd64.whl)
 
     - Install the Python wheel file
     
-        * `pip install thundergbm-0.3.4-py3-win64.whl`
+        * `pip install thundergbm-0.3.4-py3-none-win_amd64.whl`
 * Currently only support python3
 * After you have installed thundergbm, you can import and use the classifier (similarly for regressor) by:
 ```python
