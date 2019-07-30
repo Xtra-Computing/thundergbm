@@ -20,6 +20,7 @@ public:
 
     void csr2csc_gpu(const DataSet &dataSet, vector<std::unique_ptr<SparseColumns>> &);
     void csr2csc_cpu(const DataSet &dataset, vector<std::unique_ptr<SparseColumns>> &);
+    void csc_by_default(const DataSet &dataset, vector<std::unique_ptr<SparseColumns>> &v_columns);
     void to_multi_devices(vector<std::unique_ptr<SparseColumns>> &) const;
 
 };

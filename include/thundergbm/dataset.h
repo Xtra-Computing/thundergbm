@@ -14,7 +14,7 @@ public:
     void load_from_sparse(int n_instances, float *csr_val, int *csr_row_ptr, int *csr_col_idx, float *y,
             int *group, int num_group, GBMParam &param);
     void load_from_file(string file_name, GBMParam &param);
-    void load_csc_from_file(string file_name, GBMParam &param);
+    void load_csc_from_file(string file_name, GBMParam &param, int const nfeatures=500);
     void load_group_file(string file_name);
     void group_label();
 
@@ -29,6 +29,12 @@ public:
     size_t n_features_;
     vector<int> group;
     vector<float_type> label;
+
+
+    // csc variables
+    vector<float_type> csc_val;
+    vector<int> csc_row_idx;
+    vector<int> csc_col_ptr;
 
     // whether the dataset is to big
     int use_cpu = false;

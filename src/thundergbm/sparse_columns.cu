@@ -19,6 +19,9 @@ void correct_start(int *csc_col_ptr_2d_data, int first_col_start, int n_column_s
 
 void SparseColumns::csr2csc_gpu(const DataSet &dataset, vector<std::unique_ptr<SparseColumns>> &v_columns) {
     LOG(INFO) << "convert csr to csc using gpu...";
+    std::chrono::high_resolution_clock timer;
+    auto t_start = timer.now();
+
     //three arrays (on GPU/CPU) for csr representation
     this->column_offset = 0;
     SyncArray<float_type> val;
@@ -53,6 +56,11 @@ void SparseColumns::csr2csc_gpu(const DataSet &dataset, vector<std::unique_ptr<S
     cusparseDestroy(handle);
     cusparseDestroyMatDescr(descr);
 
+    val.resize(0);
+    row_ptr.resize(0);
+    col_idx.resize(0);
+    SyncMem::clear_cache();
+
     int n_device = v_columns.size();
     int ave_n_columns = n_column / n_device;
     DO_ON_MULTI_DEVICES(n_device, [&](int device_id) {
@@ -82,6 +90,10 @@ void SparseColumns::csr2csc_gpu(const DataSet &dataset, vector<std::unique_ptr<S
         LOG(TRACE) << "sorting feature values (multi-device)";
         cub_seg_sort_by_key(columns.csc_val, columns.csc_row_idx, columns.csc_col_ptr, false);
     });
+
+    auto t_end = timer.now();
+    std::chrono::duration<float> used_time = t_end - t_start;
+    LOG(INFO) << "Converting csr to csc using time: " << used_time.count() << " s";
 }
 
 void SparseColumns::csr2csc_cpu(const DataSet &dataset, vector<std::unique_ptr<SparseColumns>> &v_columns) {
@@ -162,4 +174,43 @@ void SparseColumns::csr2csc_cpu(const DataSet &dataset, vector<std::unique_ptr<S
     delete[](csc_val_ptr);
     delete[](csc_row_ptr);
     delete[](csc_col_ptr);
+}
+
+
+void SparseColumns::csc_by_default(const DataSet &dataset, vector<std::unique_ptr<SparseColumns>> &v_columns) {
+    const float_type *csc_val_ptr = dataset.csc_val.data();
+    const int *csc_row_ptr = dataset.csc_row_idx.data();
+    const int *csc_col_ptr = dataset.csc_col_ptr.data();
+    n_column = dataset.n_features();
+    n_row = dataset.n_instances();
+    nnz = dataset.csc_val.size();
+
+    // split data to multiple device
+    int n_device = v_columns.size();
+    int ave_n_columns = n_column / n_device;
+    DO_ON_MULTI_DEVICES(n_device, [&](int device_id){
+        SparseColumns &columns = *v_columns[device_id];
+        int first_col_id = device_id * ave_n_columns;
+        int n_column_sub = (device_id < n_device - 1) ? ave_n_columns : n_column - first_col_id;
+        int first_col_start = csc_col_ptr[first_col_id];
+        int nnz_sub = (device_id < n_device - 1) ?
+                      (csc_col_ptr[(device_id + 1) * ave_n_columns] - first_col_start) : (nnz - first_col_start);
+
+        columns.column_offset = first_col_id + this->column_offset;
+        columns.nnz = nnz_sub;
+
+        columns.n_column = n_column_sub;
+        columns.n_row = n_row;
+        columns.csc_val.resize(nnz_sub);
+        columns.csc_row_idx.resize(nnz_sub);
+        columns.csc_col_ptr.resize(n_column_sub + 1);
+
+        columns.csc_val.copy_from(csc_val_ptr + first_col_start, nnz_sub);
+        columns.csc_row_idx.copy_from(csc_row_ptr + first_col_start, nnz_sub);
+        columns.csc_col_ptr.copy_from(csc_col_ptr + first_col_id, n_column_sub + 1);
+
+        int *csc_col_ptr_2d_data = columns.csc_col_ptr.host_data();
+        correct_start(csc_col_ptr_2d_data, first_col_start, n_column_sub);
+        cub_seg_sort_by_key(columns.csc_val, columns.csc_row_idx, columns.csc_col_ptr, false);
+    });
 }

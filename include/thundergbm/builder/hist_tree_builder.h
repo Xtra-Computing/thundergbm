@@ -25,7 +25,8 @@ public:
 
 private:
     vector<HistCut> cut;
-    MSyncArray<unsigned char> dense_bin_id;
+    // MSyncArray<unsigned char> char_dense_bin_id;
+    MSyncArray<unsigned int> dense_bin_id;
     MSyncArray<GHPair> last_hist;
 
     double build_hist_used_time=0;
