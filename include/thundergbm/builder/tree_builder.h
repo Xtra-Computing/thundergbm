@@ -15,6 +15,8 @@ class TreeBuilder : public FunctionBuilder {
 public:
     virtual void find_split(int level, int device_id) = 0;
 
+//    void find_split2(int level, int device_id);
+
     virtual void update_ins2node_id() = 0;
 
     vector<Tree> build_approximate(const MSyncArray<GHPair> &gradients) override;

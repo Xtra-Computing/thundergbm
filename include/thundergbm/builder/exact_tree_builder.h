@@ -21,6 +21,8 @@ public:
 
     void update_ins2node_id() override;
 
+    void find_split2(int level, int device_id);
+
 };
 
 

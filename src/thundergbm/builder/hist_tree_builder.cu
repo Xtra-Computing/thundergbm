@@ -134,8 +134,7 @@ void HistTreeBuilder::find_split(int level, int device_id) {
             {
                 TIMED_SCOPE(timerObj, "build hist");
                 {
-                    size_t
-                    smem_size = n_bins * sizeof(GHPair);
+                    size_t smem_size = n_bins * sizeof(GHPair);
                     LOG(DEBUG) << "shared memory size = " << smem_size / 1024.0 << " KB";
                     if (n_nodes_in_level == 1) {
                         //root
@@ -354,10 +353,13 @@ void HistTreeBuilder::find_split(int level, int device_id) {
                 LOG(DEBUG) << "-------------->>> dp_time::::: " << this->total_dp_time;
                 LOG(DEBUG) << "-------------->>> cp_time::::: " << this->total_copy_time;
 
-                //LOG(DEBUG) << "cutfid = " << cut.cut_fid;
-                inclusive_scan_by_key(cuda::par, hist_fid, hist_fid + n_split,
+                // LOG(INFO) << "hist_fid = " << hist_fid;
+                inclusive_scan_by_key(cuda::par, hist_fid, hist_fid + n_split, //
                                       hist.device_data(), hist.device_data());
-                LOG(DEBUG) << hist;
+                LOG(INFO) << "n_max_nodes: " << n_max_nodes;
+                LOG(INFO) << "n_split: " << n_split;
+                LOG(INFO) << "n_bins: " << n_bins;
+                LOG(INFO) << hist;
 
                 auto nodes_data = tree.nodes.device_data();
                 auto missing_gh_data = missing_gh.device_data();
@@ -382,10 +384,10 @@ void HistTreeBuilder::find_split(int level, int device_id) {
 //            TIMED_SCOPE(timerObj, "calculate gain");
             auto compute_gain = []__device__(GHPair father, GHPair lch, GHPair rch, float_type min_child_weight,
                     float_type lambda) -> float_type {
-                    if (lch.h >= min_child_weight && rch.h >= min_child_weight)
+                if (lch.h >= min_child_weight && rch.h >= min_child_weight)
                     return (lch.g * lch.g) / (lch.h + lambda) + (rch.g * rch.g) / (rch.h + lambda) -
-            (father.g * father.g) / (father.h + lambda);
-                    else
+                             (father.g * father.g) / (father.h + lambda);
+                else
                     return 0;
             };
 
@@ -416,7 +418,9 @@ void HistTreeBuilder::find_split(int level, int device_id) {
                     else
                         gain_data[i] = -default_to_right_gain;//negative means default split to right
 
-                } else gain_data[i] = 0;
+                }
+                else
+                    gain_data[i] = 0;
             });
             LOG(DEBUG) << "gain = " << gain;
         }
@@ -433,15 +437,12 @@ void HistTreeBuilder::find_split(int level, int device_id) {
 
             auto nid_iterator = make_transform_iterator(counting_iterator<int>(0), placeholders::_1 / n_bins);
 
-            reduce_by_key(
-                    cuda::par,
-                    nid_iterator, nid_iterator + n_split,
+            reduce_by_key(cuda::par,  nid_iterator, nid_iterator + n_split,
                     make_zip_iterator(make_tuple(counting_iterator<int>(0), gain.device_data())),
                     make_discard_iterator(),
                     best_idx_gain.device_data(),
                     thrust::equal_to<int>(),
-                    arg_abs_max
-            );
+                    arg_abs_max);
             LOG(DEBUG) << n_split;
             LOG(DEBUG) << "best rank & gain = " << best_idx_gain;
         }
