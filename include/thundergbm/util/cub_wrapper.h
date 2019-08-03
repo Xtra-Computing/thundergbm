@@ -12,48 +12,45 @@
 template<typename T1, typename T2>
 void cub_sort_by_key(SyncArray<T1> &keys, SyncArray<T2> &values, int size = -1, bool ascending = true,
                      void *temp = nullptr) {
-    CHECK_EQ(values.size(), values.size()) << "keys and values must have equal size";
-    using namespace cub;
-    size_t num_items;
+    CHECK_EQ(keys.size(), values.size()) << "The size of keys and values must be the same. ";
+    int num_items = keys.size();
     if (-1 == size)
         num_items = keys.size();
     else
         num_items = size;
-    SyncArray<char> temp_storage;
-    DoubleBuffer<T1> d_keys;
-    DoubleBuffer<T2> d_values;
-    if (!temp) {
-        SyncArray<T1> keys2(num_items);
-        SyncArray<T2> values2(num_items);
 
-        d_keys = DoubleBuffer<T1>(keys.device_data(), keys2.device_data());
-        d_values = DoubleBuffer<T2>(values.device_data(), values2.device_data());
+    cub::DoubleBuffer<T1> d_keys;
+    cub::DoubleBuffer<T2> d_values;
+    T1 *d_key_alt_buf;
+    T2 *d_value_alt_buf;
+    if (!temp) {
+        cudaMalloc((void**)&d_key_alt_buf, sizeof(T1)* num_items);
+        cudaMalloc((void**)&d_value_alt_buf, sizeof(T2)* num_items);
+        d_keys =  DoubleBuffer<T1>(keys.device_data(), d_key_alt_buf);
+        d_values = DoubleBuffer<T2>(values.device_data(), d_value_alt_buf);
     } else {
         d_keys = DoubleBuffer<T1>(keys.device_data(), (T1 *) temp);
         d_values = DoubleBuffer<T2>(values.device_data(), (T2 *) ((T1 *) temp + num_items));
     }
 
     size_t temp_storage_bytes = 0;
+    SyncArray<char> temp_storage;
 
-    // Initialize device arrays
-    if (ascending)
-        DeviceRadixSort::SortPairs(NULL, temp_storage_bytes, d_keys, d_values, num_items);
+    if(ascending)
+        cub::DeviceRadixSort::SortPairs(NULL, temp_storage_bytes, d_keys, d_values, num_items);
     else
-        DeviceRadixSort::SortPairsDescending(NULL, temp_storage_bytes, d_keys, d_values, num_items);
+        cub::DeviceRadixSort::SortPairsDescending(NULL, temp_storage_bytes, d_keys, d_values, num_items);
+
     temp_storage.resize(temp_storage_bytes);
 
-    // Run
-    if (ascending)
-        DeviceRadixSort::SortPairs(temp_storage.device_data(), temp_storage_bytes, d_keys, d_values, num_items);
+    if(ascending)
+        cub::DeviceRadixSort::SortPairs(temp_storage.device_data(), temp_storage_bytes, d_keys, d_values, num_items);
     else
-        DeviceRadixSort::SortPairsDescending(temp_storage.device_data(), temp_storage_bytes, d_keys, d_values,
-                                             num_items);
+        cub::DeviceRadixSort::SortPairsDescending(temp_storage.device_data(), temp_storage_bytes, d_keys, d_values, num_items);
 
-    CUDA_CHECK(
-            cudaMemcpy(keys.device_data(), reinterpret_cast<const void *>(d_keys.Current()), sizeof(T1) * num_items,
-                       cudaMemcpyDeviceToDevice));
-    CUDA_CHECK(cudaMemcpy(values.device_data(), reinterpret_cast<const void *>(d_values.Current()),
-                          sizeof(T2) * num_items,
+    CUDA_CHECK(cudaMemcpy(values.device_data(), reinterpret_cast<const void *>(d_values.Current()), sizeof(T2) * num_items,
+                          cudaMemcpyDeviceToDevice));
+    CUDA_CHECK(cudaMemcpy(keys.device_data(), reinterpret_cast<const void *>(d_keys.Current()), sizeof(T1) * num_items,
                           cudaMemcpyDeviceToDevice));
 }
 

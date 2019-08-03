@@ -143,6 +143,7 @@ void HistCut::get_cut_points3(SparseColumns &columns, int max_num_bins, int n_in
 
     cut_row_ptr.resize(n_column + 1);
     auto cut_row_ptr_data = cut_row_ptr.device_data();
+    cut_fid_data = cut_fid.device_data();
     device_loop(cut_fid.size(), [=] __device__(int fid) {
         atomicAdd(cut_row_ptr_data + cut_fid_data[fid] + 1, 1);
     });

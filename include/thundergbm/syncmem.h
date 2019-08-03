@@ -104,7 +104,8 @@ namespace thunder {
             return device_id;
         }
 
-        static void clear_cache() { device_allocator.FreeAllCached(); };
+        static void clear_cache() {
+        };
 
     private:
         void *device_ptr;
@@ -114,8 +115,8 @@ namespace thunder {
         size_t size_;
         HEAD head_;
         int device_id;
-        static DeviceAllocator device_allocator;
-        static HostAllocator host_allocator;
+        // static DeviceAllocator device_allocator;
+        // static HostAllocator host_allocator;
 
         inline void malloc_host(void **ptr, size_t size);
 

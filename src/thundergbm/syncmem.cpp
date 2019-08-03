@@ -8,7 +8,8 @@
 namespace thunder {
     void SyncMem::malloc_host(void **ptr, size_t size) {
 #ifdef USE_CUDA
-        host_allocator.DeviceAllocate(ptr, size);
+        //host_allocator.DeviceAllocate(ptr, size);
+        cudaMalloc(ptr, size);
 
 #else
         *ptr = new char[size];
@@ -16,15 +17,16 @@ namespace thunder {
     }
 
     void SyncMem::free_host(void *ptr) {
-#ifdef USE_CUDA
-        host_allocator.DeviceFree(ptr);
+#ifdef USE_CUDA.
+        // host_allocator.DeviceFree(ptr);
+        cudaFreeHost(ptr);
 #else
         free(ptr);
 #endif
     }
 
-    DeviceAllocator SyncMem::device_allocator(2, 3, 11, CachingDeviceAllocator::INVALID_SIZE, true, false);
-    HostAllocator SyncMem::host_allocator(2, 3, 11, CachingDeviceAllocator::INVALID_SIZE, false, false);
+//    DeviceAllocator SyncMem::device_allocator(2, 3, 11, CachingDeviceAllocator::INVALID_SIZE, true, false);
+//    HostAllocator SyncMem::host_allocator(2, 3, 11, CachingDeviceAllocator::INVALID_SIZE, false, false);
 
     SyncMem::SyncMem() : SyncMem(0) {}
 
@@ -38,13 +40,15 @@ namespace thunder {
     SyncMem::~SyncMem() {
         this->head_ = UNINITIALIZED;
         if (host_ptr && own_host_data) {
-            free_host(host_ptr);
+            // free_host(host_ptr);
+            cudaFreeHost(host_ptr);
             host_ptr = nullptr;
         }
 #ifdef USE_CUDA
         DO_ON_DEVICE(device_id, {
             if (device_ptr && own_device_data) {
-                device_allocator.DeviceFree(device_ptr);
+                //device_allocator.DeviceFree(device_ptr);
+                cudaFree(device_ptr);
                 device_ptr = nullptr;
             }
         });
@@ -76,7 +80,8 @@ namespace thunder {
     void SyncMem::to_host() {
         switch (head_) {
             case UNINITIALIZED:
-                malloc_host(&host_ptr, size_);
+                // malloc_host(&host_ptr, size_);
+                cudaMallocHost(&host_ptr, size_);
                 CUDA_CHECK(cudaMemset(host_ptr, 0, size_));
                 head_ = HOST;
                 own_host_data = true;
@@ -85,7 +90,8 @@ namespace thunder {
 #ifdef USE_CUDA
                 DO_ON_DEVICE(device_id, {
                     if (nullptr == host_ptr) {
-                        malloc_host(&host_ptr, size_);
+                        // malloc_host(&host_ptr, size_);
+                        cudaMallocHost(&host_ptr, size_);
                         CUDA_CHECK(cudaMemset(host_ptr, 0, size_));
                         own_host_data = true;
                     }
@@ -104,7 +110,8 @@ namespace thunder {
 #ifdef USE_CUDA
         switch (head_) {
             case UNINITIALIZED:
-                CUDA_CHECK(device_allocator.DeviceAllocate(&device_ptr, size_));
+                // CUDA_CHECK(device_allocator.DeviceAllocate(&device_ptr, size_));
+                CUDA_CHECK(cudaMalloc(&device_ptr, size_));
                 CUDA_CHECK(cudaMemset(device_ptr, 0, size_));
                 head_ = DEVICE;
                 own_device_data = true;
@@ -113,7 +120,8 @@ namespace thunder {
             case HOST:
                 DO_ON_DEVICE(device_id, {
                     if (nullptr == device_ptr) {
-                        CUDA_CHECK(device_allocator.DeviceAllocate(&device_ptr, size_));
+                        //CUDA_CHECK(device_allocator.DeviceAllocate(&device_ptr, size_));
+                        CUDA_CHECK(cudaMalloc(&device_ptr, size_));
                         CUDA_CHECK(cudaMemset(device_ptr, 0, size_));
                         own_device_data = true;
                     }
@@ -131,7 +139,8 @@ namespace thunder {
     void SyncMem::set_host_data(void *data) {
         CHECK_NOTNULL(data);
         if (own_host_data) {
-            free_host(host_ptr);
+            // free_host(host_ptr);
+            cudaFreeHost(host_ptr);
         }
         host_ptr = data;
         own_host_data = false;
@@ -144,7 +153,8 @@ namespace thunder {
             CHECK_NOTNULL(data);
             if (own_device_data) {
 //                CUDA_CHECK(cudaFree(device_data()));
-                device_allocator.DeviceFree(device_ptr);
+                //device_allocator.DeviceFree(device_ptr);
+                cudaFree(device_ptr);
             }
             device_ptr = data;
             own_device_data = false;
