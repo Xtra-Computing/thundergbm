@@ -1,7 +1,7 @@
 
 ## Introduction
     
-   This is some python scripts that can help you reproduce our experimental results. We would like to thank the author of [GBM-Benchmarks]([https://github.com/RAMitchell/GBM-Benchmarks](https://github.com/RAMitchell/GBM-Benchmarks)) which our scripts are built on top of.
+   This is some python scripts that can help you reproduce our experimental results. We would like to thank the author of [GBM-Benchmarks](https://github.com/RAMitchell/GBM-Benchmarks) which our scripts are built on top of.
    
 ## Requirements
  _python3.x_&nbsp;&nbsp;&nbsp;&nbsp; _numpy_ &nbsp;&nbsp;&nbsp;&nbsp;_sklearn_&nbsp;&nbsp;&nbsp;&nbsp;_xgboost_ &nbsp;&nbsp;&nbsp;&nbsp; _lightgbm_ &nbsp;&nbsp;&nbsp;&nbsp; _catboost_&nbsp;&nbsp;&nbsp;&nbsp; _thundergbm_
