@@ -163,6 +163,9 @@ def do_exps_with_command(model_name, dataset_name, use_gpu=True):
     elif model_name == 'lightgbm':
         model = LightGBMModel()
         result_path = 'lgb.txt'
+    elif model_name == 'thundergbm':
+        model = ThunderGBMModel()
+        result_path = 'tgb.txt'
     else:
         print('illegal model name...')
 
@@ -187,13 +190,13 @@ def do_exps_with_command(model_name, dataset_name, use_gpu=True):
     result_file.close()
 
 if __name__ == "__main__":
-    # print(sys.argv)
-    # model_name = sys.argv[1]
-    # use_gpu = True
-    # if sys.argv[2] == 'cpu':
-    #     use_gpu = False
-    # dataset_name = sys.argv[3]
-    # do_exps_with_command(model_name, dataset_name, use_gpu)
-    do_exps()
+    print(sys.argv)
+    model_name = sys.argv[1]
+    use_gpu = True
+    if sys.argv[2] == 'cpu':
+        use_gpu = False
+    dataset_name = sys.argv[3]
+    do_exps_with_command(model_name, dataset_name, use_gpu)
+    # do_exps()
 
 
