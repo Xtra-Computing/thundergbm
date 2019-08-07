@@ -29,6 +29,8 @@ vector<vector<Tree>> TreeTrainer::train(GBMParam &param, const DataSet &dataset)
             LOG(INFO) << "updating number of classes from " << param.num_class << " to " << num_class;
             param.num_class = num_class;
         }
+        if(param.num_class > 2)
+            param.tree_per_rounds = param.num_class;
     }
     else if(param.objective.find("reg:") != std::string::npos){
         param.num_class = 1;

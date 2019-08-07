@@ -12,27 +12,11 @@
 #include "thrust/binary_search.h"
 #include "thundergbm/util/multi_device.h"
 
-inline unsigned int __host__ __device__ compose(unsigned int offset, unsigned char bid) {
-    unsigned int id;
-    unsigned int temp_id = (unsigned int)bid;
-    id = ((temp_id << 24) | offset);
-
-    return id;
-}
-
-inline void __host__ __device__ decompose(unsigned int id, unsigned int &offset, unsigned char &bid) {
-    unsigned char *tmp = (unsigned char*)(&id);
-    bid = (unsigned char)tmp[3];
-    offset = ((id << 8) >> 8);
-}
-
-
 void HistTreeBuilder::get_bin_ids() {
     DO_ON_MULTI_DEVICES(param.n_device, [&](int device_id){
         SparseColumns &columns = shards[device_id].columns;
         HistCut &cut = this->cut[device_id];
         auto &dense_bin_id = this->dense_bin_id[device_id];
-        // auto &char_dense_bin_id = this->char_dense_bin_id[device_id];
         using namespace thrust;
         int n_column = columns.n_column;
         int nnz = columns.nnz;
@@ -67,29 +51,16 @@ void HistTreeBuilder::get_bin_ids() {
 
         auto max_num_bin = param.max_num_bin;
         dense_bin_id.resize(n_instances * n_column);
-        // char_dense_bin_id.resize(n_instances * n_column);
-        // auto char_dense_bin_id_data = char_dense_bin_id.device_data();
         auto dense_bin_id_data = dense_bin_id.device_data();
         auto csc_row_idx_data = columns.csc_row_idx.device_data();
         device_loop(n_instances * n_column, [=]__device__(int i) {
-            dense_bin_id_data[i] = max_num_bin << 24;
-            // char_dense_bin_id_data[i] = max_num_bin;
-        });
-        auto cut_row_ptr_data = cut.cut_row_ptr.device_data();
-
+        dense_bin_id_data[i] = max_num_bin;
+    });
         device_loop_2d(n_column, columns.csc_col_ptr.device_data(), [=]__device__(int fid, int i) {
-            int row = csc_row_idx_data[i];
-            unsigned char bid = bin_id_data[i];
-            unsigned int feature_offset = cut_row_ptr_data[fid];
-            unsigned int id = compose(feature_offset, bid);
-
-            dense_bin_id_data[row * n_column + fid] = id;
-            // char_dense_bin_id_data[row * n_column + fid] = bid;
-        }, n_block);
-
-
-        // auto h_char_dense_bin_id_data = char_dense_bin_id.host_data();
-        auto h_dense_bin_id_data = dense_bin_id.host_data();
+        int row = csc_row_idx_data[i];
+        unsigned char bid = bin_id_data[i];
+        dense_bin_id_data[row * n_column + fid] = bid;
+    }, n_block);
     });
 }
 
@@ -115,7 +86,6 @@ void HistTreeBuilder::find_split(int level, int device_id) {
     int n_max_nodes = 2 << param.depth;
     int n_max_splits = n_max_nodes * n_bins;
     int n_split = n_nodes_in_level * n_bins;
-    // auto char_dense_bin_id_data = char_dense_bin_id[device_id].device_data();
 
     LOG(TRACE) << "start finding split";
 
@@ -149,20 +119,13 @@ void HistTreeBuilder::find_split(int level, int device_id) {
                             device_loop(n_instances * n_column, [=]__device__(int i) {
                                 int iid = i / n_column;
                                 int fid = i % n_column;
-                                unsigned int id = dense_bin_id_data[iid * n_column + fid];
-                                unsigned char bid;
-                                unsigned int feature_offset;
-                                decompose(id, feature_offset, bid);
-                                // bid = char_dense_bin_id_data[iid * n_column + fid];
+                                unsigned char bid = dense_bin_id_data[iid * n_column + fid];
                                 if (bid != max_num_bin) {
+                                    int feature_offset = cut_row_ptr_data[fid];
                                     const GHPair src = gh_data[iid];
-                                    if(src.h != 0) {
-                                        // int feature_offset = cut_row_ptr_data[fid];
-                                        GHPair &dest = hist_data[feature_offset + bid];
-                                        atomicAdd(&dest.h, src.h);
-                                        if(src.g != 0)
-                                            atomicAdd(&dest.g, src.g);
-                                    }
+                                    GHPair &dest = hist_data[feature_offset + bid];
+                                    atomicAdd(&dest.g, src.g);
+                                    atomicAdd(&dest.h, src.h);
                                 }
                             });
                         } else {
@@ -177,32 +140,21 @@ void HistTreeBuilder::find_split(int level, int device_id) {
                                      i < num_fv; i += blockDim.x * gridDim.x) {
                                     int iid = i / n_column;
                                     int fid = i % n_column;
-                                    unsigned int id = dense_bin_id_data[iid * n_column + fid];
-                                    unsigned char bid;
-                                    unsigned int feature_offset;
-                                    decompose(id, feature_offset, bid);
-                                    // bid = char_dense_bin_id_data[iid * n_column + fid];
+                                    unsigned char bid = dense_bin_id_data[iid * n_column + fid];
                                     if (bid != max_num_bin) {
+                                        int feature_offset = cut_row_ptr_data[fid];
                                         const GHPair src = gh_data[iid];
-                                        if(src.h != 0) {
-                                            // int feature_offset = cut_row_ptr_data[fid];
-                                            GHPair &dest = hist_data[feature_offset + bid];
-                                            atomicAdd(&dest.h, src.h);
-                                            if(src.g != 0)
-                                                atomicAdd(&dest.g, src.g);
-                                        }
+                                        GHPair &dest = local_hist[feature_offset + bid];
+                                        atomicAdd(&dest.g, src.g);
+                                        atomicAdd(&dest.h, src.h);
                                     }
                                 }
                                 __syncthreads();
                                 for (int i = threadIdx.x; i < n_bins; i += blockDim.x) {
-
+                                    GHPair &dest = hist_data[i];
                                     GHPair src = local_hist[i];
-                                    if(src.h != 0) {
-                                        GHPair &dest = hist_data[i];
-                                        atomicAdd(&dest.h, src.h);
-                                        if(src.g != 0)
-                                            atomicAdd(&dest.g, src.g);
-                                    }
+                                    atomicAdd(&dest.g, src.g);
+                                    atomicAdd(&dest.h, src.h);
                                 }
                             }, num_fv, smem_size);
                         }
@@ -261,64 +213,51 @@ void HistTreeBuilder::find_split(int level, int device_id) {
                                     device_loop((idx_end - idx_begin) * n_column, [=]__device__(int i) {
                                         int iid = node_idx_data[i / n_column + idx_begin];
                                         int fid = i % n_column;
-                                        unsigned int id = dense_bin_id_data[iid * n_column + fid];
-                                        unsigned char bid;
-                                        unsigned int feature_offset;
-                                        decompose(id, feature_offset, bid);
-                                        // bid = char_dense_bin_id_data[iid * n_column + fid];
+                                        unsigned char bid = dense_bin_id_data[iid * n_column + fid];
                                         if (bid != max_num_bin) {
+                                            int feature_offset = cut_row_ptr_data[fid];
                                             const GHPair src = gh_data[iid];
-                                            if(src.h != 0) {
-                                                // int feature_offset = cut_row_ptr_data[fid];
-                                                GHPair &dest = hist_data[feature_offset + bid];
-                                                atomicAdd(&dest.h, src.h);
+                                            GHPair &dest = hist_data[feature_offset + bid];
+                                            atomicAdd(&dest.g, src.g);
+                                            atomicAdd(&dest.h, src.h);
+                                        }
+                                    });
+                                } else {
+                                    int num_fv = (idx_end - idx_begin) * n_column;
+                                    anonymous_kernel([=] __device__() {
+                                        extern __shared__ GHPair local_hist[];
+                                        for (int i = threadIdx.x; i < n_bins; i += blockDim.x) {
+                                            local_hist[i] = 0;
+                                        }
+                                        __syncthreads();
+
+                                        for (int i = blockIdx.x * blockDim.x + threadIdx.x;
+                                             i < num_fv; i += blockDim.x * gridDim.x) {
+                                            int iid = node_idx_data[i / n_column + idx_begin];
+                                            //int fid = i - n_column *( i / n_column);
+                                            int fid = i % n_column;
+                                            unsigned char bid = dense_bin_id_data[iid * n_column + fid];
+                                            if (bid != max_num_bin) {
+                                                const GHPair src = gh_data[iid];
+                                                int feature_offset = cut_row_ptr_data[fid];
+                                                GHPair &dest = local_hist[feature_offset + bid];
+                                                if(src.h != 0)
+                                                    atomicAdd(&dest.h, src.h);
                                                 if(src.g != 0)
                                                     atomicAdd(&dest.g, src.g);
                                             }
                                         }
-                                    });
-                                } else {
-                                        int num_fv = (idx_end - idx_begin) * n_column;
-                                        anonymous_kernel([=] __device__() {
-                                            extern __shared__ char smem[];
-                                            GHPair *local_hist = reinterpret_cast<GHPair*>(smem);
-                                            for (int i = threadIdx.x; i < n_bins; i += blockDim.x) {
-                                                local_hist[i] = GHPair();
-                                            }
-                                            __syncthreads();
 
-                                            for (int i = blockIdx.x * blockDim.x + threadIdx.x;
-                                                 i < num_fv; i += blockDim.x * gridDim.x) {
-                                                int iid = node_idx_data[i / n_column + idx_begin];
-                                                //int fid = i - n_column *( i / n_column);
-                                                int fid = i % n_column;
-                                                unsigned int id = dense_bin_id_data[iid * n_column + fid];
-                                                unsigned char bid;
-                                                unsigned int feature_offset;
-                                                decompose(id, feature_offset, bid);
-                                                // bid = char_dense_bin_id_data[iid * n_column + fid];
-                                                if (bid != max_num_bin) {
-                                                    const GHPair src = gh_data[iid];
-                                                    // int feature_offset = cut_row_ptr_data[fid];
-                                                    GHPair &dest = local_hist[feature_offset + bid];
-                                                    if(src.h != 0)
-                                                        atomicAdd(&dest.h, src.h);
-                                                    if(src.g != 0)
-                                                        atomicAdd(&dest.g, src.g);
-                                                }
-                                            }
-
-                                            __syncthreads();
-                                            for (int i = threadIdx.x; i < n_bins; i += blockDim.x) {
-                                                GHPair src = local_hist[i];
-                                                if(src.h != 0) {
-                                                    GHPair &dest = hist_data[i];
-                                                    atomicAdd(&dest.h, src.h);
-                                                    if(src.g != 0)
-                                                        atomicAdd(&dest.g, src.g);
-                                                }
-                                            }
-                                        }, num_fv, smem_size);
+                                        __syncthreads();
+                                        for (int i = threadIdx.x; i < n_bins; i += blockDim.x) {
+                                            GHPair src = local_hist[i];
+                                            GHPair &dest = hist_data[i];
+                                            if(src.h != 0)
+                                                atomicAdd(&dest.h, src.h);
+                                            if(src.g != 0)
+                                                atomicAdd(&dest.g, src.g);
+                                        }
+                                    }, num_fv, smem_size);
                                 }
                             }
 
@@ -501,7 +440,6 @@ void HistTreeBuilder::update_ins2node_id() {
 
             int n_column = columns.n_column;
             auto dense_bin_id_data = dense_bin_id[device_id].device_data();
-            // auto char_dense_bin_id_data = char_dense_bin_id[device_id].device_data();
             int max_num_bin = param.max_num_bin;
             device_loop(n_instances, [=]__device__(int iid) {
                 int nid = nid_data[iid];
@@ -510,10 +448,7 @@ void HistTreeBuilder::update_ins2node_id() {
                 if (node.splittable() && ((split_fid - column_offset < n_column) && (split_fid >= column_offset))) {
                     h_s_data[0] = true;
                     unsigned char split_bid = node.split_bid;
-                    unsigned int id = dense_bin_id_data[iid * n_column + split_fid - column_offset];
-                    unsigned char bid;
-                    unsigned int feature_offset;
-                    decompose(id, feature_offset, bid);
+                    unsigned char bid = dense_bin_id_data[iid * n_column + split_fid - column_offset];
                     bool to_left = true;
                     if ((bid == max_num_bin && node.default_right) || (bid <= split_bid))
                         to_left = false;
@@ -548,10 +483,8 @@ void HistTreeBuilder::init(const DataSet &dataset, const GBMParam &param) {
         columns.csr2csc_cpu(dataset, v_columns);
     else
         columns.csr2csc_gpu(dataset, v_columns);
-    // columns.csc_by_default(dataset, v_columns);
     cut = vector<HistCut>(param.n_device);
-    dense_bin_id = MSyncArray<unsigned int>(param.n_device);
-    // char_dense_bin_id = MSyncArray<unsigned char>(param.n_device);
+    dense_bin_id = MSyncArray<unsigned char>(param.n_device);
     last_hist = MSyncArray<GHPair>(param.n_device);
     DO_ON_MULTI_DEVICES(param.n_device, [&](int device_id){
         if(dataset.use_cpu)

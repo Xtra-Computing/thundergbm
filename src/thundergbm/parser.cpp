@@ -25,6 +25,7 @@ void Parser::parse_param(GBMParam &model_param, int argc, char **argv){
     model_param.num_class = 1;
     model_param.path = "../dataset/test_dataset.txt";
     model_param.tree_method = "auto";
+    model_param.tree_per_rounds = 1; // # tree of each round, depends on # class
 
     if (argc < 2) {
         printf("Usage: <config>\n");

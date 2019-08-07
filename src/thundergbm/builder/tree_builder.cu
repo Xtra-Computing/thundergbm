@@ -143,13 +143,13 @@ void TreeBuilder::split_point_all_reduce(int depth) {
 }
 
 vector<Tree> TreeBuilder::build_approximate(const MSyncArray<GHPair> &gradients) {
-    vector<Tree> trees(param.num_class);
+    vector<Tree> trees(param.tree_per_rounds);
     TIMED_FUNC(timerObj);
     DO_ON_MULTI_DEVICES(param.n_device, [&](int device_id){
         this->shards[device_id].column_sampling(param.column_sampling_rate);
     });
 
-    for (int k = 0; k < param.num_class; ++k) {
+    for (int k = 0; k < param.tree_per_rounds; ++k) {
         Tree &tree = trees[k];
         DO_ON_MULTI_DEVICES(param.n_device, [&](int device_id){
             this->ins2node_id[device_id].resize(n_instances);

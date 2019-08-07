@@ -35,6 +35,7 @@ extern "C" {
         model_param.num_class = *num_class;
         model_param.tree_method = tree_method;
         model_param.rt_eps = 1e-6;
+        model_param.tree_per_rounds = 1;
 
 
         if (!verbose) {
@@ -44,8 +45,6 @@ extern "C" {
         el::Loggers::reconfigureAllLoggers(el::ConfigurationType::PerformanceTracking, "false");
         DataSet train_dataset;
         train_dataset.load_from_sparse(row_size, val, row_ptr, col_ptr, label, group, num_group, model_param);
-        //LOG(INFO) << "!!!!!!!!!!!!---->>>> " << num_group;
-        //LOG(INFO) << "!!!!!!!!!!!!---->>>> " << train_dataset.group;
         *num_class = model_param.num_class;
         TreeTrainer trainer;
         vector<vector<Tree> > boosted_model = trainer.train(model_param, train_dataset);
