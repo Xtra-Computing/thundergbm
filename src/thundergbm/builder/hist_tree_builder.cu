@@ -125,9 +125,9 @@ void HistTreeBuilder::find_split(int level, int device_id) {
                                     const GHPair src = gh_data[iid];
                                     GHPair &dest = hist_data[feature_offset + bid];
                                     if(src.h != 0)
-                                        atomicadd(&dest.h, src.h);
+                                        atomicAdd(&dest.h, src.h);
                                     if(src.g != 0)
-                                        atomicadd(&dest.g, src.g);
+                                        atomicAdd(&dest.g, src.g);
 
                                 }
                             });
@@ -149,9 +149,9 @@ void HistTreeBuilder::find_split(int level, int device_id) {
                                         const GHPair src = gh_data[iid];
                                         GHPair &dest = local_hist[feature_offset + bid];
                                         if(src.h != 0)
-                                            atomicadd(&dest.h, src.h);
+                                            atomicAdd(&dest.h, src.h);
                                         if(src.g != 0)
-                                            atomicadd(&dest.g, src.g);
+                                            atomicAdd(&dest.g, src.g);
 
                                     }
                                 }
@@ -160,9 +160,9 @@ void HistTreeBuilder::find_split(int level, int device_id) {
                                     GHPair &dest = hist_data[i];
                                     GHPair src = local_hist[i];
                                     if(src.h != 0)
-                                        atomicadd(&dest.h, src.h);
+                                        atomicAdd(&dest.h, src.h);
                                     if(src.g != 0)
-                                        atomicadd(&dest.g, src.g);
+                                        atomicAdd(&dest.g, src.g);
 
                                 }
                             }, num_fv, smem_size);
