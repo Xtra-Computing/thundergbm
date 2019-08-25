@@ -124,8 +124,11 @@ void HistTreeBuilder::find_split(int level, int device_id) {
                                     int feature_offset = cut_row_ptr_data[fid];
                                     const GHPair src = gh_data[iid];
                                     GHPair &dest = hist_data[feature_offset + bid];
-                                    atomicAdd(&dest.g, src.g);
-                                    atomicAdd(&dest.h, src.h);
+                                    if(src.h != 0)
+                                        atomicadd(&dest.h, src.h);
+                                    if(src.g != 0)
+                                        atomicadd(&dest.g, src.g);
+
                                 }
                             });
                         } else {
@@ -145,16 +148,22 @@ void HistTreeBuilder::find_split(int level, int device_id) {
                                         int feature_offset = cut_row_ptr_data[fid];
                                         const GHPair src = gh_data[iid];
                                         GHPair &dest = local_hist[feature_offset + bid];
-                                        atomicAdd(&dest.g, src.g);
-                                        atomicAdd(&dest.h, src.h);
+                                        if(src.h != 0)
+                                            atomicadd(&dest.h, src.h);
+                                        if(src.g != 0)
+                                            atomicadd(&dest.g, src.g);
+
                                     }
                                 }
                                 __syncthreads();
                                 for (int i = threadIdx.x; i < n_bins; i += blockDim.x) {
                                     GHPair &dest = hist_data[i];
                                     GHPair src = local_hist[i];
-                                    atomicAdd(&dest.g, src.g);
-                                    atomicAdd(&dest.h, src.h);
+                                    if(src.h != 0)
+                                        atomicadd(&dest.h, src.h);
+                                    if(src.g != 0)
+                                        atomicadd(&dest.g, src.g);
+
                                 }
                             }, num_fv, smem_size);
                         }
@@ -209,7 +218,6 @@ void HistTreeBuilder::find_split(int level, int device_id) {
                                 this->total_hist_num++;
 
                                 if (smem_size > 48 * 1024) {
-                                    CHECK_EQ(1, 2) << "Unexpected cases";
                                     device_loop((idx_end - idx_begin) * n_column, [=]__device__(int i) {
                                         int iid = node_idx_data[i / n_column + idx_begin];
                                         int fid = i % n_column;
@@ -218,8 +226,11 @@ void HistTreeBuilder::find_split(int level, int device_id) {
                                             int feature_offset = cut_row_ptr_data[fid];
                                             const GHPair src = gh_data[iid];
                                             GHPair &dest = hist_data[feature_offset + bid];
-                                            atomicAdd(&dest.g, src.g);
-                                            atomicAdd(&dest.h, src.h);
+                                            if(src.h != 0)
+                                                atomicAdd(&dest.h, src.h);
+                                            if(src.g != 0)
+                                                atomicAdd(&dest.g, src.g);
+
                                         }
                                     });
                                 } else {
