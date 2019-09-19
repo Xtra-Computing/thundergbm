@@ -37,25 +37,25 @@ void Parser::parse_param(GBMParam &model_param, int argc, char **argv){
         char name[256], val[256];
         if (sscanf(name_val, "%[^=]=%s", name, val) == 2) {
             string str_name(name);
-            if(str_name.compare("max_depth") == 0)
+            if((str_name.compare("max_depth") == 0) || (str_name.compare("depth") == 0))
                 model_param.depth = atoi(val);
             else if((str_name.compare("num_round") == 0) || (str_name.compare("n_trees") == 0))
                 model_param.n_trees = atoi(val);
             else if(str_name.compare("n_gpus") == 0)
                 model_param.n_device = atoi(val);
-            else if(str_name.compare("verbosity") == 0)
+            else if((str_name.compare("verbosity") == 0) || (str_name.compare("verbose") == 0))
                 model_param.verbose = atoi(val);
             else if(str_name.compare("profiling") == 0)
                 model_param.profiling = atoi(val);
             else if(str_name.compare("data") == 0)
                 model_param.path = val;
-            else if(str_name.compare("max_bin") == 0)
+            else if((str_name.compare("max_bin") == 0) || (str_name.compare("max_num_bin") == 0))
                 model_param.max_num_bin = atoi(val);
-            else if(str_name.compare("colsample") == 0)
+            else if((str_name.compare("colsample") == 0) || (str_name.compare("column_sampling_rate") == 0))
                 model_param.column_sampling_rate = atof(val);
             else if(str_name.compare("bagging") == 0)
                 model_param.bagging = atoi(val);
-            else if(str_name.compare("num_parallel_tree") == 0)
+            else if((str_name.compare("num_parallel_tree") == 0) || (str_name.compare("n_parallel_trees") == 0))
                 model_param.n_parallel_trees = atoi(val);
             else if(str_name.compare("eta") == 0 || str_name.compare("learning_rate") == 0)
                 model_param.learning_rate = atof(val);
@@ -65,7 +65,7 @@ void Parser::parse_param(GBMParam &model_param, int argc, char **argv){
                 model_param.num_class = atoi(val);
             else if(str_name.compare("min_child_weight") == 0)
                 model_param.min_child_weight = atoi(val);
-            else if(str_name.compare("lambda") == 0 || str_name.compare("reg_lambda") == 0)
+            else if(str_name.compare("lambda") == 0 || str_name.compare("lambda_tgbm") == 0)
                 model_param.lambda = atof(val);
             else if(str_name.compare("gamma") == 0 || str_name.compare("min_split_loss") == 0)
                 model_param.gamma = atof(val);
