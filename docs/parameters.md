@@ -11,7 +11,7 @@ This page is for parameter specification in ThunderGBM. The parameters used in T
  
     - The maximum depth of the decision trees. Shallow trees tend to have better generality, and deep trees are more likely to overfit the training data.
 
-* ``num_round`` [default=40]
+* ``n_trees`` [default=40]
 
     - The number of training iterations. ``num_round`` equals to the number of trees in GBDTs.
     
