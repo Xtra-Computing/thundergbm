@@ -39,7 +39,7 @@ void Parser::parse_param(GBMParam &model_param, int argc, char **argv){
             string str_name(name);
             if(str_name.compare("max_depth") == 0)
                 model_param.depth = atoi(val);
-            else if(str_name.compare("num_round") == 0)
+            else if((str_name.compare("num_round") == 0) || (str_name.compare("n_trees") == 0))
                 model_param.n_trees = atoi(val);
             else if(str_name.compare("n_gpus") == 0)
                 model_param.n_device = atoi(val);
