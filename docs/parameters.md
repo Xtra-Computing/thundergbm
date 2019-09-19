@@ -13,7 +13,7 @@ This page is for parameter specification in ThunderGBM. The parameters used in T
 
 * ``n_trees`` [default=40]
 
-    - The number of training iterations. ``num_round`` equals to the number of trees in GBDTs.
+    - The number of training iterations. ``n_trees`` equals to the number of trees in GBDTs.
     
 * ``n_gpus`` [default=1]
 
