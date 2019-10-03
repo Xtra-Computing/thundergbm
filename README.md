@@ -89,7 +89,7 @@ If you use ThunderGBM in your paper, please cite our work ([preprint](https://gi
 * Zeyi Wen, Bingsheng He, Kotagiri Ramamohanarao, Shengliang Lu, and Jiashuai Shi. Efficient Gradient Boosted Decision Tree Training on GPUs. The 32nd IEEE International Parallel and Distributed Processing Symposium (IPDPS), pages 234-243, 2018. [pdf](https://www.comp.nus.edu.sg/~hebs/pub/IPDPS18-GPUGBDT.pdf)
 
 ## Key members of ThunderGBM
-* [Zeyi Wen](zeyiwen.github.io), NUS (now at The University of Western Australia)
+* [Zeyi Wen](https://zeyiwen.github.io), NUS (now at The University of Western Australia)
 * Jiashuai Shi, SCUT (a visiting student at NUS)
 * Qinbin Li, NUS
 * Advisor: [Bingsheng He](https://www.comp.nus.edu.sg/~hebs/), NUS
