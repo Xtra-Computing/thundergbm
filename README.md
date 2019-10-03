@@ -76,7 +76,7 @@ You will see `RMSE = 0.489562` after successful running.
 MacOS is not supported, as Apple has [suspended support](https://www.forbes.com/sites/marcochiappetta/2018/12/11/apple-turns-its-back-on-customers-and-nvidia-with-macos-mojave/#5b8d3c7137e9) for some NVIDIA GPUs. We will consider supporting MacOS based on our user community feedbacks. Please stay tuned.
 
 ## How to cite ThunderGBM
-If you use ThunderGBM in your paper, please cite our work ([preprint](https://www.comp.nus.edu.sg/~wenzy/papers/thundergbm.pdf)).
+If you use ThunderGBM in your paper, please cite our work ([preprint](https://github.com/Xtra-Computing/thundergbm/blob/master/thundergbm-full.pdf)).
 ```
 @article{wenthundergbm19,
  author = {Wen, Zeyi and Shi, Jiashuai and He, Bingsheng and Li, Qinbin and Chen, Jian},
@@ -89,7 +89,7 @@ If you use ThunderGBM in your paper, please cite our work ([preprint](https://ww
 * Zeyi Wen, Bingsheng He, Kotagiri Ramamohanarao, Shengliang Lu, and Jiashuai Shi. Efficient Gradient Boosted Decision Tree Training on GPUs. The 32nd IEEE International Parallel and Distributed Processing Symposium (IPDPS), pages 234-243, 2018. [pdf](https://www.comp.nus.edu.sg/~hebs/pub/IPDPS18-GPUGBDT.pdf)
 
 ## Key members of ThunderGBM
-* [Zeyi Wen](https://www.comp.nus.edu.sg/~wenzy/), NUS
+* [Zeyi Wen](zeyiwen.github.io), NUS (now at The University of Western Australia)
 * Jiashuai Shi, SCUT (a visiting student at NUS)
 * Qinbin Li, NUS
 * Advisor: [Bingsheng He](https://www.comp.nus.edu.sg/~hebs/), NUS
