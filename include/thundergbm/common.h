@@ -91,7 +91,7 @@ struct GBMParam {
     float_type rt_eps;
     float column_sampling_rate;
     std::string path;
-    bool verbose;
+    int verbose;
     bool profiling;
     bool bagging;
     int n_parallel_trees;

@@ -609,8 +609,11 @@ namespace thunder {
     }
 
     HostAllocator::~HostAllocator() {
-        if (!skip_cleanup)
-            FreeAllCached();
+        if (!skip_cleanup) {
+            std::atexit([]() {
+                SyncMem::clear_cache();
+            });
+        }
     }
 }
 

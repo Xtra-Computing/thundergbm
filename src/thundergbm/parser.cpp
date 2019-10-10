@@ -15,7 +15,7 @@ void Parser::parse_param(GBMParam &model_param, int argc, char **argv){
     model_param.gamma = 1;
     model_param.rt_eps = 1e-6;
     model_param.max_num_bin = 255;
-    model_param.verbose = false;
+    model_param.verbose = 1;
     model_param.profiling = false;
     model_param.column_sampling_rate = 1;
     model_param.bagging = false;

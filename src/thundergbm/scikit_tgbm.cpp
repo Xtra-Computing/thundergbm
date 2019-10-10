@@ -10,6 +10,19 @@
 #include <thundergbm/metric/metric.h>
 
 extern "C" {
+    void set_logger(int verbose) {
+        if(verbose == 0) {
+            el::Loggers::reconfigureAllLoggers(el::Level::Debug, el::ConfigurationType::Enabled, "false");
+            el::Loggers::reconfigureAllLoggers(el::Level::Trace, el::ConfigurationType::Enabled, "false");
+            el::Loggers::reconfigureAllLoggers(el::Level::Info, el::ConfigurationType::Enabled, "false");
+        }
+        else if (verbose == 1) {
+            el::Loggers::reconfigureAllLoggers(el::Level::Debug, el::ConfigurationType::Enabled, "false");
+            el::Loggers::reconfigureAllLoggers(el::Level::Trace, el::ConfigurationType::Enabled, "false");
+        }
+    }
+
+
     void sparse_train_scikit(int row_size, float *val, int *row_ptr, int *col_ptr, float *label,
                              int depth, int n_trees, int n_device, float min_child_weight, float lambda,
                              float gamma, int max_num_bin, int verbose, float column_sampling_rate,
@@ -37,11 +50,8 @@ extern "C" {
         model_param.rt_eps = 1e-6;
         model_param.tree_per_rounds = 1;
 
+        set_logger(verbose);
 
-        if (!verbose) {
-            el::Loggers::reconfigureAllLoggers(el::Level::Debug, el::ConfigurationType::Enabled, "false");
-            el::Loggers::reconfigureAllLoggers(el::Level::Trace, el::ConfigurationType::Enabled, "false");
-        }
         el::Loggers::reconfigureAllLoggers(el::ConfigurationType::PerformanceTracking, "false");
         DataSet train_dataset;
         train_dataset.load_from_sparse(row_size, val, row_ptr, col_ptr, label, group, num_group, model_param);
@@ -61,13 +71,18 @@ extern "C" {
         for (int i = 0; i < train_dataset.label.size(); ++i) {
             group_label[i] = train_dataset.label[i];
         }
-        SyncMem::clear_cache();
+        // SyncMem::clear_cache();
+        int gpu_num;
+        cudaError_t err = cudaGetDeviceCount(&gpu_num);
+        std::atexit([](){
+            SyncMem::clear_cache();
+        });
     }//end sparse_model_scikit
 
 
     void sparse_predict_scikit(int row_size, float *val, int *row_ptr, int *col_ptr, float *y_pred, Tree *&model,
             int n_trees, int trees_per_iter, char *objective, int num_class, float learning_rate, float *group_label,
-            int *group, int num_group=0){
+            int *group, int num_group=0, int verbose=1){
         //load model
         GBMParam model_param;
         model_param.objective = objective;
@@ -75,6 +90,7 @@ extern "C" {
         model_param.num_class = num_class;
         DataSet dataSet;
         dataSet.load_from_sparse(row_size, val, row_ptr, col_ptr, NULL, group, num_group, model_param);
+        set_logger(verbose);
         dataSet.label.clear();
         for (int i = 0; i < num_class; ++i) {
             dataSet.label.emplace_back(group_label[i]);

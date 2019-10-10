@@ -164,7 +164,7 @@ class TGBMModel(ThundergbmBase):
             self.num_class,
             c_float(self.learning_rate),
             group_label,
-            in_groups, num_groups
+            in_groups, num_groups, self.verbose
         )
         predict_label = [self.predict_label_ptr[index] for index in range(0, X.shape[0])]
         self.predict_label = np.asarray(predict_label)
@@ -350,7 +350,7 @@ class TGBMClassifier(TGBMModel, ThundergbmClassifierBase):
     _impl = 'classifier'
     def __init__(self, depth=6, n_trees=40,
                  n_gpus=1, min_child_weight=1.0, lambda_tgbm=1.0, gamma=1.0, max_num_bin=255,
-                 verbose=0, column_sampling_rate=1.0, bagging=0,
+                 verbose=1, column_sampling_rate=1.0, bagging=0,
                  n_parallel_trees=1, learning_rate=1.0, objective="multi:softmax",
                  num_class=2, tree_method="auto"):
         super().__init__(depth=depth, n_trees=n_trees,
@@ -365,7 +365,7 @@ class TGBMRegressor(TGBMModel, ThundergbmRegressorBase):
     _impl = 'regressor'
     def __init__(self, depth=6, n_trees=40,
                  n_gpus=1, min_child_weight=1.0, lambda_tgbm=1.0, gamma=1.0, max_num_bin=255,
-                 verbose=0, column_sampling_rate=1.0, bagging=0,
+                 verbose=1, column_sampling_rate=1.0, bagging=0,
                  n_parallel_trees=1, learning_rate=1.0, objective="reg:linear",
                  num_class=1, tree_method="auto"):
         super().__init__(depth=depth, n_trees=n_trees,
@@ -380,7 +380,7 @@ class TGBMRanker(TGBMModel, ThundergbmRegressorBase):
     _impl = 'ranker'
     def __init__(self, depth=6, n_trees=40,
                  n_gpus=1, min_child_weight=1.0, lambda_tgbm=1.0, gamma=1.0, max_num_bin=255,
-                 verbose=0, column_sampling_rate=1.0, bagging=0,
+                 verbose=1, column_sampling_rate=1.0, bagging=0,
                  n_parallel_trees=1, learning_rate=1.0, objective="reg:linear",
                  num_class=1, tree_method="auto"):
         super().__init__(depth=depth, n_trees=n_trees,

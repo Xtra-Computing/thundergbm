@@ -359,7 +359,12 @@ void ExactTreeBuilder::init(const DataSet &dataset, const GBMParam &param) {
     for (int i = 0; i < param.n_device; ++i) {
         v_columns[i].release();
     }
-    SyncMem::clear_cache();
+    // SyncMem::clear_cache();
+    int gpu_num;
+    cudaError_t err = cudaGetDeviceCount(&gpu_num);
+    std::atexit([](){
+        SyncMem::clear_cache();
+    });
 }
 
 void ExactTreeBuilder::ins2node_id_all_reduce(int depth) {

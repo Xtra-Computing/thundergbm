@@ -59,7 +59,12 @@ void SparseColumns::csr2csc_gpu(const DataSet &dataset, vector<std::unique_ptr<S
     val.resize(0);
     row_ptr.resize(0);
     col_idx.resize(0);
-    SyncMem::clear_cache();
+    // SyncMem::clear_cache();
+    int gpu_num;
+    cudaError_t err = cudaGetDeviceCount(&gpu_num);
+    std::atexit([](){
+        SyncMem::clear_cache();
+    });
 
     int n_device = v_columns.size();
     int ave_n_columns = n_column / n_device;

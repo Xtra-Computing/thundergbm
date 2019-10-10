@@ -104,7 +104,10 @@ namespace thunder {
             return device_id;
         }
 
-        static void clear_cache() { device_allocator.FreeAllCached(); };
+        static void clear_cache() {
+            device_allocator.FreeAllCached();
+            host_allocator.FreeAllCached();
+        };
 
     private:
         void *device_ptr;
