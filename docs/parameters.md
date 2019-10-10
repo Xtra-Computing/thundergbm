@@ -5,7 +5,7 @@ This page is for parameter specification in ThunderGBM. The parameters used in T
 ### Key arameters for both *python* and *c++* command line
 * ``verbose`` [default=1]
 
-    - Printing information: 0 for silence and 1 for printing more infomation.
+    - Printing information: 0 for silence, 1 for key infomation and 2 for more information.
     
 * ``depth`` [default=6]
  
