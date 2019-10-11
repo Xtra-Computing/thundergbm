@@ -21,6 +21,8 @@ public:
 
     void update_ins2node_id() override;
 
+    virtual ~ExactTreeBuilder(){};
+
 };
 
 

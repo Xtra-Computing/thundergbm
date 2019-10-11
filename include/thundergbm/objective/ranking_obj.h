@@ -20,7 +20,7 @@ public:
 
     string default_metric_name() override;
 
-    ~LambdaRank() override = default;
+    virtual ~LambdaRank() override = default;
 
 protected:
 	virtual inline float_type get_delta_z(float_type labelI, float_type labelJ, int rankI, int rankJ, int group_id) { return 1; };

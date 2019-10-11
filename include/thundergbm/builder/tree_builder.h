@@ -29,6 +29,8 @@ public:
 
     virtual void ins2node_id_all_reduce(int depth);
 
+    virtual ~TreeBuilder(){};
+
 protected:
     vector<Shard> shards;
     int n_instances;

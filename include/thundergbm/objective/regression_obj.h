@@ -32,7 +32,7 @@ public:
 
     void configure(GBMParam param, const DataSet &dataset) override {}
 
-    ~RegressionObj() override = default;
+    virtual ~RegressionObj() override = default;
 
     string default_metric_name() override {
         return "rmse";

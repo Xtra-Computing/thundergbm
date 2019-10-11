@@ -19,6 +19,8 @@ public:
 
     virtual const MSyncArray<float_type> &get_y_predict(){ return y_predict; };
 
+    virtual ~FunctionBuilder(){};
+
     static FunctionBuilder *create(std::string name);
 
 protected:

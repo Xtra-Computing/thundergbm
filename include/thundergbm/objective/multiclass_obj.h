@@ -19,7 +19,7 @@ public:
 
     string default_metric_name() override { return "macc"; }
 
-    ~Softmax() override = default;
+    virtual ~Softmax() override = default;
 
 protected:
     int num_class;

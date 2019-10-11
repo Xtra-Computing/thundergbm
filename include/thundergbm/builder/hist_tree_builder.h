@@ -20,6 +20,8 @@ public:
 
     void find_split(int level, int device_id) override;
 
+    virtual ~HistTreeBuilder(){};
+
     void update_ins2node_id() override;
 
 
