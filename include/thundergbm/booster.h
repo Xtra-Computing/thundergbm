@@ -14,6 +14,8 @@
 #include "tree.h"
 #include "row_sampler.h"
 
+std::mutex mtx;
+
 class Booster {
 public:
     void init(const DataSet &dataSet, const GBMParam &param);
@@ -56,6 +58,8 @@ void Booster::init(const DataSet &dataSet, const GBMParam &param) {
 
 void Booster::boost(vector<vector<Tree>> &boosted_model) {
     TIMED_FUNC(timerObj);
+    std::unique_lock<std::mutex> lock(mtx);
+
     //update gradients
     DO_ON_MULTI_DEVICES(n_devices, [&](int device_id) {
         obj->get_gradient(y[device_id], fbuilder->get_y_predict()[device_id], gradients[device_id]);
