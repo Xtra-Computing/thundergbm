@@ -84,7 +84,7 @@ void HistCut::get_cut_points2(SparseColumns &columns, int max_num_bins, int n_in
 
 template<typename T>
 void syncarray_resize(SyncArray<T> &buf_array, int new_size) {
-    CHECK_GT(buf_array.size(), new_size) << "The size of the target Syncarray must greater than the new size. ";
+    CHECK_GE(buf_array.size(), new_size) << "The size of the target Syncarray must greater than the new size. ";
     SyncArray<T> tmp_array(new_size);
     tmp_array.copy_from(buf_array.device_data(), new_size);
     buf_array.resize(new_size);
