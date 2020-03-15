@@ -1,4 +1,4 @@
-We provide a scikit-learn wrapper interface. Before you use the Python interface, you must build ThunderSVM. Note that both dense and sparse matrices are supported in ThunderGBM. The dense matrices are converted into csr format which the the parallel training algorithm on GPUs is based on.
+We provide a scikit-learn wrapper interface. Before you use the Python interface, you must build ThunderGBM. Note that both dense and sparse matrices are supported in ThunderGBM. The dense matrices are converted into csr format which the the parallel training algorithm on GPUs is based on.
 
 ## Instructions for building ThunderGBM
 * Please refer to [Installation](http://thundergbm.readthedocs.io/en/latest/how-to.html) for building ThunderGBM.
