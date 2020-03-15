@@ -79,7 +79,6 @@ extern "C" {
         DataSet dataSet;
         vector<vector<Tree>> boosted_model;
         parser.load_model(model_in[0], model_param, boosted_model, dataSet);
-        std::cout<<"data:"<<data[0]<<std::endl;
         dataSet.load_from_file(data[0], model_param);
         //predict
         Predictor pred;
