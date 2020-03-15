@@ -62,7 +62,7 @@ python tgbm_test.py
 Please note that ``TGBMClassifier`` and ``TGBMRegressor`` are wrappers of ``TGBMModel``, and their constructors have the same parameters to ``TGBMModel``.
 
 ### Parametes
-Please refer to [parameter page](https://github.com/zeyiwen/thundergbm/blob/master/docs/parameters.md) in ThunderGBM documentations.
+Please refer to [Parameters](https://github.com/zeyiwen/thundergbm/blob/master/docs/parameters.md) in ThunderGBM documentations.
 
 ### Methods
 *fit(X, y)*:\
