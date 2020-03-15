@@ -12,7 +12,5 @@ ThunderGBM is dedicated to helping users apply GBDTs and Random Forests to solve
 <img src="https://github.com/zeyiwen/thundergbm/raw/master/docs/_static/overall.png" width="220" height="180" align=left/>
 </div>
 
-## More information about ThunderGBM
-* [Parameters](parameters.md)
-* [How To](how-to.md)
-* [FAQ](faq.md)
+## More information about using ThunderGBM
+* [Parameters](parameters.md) | [How To](how-to.md) | [FAQ](faq.md)
