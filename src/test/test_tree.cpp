@@ -1,5 +1,9 @@
 #include "gtest/gtest.h"
 #include "thundergbm/tree.h"
+#include "thundergbm/dataset.h"
+#include "thundergbm/booster.h"
+#include "thundergbm/syncarray.h"
+
 class TreeTest: public ::testing::Test {
 public:
     GBMParam param;
@@ -28,7 +32,7 @@ protected:
         param.objective = "reg:linear";
         param.num_class = 1;
         param.path = "../dataset/test_dataset.txt";
-        param.tree_method = "auto";
+        param.tree_method = "hist";
         if (!param.verbose) {
             el::Loggers::reconfigureAllLoggers(el::Level::Debug, el::ConfigurationType::Enabled, "false");
             el::Loggers::reconfigureAllLoggers(el::Level::Trace, el::ConfigurationType::Enabled, "false");
@@ -38,35 +42,40 @@ protected:
             el::Loggers::reconfigureAllLoggers(el::ConfigurationType::PerformanceTracking, "false");
         }
     }
-}
-
-
-TEST_F(TreeTest, init){
-    DataSet dataset;
-    dataset.load_from_file(param.path, param);
-    Booster booster;
-    booster.init(dataset, param);
-    vector<vector<Tree>> boosted_model;
-    for (int i = 0; i < param.n_trees; ++i) {
-        booster.boost(boosted_model);
-    }
-    EXCEPT_EQ(boosted_model.size(), 1);
-    EXCEPT_EQ(boosted_model[0].size(), 40);
-}
-
+};
 
 TEST_F(TreeTest, treenode){
     int max_nodes = 8;
-    Synarray<TreeNode> nodes;
-    nodes = Synarray<TreeNode>(max_nodes);
+    SyncArray<Tree::TreeNode> nodes;
+    nodes = SyncArray<Tree::TreeNode>(max_nodes);
     auto node_data = nodes.host_data();
     for(int i =0; i < max_nodes; i++) {
         node_data[i].final_id = i;
         node_data[i].split_feature_id = -1;
     }
 
-    EXCEPT_EQ(nodes.size(), 8);
-    EXCEPT_EQ(node_data[5].final_id, 5);
-    EXCEPT_EQ(node_data[6].split_feature_id, -1);
+    EXPECT_EQ(nodes.size(), 8);
+    EXPECT_EQ(node_data[5].final_id, 5);
+    EXPECT_EQ(node_data[6].split_feature_id, -1);
+}
 
+TEST_F(TreeTest, tree_init){
+    SyncArray<GHPair> gradients(10);
+    Tree tree;
+    tree.init2(gradients, param);
 
+    // check the amount of tree nodes
+    EXPECT_EQ(tree.nodes.size(), 127);
+
+    // check the value of nodes' attributes
+    auto nodes_data = tree.nodes.host_data();
+    EXPECT_EQ(nodes_data[5].final_id, 5);
+    EXPECT_EQ(nodes_data[1].split_feature_id, -1);
+}
+
+TEST_F(TreeTest, tree_prune) {
+    SyncArray<GHPair> gradients(10);
+    Tree tree;
+    tree.init2(gradients, param);
+    tree.prune_self(0.5);
+}

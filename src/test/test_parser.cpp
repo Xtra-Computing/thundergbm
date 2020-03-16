@@ -1,5 +1,7 @@
 #include "gtest/gtest.h"
 #include "thundergbm/parser.h"
+#include "thundergbm/dataset.h"
+#include "thundergbm/tree.h"
 
 class ParserTest: public ::testing::Test {
 public:
@@ -39,14 +41,33 @@ protected:
             el::Loggers::reconfigureAllLoggers(el::ConfigurationType::PerformanceTracking, "false");
         }
     }
-}
+};
 
 TEST_F(ParserTest, test_parser){
-    EXCEPT_EQ(param.depth, 6);
-    EXCEPT_EQ(param.gamma, 1);
-    EXCEPT_EQ(param.leanring_rate, 1);
-    EXCEPT_EQ(param.num_class, 1);
-    EXCEPT_EQ(param.tree_method, "auto");
-    EXCEPT_EQ(param.max_num_bin, 255);
+    EXPECT_EQ(param.depth, 6);
+    EXPECT_EQ(param.gamma, 1);
+    EXPECT_EQ(param.learning_rate, 1);
+    EXPECT_EQ(param.num_class, 1);
+    EXPECT_EQ(param.tree_method, "auto");
+    EXPECT_EQ(param.max_num_bin, 255);
 }
 
+TEST_F(ParserTest, test_save_model) {
+    string model_path = "tgbm.model";
+    vector<vector<Tree>> boosted_model;
+    DataSet dataset;
+    dataset.load_from_file(param.path, param);
+    Parser parser;
+    parser.save_model(model_path, param, boosted_model, dataset);
+}
+
+TEST_F(ParserTest, test_load_model) {
+    string model_path = "tgbm.model";
+    vector<vector<Tree>> boosted_model;
+    DataSet dataset;
+    dataset.load_from_file(param.path, param);
+    Parser parser;
+    parser.load_model(model_path, param, boosted_model, dataset);
+    // the size of he boosted model should be zero
+    EXPECT_EQ(boosted_model.size(), 0);
+}
