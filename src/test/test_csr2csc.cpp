@@ -133,234 +133,146 @@ protected:
 };
 
 
-//TEST_F(CSR2CSCTest, covtype) {
-    //param.path = "../dataset/covtype";
-    //DataSet dataset;
-    //dataset.load_from_file(param.path, param);
+TEST_F(CSR2CSCTest, covtype) {
+    DataSet dataset;
+    dataset.load_from_file(param.path, param);
 
-    //printf("### Dataset: %s, num_instances: %d, num_features: %d, csr2csc finished. ###\n",
-            //param.path.c_str(),
-            //dataset.n_instances(),
-            //dataset.n_features());
+    this->csr2csc(dataset);
+    this->csr2csc_gpu(dataset);
 
-    //this->csr2csc(dataset);
-    //this->csr2csc_gpu(dataset);
+    // --- test csc_val
+    auto gpu_csc_val_data = this->csc_val2.host_data();
+    auto cpu_csc_val_data = this->csc_val.host_data();
+    for(int i = 0; i < this->csc_val2.size(); i++) {
+        EXPECT_EQ(gpu_csc_val_data[i], cpu_csc_val_data[i]);
+    }
 
+    // --- test csc_row_idx
+    auto gpu_csc_row_idx = this->csc_row_idx2.host_data();
+    auto cpu_csc_row_idx = this->csc_row_idx.host_data();
+    for(int i = 0; i < this->csc_row_idx2.size(); i++) {
+        EXPECT_EQ(gpu_csc_row_idx[i], cpu_csc_row_idx[i]);
+    }
 
-    //// --- test csc_val
-    //auto gpu_csc_val_data = this->csc_val2.host_data();
-    //auto cpu_csc_val_data = this->csc_val.host_data();
-    //for(int i = 0; i < this->csc_val2.size(); i++) {
-        //EXPECT_EQ(gpu_csc_val_data[i], cpu_csc_val_data[i]);
-    //}
+    // --- test csc_col_ptr
+    auto gpu_csc_col_ptr = this->csc_col_ptr2.host_data();
+    auto cpu_csc_col_ptr = this->csc_col_ptr.host_data();
+    for(int i = 0; i < this->csc_col_ptr2.size(); i++) {
+        EXPECT_EQ(gpu_csc_col_ptr[i], cpu_csc_col_ptr[i]);
+    }
+}
 
-    //// --- test csc_row_idx
-    //auto gpu_csc_row_idx = this->csc_row_idx2.host_data();
-    //auto cpu_csc_row_idx = this->csc_row_idx.host_data();
-    //for(int i = 0; i < this->csc_row_idx2.size(); i++) {
-        //EXPECT_EQ(gpu_csc_row_idx[i], cpu_csc_row_idx[i]);
-    //}
+TEST_F(CSR2CSCTest, e2006) {
+    DataSet dataset;
+    dataset.load_from_file(param.path, param);
 
-    //// --- test csc_col_ptr
-    //auto gpu_csc_col_ptr = this->csc_col_ptr2.host_data();
-    //auto cpu_csc_col_ptr = this->csc_col_ptr.host_data();
-    //for(int i = 0; i < this->csc_col_ptr2.size(); i++) {
-        //EXPECT_EQ(gpu_csc_col_ptr[i], cpu_csc_col_ptr[i]);
-    //}
-//}
+    this->csr2csc(dataset);
+    this->csr2csc_gpu(dataset);
 
-//TEST_F(CSR2CSCTest, e2006) {
-    //param.path = "../dataset/E2006";
-    //DataSet dataset;
-    //dataset.load_from_file(param.path, param);
-    //SparseColumns columns;
-    //vector<std::unique_ptr<SparseColumns>> v_columns(1);
-    //columns.csr2csc_gpu(dataset, v_columns);
-    //printf("### Dataset: %s, num_instances: %d, num_features: %d, csr2csc finished. ###\n",
-           //param.path.c_str(),
-           //dataset.n_instances(),
-           //dataset.n_features());
+    // --- test csc_val
+    auto gpu_csc_val_data = this->csc_val2.host_data();
+    auto cpu_csc_val_data = this->csc_val.host_data();
+    for(int i = 0; i < this->csc_val2.size(); i++) {
+        EXPECT_EQ(gpu_csc_val_data[i], cpu_csc_val_data[i]);
+    }
 
-    //this->csr2csc(dataset);
+    // --- test csc_row_idx
+    auto gpu_csc_row_idx = this->csc_row_idx2.host_data();
+    auto cpu_csc_row_idx = this->csc_row_idx.host_data();
+    for(int i = 0; i < this->csc_row_idx2.size(); i++) {
+        EXPECT_EQ(gpu_csc_row_idx[i], cpu_csc_row_idx[i]);
+    }
 
-    //EXPECT_EQ(columns.n_column, this->n_column);
-    //EXPECT_EQ(columns.n_row, this->n_row);
+    // --- test csc_col_ptr
+    auto gpu_csc_col_ptr = this->csc_col_ptr2.host_data();
+    auto cpu_csc_col_ptr = this->csc_col_ptr.host_data();
+    for(int i = 0; i < this->csc_col_ptr2.size(); i++) {
+        EXPECT_EQ(gpu_csc_col_ptr[i], cpu_csc_col_ptr[i]);
+    }
+}
 
-    //// --- test csc_val
-    //auto gpu_csc_val_data = columns.csc_val.host_data();
-    //auto cpu_csc_val_data = this->csc_val.host_data();
-    //for(int i = 0; i < columns.csc_val.size(); i++) {
-        //EXPECT_EQ(gpu_csc_val_data[i], cpu_csc_val_data[i]);
-    //}
+TEST_F(CSR2CSCTest, susy) {
+    DataSet dataset;
+    dataset.load_from_file(param.path, param);
 
-    //// --- test csc_row_idx
-    //auto gpu_csc_row_idx = columns.csc_row_idx.host_data();
-    //auto cpu_csc_row_idx = this->csc_row_idx.host_data();
-    //for(int i = 0; i < columns.csc_row_idx.size(); i++) {
-        //EXPECT_EQ(gpu_csc_row_idx[i], cpu_csc_row_idx[i]);
-    //}
+    this->csr2csc(dataset);
+    this->csr2csc_gpu(dataset);
 
-    //// --- test csc_col_ptr
-    //auto gpu_csc_col_ptr = columns.csc_col_ptr.host_data();
-    //auto cpu_csc_col_ptr = this->csc_col_ptr.host_data();
-    //for(int i = 0; i < columns.csc_col_ptr.size(); i++) {
-        //EXPECT_EQ(gpu_csc_col_ptr[i], cpu_csc_col_ptr[i]);
-    //}
-//}
+    // --- test csc_val
+    auto gpu_csc_val_data = this->csc_val2.host_data();
+    auto cpu_csc_val_data = this->csc_val.host_data();
+    for(int i = 0; i < this->csc_val2.size(); i++) {
+        EXPECT_EQ(gpu_csc_val_data[i], cpu_csc_val_data[i]);
+    }
 
-//TEST_F(CSR2CSCTest, higgs) {
-    //param.path = "../dataset/HIGGS";
-    //DataSet dataset;
-    //dataset.load_from_file(param.path, param);
-    //SparseColumns columns;
-    //vector<std::unique_ptr<SparseColumns>> v_columns(1);
-    //columns.csr2csc_gpu(dataset, v_columns);
-    //printf("### Dataset: %s, num_instances: %d, num_features: %d, csr2csc finished. ###\n",
-           //param.path.c_str(),
-           //dataset.n_instances(),
-           //dataset.n_features());
+    // --- test csc_row_idx
+    auto gpu_csc_row_idx = this->csc_row_idx2.host_data();
+    auto cpu_csc_row_idx = this->csc_row_idx.host_data();
+    for(int i = 0; i < this->csc_row_idx2.size(); i++) {
+        EXPECT_EQ(gpu_csc_row_idx[i], cpu_csc_row_idx[i]);
+    }
 
-    //this->csr2csc(dataset);
+    // --- test csc_col_ptr
+    auto gpu_csc_col_ptr = this->csc_col_ptr2.host_data();
+    auto cpu_csc_col_ptr = this->csc_col_ptr.host_data();
+    for(int i = 0; i < this->csc_col_ptr2.size(); i++) {
+        EXPECT_EQ(gpu_csc_col_ptr[i], cpu_csc_col_ptr[i]);
+    }
+}
 
-    //EXPECT_EQ(columns.n_column, this->n_column);
-    //EXPECT_EQ(columns.n_row, this->n_row);
+TEST_F(CSR2CSCTest, log1p) {
+    DataSet dataset;
+    dataset.load_from_file(param.path, param);
 
-    //// --- test csc_val
-    //auto gpu_csc_val_data = columns.csc_val.host_data();
-    //auto cpu_csc_val_data = this->csc_val.host_data();
-    //for(int i = 0; i < columns.csc_val.size(); i++) {
-        //EXPECT_EQ(gpu_csc_val_data[i], cpu_csc_val_data[i]);
-    //}
+    this->csr2csc(dataset);
+    this->csr2csc_gpu(dataset);
 
-    //// --- test csc_row_idx
-    //auto gpu_csc_row_idx = columns.csc_row_idx.host_data();
-    //auto cpu_csc_row_idx = this->csc_row_idx.host_data();
-    //for(int i = 0; i < columns.csc_row_idx.size(); i++) {
-        //EXPECT_EQ(gpu_csc_row_idx[i], cpu_csc_row_idx[i]);
-    //}
+    // --- test csc_val
+    auto gpu_csc_val_data = this->csc_val2.host_data();
+    auto cpu_csc_val_data = this->csc_val.host_data();
+    for(int i = 0; i < this->csc_val2.size(); i++) {
+        EXPECT_EQ(gpu_csc_val_data[i], cpu_csc_val_data[i]);
+    }
 
-    //// --- test csc_col_ptr
-    //auto gpu_csc_col_ptr = columns.csc_col_ptr.host_data();
-    //auto cpu_csc_col_ptr = this->csc_col_ptr.host_data();
-    //for(int i = 0; i < columns.csc_col_ptr.size(); i++) {
-        //EXPECT_EQ(gpu_csc_col_ptr[i], cpu_csc_col_ptr[i]);
-    //}
-//}
+    // --- test csc_row_idx
+    auto gpu_csc_row_idx = this->csc_row_idx2.host_data();
+    auto cpu_csc_row_idx = this->csc_row_idx.host_data();
+    for(int i = 0; i < this->csc_row_idx2.size(); i++) {
+        EXPECT_EQ(gpu_csc_row_idx[i], cpu_csc_row_idx[i]);
+    }
 
-//TEST_F(CSR2CSCTest, real_sim) {
-    //param.path = "../dataset/real-sim";
-    //DataSet dataset;
-    //dataset.load_from_file(param.path, param);
-    //SparseColumns columns;
-    //vector<std::unique_ptr<SparseColumns>> v_columns(1);
-    //columns.csr2csc_gpu(dataset, v_columns);
-    //printf("### Dataset: %s, num_instances: %d, num_features: %d, csr2csc finished. ###\n",
-           //param.path.c_str(),
-           //dataset.n_instances(),
-           //dataset.n_features());
+    // --- test csc_col_ptr
+    auto gpu_csc_col_ptr = this->csc_col_ptr2.host_data();
+    auto cpu_csc_col_ptr = this->csc_col_ptr.host_data();
+    for(int i = 0; i < this->csc_col_ptr2.size(); i++) {
+        EXPECT_EQ(gpu_csc_col_ptr[i], cpu_csc_col_ptr[i]);
+    }
+}
 
-    //this->csr2csc(dataset);
+TEST_F(CSR2CSCTest, higgs) {
+    DataSet dataset;
+    dataset.load_from_file(param.path, param);
 
-    //EXPECT_EQ(columns.n_column, this->n_column);
-    //EXPECT_EQ(columns.n_row, this->n_row);
+    this->csr2csc(dataset);
+    this->csr2csc_gpu(dataset);
 
-    //// --- test csc_val
-    //auto gpu_csc_val_data = columns.csc_val.host_data();
-    //auto cpu_csc_val_data = this->csc_val.host_data();
-    //for(int i = 0; i < columns.csc_val.size(); i++) {
-        //EXPECT_EQ(gpu_csc_val_data[i], cpu_csc_val_data[i]);
-    //}
+    auto gpu_csc_val_data = this->csc_val2.host_data();
+    auto cpu_csc_val_data = this->csc_val.host_data();
+    for(int i = 0; i < this->csc_val2.size(); i++) {
+        EXPECT_EQ(gpu_csc_val_data[i], cpu_csc_val_data[i]);
+    }
 
-    //// --- test csc_row_idx
-    //auto gpu_csc_row_idx = columns.csc_row_idx.host_data();
-    //auto cpu_csc_row_idx = this->csc_row_idx.host_data();
-    //for(int i = 0; i < columns.csc_row_idx.size(); i++) {
-        //EXPECT_EQ(gpu_csc_row_idx[i], cpu_csc_row_idx[i]);
-    //}
+    // --- test csc_row_idx
+    auto gpu_csc_row_idx = this->csc_row_idx2.host_data();
+    auto cpu_csc_row_idx = this->csc_row_idx.host_data();
+    for(int i = 0; i < this->csc_row_idx2.size(); i++) {
+        EXPECT_EQ(gpu_csc_row_idx[i], cpu_csc_row_idx[i]);
+    }
 
-    //// --- test csc_col_ptr
-    //auto gpu_csc_col_ptr = columns.csc_col_ptr.host_data();
-    //auto cpu_csc_col_ptr = this->csc_col_ptr.host_data();
-    //for(int i = 0; i < columns.csc_col_ptr.size(); i++) {
-        //EXPECT_EQ(gpu_csc_col_ptr[i], cpu_csc_col_ptr[i]);
-    //}
-//}
-
-//TEST_F(CSR2CSCTest, susy) {
-    //param.path = "../dataset/SUSY";
-    //DataSet dataset;
-    //dataset.load_from_file(param.path, param);
-    //SparseColumns columns;
-    //vector<std::unique_ptr<SparseColumns>> v_columns(1);
-    //columns.csr2csc_gpu(dataset, v_columns);
-    //printf("### Dataset: %s, num_instances: %d, num_features: %d, csr2csc finished. ###\n",
-           //param.path.c_str(),
-           //dataset.n_instances(),
-           //dataset.n_features());
-
-    //this->csr2csc(dataset);
-
-    //EXPECT_EQ(columns.n_column, this->n_column);
-    //EXPECT_EQ(columns.n_row, this->n_row);
-
-    //// --- test csc_val
-    //auto gpu_csc_val_data = columns.csc_val.host_data();
-    //auto cpu_csc_val_data = this->csc_val.host_data();
-    //for(int i = 0; i < columns.csc_val.size(); i++) {
-        //EXPECT_EQ(gpu_csc_val_data[i], cpu_csc_val_data[i]);
-    //}
-
-    //// --- test csc_row_idx
-    //auto gpu_csc_row_idx = columns.csc_row_idx.host_data();
-    //auto cpu_csc_row_idx = this->csc_row_idx.host_data();
-    //for(int i = 0; i < columns.csc_row_idx.size(); i++) {
-        //EXPECT_EQ(gpu_csc_row_idx[i], cpu_csc_row_idx[i]);
-    //}
-
-    //// --- test csc_col_ptr
-    //auto gpu_csc_col_ptr = columns.csc_col_ptr.host_data();
-    //auto cpu_csc_col_ptr = this->csc_col_ptr.host_data();
-    //for(int i = 0; i < columns.csc_col_ptr.size(); i++) {
-        //EXPECT_EQ(gpu_csc_col_ptr[i], cpu_csc_col_ptr[i]);
-    //}
-//}
-
-
-//TEST_F(CSR2CSCTest, log1p) {
-    //param.path = "../dataset/log1p";
-    //DataSet dataset;
-    //dataset.load_from_file(param.path, param);
-    //SparseColumns columns;
-    //vector<std::unique_ptr<SparseColumns>> v_columns(1);
-    //columns.csr2csc_gpu(dataset, v_columns);
-    //printf("### Dataset: %s, num_instances: %d, num_features: %d, csr2csc finished. ###\n",
-           //param.path.c_str(),
-           //dataset.n_instances(),
-           //dataset.n_features());
-
-    //this->csr2csc(dataset);
-
-    //EXPECT_EQ(columns.n_column, this->n_column);
-    //EXPECT_EQ(columns.n_row, this->n_row);
-
-    //// --- test csc_val
-    //auto gpu_csc_val_data = columns.csc_val.host_data();
-    //auto cpu_csc_val_data = this->csc_val.host_data();
-    //for(int i = 0; i < columns.csc_val.size(); i++) {
-        //EXPECT_EQ(gpu_csc_val_data[i], cpu_csc_val_data[i]);
-    //}
-
-    //// --- test csc_row_idx
-    //auto gpu_csc_row_idx = columns.csc_row_idx.host_data();
-    //auto cpu_csc_row_idx = this->csc_row_idx.host_data();
-    //for(int i = 0; i < columns.csc_row_idx.size(); i++) {
-        //EXPECT_EQ(gpu_csc_row_idx[i], cpu_csc_row_idx[i]);
-    //}
-
-    //// --- test csc_col_ptr
-    //auto gpu_csc_col_ptr = columns.csc_col_ptr.host_data();
-    //auto cpu_csc_col_ptr = this->csc_col_ptr.host_data();
-    //for(int i = 0; i < columns.csc_col_ptr.size(); i++) {
-        //EXPECT_EQ(gpu_csc_col_ptr[i], cpu_csc_col_ptr[i]);
-    //}
-//}
+    // --- test csc_col_ptr
+    auto gpu_csc_col_ptr = this->csc_col_ptr2.host_data();
+    auto cpu_csc_col_ptr = this->csc_col_ptr.host_data();
+    for(int i = 0; i < this->csc_col_ptr2.size(); i++) {
+        EXPECT_EQ(gpu_csc_col_ptr[i], cpu_csc_col_ptr[i]);
+    }
+}

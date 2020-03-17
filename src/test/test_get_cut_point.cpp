@@ -8,6 +8,7 @@
 #include "thundergbm/hist_cut.h"
 #include "thrust/unique.h"
 #include "thrust/execution_policy.h"
+#include "thundergbm/builder/shard.h"
 
 
 class GetCutPointTest : public ::testing::Test {
@@ -91,44 +92,43 @@ protected:
 };
 
 
-//TEST_F(GetCutPointTest, covtype) {
+TEST_F(GetCutPointTest, covtype) {
     //param.path = "../dataset/covtype";
-    //DataSet dataset;
-    //dataset.load_from_file(param.path, param);
-    //SparseColumns columns;
-////    vector<std::unique_ptr<SparseColumns>> v_columns(1);
-////    columns.csr2csc_gpu(dataset, v_columns);
-////    cut.get_cut_points2(columns, param.max_num_bin, dataset.n_instances());
+    DataSet dataset;
+    dataset.load_from_file(param.path, param);
+    SparseColumns columns;
+    //vector<std::unique_ptr<SparseColumns>> v_columns(1);
+    //columns.csr2csc_gpu(dataset, v_columns);
+    //cut.get_cut_points2(columns, param.max_num_bin, dataset.n_instances());
 
-    //printf("### Dataset: %s, num_instances: %d, num_features: %d, get_cut_points finished. ###\n",
-           //param.path.c_str(),
-           //dataset.n_instances(),
-           //dataset.n_features());
+    printf("### Dataset: %s, num_instances: %d, num_features: %d, get_cut_points finished. ###\n",
+           param.path.c_str(),
+           dataset.n_instances(),
+           dataset.n_features());
 
     //this->get_cut_points2(columns, param.max_num_bin,dataset.n_instances());
 
-    //// --- test cut_points_val
+    // --- test cut_points_val
     //auto gpu_cut_points_val = cut.cut_points_val.host_data();
     //auto cpu_cut_points_val = this->cut_points_val.host_data();
     //for(int i = 0; i < cut.cut_points_val.size(); i++)
         //EXPECT_EQ(gpu_cut_points_val[i], cpu_cut_points_val[i]);
 
-    //// --- test cut_row_ptr
+    // --- test cut_row_ptr
     //auto gpu_cut_row_ptr = cut.cut_row_ptr.host_data();
     //auto cpu_cut_row_ptr = this->cut_row_ptr.host_data();
     //for(int i = 0; i < cut.cut_row_ptr.size(); i++)
         //EXPECT_EQ(gpu_cut_row_ptr[i], cpu_cut_row_ptr[i]);
 
-    //// --- test cut_fid
+    // --- test cut_fid
     //EXPECT_EQ(cut.cut_fid.size(), this->cut_fid.size());
-//}
+}
 
 
-//TEST_F(GetCutPointTest, real_sim) {
-    //param.path = "../dataset/real-sim";
-    //DataSet dataset;
-    //dataset.load_from_file(param.path, param);
-    //SparseColumns columns;
+TEST_F(GetCutPointTest, real_sim) {
+    DataSet dataset;
+    dataset.load_from_file(param.path, param);
+    SparseColumns columns;
     //vector<std::unique_ptr<SparseColumns>> v_columns(1);
     //columns.csr2csc_gpu(dataset, v_columns);
     //cut.get_cut_points2(columns, param.max_num_bin, dataset.n_instances());
@@ -140,13 +140,13 @@ protected:
 
     //this->get_cut_points2(columns, param.max_num_bin,dataset.n_instances());
 
-    //// --- test cut_points_val
+    // --- test cut_points_val
     //auto gpu_cut_points_val = cut.cut_points_val.host_data();
     //auto cpu_cut_points_val = this->cut_points_val.host_data();
     //for(int i = 0; i < cut.cut_points_val.size(); i++)
         //EXPECT_EQ(gpu_cut_points_val[i], cpu_cut_points_val[i]);
 
-    //// --- test cut_row_ptr
+    // --- test cut_row_ptr
     //auto gpu_cut_row_ptr = cut.cut_row_ptr.host_data();
     //auto cpu_cut_row_ptr = this->cut_row_ptr.host_data();
     //for(int i = 0; i < cut.cut_row_ptr.size(); i++)
@@ -154,13 +154,13 @@ protected:
 
     //// --- test cut_fid
     //EXPECT_EQ(cut.cut_fid.size(), this->cut_fid.size());
-//}
+}
 
-//TEST_F(GetCutPointTest, susy) {
+TEST_F(GetCutPointTest, susy) {
     //param.path = "../dataset/SUSY";
-    //DataSet dataset;
-    //dataset.load_from_file(param.path, param);
-    //SparseColumns columns;
+    DataSet dataset;
+    dataset.load_from_file(param.path, param);
+    SparseColumns columns;
     //vector<std::unique_ptr<SparseColumns>> v_columns(1);
     //columns.csr2csc_gpu(dataset, v_columns);
     //cut.get_cut_points2(columns, param.max_num_bin, dataset.n_instances());
@@ -172,18 +172,18 @@ protected:
 
     //this->get_cut_points2(columns, param.max_num_bin,dataset.n_instances());
 
-    //// --- test cut_points_val
+    // --- test cut_points_val
     //auto gpu_cut_points_val = cut.cut_points_val.host_data();
     //auto cpu_cut_points_val = this->cut_points_val.host_data();
     //for(int i = 0; i < cut.cut_points_val.size(); i++)
         //EXPECT_EQ(gpu_cut_points_val[i], cpu_cut_points_val[i]);
 
-    //// --- test cut_row_ptr
+    // --- test cut_row_ptr
     //auto gpu_cut_row_ptr = cut.cut_row_ptr.host_data();
     //auto cpu_cut_row_ptr = this->cut_row_ptr.host_data();
     //for(int i = 0; i < cut.cut_row_ptr.size(); i++)
         //EXPECT_EQ(gpu_cut_row_ptr[i], cpu_cut_row_ptr[i]);
 
-    //// --- test cut_fid
+    // --- test cut_fid
     //EXPECT_EQ(cut.cut_fid.size(), this->cut_fid.size());
-//}
+}
