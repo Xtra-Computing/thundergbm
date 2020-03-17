@@ -116,7 +116,7 @@ void sort_array(SyncArray<T> &in_arr, bool ascending = true) {
         cub::DeviceRadixSort::SortKeysDescending(NULL, temp_storage_bytes, d_keys, num_items);
     temp_storage.resize(temp_storage_bytes);
     if (ascending)
-        cub::DeviceRadixSort::SortKeys(NULL, temp_storage_bytes, d_keys, num_items);
+        cub::DeviceRadixSort::SortKeys(temp_storage.device_data(), temp_storage_bytes, d_keys, num_items);
     else
         cub::DeviceRadixSort::SortKeysDescending(temp_storage.device_data(), temp_storage_bytes, d_keys, num_items);
     CUDA_CHECK(
