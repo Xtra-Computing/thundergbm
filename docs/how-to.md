@@ -99,7 +99,7 @@ git submodule update --init src/test/googletest
 After obtaining the ``googletest`` submodule, you can build the test cases by the following commands.
 ```bash
 cd thundergbm
-mkdir build && cd build && cmake -DBUILD_TETS=ON .. && make -j
+mkdir build && cd build && cmake -DBUILD_TESTS=ON .. && make -j
 ```
 
 ## How to use ThunderGBM for ranking
