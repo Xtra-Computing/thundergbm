@@ -157,6 +157,10 @@ extern "C" {
         *n_trees = model_param.n_trees;
         *trees_per_iter = (int)(boosted_model[0].size());
         model = new Tree[*n_trees * (*trees_per_iter)];
+        //LOG(INFO) << *learning_rate;
+        //LOG(INFO) << *num_class;
+        //LOG(INFO) << *n_trees;
+        //LOG(INFO) << *trees_per_iter;
         CHECK_EQ(*n_trees, boosted_model.size()) << n_trees << " v.s. " << boosted_model.size();
         for(int i = 0; i < *n_trees; i++)
         {
@@ -173,6 +177,7 @@ extern "C" {
         Parser parser;
         parser.load_model(model_path, model_param, boosted_model, dataset);
         for (int i = 0; i < dataset.label.size(); ++i) {
+            group_label[i] = dataset.label[i];
         }
     }
 

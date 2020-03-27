@@ -80,7 +80,7 @@ void Parser::parse_param(GBMParam &model_param, int argc, char **argv){
                 printf("please refer to \"docs/parameters.md\" in the GitHub repository for more information about setting the options\n");
                 exit(0);
             }
-        } 
+        }
 
     };
 
