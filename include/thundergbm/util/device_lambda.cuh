@@ -46,7 +46,13 @@ inline void device_loop(int len, L lambda) {
     if (len > 0) {
         lambda_kernel << < NUM_BLOCK, BLOCK_SIZE >> > (len, lambda);
         cudaDeviceSynchronize();
-        CUDA_CHECK(cudaPeekAtLastError());
+        /*cudaError_t error = cudaPeekAtLastError();*/
+        if(cudaPeekAtLastError() == cudaErrorInvalidResourceHandle){
+            cudaGetLastError();
+            LOG(INFO) << "warning: cuda invalid resource handle, potential issue of driver version and cuda version mismatch";
+        } else {
+            CUDA_CHECK(cudaPeekAtLastError());
+        }
     }
 }
 
@@ -56,7 +62,12 @@ inline void anonymous_kernel(L lambda, int num_fv, size_t smem_size = 0, int NUM
     NUM_BLOCK = std::min(NUM_BLOCK, std::max(tmp_num_block, 32));
     anonymous_kernel_k<< < NUM_BLOCK, BLOCK_SIZE, smem_size >> > (lambda);
     cudaDeviceSynchronize();
-    CUDA_CHECK(cudaPeekAtLastError());
+    if(cudaPeekAtLastError() == cudaErrorInvalidResourceHandle){
+        cudaGetLastError();
+        LOG(INFO) << "warning: cuda invalid resource handle, potential issue of driver version and cuda version mismatch";
+    } else {
+        CUDA_CHECK(cudaPeekAtLastError());
+    }    
 }
 
 /**
