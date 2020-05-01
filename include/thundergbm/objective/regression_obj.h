@@ -56,7 +56,7 @@ public:
         auto yp_data = y.device_data();
         auto label_data = label.device_data();
         int num_class = this->num_class;
-        int n_instances = y.size() / num_class;
+        int n_instances = y.size();
         device_loop(n_instances, [=]__device__(int i) {
             //yp_data[i] = Loss<float_type>::predict_transform(yp_data[i]);
             int max_k = (yp_data[i] > 0) ? 1 : 0;
