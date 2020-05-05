@@ -81,19 +81,23 @@ If you use ThunderGBM in your paper, please cite our work ([preprint](https://gi
 @article{wenthundergbm19,
  author = {Wen, Zeyi and Shi, Jiashuai and He, Bingsheng and Li, Qinbin and Chen, Jian},
  title = {{ThunderGBM}: Fast {GBDTs} and Random Forests on {GPUs}},
- journal = {To appear in arXiv},
- year = {2019}
+ journal = {Journal of Machine Learning Research},
+ volume={21},
+ year = {2020}
 }
 ```
 ### Other related paper
-* Zeyi Wen, Bingsheng He, Kotagiri Ramamohanarao, Shengliang Lu, and Jiashuai Shi. Efficient Gradient Boosted Decision Tree Training on GPUs. The 32nd IEEE International Parallel and Distributed Processing Symposium (IPDPS), pages 234-243, 2018. [pdf](https://www.comp.nus.edu.sg/~hebs/pub/IPDPS18-GPUGBDT.pdf)
+* Zeyi Wen, Bingsheng He, Kotagiri Ramamohanarao, Shengliang Lu, and Jiashuai Shi. Efficient Gradient Boosted Decision Tree Training on GPUs. The 32nd IEEE Intern
+ational Parallel and Distributed Processing Symposium (IPDPS), pages 234-243, 2018. [pdf](https://www.comp.nus.edu.sg/~hebs/pub/IPDPS18-GPUGBDT.pdf)
+* Zeyi Wen, Jiashuai Shi, Bingsheng He, Jian Chen, Kotagiri Ramamohanarao and Qinbin Li. Exploiting GPUs for Efficient Gradient Boosting Decision Tree Training. IEEE Transactions on Parallel and Distributed Systems (TPDS), accepted in May 2019. [pdf](https://zeyiwen.github.io/papers/tpds19_gpugbdt.pdf)
 
 ## Key members of ThunderGBM
 * [Zeyi Wen](https://zeyiwen.github.io), NUS (now at The University of Western Australia)
+* Hanfeng Liu, GUFS (a visting student at NUS)
 * Jiashuai Shi, SCUT (a visiting student at NUS)
 * Qinbin Li, NUS
 * Advisor: [Bingsheng He](https://www.comp.nus.edu.sg/~hebs/), NUS
-* Collaborators: Jian Chen (SCUT),  Kotagiri Ramamohanarao (The University of Melbourne)
+* Collaborators: Jian Chen (SCUT)
 
 ## Other information
 * This work is supported by a MoE AcRF Tier 2 grant (MOE2017-T2-1-122) and an NUS startup grant in Singapore.
