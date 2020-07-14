@@ -77,8 +77,18 @@ You will see `RMSE = 0.489562` after successful running.
 MacOS is not supported, as Apple has [suspended support](https://www.forbes.com/sites/marcochiappetta/2018/12/11/apple-turns-its-back-on-customers-and-nvidia-with-macos-mojave/#5b8d3c7137e9) for some NVIDIA GPUs. We will consider supporting MacOS based on our user community feedbacks. Please stay tuned.
 
 ## How to cite ThunderGBM
-If you use ThunderGBM in your paper, please cite our work ([preprint](https://github.com/Xtra-Computing/thundergbm/blob/master/thundergbm-full.pdf)).
+If you use ThunderGBM in your paper, please cite our work ([TPDS](https://zeyiwen.github.io/papers/tpds19_gpugbdt.pdf) and [JMLR](https://github.com/Xtra-Computing/thundergbm/blob/master/thundergbm-full.pdf)).
 ```
+@ARTICLE{8727750,
+  author={Z. {Wen} and J. {Shi} and B. {He} and J. {Chen} and K. {Ramamohanarao} and Q. {Li}},
+  journal={IEEE Transactions on Parallel and Distributed Systems}, 
+  title={Exploiting GPUs for Efficient Gradient Boosting Decision Tree Training}, 
+  year={2019},
+  volume={30},
+  number={12},
+  pages={2706-2717},
+  }
+
 @article{wenthundergbm19,
  author = {Wen, Zeyi and Shi, Jiashuai and He, Bingsheng and Li, Qinbin and Chen, Jian},
  title = {{ThunderGBM}: Fast {GBDTs} and Random Forests on {GPUs}},
@@ -87,10 +97,14 @@ If you use ThunderGBM in your paper, please cite our work ([preprint](https://gi
  year = {2020}
 }
 ```
-### Other related paper
+### Related papers
+* Zeyi Wen, Jiashuai Shi, Bingsheng He, Jian Chen, Kotagiri Ramamohanarao and Qinbin Li. Exploiting GPUs for Efficient Gradient Boosting Decision Tree Training. IEEE Transactions on Parallel and Distributed Systems (TPDS), accepted in May 2019. [pdf](https://zeyiwen.github.io/papers/tpds19_gpugbdt.pdf)
+
+* Zeyi Wen, Hanfeng Liu, Jiashuai Shi, Qinbin Li, Bingsheng He, Jian Chen. ThunderGBM: Fast GBDTs and Random Forests on GPUs. Featured at JMLR MLOSS (Machine Learning Open Source Software). Year: 2020, Volume: 21, Issue: 108, Pages: 1−5. [pdf](https://github.com/Xtra-Computing/thundergbm/blob/master/thundergbm-full.pdf)
+
 * Zeyi Wen, Bingsheng He, Kotagiri Ramamohanarao, Shengliang Lu, and Jiashuai Shi. Efficient Gradient Boosted Decision Tree Training on GPUs. The 32nd IEEE Intern
 ational Parallel and Distributed Processing Symposium (IPDPS), pages 234-243, 2018. [pdf](https://www.comp.nus.edu.sg/~hebs/pub/IPDPS18-GPUGBDT.pdf)
-* Zeyi Wen, Jiashuai Shi, Bingsheng He, Jian Chen, Kotagiri Ramamohanarao and Qinbin Li. Exploiting GPUs for Efficient Gradient Boosting Decision Tree Training. IEEE Transactions on Parallel and Distributed Systems (TPDS), accepted in May 2019. [pdf](https://zeyiwen.github.io/papers/tpds19_gpugbdt.pdf)
+
 
 ## Key members of ThunderGBM
 * [Zeyi Wen](https://zeyiwen.github.io), NUS (now at The University of Western Australia)
