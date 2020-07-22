@@ -108,7 +108,7 @@ ational Parallel and Distributed Processing Symposium (IPDPS), pages 234-243, 20
 
 ## Key members of ThunderGBM
 * [Zeyi Wen](https://zeyiwen.github.io), NUS (now at The University of Western Australia)
-* Hanfeng Liu, GUFS (a visting student at NUS)
+* Hanfeng Liu, GDUFS (a visting student at NUS)
 * Jiashuai Shi, SCUT (a visiting student at NUS)
 * Qinbin Li, NUS
 * Advisor: [Bingsheng He](https://www.comp.nus.edu.sg/~hebs/), NUS
