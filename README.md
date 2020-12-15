@@ -12,6 +12,12 @@
 
 [Documentations](docs/index.md) | [Installation](docs/how-to.md#how-to-install-thundergbm) | [Parameters](docs/parameters.md) | [Python (scikit-learn) interface](python/README.md)
 
+## What's new?
+ThunderGBM won 2019 Best Paper Award from IEEE Transactions on Parallel and Distributed Systems by the IEEE Computer Society Publications Board (1 out of 987 submissions, for the work "Zeyi Wen^, Jiashuai Shi*, Bingsheng He, Jian Chen, Kotagiri Ramamohanarao, and Qinbin Li*, Exploiting GPUs for Efficient Gradient Boosting Decision Tree Training , IEEE Transactions on Parallel and Distributed Systems, vol. 30, no. 12, 2019, pp. 2706-2717.") 
+[Best Paper Award Winners from IEEE](https://www.computer.org/publications/best-paper-award-winners)
+[News from NUS School of Computing](https://www.comp.nus.edu.sg/news/2020-ieee-tpds/)
+
+
 ## Overview
 The mission of ThunderGBM is to help users easily and efficiently apply GBDTs and Random Forests to solve problems. ThunderGBM exploits GPUs to achieve high efficiency. Key features of ThunderGBM are as follows.
 * Often by 10x times over other libraries.
