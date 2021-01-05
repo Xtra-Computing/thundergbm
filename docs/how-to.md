@@ -19,7 +19,7 @@ git submodule init cub && git submodule update
 ```
 ### Build on Linux 
 ```bash
-cd thundergbm
+#under the directory of "thundergbm"
 mkdir build && cd build && cmake .. && make -j
 ```
 
