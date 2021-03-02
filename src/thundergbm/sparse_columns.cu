@@ -9,6 +9,7 @@
 #include "cusparse.h"
 #include "thundergbm/util/multi_device.h"
 #include "omp.h"
+#include "config.h"
 
 //FIXME remove this function
 void correct_start(int *csc_col_ptr_2d_data, int first_col_start, int n_column_sub){
@@ -49,9 +50,31 @@ void SparseColumns::csr2csc_gpu(const DataSet &dataset, vector<std::unique_ptr<S
     csc_row_idx.resize(nnz);
     csc_col_ptr.resize(n_column + 1);
 
-    cusparseScsr2csc(handle, dataset.n_instances(), n_column, nnz, val.device_data(), row_ptr.device_data(),
-                     col_idx.device_data(), csc_val.device_data(), csc_row_idx.device_data(), csc_col_ptr.device_data(),
-                     CUSPARSE_ACTION_NUMERIC, CUSPARSE_INDEX_BASE_ZERO);
+#ifdef USE_DOUBLE
+    cudaDataType data_type = CUDA_R_64F;
+#else
+    cudaDataType data_type = CUDA_R_32F;
+#endif
+    // TODO fix the issue of < cuda9
+    size_t buffer_size = 0;
+    cusparseCsr2cscEx2_bufferSize(handle, dataset.n_instances(), n_column, nnz, val.device_data(), row_ptr.device_data(),
+                                  col_idx.device_data(), csc_val.device_data(), csc_col_ptr.device_data(), csc_row_idx.device_data(),
+                                  data_type, CUSPARSE_ACTION_NUMERIC, CUSPARSE_INDEX_BASE_ZERO, CUSPARSE_CSR2CSC_ALG1, &buffer_size);
+    SyncArray<char> tmp_buffer(buffer_size);
+    cusparseCsr2cscEx2(handle, dataset.n_instances(), n_column, nnz, val.device_data(), row_ptr.device_data(),
+                       col_idx.device_data(), csc_val.device_data(), csc_col_ptr.device_data(), csc_row_idx.device_data(),
+                       data_type, CUSPARSE_ACTION_NUMERIC, CUSPARSE_INDEX_BASE_ZERO, CUSPARSE_CSR2CSC_ALG1, tmp_buffer.device_data());
+
+
+//#ifdef USE_CUDA11
+//    LOG(INFO) << "this is cuda 11";
+//
+//    LOG(INFO) << "this is cuda < 11";
+//    cusparseScsr2csc(handle, dataset.n_instances(), n_column, nnz, val.device_data(), row_ptr.device_data(),
+//                     col_idx.device_data(), csc_val.device_data(), csc_row_idx.device_data(), csc_col_ptr.device_data(),
+//                     CUSPARSE_ACTION_NUMERIC, CUSPARSE_INDEX_BASE_ZERO);
+//#else
+//#endif
     cudaDeviceSynchronize();
     cusparseDestroy(handle);
     cusparseDestroyMatDescr(descr);

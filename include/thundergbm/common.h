@@ -10,6 +10,7 @@
 #include "cstdlib"
 #include "config.h"
 #include "thrust/tuple.h"
+#include "config.h"
 
 using std::vector;
 using std::string;
@@ -35,7 +36,11 @@ std::string string_format(const std::string &format, Args ... args) {
 }
 
 //data types
+#ifdef USE_DOUBLE
+typedef double float_type;
+#else
 typedef float float_type;
+#endif
 
 #define HOST_DEVICE __host__ __device__
 
