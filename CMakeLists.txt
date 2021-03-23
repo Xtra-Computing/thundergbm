@@ -9,7 +9,7 @@ if(MSVC)
     set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/bin)
 endif()
 
-option(USE_DOUBLE "Use double as kernel_type" ON)
+option(USE_DOUBLE "Use double as kernel_type" OFF)
 option(USE_CUDA11 "Use CUDA 11 above version" ON)
 
 find_package(CUDA REQUIRED QUIET)
