@@ -166,8 +166,12 @@ class TGBMModel(ThundergbmBase):
             group_label,
             in_groups, num_groups, self.verbose
         )
-        predict_label = [self.predict_label_ptr[index] for index in range(0, X.shape[0])]
-        self.predict_label = np.asarray(predict_label)
+        if self.objective == "multi:softprob":
+            self.predict_label = np.asarray(self.predict_label_ptr)
+            self.predict_label = self.predict_label.reshape([-1, self.num_class])
+        else:
+            predict_label = [self.predict_label_ptr[index] for index in range(0, X.shape[0])]
+            self.predict_label = np.asarray(predict_label)
         return self.predict_label
 
     def save_model(self, model_path):
