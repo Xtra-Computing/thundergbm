@@ -12,6 +12,14 @@
 #include "thrust/sequence.h"
 #include "thrust/binary_search.h"
 
+#include <chrono>
+typedef std::chrono::high_resolution_clock Clock;
+#define TDEF(x_) std::chrono::high_resolution_clock::time_point x_##_t0, x_##_t1;
+#define TSTART(x_) x_##_t0 = Clock::now();
+#define TEND(x_) x_##_t1 = Clock::now();
+#define TPRINT(x_, str) printf("%-20s \t%.6f\t sec\n", str, std::chrono::duration_cast<std::chrono::microseconds>(x_##_t1 - x_##_t0).count()/1e6);
+#define TINT(x_) std::chrono::duration_cast<std::chrono::microseconds>(x_##_t1 - x_##_t0).count()
+extern long long total_exact_prefix_sum_time;
 void ExactTreeBuilder::find_split(int level, int device_id) {
     const SparseColumns &columns = shards[device_id].columns;
     SyncArray<int> &nid = ins2node_id[device_id];
@@ -43,6 +51,8 @@ void ExactTreeBuilder::find_split(int level, int device_id) {
                                                     [=]__device__(int_float key) { return get<0>(key); });
         auto rle_fval_data = make_transform_iterator(rle_key.device_data(),
                                                      [=]__device__(int_float key) { return get<1>(key); });
+        TDEF(exact)
+        TSTART(exact)
         {
 
             //gather g/h pairs and do prefix sum
@@ -167,6 +177,8 @@ void ExactTreeBuilder::find_split(int level, int device_id) {
             LOG(DEBUG) << "missing gh = " << missing_gh;
             cudaDeviceSynchronize();
         }
+        TEND(exact)
+        total_exact_prefix_sum_time+=TINT(exact);
 
         //calculate gain of each split
         SyncArray<float_type> gain(nnz);

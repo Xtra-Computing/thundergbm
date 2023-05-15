@@ -12,6 +12,15 @@
 #include "thrust/binary_search.h"
 #include "thundergbm/util/multi_device.h"
 
+#include <chrono>
+typedef std::chrono::high_resolution_clock Clock;
+#define TDEF(x_) std::chrono::high_resolution_clock::time_point x_##_t0, x_##_t1;
+#define TSTART(x_) x_##_t0 = Clock::now();
+#define TEND(x_) x_##_t1 = Clock::now();
+#define TPRINT(x_, str) printf("%-20s \t%.6f\t sec\n", str, std::chrono::duration_cast<std::chrono::microseconds>(x_##_t1 - x_##_t0).count()/1e6);
+#define TINT(x_) std::chrono::duration_cast<std::chrono::microseconds>(x_##_t1 - x_##_t0).count()
+
+extern long long total_sort_time_hist;
 void HistTreeBuilder::get_bin_ids() {
     DO_ON_MULTI_DEVICES(param.n_device, [&](int device_id){
         SparseColumns &columns = shards[device_id].columns;
@@ -88,7 +97,7 @@ void HistTreeBuilder::find_split(int level, int device_id) {
     int n_split = n_nodes_in_level * n_bins;
 
     LOG(TRACE) << "start finding split";
-
+    TDEF(sort_time)
     //find the best split locally
     {
         using namespace thrust;
@@ -101,6 +110,7 @@ void HistTreeBuilder::find_split(int level, int device_id) {
         auto i2fid = [=] __device__(int i) { return cut_fid_data[i % n_bins]; };
         auto hist_fid = make_transform_iterator(counting_iterator<int>(0), i2fid);
         {
+            TSTART(sort_time)
             {
                 TIMED_SCOPE(timerObj, "build hist");
                 {
@@ -177,6 +187,7 @@ void HistTreeBuilder::find_split(int level, int device_id) {
                             SyncArray<int> nid4sort(n_instances);
                             nid4sort.copy_from(ins2node_id[device_id]);
                             sequence(cuda::par, node_idx.device_data(), node_idx.device_end(), 0);
+
                             cub_sort_by_key(nid4sort, node_idx);
                             auto counting_iter = make_counting_iterator < int > (nid_offset);
                             node_ptr.host_data()[0] =
@@ -325,6 +336,8 @@ void HistTreeBuilder::find_split(int level, int device_id) {
                 });
                 LOG(DEBUG) << missing_gh;
             }
+            TEND(sort_time)
+            total_sort_time_hist+=TINT(sort_time);
         }
         //calculate gain of each split
         SyncArray<float_type> gain(n_max_splits);

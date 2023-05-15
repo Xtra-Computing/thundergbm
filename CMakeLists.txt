@@ -25,7 +25,7 @@ else ()
     set(CMAKE_CXX_STANDARD 11)
 endif ()
 else()
-    set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -std=c++14 -lineinfo --expt-extended-lambda --default-stream per-thread")
+    set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -O3 -std=c++14 -lineinfo --expt-extended-lambda --default-stream per-thread")
 endif()
 
 if (OPENMP_FOUND)

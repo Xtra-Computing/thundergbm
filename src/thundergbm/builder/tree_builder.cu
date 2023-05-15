@@ -5,7 +5,15 @@
 #include <thundergbm/builder/tree_builder.h>
 #include "thundergbm/util/multi_device.h"
 #include "thundergbm/util/device_lambda.cuh"
+#include <chrono>
+typedef std::chrono::high_resolution_clock Clock;
+#define TDEF(x_) std::chrono::high_resolution_clock::time_point x_##_t0, x_##_t1;
+#define TSTART(x_) x_##_t0 = Clock::now();
+#define TEND(x_) x_##_t1 = Clock::now();
+#define TPRINT(x_, str) printf("%-20s \t%.6f\t sec\n", str, std::chrono::duration_cast<std::chrono::microseconds>(x_##_t1 - x_##_t0).count()/1e6);
+#define TINT(x_) std::chrono::duration_cast<std::chrono::microseconds>(x_##_t1 - x_##_t0).count()
 
+extern long long total_sp_time;
 void TreeBuilder::update_tree() {
     TIMED_FUNC(timerObj);
     DO_ON_MULTI_DEVICES(param.n_device, [&](int device_id){
@@ -148,7 +156,9 @@ vector<Tree> TreeBuilder::build_approximate(const MSyncArray<GHPair> &gradients)
     DO_ON_MULTI_DEVICES(param.n_device, [&](int device_id){
         this->shards[device_id].column_sampling(param.column_sampling_rate);
     });
-
+    
+    
+    TDEF(find_sp)
     for (int k = 0; k < param.tree_per_rounds; ++k) {
         Tree &tree = trees[k];
         DO_ON_MULTI_DEVICES(param.n_device, [&](int device_id){
@@ -158,9 +168,15 @@ vector<Tree> TreeBuilder::build_approximate(const MSyncArray<GHPair> &gradients)
         });
 
         for (int level = 0; level < param.depth; ++level) {
+
+            TSTART(find_sp)
             DO_ON_MULTI_DEVICES(param.n_device, [&](int device_id){
                 find_split(level, device_id);
             });
+            
+            TEND(find_sp)
+            total_sp_time+=TINT(find_sp);
+
             split_point_all_reduce(level);
             {
                 TIMED_SCOPE(timerObj, "apply sp");

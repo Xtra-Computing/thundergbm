@@ -15,7 +15,6 @@
 #include "row_sampler.h"
 
 std::mutex mtx;
-
 class Booster {
 public:
     void init(const DataSet &dataSet, const GBMParam &param);
