@@ -41,7 +41,8 @@ __global__ void lambda_2d_maximum_sparse_kernel(const int *len2, const int maxim
 }
 
 ///p100 has 56 MPs, using 32*56 thread blocks
-template<int NUM_BLOCK = 32 * 56, int BLOCK_SIZE = 256, typename L>
+//a6000 has 84 mps
+template<int NUM_BLOCK = 32 * 84, int BLOCK_SIZE = 256, typename L>
 inline void device_loop(int len, L lambda) {
     if (len > 0) {
         lambda_kernel << < NUM_BLOCK, BLOCK_SIZE >> > (len, lambda);
@@ -57,7 +58,7 @@ inline void device_loop(int len, L lambda) {
 }
 
 template<typename L>
-inline void anonymous_kernel(L lambda, int num_fv, size_t smem_size = 0, int NUM_BLOCK = 32 * 56, int BLOCK_SIZE = 256) {
+inline void anonymous_kernel(L lambda, int num_fv, size_t smem_size = 0, int NUM_BLOCK = 32 * 84, int BLOCK_SIZE = 256) {
     int tmp_num_block = num_fv / (BLOCK_SIZE * 8);
     NUM_BLOCK = std::min(NUM_BLOCK, std::max(tmp_num_block, 32));
     anonymous_kernel_k<< < NUM_BLOCK, BLOCK_SIZE, smem_size >> > (lambda);
