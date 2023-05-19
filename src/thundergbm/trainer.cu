@@ -17,6 +17,7 @@ using namespace std;
 long long total_sp_time = 0;
 long long total_sort_time_hist = 0;
 long long total_exact_prefix_sum_time = 0;
+float convert_time = 0;
 vector<vector<Tree>> TreeTrainer::train(GBMParam &param, const DataSet &dataset) {
     if (param.tree_method == "auto")
         if (dataset.n_features() > 20000)
@@ -52,7 +53,9 @@ vector<vector<Tree>> TreeTrainer::train(GBMParam &param, const DataSet &dataset)
     LOG(INFO)<<"total finding split time is "<<total_sp_time/1e6;
     auto stop = timer.now();
     std::chrono::duration<float> training_time = stop - start;
+    LOG(INFO)<<"convert time = "<<convert_time;
     LOG(INFO) << "training time = " << training_time.count();
+    LOG(INFO)<<"total time = "<<convert_time+training_time.count();
 
     std::atexit([]() {
         SyncMem::clear_cache();
