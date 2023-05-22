@@ -9,7 +9,7 @@
 
 template<typename L>
 __global__ void lambda_kernel(size_t len, L lambda) {
-    for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < len; i += blockDim.x * gridDim.x) {
+    for (size_t i = blockIdx.x * blockDim.x + threadIdx.x; i < len; i += blockDim.x * gridDim.x) {
         lambda(i);
     }
 }
@@ -43,7 +43,7 @@ __global__ void lambda_2d_maximum_sparse_kernel(const int *len2, const int maxim
 ///p100 has 56 MPs, using 32*56 thread blocks
 //a6000 has 84 mps
 template<int NUM_BLOCK = 32 * 84, int BLOCK_SIZE = 256, typename L>
-inline void device_loop(int len, L lambda) {
+inline void device_loop(size_t len, L lambda) {
     if (len > 0) {
         lambda_kernel << < NUM_BLOCK, BLOCK_SIZE >> > (len, lambda);
         cudaDeviceSynchronize();
@@ -58,9 +58,9 @@ inline void device_loop(int len, L lambda) {
 }
 
 template<typename L>
-inline void anonymous_kernel(L lambda, int num_fv, size_t smem_size = 0, int NUM_BLOCK = 32 * 84, int BLOCK_SIZE = 256) {
-    int tmp_num_block = num_fv / (BLOCK_SIZE * 8);
-    NUM_BLOCK = std::min(NUM_BLOCK, std::max(tmp_num_block, 32));
+inline void anonymous_kernel(L lambda, size_t num_fv, size_t smem_size = 0, int NUM_BLOCK = 32 * 84, int BLOCK_SIZE = 256) {
+    size_t tmp_num_block = num_fv / (BLOCK_SIZE * 8);
+    NUM_BLOCK = std::min(NUM_BLOCK, (int)std::max(tmp_num_block, (size_t)32));
     anonymous_kernel_k<< < NUM_BLOCK, BLOCK_SIZE, smem_size >> > (lambda);
     cudaDeviceSynchronize();
     if(cudaPeekAtLastError() == cudaErrorInvalidResourceHandle){

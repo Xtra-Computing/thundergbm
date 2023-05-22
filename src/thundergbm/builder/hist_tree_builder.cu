@@ -21,6 +21,7 @@ typedef std::chrono::high_resolution_clock Clock;
 #define TINT(x_) std::chrono::duration_cast<std::chrono::microseconds>(x_##_t1 - x_##_t0).count()
 
 extern long long total_sort_time_hist;
+extern long long total_time_hist1;
 void HistTreeBuilder::get_bin_ids() {
     DO_ON_MULTI_DEVICES(param.n_device, [&](int device_id){
         SparseColumns &columns = shards[device_id].columns;
@@ -59,17 +60,21 @@ void HistTreeBuilder::get_bin_ids() {
         }
 
         auto max_num_bin = param.max_num_bin;
-        dense_bin_id.resize(n_instances * n_column);
+        size_t dense_size = (long long)n_instances * (long long)n_column;
+        dense_bin_id.resize(dense_size);
+        LOG(INFO)<<"n_instances is "<<n_instances<<" n_column is "<<n_column<<" dense_bin_id size is "<<dense_size;
         auto dense_bin_id_data = dense_bin_id.device_data();
         auto csc_row_idx_data = columns.csc_row_idx.device_data();
-        device_loop(n_instances * n_column, [=]__device__(int i) {
-        dense_bin_id_data[i] = max_num_bin;
-    });
+        device_loop(dense_size, [=]__device__(size_t i) {
+            dense_bin_id_data[i] = max_num_bin;
+        });
         device_loop_2d(n_column, columns.csc_col_ptr.device_data(), [=]__device__(int fid, int i) {
         int row = csc_row_idx_data[i];
         unsigned char bid = bin_id_data[i];
-        dense_bin_id_data[row * n_column + fid] = bid;
+        size_t pos = (long long)row * (long long)n_column + (long long)fid;
+        dense_bin_id_data[pos] = bid;
     }, n_block);
+
     });
 }
 
@@ -126,10 +131,11 @@ void HistTreeBuilder::find_split(int level, int device_id) {
                         auto max_num_bin = param.max_num_bin;
                         auto n_instances = this->n_instances;
                         if (smem_size > 48 * 1024) {
-                            device_loop(n_instances * n_column, [=]__device__(int i) {
+                            device_loop((long long)n_instances * (long long)n_column, [=]__device__(size_t i) {
                                 int iid = i / n_column;
                                 int fid = i % n_column;
-                                unsigned char bid = dense_bin_id_data[iid * n_column + fid];
+                                //unsigned char bid = dense_bin_id_data[iid * n_column + fid];
+                                unsigned char bid = dense_bin_id_data[i];
                                 if (bid != max_num_bin) {
                                     int feature_offset = cut_row_ptr_data[fid];
                                     const GHPair src = gh_data[iid];
@@ -142,18 +148,19 @@ void HistTreeBuilder::find_split(int level, int device_id) {
                                 }
                             });
                         } else {
-                            int num_fv = n_instances * n_column;
+                            size_t num_fv = (long long)n_instances * (long long)n_column;
                             anonymous_kernel([=]__device__() {
                                 extern __shared__ GHPair local_hist[];
                                 for (int i = threadIdx.x; i < n_bins; i += blockDim.x) {
                                     local_hist[i] = 0;
                                 }
                                 __syncthreads();
-                                for (int i = blockIdx.x * blockDim.x + threadIdx.x;
+                                for (size_t i = blockIdx.x * blockDim.x + threadIdx.x;
                                      i < num_fv; i += blockDim.x * gridDim.x) {
                                     int iid = i / n_column;
                                     int fid = i % n_column;
-                                    unsigned char bid = dense_bin_id_data[iid * n_column + fid];
+                                    //unsigned char bid = dense_bin_id_data[iid * n_column + fid];
+                                    unsigned char bid = dense_bin_id_data[i];
                                     if (bid != max_num_bin) {
                                         int feature_offset = cut_row_ptr_data[fid];
                                         const GHPair src = gh_data[iid];
@@ -229,10 +236,10 @@ void HistTreeBuilder::find_split(int level, int device_id) {
                                 this->total_hist_num++;
 
                                 if (smem_size > 48 * 1024) {
-                                    device_loop((idx_end - idx_begin) * n_column, [=]__device__(int i) {
+                                    device_loop((idx_end - idx_begin) * n_column, [=]__device__(size_t i) {
                                         int iid = node_idx_data[i / n_column + idx_begin];
                                         int fid = i % n_column;
-                                        unsigned char bid = dense_bin_id_data[iid * n_column + fid];
+                                        unsigned char bid = dense_bin_id_data[(long long)iid * (long long)n_column + (long long)fid];
                                         if (bid != max_num_bin) {
                                             int feature_offset = cut_row_ptr_data[fid];
                                             const GHPair src = gh_data[iid];
@@ -253,12 +260,11 @@ void HistTreeBuilder::find_split(int level, int device_id) {
                                         }
                                         __syncthreads();
 
-                                        for (int i = blockIdx.x * blockDim.x + threadIdx.x;
+                                        for (size_t i = blockIdx.x * blockDim.x + threadIdx.x;
                                              i < num_fv; i += blockDim.x * gridDim.x) {
                                             int iid = node_idx_data[i / n_column + idx_begin];
-                                            //int fid = i - n_column *( i / n_column);
                                             int fid = i % n_column;
-                                            unsigned char bid = dense_bin_id_data[iid * n_column + fid];
+                                            unsigned char bid = dense_bin_id_data[(long long)iid * (long long)n_column + (long long)fid];
                                             if (bid != max_num_bin) {
                                                 const GHPair src = gh_data[iid];
                                                 int feature_offset = cut_row_ptr_data[fid];
@@ -472,7 +478,7 @@ void HistTreeBuilder::update_ins2node_id() {
                 if (node.splittable() && ((split_fid - column_offset < n_column) && (split_fid >= column_offset))) {
                     h_s_data[0] = true;
                     unsigned char split_bid = node.split_bid;
-                    unsigned char bid = dense_bin_id_data[iid * n_column + split_fid - column_offset];
+                    unsigned char bid = dense_bin_id_data[(long long)iid * (long long)n_column + (long long)split_fid - (long long)column_offset];
                     bool to_left = true;
                     if ((bid == max_num_bin && node.default_right) || (bid <= split_bid))
                         to_left = false;

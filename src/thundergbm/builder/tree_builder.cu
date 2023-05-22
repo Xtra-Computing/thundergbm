@@ -166,7 +166,6 @@ vector<Tree> TreeBuilder::build_approximate(const MSyncArray<GHPair> &gradients)
             this->gradients[device_id].set_device_data(const_cast<GHPair *>(gradients[device_id].device_data() + k * n_instances));
             this->trees[device_id].init2(this->gradients[device_id], param);
         });
-
         for (int level = 0; level < param.depth; ++level) {
 
             TSTART(find_sp)
