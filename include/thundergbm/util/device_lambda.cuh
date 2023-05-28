@@ -75,7 +75,7 @@ inline void anonymous_kernel(L lambda, size_t num_fv, size_t smem_size = 0, int 
  * @brief: (len1 x NUM_BLOCK) is the total number of blocks; len2 is an array of lengths.
  */
 template<typename L>
-void device_loop_2d(int len1, const int *len2, L lambda, unsigned int NUM_BLOCK = 4 * 56,
+void device_loop_2d(int len1, const int *len2, L lambda, unsigned int NUM_BLOCK = 4 * 84,
                     unsigned int BLOCK_SIZE = 256) {
     if (len1 > 0) {
         lambda_2d_sparse_kernel << < dim3(len1, NUM_BLOCK), BLOCK_SIZE >> > (len2, lambda);
@@ -89,7 +89,7 @@ void device_loop_2d(int len1, const int *len2, L lambda, unsigned int NUM_BLOCK 
  */
 template<typename L>
 void device_loop_2d_with_maximum(int len1, const int *len2, const int maximum, L lambda,
-                                 unsigned int NUM_BLOCK = 4 * 56,
+                                 unsigned int NUM_BLOCK = 4 * 84,
                                  unsigned int BLOCK_SIZE = 256) {
     if (len1 > 0) {
         lambda_2d_maximum_sparse_kernel << < dim3(len1, NUM_BLOCK), BLOCK_SIZE >> > (len2, maximum, lambda);
