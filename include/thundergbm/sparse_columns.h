@@ -13,6 +13,11 @@ public:
     SyncArray<float_type> csc_val;
     SyncArray<int> csc_row_idx;
     SyncArray<int> csc_col_ptr;
+    
+    //original order without sort
+    SyncArray<float_type> csc_val_origin;
+    SyncArray<int> csc_row_idx_origin;
+    SyncArray<int> csc_col_ptr_origin;
     int n_column;
     int n_row;
     int column_offset;

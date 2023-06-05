@@ -307,7 +307,7 @@ void DataSet::load_from_file(string file_name, GBMParam &param) {
     mem_size /= 1024;
     mem_size *= 12;
     if(mem_size > (5 * param.n_device))
-        this->use_cpu = true;
+        this->use_cpu = false;
 }
 
 

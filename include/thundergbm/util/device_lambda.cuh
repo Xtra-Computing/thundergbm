@@ -98,4 +98,67 @@ void device_loop_2d_with_maximum(int len1, const int *len2, const int maximum, L
     }
 }
 
+//func for new sparse loop 
+template<typename L>
+__global__ void lambda_hist_csr_root_kernel(const int *csr_row_ptr, L lambda) {
+
+    //local hist
+    //extern __shared__ GHPair local_hist[];
+    //for (int i = threadIdx.x; i < n_bins; i += blockDim.x) {
+    //    local_hist[i] = 0;
+    //}
+    //__syncthreads();
+
+
+    int i = blockIdx.x;
+    int begin = csr_row_ptr[i];
+    int end = csr_row_ptr[i + 1];
+    for (int j = begin + blockIdx.y * blockDim.x + threadIdx.x; j < end; j += blockDim.x * gridDim.y) {
+        //i for instance
+        //j for feature
+        lambda(i, j );
+    }
+    //__syncthreads();
+
+    ////reduce
+	//for (int i = threadIdx.x; i < n_bins; i += blockDim.x) {
+    //    GHPair &dest = hist_data[i];
+    //    GHPair src = local_hist[i];
+    //    if(src.h != 0)
+    //        atomicAdd(&dest.h, src.h);
+    //    if(src.g != 0)
+    //        atomicAdd(&dest.g, src.g);
+
+    //}
+}
+
+
+
+template<typename L>
+void device_loop_hist_csr_root(int n_instances, const int *csr_row_ptr, L lambda , unsigned int NUM_BLOCK = 4 * 84,
+                    unsigned int BLOCK_SIZE = 256) {
+    if (n_instances > 0) {
+        lambda_hist_csr_root_kernel << < dim3(n_instances, 1), BLOCK_SIZE >> > (csr_row_ptr, lambda);
+        cudaDeviceSynchronize();
+        CUDA_CHECK(cudaPeekAtLastError());
+    }
+}
+
+template<typename L>
+__global__ void lambda_hist_csr_node_kernel(L lambda) {
+    int i = blockIdx.x;
+    int current_pos = blockIdx.y * blockDim.x + threadIdx.x;
+    int stride = blockDim.x * gridDim.y;
+    lambda(i,current_pos,stride);
+}
+
+template<typename L>
+void device_loop_hist_csr_node(int n_instances, const int *csr_row_ptr, L lambda , unsigned int NUM_BLOCK = 4 * 84,
+                    unsigned int BLOCK_SIZE = 256) {
+    if (n_instances > 0) {
+        lambda_hist_csr_node_kernel << < dim3(n_instances, 1), BLOCK_SIZE >> > (lambda);
+        cudaDeviceSynchronize();
+        CUDA_CHECK(cudaPeekAtLastError());
+    }
+}
 #endif //THUNDERGBM_DEVICE_LAMBDA_H

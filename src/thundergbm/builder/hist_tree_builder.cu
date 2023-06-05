@@ -12,7 +12,9 @@
 #include "thrust/binary_search.h"
 #include "thundergbm/util/multi_device.h"
 
+#include "cusparse.h"
 #include <chrono>
+#include<iostream>
 typedef std::chrono::high_resolution_clock Clock;
 #define TDEF(x_) std::chrono::high_resolution_clock::time_point x_##_t0, x_##_t1;
 #define TSTART(x_) x_##_t0 = Clock::now();
@@ -22,6 +24,77 @@ typedef std::chrono::high_resolution_clock Clock;
 
 extern long long total_sort_time_hist;
 extern long long total_time_hist1;
+
+void check_hist_res(GHPair* hist, GHPair* hist_test, int n_bins){
+
+    //check result
+    float avg_diff_g = 0;
+    float total_diff_g= 0;
+    
+    for(int i = 0;i<n_bins;++i){
+        
+        total_diff_g = abs(hist_test[i].g-hist[i].g);
+    
+    }
+    avg_diff_g = total_diff_g/n_bins;
+    
+    LOG(INFO)<<"total diff g is "<<total_diff_g<<" avg diff g is "<<avg_diff_g;
+
+}
+
+void csc2csr(SyncArray<int> &csc_col_ptr,SyncArray<int> &csc_row_idx,SyncArray<float_type> &csc_val,
+            SyncArray<int> &row_ptr,SyncArray<int> &col_idx,SyncArray<float_type> &val, 
+            int n_instance, int n_feature){
+    
+    LOG(INFO)<<"run csc to csr...";
+    //SyncArray<unsigned char> val;
+    //SyncArray<int> val1;
+    //SyncArray<int> val2;
+    int nnz = csc_row_idx.size();
+
+    //val1.resize(nnz);
+    //val2.resize(nnz);
+
+    val.resize(nnz);
+    col_idx.resize(nnz);
+    row_ptr.resize(n_instance+1);
+
+    //using cusparse convert csc to csr
+
+    cusparseHandle_t handle;
+    cusparseMatDescr_t descr;
+    cusparseCreate(&handle);
+    cusparseCreateMatDescr(&descr);
+    cusparseSetMatIndexBase(descr, CUSPARSE_INDEX_BASE_ZERO);
+    cusparseSetMatType(descr, CUSPARSE_MATRIX_TYPE_GENERAL);
+    
+    //char
+    cudaDataType data_type = CUDA_R_32F;//other datatype cause wrong?
+    cusparseStatus_t status;
+
+    size_t buffer_size = 1;
+    status = cusparseCsr2cscEx2_bufferSize(handle, n_feature, n_instance, nnz, 
+                                    csc_val.device_data(),csc_col_ptr.device_data(),csc_row_idx.device_data(),
+                                    val.device_data(),row_ptr.device_data(),col_idx.device_data(),
+                                    data_type, CUSPARSE_ACTION_NUMERIC, CUSPARSE_INDEX_BASE_ZERO, CUSPARSE_CSR2CSC_ALG1, &buffer_size);
+
+    SyncArray<char> tmp_buffer(buffer_size);
+    cusparseCsr2cscEx2(handle, n_feature, n_instance, nnz, 
+                            csc_val.device_data(),csc_col_ptr.device_data(),csc_row_idx.device_data(),
+                            val.device_data(),row_ptr.device_data(),col_idx.device_data(),
+                            data_type, CUSPARSE_ACTION_NUMERIC, CUSPARSE_INDEX_BASE_ZERO, CUSPARSE_CSR2CSC_ALG1, tmp_buffer.device_data());
+
+    cudaDeviceSynchronize();
+    LOG(INFO)<<"return status is "<<status;
+    cusparseDestroy(handle);
+    cusparseDestroyMatDescr(descr);
+
+    csc_val.resize(0);
+    csc_col_ptr.resize(0);
+    csc_row_idx.resize(0);
+
+
+}
 void HistTreeBuilder::get_bin_ids() {
     DO_ON_MULTI_DEVICES(param.n_device, [&](int device_id){
         SparseColumns &columns = shards[device_id].columns;
@@ -37,6 +110,16 @@ void HistTreeBuilder::get_bin_ids() {
         bin_id.resize(columns.nnz);
         auto bin_id_data = bin_id.device_data();
         int n_block = fminf((nnz / n_column - 1) / 256 + 1, 4 * 56);
+
+        //original order csc
+        auto csc_val_origin_data = columns.csc_val_origin.device_data();
+        SyncArray<float> bin_id_origin;
+        bin_id_origin.resize(columns.nnz);
+        auto bin_id_origin_data = bin_id_origin.device_data();
+
+        auto &csr_row_ptr = this->csr_row_ptr[device_id];
+        auto &csr_col_idx = this->csr_col_idx[device_id];
+        auto &csr_bin_id  = this->csr_bin_id[device_id];
         {
             auto lowerBound = [=]__device__(const float_type *search_begin, const float_type *search_end, float_type val) {
                 const float_type *left = search_begin;
@@ -57,7 +140,19 @@ void HistTreeBuilder::get_bin_ids() {
                 auto val = csc_val_data[i];
                 bin_id_data[i] = lowerBound(search_begin, search_end, val) - search_begin;
             }, n_block);
+            
+            //for original order csc
+            device_loop_2d(n_column, columns.csc_col_ptr.device_data(), [=]__device__(int cid, int i) {
+                auto search_begin = cut_points_ptr + cut_row_ptr[cid];
+                auto search_end = cut_points_ptr + cut_row_ptr[cid + 1];
+                auto val = csc_val_origin_data[i];
+                bin_id_origin_data[i] = lowerBound(search_begin, search_end, val) - search_begin;
+            }, n_block);
         }
+        //csc2csr
+        csc2csr(columns.csc_col_ptr_origin,columns.csc_row_idx_origin,bin_id_origin,
+                csr_row_ptr,csr_col_idx,csr_bin_id,
+                n_instances,n_column);
 
         auto max_num_bin = param.max_num_bin;
         size_t dense_size = (long long)n_instances * (long long)n_column;
@@ -100,7 +195,15 @@ void HistTreeBuilder::find_split(int level, int device_id) {
     int n_max_nodes = 2 << param.depth;
     int n_max_splits = n_max_nodes * n_bins;
     int n_split = n_nodes_in_level * n_bins;
-
+    
+    //csr bin id
+    auto &csr_row_ptr = this->csr_row_ptr[device_id];
+    auto &csr_col_idx = this->csr_col_idx[device_id];
+    auto &csr_bin_id  = this->csr_bin_id[device_id];
+    
+    auto csr_row_ptr_data = csr_row_ptr.device_data();
+    auto csr_col_idx_data = csr_col_idx.device_data();
+    auto csr_bin_id_data = csr_bin_id.device_data();
     LOG(TRACE) << "start finding split";
     TDEF(sort_time)
     //find the best split locally
@@ -130,60 +233,83 @@ void HistTreeBuilder::find_split(int level, int device_id) {
                         auto dense_bin_id_data = dense_bin_id.device_data();
                         auto max_num_bin = param.max_num_bin;
                         auto n_instances = this->n_instances;
-                        if (smem_size > 48 * 1024) {
-                            device_loop((long long)n_instances * (long long)n_column, [=]__device__(size_t i) {
-                                int iid = i / n_column;
-                                int fid = i % n_column;
-                                //unsigned char bid = dense_bin_id_data[iid * n_column + fid];
-                                unsigned char bid = dense_bin_id_data[i];
-                                if (bid != max_num_bin) {
-                                    int feature_offset = cut_row_ptr_data[fid];
-                                    const GHPair src = gh_data[iid];
-                                    GHPair &dest = hist_data[feature_offset + bid];
-                                    if(src.h != 0)
-                                        atomicAdd(&dest.h, src.h);
-                                    if(src.g != 0)
-                                        atomicAdd(&dest.g, src.g);
+                        //if (smem_size > 48 * 1024) {
+                        //    device_loop((long long)n_instances * (long long)n_column, [=]__device__(size_t i) {
+                        //        int iid = i / n_column;
+                        //        int fid = i % n_column;
+                        //        //unsigned char bid = dense_bin_id_data[iid * n_column + fid];
+                        //        unsigned char bid = dense_bin_id_data[i];
+                        //        if (bid != max_num_bin) {
+                        //            int feature_offset = cut_row_ptr_data[fid];
+                        //            const GHPair src = gh_data[iid];
+                        //            GHPair &dest = hist_data[feature_offset + bid];
+                        //            if(src.h != 0)
+                        //                atomicAdd(&dest.h, src.h);
+                        //            if(src.g != 0)
+                        //                atomicAdd(&dest.g, src.g);
 
-                                }
-                            });
-                        } else {
-                            size_t num_fv = (long long)n_instances * (long long)n_column;
-                            anonymous_kernel([=]__device__() {
-                                extern __shared__ GHPair local_hist[];
-                                for (int i = threadIdx.x; i < n_bins; i += blockDim.x) {
-                                    local_hist[i] = 0;
-                                }
-                                __syncthreads();
-                                for (size_t i = blockIdx.x * blockDim.x + threadIdx.x;
-                                     i < num_fv; i += blockDim.x * gridDim.x) {
-                                    int iid = i / n_column;
-                                    int fid = i % n_column;
-                                    //unsigned char bid = dense_bin_id_data[iid * n_column + fid];
-                                    unsigned char bid = dense_bin_id_data[i];
-                                    if (bid != max_num_bin) {
-                                        int feature_offset = cut_row_ptr_data[fid];
-                                        const GHPair src = gh_data[iid];
-                                        GHPair &dest = local_hist[feature_offset + bid];
-                                        if(src.h != 0)
-                                            atomicAdd(&dest.h, src.h);
-                                        if(src.g != 0)
-                                            atomicAdd(&dest.g, src.g);
+                        //        }
+                        //    });
+                        //} else {
+                            //size_t num_fv = (long long)n_instances * (long long)n_column;
+                            //anonymous_kernel([=]__device__() {
+                            //    extern __shared__ GHPair local_hist[];
+                            //    for (int i = threadIdx.x; i < n_bins; i += blockDim.x) {
+                            //        local_hist[i] = 0;
+                            //    }
+                            //    __syncthreads();
+                            //    for (size_t i = blockIdx.x * blockDim.x + threadIdx.x;
+                            //         i < num_fv; i += blockDim.x * gridDim.x) {
+                            //        int iid = i / n_column;
+                            //        int fid = i % n_column;
+                            //        //unsigned char bid = dense_bin_id_data[iid * n_column + fid];
+                            //        unsigned char bid = dense_bin_id_data[i];
+                            //        if (bid != max_num_bin) {
+                            //            int feature_offset = cut_row_ptr_data[fid];
+                            //            const GHPair src = gh_data[iid];
+                            //            GHPair &dest = local_hist[feature_offset + bid];
+                            //            if(src.h != 0)
+                            //                atomicAdd(&dest.h, src.h);
+                            //            if(src.g != 0)
+                            //                atomicAdd(&dest.g, src.g);
 
-                                    }
-                                }
-                                __syncthreads();
-                                for (int i = threadIdx.x; i < n_bins; i += blockDim.x) {
-                                    GHPair &dest = hist_data[i];
-                                    GHPair src = local_hist[i];
-                                    if(src.h != 0)
-                                        atomicAdd(&dest.h, src.h);
-                                    if(src.g != 0)
-                                        atomicAdd(&dest.g, src.g);
+                            //        }
+                            //    }
+                            //    __syncthreads();
+                            //    for (int i = threadIdx.x; i < n_bins; i += blockDim.x) {
+                            //        GHPair &dest = hist_data[i];
+                            //        GHPair src = local_hist[i];
+                            //        if(src.h != 0)
+                            //            atomicAdd(&dest.h, src.h);
+                            //        if(src.g != 0)
+                            //            atomicAdd(&dest.g, src.g);
 
-                                }
-                            }, num_fv, smem_size);
-                        }
+                            //    }
+                            //}, num_fv, smem_size);
+
+                            //LOG(INFO)<<"histogram[0],[1],[2] "<<hist.host_data()[0].g<<" "<<hist.host_data()[1].g<<" "<<hist.host_data()[2].g;
+
+                            //new loop method
+                            //LOG(INFO)<<"start root ...";
+                            //SyncArray<GHPair> hist_test(n_bins);
+                            //auto hist_test_data = hist_test.device_data();
+                        //}
+                        device_loop_hist_csr_root(n_instances,csr_row_ptr_data, [=]__device__(int i,int j){
+                        
+                            int fid = csr_col_idx_data[j];
+                            int bid = (int)csr_bin_id_data[j];
+                            
+                            int feature_offset = cut_row_ptr_data[fid];
+                            const GHPair src = gh_data[i];
+                            //GHPair &dest = hist_test_data[feature_offset + bid]; 
+                            GHPair &dest = hist_data[feature_offset + bid]; 
+                            if(src.h != 0)
+                                atomicAdd(&dest.h, src.h);
+                            if(src.g != 0)
+                                atomicAdd(&dest.g, src.g);                            
+                        
+                        });
+                        
                     } else {
                         //otherwise
                         auto t_dp_begin = timer.now();
@@ -235,58 +361,92 @@ void HistTreeBuilder::find_split(int level, int device_id) {
                                 auto hist_data = hist.device_data() + nid0 * n_bins;
                                 this->total_hist_num++;
 
-                                if (smem_size > 48 * 1024) {
-                                    device_loop((idx_end - idx_begin) * n_column, [=]__device__(size_t i) {
-                                        int iid = node_idx_data[i / n_column + idx_begin];
-                                        int fid = i % n_column;
-                                        unsigned char bid = dense_bin_id_data[(long long)iid * (long long)n_column + (long long)fid];
-                                        if (bid != max_num_bin) {
+                                //if (smem_size > 48 * 1024) {
+                                //    device_loop((idx_end - idx_begin) * n_column, [=]__device__(size_t i) {
+                                //        int iid = node_idx_data[i / n_column + idx_begin];
+                                //        int fid = i % n_column;
+                                //        unsigned char bid = dense_bin_id_data[(long long)iid * (long long)n_column + (long long)fid];
+                                //        if (bid != max_num_bin) {
+                                //            int feature_offset = cut_row_ptr_data[fid];
+                                //            const GHPair src = gh_data[iid];
+                                //            GHPair &dest = hist_data[feature_offset + bid];
+                                //            if(src.h != 0)
+                                //                atomicAdd(&dest.h, src.h);
+                                //            if(src.g != 0)
+                                //                atomicAdd(&dest.g, src.g);
+
+                                //        }
+                                //    });
+                                //} 
+                                //else {
+                                    //int num_fv = (idx_end - idx_begin) * n_column;
+                                    //anonymous_kernel([=] __device__() {
+                                    //    extern __shared__ GHPair local_hist[];
+                                    //    for (int i = threadIdx.x; i < n_bins; i += blockDim.x) {
+                                    //        local_hist[i] = 0;
+                                    //    }
+                                    //    __syncthreads();
+
+                                    //    for (size_t i = blockIdx.x * blockDim.x + threadIdx.x;
+                                    //         i < num_fv; i += blockDim.x * gridDim.x) {
+                                    //        int iid = node_idx_data[i / n_column + idx_begin];
+                                    //        int fid = i % n_column;
+                                    //        unsigned char bid = dense_bin_id_data[(long long)iid * (long long)n_column + (long long)fid];
+                                    //        if (bid != max_num_bin) {
+                                    //            const GHPair src = gh_data[iid];
+                                    //            int feature_offset = cut_row_ptr_data[fid];
+                                    //            GHPair &dest = local_hist[feature_offset + bid];
+                                    //            if(src.h != 0)
+                                    //                atomicAdd(&dest.h, src.h);
+                                    //            if(src.g != 0)
+                                    //                atomicAdd(&dest.g, src.g);
+                                    //        }
+                                    //    }
+
+                                    //    __syncthreads();
+                                    //    for (int i = threadIdx.x; i < n_bins; i += blockDim.x) {
+                                    //        GHPair src = local_hist[i];
+                                    //        GHPair &dest = hist_data[i];
+                                    //        if(src.h != 0)
+                                    //            atomicAdd(&dest.h, src.h);
+                                    //        if(src.g != 0)
+                                    //            atomicAdd(&dest.g, src.g);
+                                    //    }
+                                    //}, num_fv, smem_size);
+                                //}
+                                    //new csr loop
+
+                                    //SyncArray<GHPair> hist_test(n_bins);
+                                    //auto hist_test_data = hist_test.device_data();
+                                    device_loop_hist_csr_node((idx_end - idx_begin),csr_row_ptr_data, [=]__device__(int i,int current_pos,int stride){
+                                        //iid
+                                        int iid = node_idx_data[i+idx_begin];
+                                        int begin = csr_row_ptr_data[iid];
+                                        int end = csr_row_ptr_data[iid+1];
+
+                                        for(int j = begin+current_pos;j<end;j+=stride){
+                                            int fid = csr_col_idx_data[j];
+                                            int bid = (int)csr_bin_id_data[j];
+
                                             int feature_offset = cut_row_ptr_data[fid];
                                             const GHPair src = gh_data[iid];
                                             GHPair &dest = hist_data[feature_offset + bid];
-                                            if(src.h != 0)
-                                                atomicAdd(&dest.h, src.h);
-                                            if(src.g != 0)
-                                                atomicAdd(&dest.g, src.g);
+                                            //GHPair &dest = hist_test_data[feature_offset + bid];
 
+                                            if(src.h!= 0){
+                                                atomicAdd(&dest.h, src.h);
+                                            }
+
+                                            if(src.g!= 0){
+                                                atomicAdd(&dest.g, src.g);
+                                            }
+                                        
                                         }
                                     });
-                                } else {
-                                    int num_fv = (idx_end - idx_begin) * n_column;
-                                    anonymous_kernel([=] __device__() {
-                                        extern __shared__ GHPair local_hist[];
-                                        for (int i = threadIdx.x; i < n_bins; i += blockDim.x) {
-                                            local_hist[i] = 0;
-                                        }
-                                        __syncthreads();
 
-                                        for (size_t i = blockIdx.x * blockDim.x + threadIdx.x;
-                                             i < num_fv; i += blockDim.x * gridDim.x) {
-                                            int iid = node_idx_data[i / n_column + idx_begin];
-                                            int fid = i % n_column;
-                                            unsigned char bid = dense_bin_id_data[(long long)iid * (long long)n_column + (long long)fid];
-                                            if (bid != max_num_bin) {
-                                                const GHPair src = gh_data[iid];
-                                                int feature_offset = cut_row_ptr_data[fid];
-                                                GHPair &dest = local_hist[feature_offset + bid];
-                                                if(src.h != 0)
-                                                    atomicAdd(&dest.h, src.h);
-                                                if(src.g != 0)
-                                                    atomicAdd(&dest.g, src.g);
-                                            }
-                                        }
-
-                                        __syncthreads();
-                                        for (int i = threadIdx.x; i < n_bins; i += blockDim.x) {
-                                            GHPair src = local_hist[i];
-                                            GHPair &dest = hist_data[i];
-                                            if(src.h != 0)
-                                                atomicAdd(&dest.h, src.h);
-                                            if(src.g != 0)
-                                                atomicAdd(&dest.g, src.g);
-                                        }
-                                    }, num_fv, smem_size);
-                                }
+                                    //check result
+                                    //check_hist_res(hist.host_data() + nid0 * n_bins,hist_test.host_data(),n_bins);
+                                
                             }
 
                             //subtract
@@ -516,6 +676,12 @@ void HistTreeBuilder::init(const DataSet &dataset, const GBMParam &param) {
     cut = vector<HistCut>(param.n_device);
     dense_bin_id = MSyncArray<unsigned char>(param.n_device);
     last_hist = MSyncArray<GHPair>(param.n_device);
+
+    //csr bin id
+    csr_bin_id = MSyncArray<float_type>(param.n_device);
+    csr_row_ptr = MSyncArray<int>(param.n_device);
+    csr_col_idx = MSyncArray<int>(param.n_device);
+
     DO_ON_MULTI_DEVICES(param.n_device, [&](int device_id){
         if(dataset.use_cpu)
             cut[device_id].get_cut_points2(shards[device_id].columns, param.max_num_bin, n_instances);

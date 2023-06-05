@@ -31,6 +31,11 @@ private:
     MSyncArray<unsigned char> dense_bin_id;
     MSyncArray<GHPair> last_hist;
 
+    //store csr dense_bin_id
+    MSyncArray<float_type> csr_bin_id;
+    MSyncArray<int> csr_row_ptr;
+    MSyncArray<int> csr_col_idx;
+
     double build_hist_used_time=0;
     int build_n_hist = 0;
     int total_hist_num = 0;
