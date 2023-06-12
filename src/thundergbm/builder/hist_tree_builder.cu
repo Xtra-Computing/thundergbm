@@ -732,16 +732,15 @@ void HistTreeBuilder::update_ins2node_id() {
         int column_offset = columns.column_offset;
         auto max_num_bin = param.max_num_bin;
 
-        int loop_num = 10;
-        size_t total_size = (long long )n_instances * (long long)n_column;
+        int loop_num = 10;//1000;
+        //size_t total_size = (long long )n_instances * (long long)n_column;
         size_t row_part_size = n_instances/loop_num;
-        
         //auto csc_row_idx_data = columns.csc_row_idx.device_data();
         for(int l=0;l<loop_num;l++){
 
             size_t current_dense_size = row_part_size*(long long)n_column;
             size_t current_row_size = row_part_size;
-
+            
             //last one 
             if(l==loop_num-1){
                 current_row_size = (n_instances-(loop_num-1)*row_part_size);
