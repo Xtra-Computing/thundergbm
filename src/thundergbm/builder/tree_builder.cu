@@ -172,7 +172,6 @@ vector<Tree> TreeBuilder::build_approximate(const MSyncArray<GHPair> &gradients)
             DO_ON_MULTI_DEVICES(param.n_device, [&](int device_id){
                 find_split(level, device_id);
             });
-            
             TEND(find_sp)
             total_sp_time+=TINT(find_sp);
 
