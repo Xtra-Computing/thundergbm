@@ -195,7 +195,8 @@ void HistTreeBuilder::find_split(int level, int device_id) {
     int n_max_nodes = 2 << param.depth;
     int n_max_splits = n_max_nodes * n_bins;
     int n_split = n_nodes_in_level * n_bins;
-    
+
+    int n_block = fminf((columns.nnz / this->n_instances - 1) / 256 + 1, 4 * 84); 
     //csr bin id
     auto &csr_row_ptr = this->csr_row_ptr[device_id];
     auto &csr_col_idx = this->csr_col_idx[device_id];
@@ -308,7 +309,7 @@ void HistTreeBuilder::find_split(int level, int device_id) {
                             if(src.g != 0)
                                 atomicAdd(&dest.g, src.g);                            
                         
-                        });
+                        },n_block);
                         
                     } else {
                         //otherwise
@@ -442,7 +443,7 @@ void HistTreeBuilder::find_split(int level, int device_id) {
                                             }
                                         
                                         }
-                                    });
+                                    },n_block);
 
                                     //check result
                                     //check_hist_res(hist.host_data() + nid0 * n_bins,hist_test.host_data(),n_bins);

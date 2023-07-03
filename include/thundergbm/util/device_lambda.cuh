@@ -139,7 +139,7 @@ template<typename L>
 void device_loop_hist_csr_root(int n_instances, const int *csr_row_ptr, L lambda , unsigned int NUM_BLOCK = 4 * 84,
                     unsigned int BLOCK_SIZE = 256) {
     if (n_instances > 0) {
-        lambda_hist_csr_root_kernel << < dim3(n_instances, 1), BLOCK_SIZE >> > (csr_row_ptr, lambda);
+        lambda_hist_csr_root_kernel << < dim3(n_instances, NUM_BLOCK), BLOCK_SIZE >> > (csr_row_ptr, lambda);
         cudaDeviceSynchronize();
         CUDA_CHECK(cudaPeekAtLastError());
     }
@@ -157,7 +157,7 @@ template<typename L>
 void device_loop_hist_csr_node(int n_instances, const int *csr_row_ptr, L lambda , unsigned int NUM_BLOCK = 4 * 84,
                     unsigned int BLOCK_SIZE = 256) {
     if (n_instances > 0) {
-        lambda_hist_csr_node_kernel << < dim3(n_instances, 1), BLOCK_SIZE >> > (lambda);
+        lambda_hist_csr_node_kernel << < dim3(n_instances, NUM_BLOCK), BLOCK_SIZE >> > (lambda);
         cudaDeviceSynchronize();
         CUDA_CHECK(cudaPeekAtLastError());
     }
