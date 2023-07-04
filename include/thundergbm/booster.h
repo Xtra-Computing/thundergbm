@@ -70,7 +70,8 @@ void Booster::boost(vector<vector<Tree>> &boosted_model) {
 
     PERFORMANCE_CHECKPOINT(timerObj);
     //show metric on training set
-    LOG(INFO) << metric->get_name() << " = " << metric->get_score(fbuilder->get_y_predict().front());
+    auto res =  metric->get_score(fbuilder->get_y_predict().front());
+    LOG(INFO) << metric->get_name() << " = " <<res<<" acc = "<< (1-res);
 }
 
 #endif //THUNDERGBM_BOOSTER_H
