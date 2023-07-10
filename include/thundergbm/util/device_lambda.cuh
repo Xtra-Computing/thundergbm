@@ -40,7 +40,7 @@ __global__ void lambda_2d_maximum_sparse_kernel(const int *len2, const int maxim
     }
 }
 
-///p100 has 56 MPs, using 32*56 thread blocks
+///p100 has 56 MPs, using 32*56 thread blocks, one MP supports 2048 threads
 //a6000 has 84 mps
 template<int NUM_BLOCK = 32 * 84, int BLOCK_SIZE = 256, typename L>
 inline void device_loop(size_t len, L lambda) {
