@@ -25,6 +25,9 @@ typedef std::chrono::high_resolution_clock Clock;
 extern long long total_sort_time_hist;
 extern long long total_time_hist1;
 
+extern long long total_update_index1;
+extern long long total_update_index2;
+
 void check_hist_res(GHPair* hist, GHPair* hist_test, int n_bins){
 
     //check result
@@ -154,21 +157,18 @@ void HistTreeBuilder::get_bin_ids() {
                 csr_row_ptr,csr_col_idx,csr_bin_id,
                 n_instances,n_column);
 
-        //auto max_num_bin = param.max_num_bin;
-        //size_t dense_size = (long long)n_instances * (long long)n_column;
-        //dense_bin_id.resize(dense_size);
-        //LOG(INFO)<<"n_instances is "<<n_instances<<" n_column is "<<n_column<<" dense_bin_id size is "<<dense_size;
-        //auto dense_bin_id_data = dense_bin_id.device_data();
-        //auto csc_row_idx_data = columns.csc_row_idx.device_data();
-        //device_loop(dense_size, [=]__device__(size_t i) {
-        //    dense_bin_id_data[i] = max_num_bin;
-        //});
-        //device_loop_2d(n_column, columns.csc_col_ptr.device_data(), [=]__device__(int fid, int i) {
-        //    int row = csc_row_idx_data[i];
-        //    unsigned char bid = bin_id_data[i];
-        //    size_t pos = (long long)row * (long long)n_column + (long long)fid;
-        //    dense_bin_id_data[pos] = bid;
-        //}, n_block);
+        auto max_num_bin = param.max_num_bin;
+        int loop_num = 20;//1000;
+        size_t row_part_size = n_instances/loop_num;
+        //initialize dense bin id
+        size_t current_dense_size = (row_part_size+loop_num)*(long long)n_column;
+        
+        dense_bin_id.resize(current_dense_size);
+        auto dense_bin_id_data = dense_bin_id.device_data();
+        
+        device_loop(current_dense_size, [=]__device__(size_t i) {
+            dense_bin_id_data[i] = max_num_bin;
+        });
 
     });
 }
@@ -733,29 +733,28 @@ void HistTreeBuilder::update_ins2node_id() {
         int column_offset = columns.column_offset;
         auto max_num_bin = param.max_num_bin;
 
-        int loop_num = 10;//1000;
-        //size_t total_size = (long long )n_instances * (long long)n_column;
+        int loop_num = 20;//1000;
         size_t row_part_size = n_instances/loop_num;
-        //auto csc_row_idx_data = columns.csc_row_idx.device_data();
+        
+        //initialize dense bin id
+        size_t current_row_size = row_part_size;
+        
+        auto dense_bin_id_data = dense_bin_id.device_data();
+
+        
+        
         for(int l=0;l<loop_num;l++){
 
-            size_t current_dense_size = row_part_size*(long long)n_column;
-            size_t current_row_size = row_part_size;
             
             //last one 
             if(l==loop_num-1){
                 current_row_size = (n_instances-(loop_num-1)*row_part_size);
-                current_dense_size =  current_row_size * (long long)n_column;
             }
             int start_row = l * row_part_size;
             
-            dense_bin_id.resize(current_dense_size);
-            auto dense_bin_id_data = dense_bin_id.device_data();
-            //first generate part dense_bin_id
-            //Initialize dense bin id
-            device_loop(current_dense_size, [=]__device__(size_t i) {
-                dense_bin_id_data[i] = max_num_bin;
-            });
+
+            TDEF(map1)
+            TSTART(map1)
             //generate dense bin id 
             //this row is a map value not the real row index
             device_loop_part_dense_bin_id(current_row_size, csr_row_ptr_data, start_row,[=]__device__(int row, int i) {
@@ -766,7 +765,9 @@ void HistTreeBuilder::update_ins2node_id() {
                 dense_bin_id_data[pos] = bid;
 
             });
-
+            TEND(map1)
+            total_update_index1+=TINT(map1);
+            
             //update ins2node information
             //set new node id for each instance
             device_loop_part_update_node(current_row_size, start_row, [=]__device__(size_t idx, size_t start_row) {
@@ -792,7 +793,18 @@ void HistTreeBuilder::update_ins2node_id() {
                     }
                 }
             });
+            
+            TSTART(map1)
+            //recover max_bin_id
+            device_loop_part_dense_bin_id(current_row_size, csr_row_ptr_data, start_row,[=]__device__(int row, int i) {
+                
+                int fid = csr_col_idx_data[i];
+                size_t pos = (long long)row * (long long)n_column + (long long)fid;
+                dense_bin_id_data[pos] = max_num_bin;
 
+            });
+            TEND(map1)
+            total_update_index1+=TINT(map1);
 
 
         }

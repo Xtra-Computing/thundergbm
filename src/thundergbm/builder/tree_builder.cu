@@ -168,18 +168,19 @@ vector<Tree> TreeBuilder::build_approximate(const MSyncArray<GHPair> &gradients)
         });
         for (int level = 0; level < param.depth; ++level) {
 
-            TSTART(find_sp)
             DO_ON_MULTI_DEVICES(param.n_device, [&](int device_id){
                 find_split(level, device_id);
             });
-            TEND(find_sp)
-            total_sp_time+=TINT(find_sp);
 
             split_point_all_reduce(level);
             {
                 TIMED_SCOPE(timerObj, "apply sp");
                 update_tree();
+
+                TSTART(find_sp)
                 update_ins2node_id();
+                TEND(find_sp)
+                total_sp_time+=TINT(find_sp);
                 {
                     LOG(TRACE) << "gathering ins2node id";
                     //get final result of the reset instance id to node id
