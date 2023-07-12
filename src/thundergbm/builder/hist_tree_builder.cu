@@ -158,10 +158,16 @@ void HistTreeBuilder::get_bin_ids() {
                 n_instances,n_column);
 
         auto max_num_bin = param.max_num_bin;
-        int loop_num = 20;//1000;
-        size_t row_part_size = n_instances/loop_num;
+        //int loop_num = 20;//1000;
+        //size_t row_part_size = n_instances/loop_num;
         //initialize dense bin id
-        size_t current_dense_size = (row_part_size+loop_num)*(long long)n_column;
+        //size_t current_dense_size = (row_part_size+loop_num)*(long long)n_column;
+        
+        long long total_size = (long long)20*(long long)1024*(long long)1024*(long long)1024;//10GB
+
+        size_t row_part_size = total_size/n_column;
+        //int loop_num = n_instances/row_part_size+1;
+        size_t current_dense_size = (row_part_size)*(long long)n_column;
         
         dense_bin_id.resize(current_dense_size);
         auto dense_bin_id_data = dense_bin_id.device_data();
@@ -733,15 +739,19 @@ void HistTreeBuilder::update_ins2node_id() {
         int column_offset = columns.column_offset;
         auto max_num_bin = param.max_num_bin;
 
-        int loop_num = 20;//1000;
-        size_t row_part_size = n_instances/loop_num;
+        //int loop_num = 20;//1000;
+        //size_t row_part_size = n_instances/loop_num;
+        long long total_size = (long long)20*(long long)1024*(long long)1024*(long long)1024;//10GB
+
+        size_t row_part_size = total_size/n_column;
+        int loop_num = n_instances/row_part_size+1;
+        //size_t current_dense_size = (row_part_size)*(long long)n_column;
         
         //initialize dense bin id
         size_t current_row_size = row_part_size;
         
         auto dense_bin_id_data = dense_bin_id.device_data();
 
-        
         
         for(int l=0;l<loop_num;l++){
 
