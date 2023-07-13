@@ -163,7 +163,7 @@ void HistTreeBuilder::get_bin_ids() {
         //initialize dense bin id
         //size_t current_dense_size = (row_part_size+loop_num)*(long long)n_column;
         
-        long long total_size = (long long)20*(long long)1024*(long long)1024*(long long)1024;//10GB
+        long long total_size = (long long)30*(long long)1024*(long long)1024*(long long)1024;//10GB
 
         size_t row_part_size = total_size/n_column;
         //int loop_num = n_instances/row_part_size+1;
@@ -741,7 +741,7 @@ void HistTreeBuilder::update_ins2node_id() {
 
         //int loop_num = 20;//1000;
         //size_t row_part_size = n_instances/loop_num;
-        long long total_size = (long long)20*(long long)1024*(long long)1024*(long long)1024;//10GB
+        long long total_size = (long long)30*(long long)1024*(long long)1024*(long long)1024;//10GB
 
         size_t row_part_size = total_size/n_column;
         int loop_num = n_instances/row_part_size+1;
