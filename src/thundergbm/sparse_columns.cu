@@ -110,35 +110,37 @@ void SparseColumns::csr2csc_gpu(
         columns.nnz = nnz_sub;
         columns.n_column = n_column_sub;
         columns.n_row = n_row;
-        columns.csc_val.resize(nnz_sub);
-        columns.csc_row_idx.resize(nnz_sub);
-        columns.csc_col_ptr.resize(n_column_sub + 1);
+        //columns.csc_val.resize(nnz_sub);
+        //columns.csc_row_idx.resize(nnz_sub);
+        //columns.csc_col_ptr.resize(n_column_sub + 1);
 
         columns.csc_val_origin.resize(nnz_sub);
         columns.csc_row_idx_origin.resize(nnz_sub);
         columns.csc_col_ptr_origin.resize(n_column_sub + 1);
 
-        columns.csc_val.copy_from(csc_val.host_data() + first_col_start,
-                                  nnz_sub);
-        columns.csc_row_idx.copy_from(csc_row_idx.host_data() + first_col_start,
-                                      nnz_sub);
-        columns.csc_col_ptr.copy_from(csc_col_ptr.host_data() + first_col_id,
-                                      n_column_sub + 1);
+        //columns.csc_val.copy_from(csc_val.host_data() + first_col_start,
+        //                          nnz_sub);
+        //columns.csc_row_idx.copy_from(csc_row_idx.host_data() + first_col_start,
+        //                              nnz_sub);
+        //columns.csc_col_ptr.copy_from(csc_col_ptr.host_data() + first_col_id,
+        //                              n_column_sub + 1);
 
         //origin
         columns.csc_val_origin.copy_from(csc_val.host_data() + first_col_start,
                                   nnz_sub);
         columns.csc_row_idx_origin.copy_from(csc_row_idx.host_data() + first_col_start,
                                       nnz_sub);
+        columns.csc_col_ptr_origin.copy_from(csc_col_ptr.host_data() + first_col_id,
+                                      n_column_sub + 1);
         
-        int *csc_col_ptr_2d_data = columns.csc_col_ptr.device_data();
+        int *csc_col_ptr_2d_data = columns.csc_col_ptr_origin.device_data();
         correct_start(csc_col_ptr_2d_data, first_col_start, n_column_sub);
         
-        columns.csc_col_ptr_origin.copy_from(columns.csc_col_ptr.host_data(),n_column_sub + 1);
+        //columns.csc_col_ptr_origin.copy_from(columns.csc_col_ptr.host_data(),n_column_sub + 1);
         // correct segment start positions
-        LOG(TRACE) << "sorting feature values (multi-device)";
-        cub_seg_sort_by_key(columns.csc_val, columns.csc_row_idx,
-                            columns.csc_col_ptr, false);
+        //LOG(TRACE) << "sorting feature values (multi-device)";
+        //cub_seg_sort_by_key(columns.csc_val, columns.csc_row_idx,
+        //                    columns.csc_col_ptr, false);
     });
 
     auto t_end = timer.now();

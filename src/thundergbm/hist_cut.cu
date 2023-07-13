@@ -130,13 +130,13 @@ void HistCut::get_cut_points3(SparseColumns &columns, int max_num_bins, int n_in
     LOG(INFO) << "Fast getting cut points...";
     int n_column = columns.n_column;
 
-    cut_points_val.resize(columns.csc_val.size());
-    cut_row_ptr.resize(columns.csc_col_ptr.size());
-    cut_fid.resize(columns.csc_val.size());
-    cut_points_val.copy_from(columns.csc_val);
+    cut_points_val.resize(columns.csc_val_origin.size());
+    cut_row_ptr.resize(columns.csc_col_ptr_origin.size());
+    cut_fid.resize(columns.csc_val_origin.size());
+    cut_points_val.copy_from(columns.csc_val_origin);
 
     auto cut_fid_data = cut_fid.device_data();
-    device_loop_2d(n_column, columns.csc_col_ptr.device_data(), [=] __device__(int fid, int i) {
+    device_loop_2d(n_column, columns.csc_col_ptr_origin.device_data(), [=] __device__(int fid, int i) {
         cut_fid_data[i] = fid;
     });
     unique_by_flag(cut_points_val, cut_fid, n_column);
@@ -173,5 +173,5 @@ void HistCut::get_cut_points3(SparseColumns &columns, int max_num_bins, int n_in
     LOG(DEBUG) << "--->>>> cut row ptr: " << cut_row_ptr;
     LOG(DEBUG) << "--->>>> cut fid: " << cut_fid;
     LOG(DEBUG) << "TOTAL CP:" << cut_fid.size();
-    LOG(DEBUG) << "NNZ: " << columns.csc_val.size();
+    LOG(DEBUG) << "NNZ: " << columns.csc_val_origin.size();
 }

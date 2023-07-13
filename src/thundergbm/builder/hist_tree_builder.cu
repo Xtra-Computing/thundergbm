@@ -92,9 +92,9 @@ void csc2csr(SyncArray<int> &csc_col_ptr,SyncArray<int> &csc_row_idx,SyncArray<f
     cusparseDestroy(handle);
     cusparseDestroyMatDescr(descr);
 
-    csc_val.resize(0);
-    csc_col_ptr.resize(0);
-    csc_row_idx.resize(0);
+    //csc_val.resize(0);
+    //csc_col_ptr.resize(0);
+    //csc_row_idx.resize(0);
 
 
 }
@@ -108,7 +108,7 @@ void HistTreeBuilder::get_bin_ids() {
         int nnz = columns.nnz;
         auto cut_row_ptr = cut.cut_row_ptr.device_data();
         auto cut_points_ptr = cut.cut_points_val.device_data();
-        auto csc_val_data = columns.csc_val.device_data();
+        //auto csc_val_data = columns.csc_val.device_data();
         SyncArray<unsigned char> bin_id;
         bin_id.resize(columns.nnz);
         auto bin_id_data = bin_id.device_data();
@@ -145,7 +145,7 @@ void HistTreeBuilder::get_bin_ids() {
             //}, n_block);
             
             //for original order csc
-            device_loop_2d(n_column, columns.csc_col_ptr.device_data(), [=]__device__(int cid, int i) {
+            device_loop_2d(n_column, columns.csc_col_ptr_origin.device_data(), [=]__device__(int cid, int i) {
                 auto search_begin = cut_points_ptr + cut_row_ptr[cid];
                 auto search_end = cut_points_ptr + cut_row_ptr[cid + 1];
                 auto val = csc_val_origin_data[i];
@@ -163,7 +163,7 @@ void HistTreeBuilder::get_bin_ids() {
         //initialize dense bin id
         //size_t current_dense_size = (row_part_size+loop_num)*(long long)n_column;
         
-        long long total_size = (long long)30*(long long)1024*(long long)1024*(long long)1024;//10GB
+        long long total_size = (long long)20*(long long)1024*(long long)1024*(long long)1024;//10GB
 
         size_t row_part_size = total_size/n_column;
         //int loop_num = n_instances/row_part_size+1;
@@ -741,7 +741,7 @@ void HistTreeBuilder::update_ins2node_id() {
 
         //int loop_num = 20;//1000;
         //size_t row_part_size = n_instances/loop_num;
-        long long total_size = (long long)30*(long long)1024*(long long)1024*(long long)1024;//10GB
+        long long total_size = (long long)20*(long long)1024*(long long)1024*(long long)1024;//10GB
 
         size_t row_part_size = total_size/n_column;
         int loop_num = n_instances/row_part_size+1;
