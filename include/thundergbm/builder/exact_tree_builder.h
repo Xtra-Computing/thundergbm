@@ -20,6 +20,9 @@ public:
     void ins2node_id_all_reduce(int depth) override;
 
     void update_ins2node_id() override;
+    
+    //new func
+    void update_ins2node_id(int level) override;
 
     virtual ~ExactTreeBuilder(){};
 

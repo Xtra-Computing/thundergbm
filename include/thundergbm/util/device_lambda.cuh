@@ -189,6 +189,36 @@ void device_loop_part_dense_bin_id(int row_size, const int *csr_row_ptr, int sta
     }
 }
 
+//func for consturcting part dense bin id matrix
+template<typename L>
+__global__ void lambda_part_dense_bin_id_csc_kernel(const int *col_map,const int *csc_col_ptr ,L lambda) {
+    
+    int col_idx = blockIdx.x;
+
+    //col_map in share mem?
+    int real_col = col_map[col_idx];
+    int begin = csc_col_ptr[real_col];
+    int end = csc_col_ptr[real_col+ 1];
+
+    for (int j = begin + blockIdx.y * blockDim.x + threadIdx.x; j < end; j += blockDim.x * gridDim.y) {
+        lambda(col_idx, j);
+    }
+}
+
+template<typename L>
+void device_loop_part_dense_bin_id_csc(int col_size, const int *csc_col_ptr, const int *col_map,
+                                        L lambda, 
+                                        unsigned int NUM_BLOCK = 1,
+                                        unsigned int BLOCK_SIZE = 256) {
+    //fix NUM_BLOCK
+    if (col_size > 0) {
+        lambda_part_dense_bin_id_csc_kernel << < dim3(col_size, NUM_BLOCK), BLOCK_SIZE >> > (col_map,csc_col_ptr,lambda);
+        cudaDeviceSynchronize();
+        CUDA_CHECK(cudaPeekAtLastError());
+    }
+}
+
+
 //func for part update instance to node
 template<typename L>
 __global__ void lambda_part_update_node_kernel(size_t row_size, size_t start_row, L lambda) {

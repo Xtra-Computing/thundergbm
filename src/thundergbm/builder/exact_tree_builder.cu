@@ -421,3 +421,49 @@ void ExactTreeBuilder::ins2node_id_all_reduce(int depth) {
         ins2node_id[device_id].copy_from(ins2node_id.front());
     });
 }
+
+
+//new func
+void ExactTreeBuilder::update_ins2node_id(int level) {
+    DO_ON_MULTI_DEVICES(param.n_device, [&](int device_id){
+        //set new node id for each instance
+        SparseColumns &columns = shards[device_id].columns;
+        SyncArray<bool> has_splittable(1);
+        {
+            auto nid_data = ins2node_id[device_id].device_data();
+            const int *iid_data = columns.csc_row_idx.device_data();
+            const Tree::TreeNode *nodes_data = trees[device_id].nodes.device_data();
+            const int *col_ptr_data = columns.csc_col_ptr.device_data();
+            const float_type *f_val_data = columns.csc_val.device_data();
+            bool *h_s_data = has_splittable.device_data();
+            int column_offset = columns.column_offset;
+
+            int n_column = columns.n_column;
+            int nnz = columns.nnz;
+            int n_block = std::min((nnz / n_column - 1) / 256 + 1, 32 * 56);
+
+            LOG(TRACE) << "update ins2node id for each fval";
+            device_loop_2d(n_column, col_ptr_data, [=]__device__(int col_id, int fvid) {
+                //feature value id -> instance id
+                int iid = iid_data[fvid];
+                //instance id -> node id
+                int nid = nid_data[iid];
+                //node id -> node
+                const Tree::TreeNode &node = nodes_data[nid];
+                //if the node splits on this feature
+                if (node.splittable() && node.split_feature_id == col_id + column_offset) {
+                    h_s_data[0] = true;
+                    if (f_val_data[fvid] < node.split_value)
+                        //goes to left child
+                        nid_data[iid] = node.lch_index;
+                    else
+                        //right child
+                        nid_data[iid] = node.rch_index;
+                }
+            }, n_block);
+
+        }
+        LOG(DEBUG) << "new tree_id = " << ins2node_id[device_id];
+        has_split[device_id] = has_splittable.host_data()[0];
+    });
+}

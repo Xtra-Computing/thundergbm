@@ -24,15 +24,19 @@ public:
 
     void update_ins2node_id() override;
 
+    //new func
+    void update_ins2node_id(int level) override;
+
 
 private:
     vector<HistCut> cut;
-    // MSyncArray<unsigned char> char_dense_bin_id;
+    MSyncArray<unsigned char> char_dense_bin_id;
     MSyncArray<unsigned char> dense_bin_id;
     MSyncArray<GHPair> last_hist;
 
     //store csr dense_bin_id
     MSyncArray<float_type> csr_bin_id;
+    MSyncArray<float_type> bin_id_origin; //csc format
     MSyncArray<int> csr_row_ptr;
     MSyncArray<int> csr_col_idx;
 
