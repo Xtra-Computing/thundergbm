@@ -18,8 +18,6 @@ long long total_sp_time = 0;
 long long total_sort_time_hist = 0;
 long long total_exact_prefix_sum_time = 0;
 
-long long total_update_index1 = 0;
-long long total_update_index2 = 0;
 
 float convert_time = 0;
 vector<vector<Tree>> TreeTrainer::train(GBMParam &param, const DataSet &dataset) {
@@ -54,8 +52,6 @@ vector<vector<Tree>> TreeTrainer::train(GBMParam &param, const DataSet &dataset)
     }
     LOG(INFO)<<"total  hist construction time is "<<total_sort_time_hist/1e6;
     LOG(INFO)<<"total  exact prefix sum time is "<<total_exact_prefix_sum_time/1e6;
-    LOG(INFO)<<"    total map array time1 is "<<total_update_index1/1e6;
-    LOG(INFO)<<"    total map array time2 is "<<total_update_index2/1e6;
     LOG(INFO)<<"total update instance to node index array time is "<<total_sp_time/1e6;
     auto stop = timer.now();
     std::chrono::duration<float> training_time = stop - start;

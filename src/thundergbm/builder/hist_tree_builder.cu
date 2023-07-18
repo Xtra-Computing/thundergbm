@@ -25,8 +25,6 @@ typedef std::chrono::high_resolution_clock Clock;
 extern long long total_sort_time_hist;
 extern long long total_time_hist1;
 
-extern long long total_update_index1;
-extern long long total_update_index2;
 
 void check_hist_res(GHPair* hist, GHPair* hist_test, int n_bins){
 
@@ -144,7 +142,6 @@ void HistTreeBuilder::get_bin_ids() {
             //    auto val = csc_val_data[i];
             //    bin_id_data[i] = lowerBound(search_begin, search_end, val) - search_begin;
             //}, n_block);
-            
             //for original order csc
             device_loop_2d(n_column, columns.csc_col_ptr_origin.device_data(), [=]__device__(int cid, int i) {
                 auto search_begin = cut_points_ptr + cut_row_ptr[cid];
@@ -152,6 +149,7 @@ void HistTreeBuilder::get_bin_ids() {
                 auto val = csc_val_origin_data[i];
                 bin_id_origin_data[i] = lowerBound(search_begin, search_end, val) - search_begin;
             }, n_block);
+
         }
         //csc2csr
         csc2csr(columns.csc_col_ptr_origin,columns.csc_row_idx_origin,bin_id_origin,
@@ -772,8 +770,6 @@ void HistTreeBuilder::update_ins2node_id() {
             int start_row = l * row_part_size;
             
 
-            TDEF(map1)
-            TSTART(map1)
             //generate dense bin id 
             //this row is a map value not the real row index
             device_loop_part_dense_bin_id(current_row_size, csr_row_ptr_data, start_row,[=]__device__(int row, int i) {
@@ -784,8 +780,6 @@ void HistTreeBuilder::update_ins2node_id() {
                 dense_bin_id_data[pos] = bid;
 
             });
-            TEND(map1)
-            total_update_index1+=TINT(map1);
             
             //update ins2node information
             //set new node id for each instance
@@ -813,7 +807,6 @@ void HistTreeBuilder::update_ins2node_id() {
                 }
             });
             
-            TSTART(map1)
             //recover max_bin_id
             device_loop_part_dense_bin_id(current_row_size, csr_row_ptr_data, start_row,[=]__device__(int row, int i) {
                 
@@ -822,8 +815,6 @@ void HistTreeBuilder::update_ins2node_id() {
                 dense_bin_id_data[pos] = max_num_bin;
 
             });
-            TEND(map1)
-            total_update_index1+=TINT(map1);
 
 
         }
