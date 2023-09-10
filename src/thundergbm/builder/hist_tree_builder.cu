@@ -81,11 +81,11 @@ void HistTreeBuilder::find_split(int level, int device_id) {
     int n_nodes_in_level = static_cast<int>(pow(2, level));
     int nid_offset = static_cast<int>(pow(2, level) - 1);
     int n_column = columns.n_column;
-    int n_partition = n_column * n_nodes_in_level;
+    size_t n_partition = n_column * n_nodes_in_level;
     int n_bins = cut.cut_points_val.size();
     int n_max_nodes = 2 << param.depth;
-    int n_max_splits = n_max_nodes * n_bins;
-    int n_split = n_nodes_in_level * n_bins;
+    size_t n_max_splits = n_max_nodes * (size_t)n_bins;
+    size_t n_split = n_nodes_in_level * (size_t)n_bins;
 
     LOG(TRACE) << "start finding split";
 

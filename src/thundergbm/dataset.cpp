@@ -118,6 +118,7 @@ inline int parse_pair(const char * begin, const char *end, const char **endptr, 
     // end of digital string
     while(q != end && isdigitchars(*q)) ++q;
     float temp_v = atof(p);
+    int temp_vv = atoi(p);
     p = q;
     while (p != end && isblank(*p)) ++p;
     if(p == end || *p != ':') {
@@ -125,7 +126,7 @@ inline int parse_pair(const char * begin, const char *end, const char **endptr, 
         v1 = temp_v;
         return 1;
     }
-    v1 = int(temp_v);
+    v1 = int(temp_vv);
     p++;
     while(p != end && !isdigitchars(*p)) ++p; // begin of next digital string
     q = p;
