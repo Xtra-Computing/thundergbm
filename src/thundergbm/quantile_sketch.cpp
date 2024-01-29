@@ -136,7 +136,7 @@ void summary::Prune(summary& src, int size){
         this->entries[1] = src.entries[src.entry_size - 1];
         return;
     }
-    range = (std::max)(range, 1e-3f);
+    range = (std::max)(range, (float_type)1e-3f);
     int n_points = size - 2;
     int n_bigbin = 0;
     int safe_factor = 2;

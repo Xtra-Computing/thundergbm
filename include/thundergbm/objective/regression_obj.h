@@ -7,6 +7,7 @@
 
 #include "objective_function.h"
 #include "thundergbm/util/device_lambda.cuh"
+#include "thrust/reduce.h"
 
 template<template<typename> class Loss>
 class RegressionObj : public ObjectiveFunction {
@@ -28,6 +29,27 @@ public:
         device_loop(y.size(), [=]__device__(int i) {
             y_data[i] = Loss<float_type>::predict_transform(y_data[i]);
         });
+    }
+    
+    //base score
+    float init_base_score(const SyncArray<float_type> &y,SyncArray<float_type> &y_p, SyncArray<GHPair> &gh_pair){ 
+
+        //get gradients first, SyncArray<GHPair> &gh_pair for temporal storage
+        get_gradient(y,y_p,gh_pair);
+
+        //get sum gh_pair
+        GHPair sum_gh = thrust::reduce(thrust::cuda::par, gh_pair.device_data(), gh_pair.device_end());
+
+        //get weight
+        float weight =  -sum_gh.g / fmax(sum_gh.h, (double)(1e-6));
+        
+        float base_score = weight; 
+        LOG(INFO)<<"base_score "<<base_score;
+        auto y_p_data = y_p.device_data();
+        device_loop(y_p.size(), [=]__device__(int i) {
+            y_p_data[i] = base_score;
+        });
+        return base_score;
     }
 
     void configure(GBMParam param, const DataSet &dataset) override {}
@@ -67,6 +89,28 @@ public:
         temp_y.copy_from(y.device_data(), n_instances);
         y.resize(n_instances);
         y.copy_from(temp_y);
+    }
+
+    //base score
+    float init_base_score(const SyncArray<float_type> &y,SyncArray<float_type> &y_p, SyncArray<GHPair> &gh_pair){ 
+
+        //get gradients first, SyncArray<GHPair> &gh_pair for temporal storage
+        get_gradient(y,y_p,gh_pair);
+
+        //get sum gh_pair
+        GHPair sum_gh = thrust::reduce(thrust::cuda::par, gh_pair.device_data(), gh_pair.device_end());
+
+        //get weight
+        float weight =  -sum_gh.g / fmax(sum_gh.h, (double)(1e-6));
+        //sigmod transform
+        weight = 1 / (1 + expf(-weight));
+        float base_score = -logf(1.0f / weight - 1.0f);
+        LOG(INFO)<<"base_score "<<base_score;
+        auto y_p_data = y_p.device_data();
+        device_loop(y_p.size(), [=]__device__(int i) {
+            y_p_data[i] = base_score;
+        });
+        return base_score;
     }
     string default_metric_name() override{
         return "error";

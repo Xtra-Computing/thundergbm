@@ -43,7 +43,7 @@ vector<vector<Tree>> TreeTrainer::train(GBMParam &param, const DataSet &dataset)
     auto start = timer.now();
     for (int i = 0; i < param.n_trees; ++i) {
         //one iteration may produce multiple trees, depending on objectives
-        booster.boost(boosted_model);
+        booster.boost(boosted_model,i+1,param.n_trees);
     }
     auto stop = timer.now();
     std::chrono::duration<float> training_time = stop - start;

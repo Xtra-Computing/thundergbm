@@ -18,9 +18,9 @@ std::mutex mtx;
 
 class Booster {
 public:
-    void init(const DataSet &dataSet, const GBMParam &param);
+    void init(const DataSet &dataSet, GBMParam &param);
 
-    void boost(vector<vector<Tree>> &boosted_model);
+    void boost(vector<vector<Tree>> &boosted_model, int epoch,int total_epoch);
 
 private:
     MSyncArray<GHPair> gradients;
@@ -33,13 +33,21 @@ private:
     int n_devices;
 };
 
-void Booster::init(const DataSet &dataSet, const GBMParam &param) {
+void Booster::init(const DataSet &dataSet, GBMParam &param) {
     int n_available_device;
     cudaGetDeviceCount(&n_available_device);
     CHECK_GE(n_available_device, param.n_device) << "only " << n_available_device
                                             << " GPUs available; please set correct number of GPUs to use";
     this->param = param;
-    fbuilder.reset(FunctionBuilder::create(param.tree_method));
+    //fbuilder.reset(FunctionBuilder::create(param.tree_method));
+    //if method is hist, and n_available_device is 1
+    if(param.n_device==1 && param.tree_method == "hist"){
+        fbuilder.reset(FunctionBuilder::create("hist_single"));
+    }
+    else{
+        fbuilder.reset(FunctionBuilder::create(param.tree_method));
+    }
+
     fbuilder->init(dataSet, param);
     obj.reset(ObjectiveFunction::create(param.objective));
     obj->configure(param, dataSet);
@@ -54,9 +62,18 @@ void Booster::init(const DataSet &dataSet, const GBMParam &param) {
     DO_ON_MULTI_DEVICES(n_devices, [&](int device_id) {
         y[device_id].copy_from(dataSet.y.data(), dataSet.n_instances());
     });
+
+    //init base score
+    //only support histogram-based method and single device now
+    //TODO support exact and multi-device
+    if(param.n_device && param.tree_method == "hist"){
+        DO_ON_MULTI_DEVICES(n_devices, [&](int device_id){
+            param.base_score = obj->init_base_score(y[device_id], fbuilder->get_raw_y_predict()[device_id], gradients[device_id]);
+        });
+    }
 }
 
-void Booster::boost(vector<vector<Tree>> &boosted_model) {
+void Booster::boost(vector<vector<Tree>> &boosted_model,int epoch,int total_epoch) {
     TIMED_FUNC(timerObj);
     std::unique_lock<std::mutex> lock(mtx);
 
@@ -71,7 +88,8 @@ void Booster::boost(vector<vector<Tree>> &boosted_model) {
 
     PERFORMANCE_CHECKPOINT(timerObj);
     //show metric on training set
-    LOG(INFO) << metric->get_name() << " = " << metric->get_score(fbuilder->get_y_predict().front());
+    auto res =  metric->get_score(fbuilder->get_y_predict().front());
+    LOG(INFO) <<"["<<epoch<<"/"<<total_epoch<<"] "<< metric->get_name() << " = " <<res;
 }
 
 #endif //THUNDERGBM_BOOSTER_H

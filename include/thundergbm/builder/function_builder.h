@@ -18,6 +18,7 @@ public:
     };
 
     virtual const MSyncArray<float_type> &get_y_predict(){ return y_predict; };
+    MSyncArray<float_type> &get_raw_y_predict(){ return y_predict; };
 
     virtual ~FunctionBuilder(){};
 

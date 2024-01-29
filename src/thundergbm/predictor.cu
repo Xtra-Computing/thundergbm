@@ -78,6 +78,10 @@ void Predictor::predict_raw(const GBMParam &model_param, const vector<vector<Tre
     size_t smem_size = n_features * BLOCK_SIZE * sizeof(float_type);
     int NUM_BLOCK = (n_instances - 1) / BLOCK_SIZE + 1;
 
+    float_type base_score = model_param.base_score;
+    if(num_class>1)
+        base_score = 0;
+
     if (smem_size <= 48 * 1024L) {//48KB shared memory for P100
         LOG(INFO) << "use shared memory to predict";
         //use shared memory to store dense instances
@@ -106,7 +110,7 @@ void Predictor::predict_raw(const GBMParam &model_param, const vector<vector<Tre
                 return;
             }
             for (int t = 0; t < num_class; t++) {
-                double sum = 0;
+                double sum = base_score; 
                 auto predict_data_class = predict_data + t * n_instances;
                 for (int iter = 0; iter < num_iter; iter++) {
                     const Tree::TreeNode *node_data = model_device_data + iter * num_class * num_node + t * num_node;
@@ -158,7 +162,8 @@ void Predictor::predict_raw(const GBMParam &model_param, const vector<vector<Tre
             int row_len = csr_row_ptr_data[iid + 1] - csr_row_ptr_data[iid];
             for (int t = 0; t < num_class; t++) {
                 auto predict_data_class = predict_data + t * n_instances;
-                float_type sum = 0;
+                //this base score only support binary classification now
+                float_type sum = base_score;
                 for (int iter = 0; iter < num_iter; iter++) {
                     const Tree::TreeNode *node_data = model_device_data + iter * num_class * num_node + t * num_node;
                     Tree::TreeNode curNode = node_data[0];

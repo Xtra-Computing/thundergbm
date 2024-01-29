@@ -175,6 +175,13 @@ public:
     SyncArray(const SyncArray<T> &) = delete;
 
     SyncArray &operator=(const SyncArray<T> &) = delete;
+    
+
+    //new function clear gpu mem
+    void clear_device(){
+        to_host();
+        mem->free_device();
+    }
 
 private:
     SyncMem *mem;

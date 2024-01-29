@@ -108,6 +108,11 @@ namespace thunder {
             device_allocator.FreeAllCached();
             host_allocator.FreeAllCached();
         };
+        
+        //new func to clear gpu mem
+        void free_device(){
+            device_allocator.DeviceFree(device_ptr);
+        }
 
     private:
         void *device_ptr;

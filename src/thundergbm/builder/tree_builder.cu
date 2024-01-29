@@ -85,6 +85,8 @@ void TreeBuilder::init(const DataSet &dataset, const GBMParam &param) {
     sp = MSyncArray<SplitPoint>(param.n_device);
     has_split = vector<bool>(param.n_device);
     int n_outputs = param.num_class * n_instances;
+    if(param.num_class==2)
+        n_outputs = n_instances;
     y_predict = MSyncArray<float_type>(param.n_device, n_outputs);
     gradients = MSyncArray<GHPair>(param.n_device, n_instances);
 }

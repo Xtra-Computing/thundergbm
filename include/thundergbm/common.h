@@ -36,6 +36,7 @@ std::string string_format(const std::string &format, Args ... args) {
 
 //data types
 typedef float float_type;
+//typedef double float_type;
 
 #define HOST_DEVICE __host__ __device__
 
@@ -102,6 +103,7 @@ struct GBMParam {
 
     //for histogram
     int max_num_bin;
+    float base_score=0;
 
     int n_device;
 

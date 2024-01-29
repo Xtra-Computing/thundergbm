@@ -25,6 +25,7 @@ public:
     float_type gain;
     GHPair fea_missing_gh;//missing gh in this segment
     GHPair rch_sum_gh;//right child total gh (missing gh included if default2right)
+    GHPair lch_sum_gh;//light child total gh (missing gh included if default2light)
     bool default_right;
     int nid;
 
@@ -37,10 +38,11 @@ public:
         nid = -1;
         split_fea_id = -1;
         gain = 0;
+        default_right = true;
     }
 
     friend std::ostream &operator<<(std::ostream &output, const SplitPoint &sp) {
-        output << sp.gain << "/" << sp.split_fea_id << "/" << sp.nid << "/" << sp.rch_sum_gh;
+        output << sp.gain << "/" << sp.split_fea_id << "/" << sp.nid << "/" << sp.lch_sum_gh;
         return output;
     }
 };

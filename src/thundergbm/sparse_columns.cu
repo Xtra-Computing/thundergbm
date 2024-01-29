@@ -265,3 +265,60 @@ void SparseColumns::csc_by_default(
                             columns.csc_col_ptr, false);
     });
 }
+
+
+//only single GPU
+void SparseColumns::to_gpu(
+    const DataSet &dataset, vector<std::unique_ptr<SparseColumns>> &v_columns) {
+
+    LOG(INFO) << " transfer data to GPU...";
+    std::chrono::high_resolution_clock timer;
+    auto t_start = timer.now();
+
+    // three arrays (on GPU/CPU) for csr representation
+    //use arry in device 0 to store
+    this->column_offset = 0;
+    SparseColumns &columns = *v_columns[0];
+
+    
+    columns.csr_val.resize(dataset.csr_val.size());
+    columns.csr_col_idx.resize(dataset.csr_col_idx.size());
+    columns.csr_row_ptr.resize(dataset.csr_row_ptr.size());
+
+    // copy data to the three arrays
+    columns.csr_val.copy_from(dataset.csr_val.data(), columns.csr_val.size());
+    columns.csr_col_idx.copy_from(dataset.csr_col_idx.data(), columns.csr_col_idx.size());
+    columns.csr_row_ptr.copy_from(dataset.csr_row_ptr.data(), columns.csr_row_ptr.size());
+    
+    n_column = dataset.n_features_;
+    n_row = dataset.n_instances();
+    nnz = dataset.csr_val.size();
+
+    int n_device = v_columns.size();
+    //int ave_n_columns = n_column / n_device;
+    DO_ON_MULTI_DEVICES(n_device, [&](int device_id) {
+        SparseColumns &columns = *v_columns[device_id];
+
+        int first_col_id = 0;
+        //int first_col_start = 0;
+        int n_column_sub = n_column;
+        int nnz_sub = nnz; 
+
+        //FIXME bug, change varibale name to origin
+        if(n_device>1){
+        }
+        else{
+            columns.column_offset = first_col_id + this->column_offset;
+            columns.nnz = nnz_sub;
+            columns.n_column = n_column_sub;
+            columns.n_row = n_row;
+        }
+    });
+    //SyncMem::clear_cache();
+    auto t_end = timer.now();
+    std::chrono::duration<float> used_time = t_end - t_start;
+    LOG(INFO) << "to GPU using time: " << used_time.count()
+              << " s";
+
+
+}

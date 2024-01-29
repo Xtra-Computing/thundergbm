@@ -113,6 +113,7 @@ void Parser::load_model(string model_path, GBMParam &model_param, vector<vector<
     ifs.read((char*)&model_param.learning_rate, sizeof(model_param.learning_rate));
     ifs.read((char*)&model_param.num_class, sizeof(model_param.num_class));
     ifs.read((char*)&model_param.n_trees, sizeof(model_param.n_trees));
+    ifs.read((char*)&model_param.base_score, sizeof(model_param.base_score));
     int label_size;
     ifs.read((char*)&label_size, sizeof(label_size));
     float_type f;
@@ -151,6 +152,7 @@ void Parser::save_model(string model_path, GBMParam &model_param, vector<vector<
     out_model_file.write((char*)&model_param.learning_rate, sizeof(model_param.learning_rate));
     out_model_file.write((char*)&model_param.num_class, sizeof(model_param.num_class));
     out_model_file.write((char*)&model_param.n_trees, sizeof(model_param.n_trees));
+    out_model_file.write((char*)&model_param.base_score, sizeof(model_param.base_score));
     int label_size = dataset.label.size();
     out_model_file.write((char*)&label_size, sizeof(label_size));
     out_model_file.write((char*)&dataset.label[0], dataset.label.size() * sizeof(float_type));
