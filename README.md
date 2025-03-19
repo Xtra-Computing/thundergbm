@@ -101,6 +101,14 @@ If you use ThunderGBM in your paper, please cite our work ([TPDS](https://zeyiwe
  volume={21},
  year = {2020}
 }
+
+@inproceedings{xu2025scalagbm,
+  author    = {Borui Xu and Zeyi Wen and Yao Chen and Weiguo Liu and Weng-Fai Wong and Bingsheng He},
+  title     = {ScalaGBM: Memory Efficient GBDT Training for High-Dimensional Data on GPU},
+  booktitle = {Proceedings of the 30th ACM SIGKDD International Conference on Knowledge Discovery and Data Mining (KDD)},
+  year      = {2025}
+}
+
 ```
 ### Related papers
 * Zeyi Wen, Jiashuai Shi, Bingsheng He, Jian Chen, Kotagiri Ramamohanarao and Qinbin Li. Exploiting GPUs for Efficient Gradient Boosting Decision Tree Training. IEEE Transactions on Parallel and Distributed Systems (TPDS), accepted in May 2019. [pdf](https://zeyiwen.github.io/papers/tpds19_gpugbdt.pdf)
